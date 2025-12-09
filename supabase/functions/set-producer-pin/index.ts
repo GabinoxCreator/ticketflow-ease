@@ -56,10 +56,12 @@ serve(async (req) => {
       .from("producer_stripe_accounts")
       .select("pin_hash")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
+
+    const hasExistingPin = accountData?.pin_hash != null;
 
     // If updating existing PIN, verify current PIN
-    if (accountData?.pin_hash) {
+    if (hasExistingPin) {
       if (!current_pin) {
         throw new Error("Current PIN is required to set a new PIN");
       }
@@ -73,7 +75,7 @@ serve(async (req) => {
     const pinHash = await hashPin(pin);
     logStep("PIN hashed successfully");
 
-    if (accountError || !accountData) {
+    if (!accountData) {
       // Create new record if doesn't exist
       const { error: insertError } = await supabaseClient
         .from("producer_stripe_accounts")
