@@ -204,7 +204,16 @@ export default function ColaboradorConvidados() {
         });
 
         if (response.error) throw response.error;
-        if (response.data?.error) throw new Error(response.data.error);
+        
+        // Handle already used ticket gracefully
+        if (response.data?.error) {
+          if (response.data.error.includes('já foi utilizado') || response.data.error.includes('já fez check-in')) {
+            toast.info('Este convidado já fez check-in');
+            fetchAllGuests();
+            return;
+          }
+          throw new Error(response.data.error);
+        }
       } else {
         // Validate guest list entry
         const response = await supabase.functions.invoke('collaborator-validate-guest-entry', {
@@ -214,9 +223,18 @@ export default function ColaboradorConvidados() {
             collaborator_id: collaborator.id,
           },
         });
+        
+        // Handle already checked in gracefully
+        if (response.data?.error) {
+          if (response.data.error.includes('já fez check-in')) {
+            toast.info('Este convidado já fez check-in');
+            fetchAllGuests();
+            return;
+          }
+          throw new Error(response.data.error);
+        }
 
         if (response.error) throw response.error;
-        if (response.data?.error) throw new Error(response.data.error);
       }
 
       toast.success('Check-in realizado!');
