@@ -36,7 +36,10 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   const formattedDate = format(eventDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+    <Card 
+      className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => navigate(`/dashboard/evento/${event.id}`)}
+    >
       <CardContent className="p-0">
         <div className="flex flex-col md:flex-row">
           {/* Image */}
@@ -89,7 +92,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
 
               {/* Actions */}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="icon" className="flex-shrink-0">
                     <MoreVertical className="w-4 h-4" />
                   </Button>
