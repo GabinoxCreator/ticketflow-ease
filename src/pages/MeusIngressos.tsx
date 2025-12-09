@@ -1,65 +1,180 @@
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { Ticket, Search } from 'lucide-react';
+import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Download, Smartphone } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket } from '@/hooks/useUserTickets';
-import TicketCard, { TicketData } from '@/components/TicketCard';
+import { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 
-const mapUserTicketToTicketData = (ticket: UserTicket): TicketData => ({
-  id: ticket.id,
-  ticketCode: ticket.ticket_code,
-  holderName: ticket.holder_name,
-  status: ticket.status,
-  event: {
-    title: ticket.event.title,
-    date: ticket.event.date,
-    time: ticket.event.time,
-    venue: ticket.event.venue,
-    city: ticket.event.city,
-    state: ticket.event.state,
-    imageUrl: ticket.event.image_url || undefined,
-  },
-  lot: {
-    name: ticket.lot.name,
-    price: ticket.lot.price,
-  },
-  purchaseDate: ticket.created_at,
-  paymentMethod: 'Pix',
-});
+const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
+  const navigate = useNavigate();
+  const [showQR, setShowQR] = useState(false);
+  
+  const statusConfig = {
+    valid: { label: 'Válido', color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: CheckCircle2 },
+    used: { label: 'Utilizado', color: 'bg-muted text-muted-foreground border-muted', icon: CheckCircle2 },
+    cancelled: { label: 'Cancelado', color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle },
+  };
+
+  const status = statusConfig[ticket.status];
+  const StatusIcon = status.icon;
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return format(date, "dd 'de' MMMM", { locale: ptBR });
+  };
+
+  const formatTime = (timeStr: string) => {
+    return timeStr.slice(0, 5);
+  };
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 bg-card">
+          <CardContent className="p-0">
+            <div className="flex flex-col sm:flex-row">
+              {/* Event Image */}
+              <div className="relative w-full sm:w-40 h-32 sm:h-auto shrink-0">
+                <img
+                  src={ticket.event.image_url || '/placeholder.svg'}
+                  alt={ticket.event.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent sm:hidden" />
+              </div>
+
+              {/* Ticket Info */}
+              <div className="flex-1 p-4 sm:p-5">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h3 
+                      className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1"
+                      onClick={() => navigate(`/evento/${ticket.event.id}`)}
+                    >
+                      {ticket.event.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{ticket.lot.name}</p>
+                  </div>
+                  <Badge variant="outline" className={status.color}>
+                    <StatusIcon className="w-3 h-3 mr-1" />
+                    {status.label}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>{formatDate(ticket.event.date)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{formatTime(ticket.event.time)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 col-span-2">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span className="truncate">{ticket.event.venue} - {ticket.event.city}/{ticket.event.state}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                  <div className="flex items-center gap-2">
+                    <QrCode className="w-4 h-4 text-muted-foreground" />
+                    <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+                      {ticket.ticket_code.slice(0, 8).toUpperCase()}
+                    </code>
+                  </div>
+                  {ticket.status === 'valid' && (
+                    <Button size="sm" variant="gradient" className="gap-1.5" onClick={() => setShowQR(true)}>
+                      <Smartphone className="w-3.5 h-3.5" />
+                      Usar Ingresso
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* QR Code Modal */}
+      <Dialog open={showQR} onOpenChange={setShowQR}>
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/20 flex items-center justify-center">
+                <Ticket className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-bold">Seu Ingresso</h2>
+              <p className="text-sm text-primary-foreground/80">Apresente na entrada do evento</p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 text-center">
+              <QRCodeSVG
+                value={ticket.ticket_code}
+                size={200}
+                level="H"
+                includeMargin={false}
+                className="mx-auto"
+              />
+              <p className="mt-4 font-mono text-lg font-bold text-gray-900">
+                {ticket.ticket_code.slice(0, 8).toUpperCase()}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">{ticket.holder_name}</p>
+            </div>
+
+            <div className="mt-6 space-y-2 text-center text-sm">
+              <p className="font-semibold">{ticket.event.title}</p>
+              <p className="text-primary-foreground/80">
+                {formatDate(ticket.event.date)} às {formatTime(ticket.event.time)}
+              </p>
+              <p className="text-primary-foreground/80">{ticket.lot.name}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
 
 const TicketSkeleton = () => (
-  <div className="bg-card rounded-2xl overflow-hidden shadow-lg border border-border">
-    <Skeleton className="h-32 w-full" />
-    <div className="p-4 space-y-3">
-      <Skeleton className="h-6 w-3/4" />
-      <div className="grid grid-cols-2 gap-2">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="h-4 w-20" />
-        <Skeleton className="h-4 w-44 col-span-2" />
-      </div>
-    </div>
-    <div className="px-4 pb-4">
-      <div className="flex gap-4">
-        <div className="flex-1 space-y-3">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-20" />
+  <Card className="overflow-hidden">
+    <CardContent className="p-0">
+      <div className="flex flex-col sm:flex-row">
+        <Skeleton className="w-full sm:w-40 h-32" />
+        <div className="flex-1 p-4 sm:p-5 space-y-3">
+          <div className="flex justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <Skeleton className="h-6 w-20" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-44 col-span-2" />
+          </div>
+          <Skeleton className="h-8 w-full" />
         </div>
-        <Skeleton className="w-[116px] h-[116px] rounded-xl" />
       </div>
-    </div>
-    <div className="bg-muted/50 px-4 py-3 flex gap-2">
-      <Skeleton className="h-9 flex-1" />
-      <Skeleton className="h-9 flex-1" />
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 );
 
 const EmptyState = ({ title, description }: { title: string; description: string }) => (
@@ -92,7 +207,7 @@ const MeusIngressos = () => {
       <Header />
 
       <main className="min-h-screen bg-background pt-24 pb-16">
-        <div className="container mx-auto px-4 max-w-2xl">
+        <div className="container mx-auto px-4 max-w-3xl">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -142,7 +257,7 @@ const MeusIngressos = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="upcoming" className="space-y-6">
+            <TabsContent value="upcoming" className="space-y-4">
               {isLoading ? (
                 <>
                   <TicketSkeleton />
@@ -150,13 +265,7 @@ const MeusIngressos = () => {
                 </>
               ) : upcomingTickets.length > 0 ? (
                 upcomingTickets.map((ticket) => (
-                  <motion.div
-                    key={ticket.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <TicketCard ticket={mapUserTicketToTicketData(ticket)} />
-                  </motion.div>
+                  <TicketCardSimple key={ticket.id} ticket={ticket} />
                 ))
               ) : (
                 <EmptyState
@@ -166,7 +275,7 @@ const MeusIngressos = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="past" className="space-y-6">
+            <TabsContent value="past" className="space-y-4">
               {isLoading ? (
                 <>
                   <TicketSkeleton />
@@ -174,13 +283,7 @@ const MeusIngressos = () => {
                 </>
               ) : pastTickets.length > 0 ? (
                 pastTickets.map((ticket) => (
-                  <motion.div
-                    key={ticket.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <TicketCard ticket={mapUserTicketToTicketData(ticket)} />
-                  </motion.div>
+                  <TicketCardSimple key={ticket.id} ticket={ticket} />
                 ))
               ) : (
                 <EmptyState
@@ -190,18 +293,12 @@ const MeusIngressos = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="cancelled" className="space-y-6">
+            <TabsContent value="cancelled" className="space-y-4">
               {isLoading ? (
                 <TicketSkeleton />
               ) : cancelledTickets.length > 0 ? (
                 cancelledTickets.map((ticket) => (
-                  <motion.div
-                    key={ticket.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <TicketCard ticket={mapUserTicketToTicketData(ticket)} />
-                  </motion.div>
+                  <TicketCardSimple key={ticket.id} ticket={ticket} />
                 ))
               ) : (
                 <EmptyState
