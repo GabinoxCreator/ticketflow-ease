@@ -18,6 +18,7 @@ import EventDashboard from "./pages/EventDashboard";
 import Checkout from "./pages/Checkout";
 import Financeiro from "./pages/Financeiro";
 import MeusIngressos from "./pages/MeusIngressos";
+import MinhaConta from "./pages/MinhaConta";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/evento/:id" element={<EventDetails />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
+              <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<ProtectedRoute requiredRole="produtor"><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/eventos" element={<ProtectedRoute requiredRole="produtor"><DashboardEventos /></ProtectedRoute>} />
