@@ -1,1 +1,22 @@
 project_id = "nsrromaqysgoxqvqagdm"
+
+[functions.check-stripe-connect-status]
+verify_jwt = true
+
+[functions.create-stripe-connect-account]
+verify_jwt = true
+
+[functions.get-stripe-dashboard-link]
+verify_jwt = true
+
+[functions.set-producer-pin]
+verify_jwt = true
+
+[functions.verify-producer-pin]
+verify_jwt = true
+
+[functions.collaborator-login]
+verify_jwt = false
+
+[functions.collaborator-validate-ticket]
+verify_jwt = false

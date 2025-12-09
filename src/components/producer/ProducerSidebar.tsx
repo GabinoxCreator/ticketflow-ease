@@ -7,7 +7,8 @@ import {
   ChevronLeft,
   Ticket,
   BarChart3,
-  Wallet
+  Wallet,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -89,6 +90,26 @@ export function ProducerSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Equipe</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive('/dashboard/colaboradores')}
+                  tooltip="Colaboradores"
+                >
+                  <NavLink to="/dashboard/colaboradores">
+                    <Users className="w-4 h-4" />
+                    <span>Colaboradores</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
