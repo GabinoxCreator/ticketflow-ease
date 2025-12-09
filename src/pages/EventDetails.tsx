@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import {
@@ -47,6 +47,7 @@ interface EventLot {
 
 const EventDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: event, isLoading: eventLoading } = useEvent(id);
   const { lots, isLoading: lotsLoading } = useEventLots(id);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
@@ -117,7 +118,15 @@ const EventDetails = () => {
       toast.error('Selecione pelo menos um ingresso');
       return;
     }
-    toast.success('Redirecionando para o checkout...');
+    
+    // Build cart items for checkout
+    const cartItems = Object.entries(selectedLots).map(([lotId, quantity]) => ({
+      lotId,
+      quantity,
+    }));
+    
+    const cartParam = encodeURIComponent(JSON.stringify(cartItems));
+    navigate(`/checkout?evento=${id}&cart=${cartParam}`);
   };
 
   const totalAvailable = activeLots.reduce((sum, lot) => sum + lot.total_quantity, 0);
