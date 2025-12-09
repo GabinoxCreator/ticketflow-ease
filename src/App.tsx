@@ -28,6 +28,7 @@ import ColaboradorEventoMenu from "./pages/colaborador/ColaboradorEventoMenu";
 import QRCodeScanner from "./pages/colaborador/QRCodeScanner";
 import ColaboradorParticipantes from "./pages/colaborador/ColaboradorParticipantes";
 import ColaboradorConvidados from "./pages/colaborador/ColaboradorConvidados";
+import GuestListPublicForm from "./pages/GuestListPublicForm";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,9 @@ const App = () => (
                 <Route path="/colaborador/evento/:id/scanner" element={<ColaboradorProtectedRoute><QRCodeScanner /></ColaboradorProtectedRoute>} />
                 <Route path="/colaborador/evento/:id/participantes" element={<ColaboradorProtectedRoute><ColaboradorParticipantes /></ColaboradorProtectedRoute>} />
                 <Route path="/colaborador/evento/:id/convidados" element={<ColaboradorProtectedRoute><ColaboradorConvidados /></ColaboradorProtectedRoute>} />
+                
+                {/* Public Routes */}
+                <Route path="/lista/:slug" element={<GuestListPublicForm />} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>

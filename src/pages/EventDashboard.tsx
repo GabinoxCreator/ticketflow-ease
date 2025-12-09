@@ -9,10 +9,11 @@ import { EventDataTab } from '@/components/producer/tabs/EventDataTab';
 import { EventLotsTab } from '@/components/producer/tabs/EventLotsTab';
 import { EventOrdersTab } from '@/components/producer/tabs/EventOrdersTab';
 import { EventParticipantsTab } from '@/components/producer/tabs/EventParticipantsTab';
+import { EventListsTab } from '@/components/producer/tabs/EventListsTab';
 import { useEvent } from '@/hooks/useEvents';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -62,6 +63,7 @@ export default function EventDashboard() {
     { value: 'lots', label: 'Lotes', icon: Ticket },
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
+    { value: 'lists', label: 'Listas', icon: Gift },
   ];
 
   return (
@@ -117,6 +119,10 @@ export default function EventDashboard() {
 
         <TabsContent value="participants">
           <EventParticipantsTab eventId={event.id} />
+        </TabsContent>
+
+        <TabsContent value="lists">
+          <EventListsTab eventId={event.id} />
         </TabsContent>
       </Tabs>
     </ProducerLayout>
