@@ -14,6 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_lots: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          event_id: string
+          id: string
+          is_active: boolean | null
+          name: string
+          original_price: number | null
+          price: number
+          sold_quantity: number
+          start_date: string | null
+          total_quantity: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          event_id: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          original_price?: number | null
+          price: number
+          sold_quantity?: number
+          start_date?: string | null
+          total_quantity: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          event_id?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          original_price?: number | null
+          price?: number
+          sold_quantity?: number
+          start_date?: string | null
+          total_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_lots_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          address: string | null
+          category: string
+          city: string
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_hot: boolean | null
+          producer_id: string
+          short_description: string | null
+          state: string
+          status: string
+          time: string
+          title: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          address?: string | null
+          category: string
+          city: string
+          created_at?: string
+          date: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_hot?: boolean | null
+          producer_id: string
+          short_description?: string | null
+          state: string
+          status?: string
+          time: string
+          title: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          address?: string | null
+          category?: string
+          city?: string
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_hot?: boolean | null
+          producer_id?: string
+          short_description?: string | null
+          state?: string
+          status?: string
+          time?: string
+          title?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
