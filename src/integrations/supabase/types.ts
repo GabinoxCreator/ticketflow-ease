@@ -204,6 +204,88 @@ export type Database = {
           },
         ]
       }
+      guest_list_entries: {
+        Row: {
+          added_by: string
+          checked_in_at: string | null
+          created_at: string
+          guest_list_id: string
+          id: string
+          name: string
+          status: string
+        }
+        Insert: {
+          added_by?: string
+          checked_in_at?: string | null
+          created_at?: string
+          guest_list_id: string
+          id?: string
+          name: string
+          status?: string
+        }
+        Update: {
+          added_by?: string
+          checked_in_at?: string | null
+          created_at?: string
+          guest_list_id?: string
+          id?: string
+          name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_entries_guest_list_id_fkey"
+            columns: ["guest_list_id"]
+            isOneToOne: false
+            referencedRelation: "guest_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_lists: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_active: boolean
+          max_guests: number | null
+          name: string
+          public_slug: string
+          updated_at: string
+          valid_until_time: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_active?: boolean
+          max_guests?: number | null
+          name: string
+          public_slug: string
+          updated_at?: string
+          valid_until_time: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          max_guests?: number | null
+          name?: string
+          public_slug?: string
+          updated_at?: string
+          valid_until_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_lists_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           created_at: string
