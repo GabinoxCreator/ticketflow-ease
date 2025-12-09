@@ -1,0 +1,378 @@
+import { useState, useMemo } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import { motion } from 'framer-motion';
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Share2,
+  Heart,
+  ChevronLeft,
+  Minus,
+  Plus,
+  Ticket,
+  Users,
+  AlertCircle,
+  CheckCircle,
+} from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { mockEvents, categoryLabels, EventLot } from '@/data/mockEvents';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+const EventDetails = () => {
+  const { id } = useParams<{ id: string }>();
+  const event = mockEvents.find((e) => e.id === id);
+  const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
+
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="font-display font-bold text-2xl mb-4">Evento não encontrado</h1>
+          <Link to="/" className="text-primary hover:underline">
+            Voltar para a página inicial
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+  };
+
+  const handleQuantityChange = (lotId: string, delta: number) => {
+    setSelectedLots((prev) => {
+      const current = prev[lotId] || 0;
+      const newValue = Math.max(0, Math.min(10, current + delta));
+      if (newValue === 0) {
+        const { [lotId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [lotId]: newValue };
+    });
+  };
+
+  const totalAmount = useMemo(() => {
+    return Object.entries(selectedLots).reduce((total, [lotId, qty]) => {
+      const lot = event.lots.find((l) => l.id === lotId);
+      return total + (lot?.price || 0) * qty;
+    }, 0);
+  }, [selectedLots, event.lots]);
+
+  const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
+
+  const handleCheckout = () => {
+    if (totalTickets === 0) {
+      toast.error('Selecione pelo menos um ingresso');
+      return;
+    }
+    toast.success('Redirecionando para o checkout...');
+  };
+
+  const soldPercentage = Math.round((event.soldTickets / event.totalTickets) * 100);
+
+  return (
+    <>
+      <Helmet>
+        <title>{event.title} - IngressosRP</title>
+        <meta name="description" content={event.shortDescription} />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        <Header />
+
+        <main className="pt-20">
+          {/* Hero */}
+          <section className="relative h-[50vh] md:h-[60vh] overflow-hidden">
+            <img
+              src={event.imageUrl}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+
+            {/* Back Button */}
+            <Link
+              to="/"
+              className="absolute top-24 left-4 md:left-8 flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Voltar</span>
+            </Link>
+
+            {/* Actions */}
+            <div className="absolute top-24 right-4 md:right-8 flex gap-2">
+              <Button variant="glass" size="icon">
+                <Share2 className="w-5 h-5" />
+              </Button>
+              <Button variant="glass" size="icon">
+                <Heart className="w-5 h-5" />
+              </Button>
+            </div>
+          </section>
+
+          {/* Content */}
+          <section className="container px-4 -mt-32 relative z-10 pb-32">
+            <div className="grid lg:grid-cols-3 gap-8">
+              {/* Main Info */}
+              <div className="lg:col-span-2 space-y-6">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                >
+                  <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
+                    {categoryLabels[event.category]}
+                  </Badge>
+
+                  <h1 className="font-display font-bold text-3xl md:text-4xl mb-4">
+                    {event.title}
+                  </h1>
+
+                  <div className="flex flex-wrap gap-4 text-muted-foreground mb-6">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5" />
+                      <span>{formatDate(event.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      <span>{event.time}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-xl mb-6">
+                    <MapPin className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="font-medium">{event.venue}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {event.address} - {event.city}, {event.state}
+                      </p>
+                    </div>
+                  </div>
+
+                  <h3 className="font-display font-semibold text-lg mb-3">Sobre o evento</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {event.description}
+                  </p>
+
+                  {/* Progress */}
+                  <div className="mt-6 p-4 bg-secondary/50 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        <span className="font-medium">{soldPercentage}% vendido</span>
+                      </div>
+                      <span className="text-muted-foreground text-sm">
+                        {event.totalTickets - event.soldTickets} ingressos restantes
+                      </span>
+                    </div>
+                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-primary rounded-full transition-all duration-500"
+                        style={{ width: `${soldPercentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Lots */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                >
+                  <h3 className="font-display font-semibold text-xl mb-6">
+                    Escolha seus ingressos
+                  </h3>
+
+                  <div className="space-y-4">
+                    {event.lots.map((lot) => (
+                      <LotCard
+                        key={lot.id}
+                        lot={lot}
+                        quantity={selectedLots[lot.id] || 0}
+                        onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
+                        formatPrice={formatPrice}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Sidebar - Checkout */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="lg:sticky lg:top-24 h-fit"
+              >
+                <div className="bg-card rounded-2xl border border-border p-6">
+                  <h3 className="font-display font-semibold text-lg mb-4">Resumo</h3>
+
+                  {totalTickets > 0 ? (
+                    <div className="space-y-3 mb-6">
+                      {Object.entries(selectedLots).map(([lotId, qty]) => {
+                        const lot = event.lots.find((l) => l.id === lotId);
+                        if (!lot) return null;
+                        return (
+                          <div key={lotId} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              {lot.name} x{qty}
+                            </span>
+                            <span>{formatPrice(lot.price * qty)}</span>
+                          </div>
+                        );
+                      })}
+                      <div className="border-t border-border pt-3 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span className="gradient-text text-xl">
+                          {formatPrice(totalAmount)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm mb-6">
+                      Selecione os ingressos desejados para continuar.
+                    </p>
+                  )}
+
+                  <Button
+                    variant="hero"
+                    size="xl"
+                    className="w-full"
+                    onClick={handleCheckout}
+                    disabled={totalTickets === 0}
+                  >
+                    <Ticket className="w-5 h-5 mr-2" />
+                    Comprar Ingressos
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground text-center mt-4">
+                    Pagamento 100% seguro via PIX ou cartão
+                  </p>
+                </div>
+
+                {/* Organizer */}
+                <div className="bg-card rounded-2xl border border-border p-6 mt-4">
+                  <p className="text-sm text-muted-foreground mb-1">Organizado por</p>
+                  <p className="font-semibold">{event.organizer}</p>
+                </div>
+              </motion.div>
+            </div>
+          </section>
+        </main>
+
+        <Footer />
+      </div>
+    </>
+  );
+};
+
+interface LotCardProps {
+  lot: EventLot;
+  quantity: number;
+  onQuantityChange: (delta: number) => void;
+  formatPrice: (price: number) => string;
+}
+
+const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps) => {
+  const isSoldOut = lot.available === 0;
+  const isSelected = quantity > 0;
+
+  return (
+    <div
+      className={cn(
+        'border rounded-xl p-4 transition-all duration-300',
+        isSoldOut
+          ? 'border-border bg-secondary/30 opacity-60'
+          : isSelected
+          ? 'border-primary bg-primary/5'
+          : 'border-border hover:border-muted-foreground'
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="font-semibold">{lot.name}</h4>
+            {isSoldOut && (
+              <Badge variant="secondary" className="text-xs">
+                Esgotado
+              </Badge>
+            )}
+            {lot.available > 0 && lot.available < 50 && (
+              <Badge variant="destructive" className="text-xs gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Últimos
+              </Badge>
+            )}
+          </div>
+
+          {lot.description && (
+            <p className="text-sm text-muted-foreground mb-2">{lot.description}</p>
+          )}
+
+          <div className="flex items-center gap-3">
+            {lot.originalPrice && (
+              <span className="text-sm text-muted-foreground line-through">
+                {formatPrice(lot.originalPrice)}
+              </span>
+            )}
+            <span className="font-display font-bold text-lg gradient-text">
+              {formatPrice(lot.price)}
+            </span>
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-1">
+            {lot.available} disponíveis
+          </p>
+        </div>
+
+        {!isSoldOut && (
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onQuantityChange(-1)}
+              disabled={quantity === 0}
+              className="h-9 w-9"
+            >
+              <Minus className="w-4 h-4" />
+            </Button>
+            <span className="w-8 text-center font-semibold">{quantity}</span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onQuantityChange(1)}
+              disabled={quantity >= 10 || quantity >= lot.available}
+              className="h-9 w-9"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default EventDetails;
