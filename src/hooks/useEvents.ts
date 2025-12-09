@@ -160,3 +160,30 @@ export function useEvent(id: string | undefined) {
     enabled: !!id,
   });
 }
+
+export function usePublicEvents() {
+  return useQuery({
+    queryKey: ['public-events'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select(`
+          *,
+          event_lots (
+            id,
+            name,
+            price,
+            original_price,
+            total_quantity,
+            sold_quantity,
+            is_active
+          )
+        `)
+        .eq('status', 'published')
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
