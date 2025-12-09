@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.public-guest-list-signup]
 verify_jwt = false
+
+[functions.collaborator-validate-guest-entry]
+verify_jwt = false
