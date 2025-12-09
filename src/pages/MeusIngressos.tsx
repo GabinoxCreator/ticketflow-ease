@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Download, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -14,12 +16,44 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket } from '@/hooks/useUserTickets';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const ticketRef = useRef<HTMLDivElement>(null);
+  
+  const handleDownloadPDF = async () => {
+    if (!ticketRef.current) return;
+    
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(ticketRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`ingresso-${ticket.ticket_code.slice(0, 8)}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
   
   const statusConfig = {
     valid: { label: 'Válido', color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: CheckCircle2 },
@@ -100,10 +134,22 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
                     </code>
                   </div>
                   {ticket.status === 'valid' && (
-                    <Button size="sm" variant="gradient" className="gap-1.5" onClick={() => setShowQR(true)}>
-                      <Smartphone className="w-3.5 h-3.5" />
-                      Usar Ingresso
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="gap-1.5" 
+                        onClick={handleDownloadPDF}
+                        disabled={isDownloading}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        {isDownloading ? 'Gerando...' : 'PDF'}
+                      </Button>
+                      <Button size="sm" variant="gradient" className="gap-1.5" onClick={() => setShowQR(true)}>
+                        <Smartphone className="w-3.5 h-3.5" />
+                        Usar Ingresso
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -111,6 +157,35 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Hidden ticket for PDF generation */}
+      <div className="fixed -left-[9999px]">
+        <div ref={ticketRef} className="bg-white p-8 w-[400px]">
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900">{ticket.event.title}</h2>
+            <p className="text-gray-600">{ticket.lot.name}</p>
+          </div>
+          <div className="flex justify-center mb-6">
+            <QRCodeSVG
+              value={ticket.ticket_code}
+              size={200}
+              level="H"
+              includeMargin={false}
+            />
+          </div>
+          <div className="text-center mb-4">
+            <p className="font-mono text-lg font-bold text-gray-900">
+              {ticket.ticket_code.slice(0, 8).toUpperCase()}
+            </p>
+            <p className="text-gray-600">{ticket.holder_name}</p>
+          </div>
+          <div className="border-t pt-4 space-y-2 text-sm text-gray-700">
+            <p><strong>Data:</strong> {formatDate(ticket.event.date)} às {formatTime(ticket.event.time)}</p>
+            <p><strong>Local:</strong> {ticket.event.venue}</p>
+            <p><strong>Cidade:</strong> {ticket.event.city}/{ticket.event.state}</p>
+          </div>
+        </div>
+      </div>
 
       {/* QR Code Modal */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
