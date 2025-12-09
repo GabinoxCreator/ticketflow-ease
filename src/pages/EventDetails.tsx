@@ -14,20 +14,52 @@ import {
   Ticket,
   Users,
   AlertCircle,
-  CheckCircle,
+  Loader2,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockEvents, categoryLabels, EventLot } from '@/data/mockEvents';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useEvent } from '@/hooks/useEvents';
+import { useEventLots } from '@/hooks/useEventLots';
+
+const categoryLabels: Record<string, string> = {
+  'Festas e Shows': 'Festas e Shows',
+  'Esportes': 'Esportes',
+  'Teatro e Cultura': 'Teatro e Cultura',
+  'Gastronomia': 'Gastronomia',
+  'Congressos': 'Congressos',
+  'Cursos e Workshops': 'Cursos e Workshops',
+};
+
+interface EventLot {
+  id: string;
+  name: string;
+  price: number;
+  original_price?: number | null;
+  total_quantity: number;
+  sold_quantity: number;
+  description?: string | null;
+  is_active?: boolean | null;
+}
 
 const EventDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const event = mockEvents.find((e) => e.id === id);
+  const { data: event, isLoading: eventLoading } = useEvent(id);
+  const { lots, isLoading: lotsLoading } = useEventLots(id);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
+
+  const isLoading = eventLoading || lotsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -41,6 +73,8 @@ const EventDetails = () => {
       </div>
     );
   }
+
+  const activeLots = lots?.filter(lot => lot.is_active) || [];
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -71,12 +105,10 @@ const EventDetails = () => {
     });
   };
 
-  const totalAmount = useMemo(() => {
-    return Object.entries(selectedLots).reduce((total, [lotId, qty]) => {
-      const lot = event.lots.find((l) => l.id === lotId);
-      return total + (lot?.price || 0) * qty;
-    }, 0);
-  }, [selectedLots, event.lots]);
+  const totalAmount = Object.entries(selectedLots).reduce((total, [lotId, qty]) => {
+    const lot = activeLots.find((l) => l.id === lotId);
+    return total + (lot?.price || 0) * qty;
+  }, 0);
 
   const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
 
@@ -88,13 +120,15 @@ const EventDetails = () => {
     toast.success('Redirecionando para o checkout...');
   };
 
-  const soldPercentage = Math.round((event.soldTickets / event.totalTickets) * 100);
+  const totalAvailable = activeLots.reduce((sum, lot) => sum + lot.total_quantity, 0);
+  const totalSold = activeLots.reduce((sum, lot) => sum + lot.sold_quantity, 0);
+  const soldPercentage = totalAvailable > 0 ? Math.round((totalSold / totalAvailable) * 100) : 0;
 
   return (
     <>
       <Helmet>
         <title>{event.title} - IngressosRP</title>
-        <meta name="description" content={event.shortDescription} />
+        <meta name="description" content={event.short_description || event.description || ''} />
       </Helmet>
 
       <div className="min-h-screen bg-background">
@@ -104,7 +138,7 @@ const EventDetails = () => {
           {/* Hero */}
           <section className="relative h-[50vh] md:h-[60vh] overflow-hidden">
             <img
-              src={event.imageUrl}
+              src={event.image_url || '/placeholder.svg'}
               alt={event.title}
               className="w-full h-full object-cover"
             />
@@ -141,7 +175,7 @@ const EventDetails = () => {
                   className="bg-card rounded-2xl border border-border p-6 md:p-8"
                 >
                   <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
-                    {categoryLabels[event.category]}
+                    {categoryLabels[event.category] || event.category}
                   </Badge>
 
                   <h1 className="font-display font-bold text-3xl md:text-4xl mb-4">
@@ -171,52 +205,56 @@ const EventDetails = () => {
 
                   <h3 className="font-display font-semibold text-lg mb-3">Sobre o evento</h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    {event.description}
+                    {event.description || event.short_description}
                   </p>
 
                   {/* Progress */}
-                  <div className="mt-6 p-4 bg-secondary/50 rounded-xl">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <span className="font-medium">{soldPercentage}% vendido</span>
+                  {totalAvailable > 0 && (
+                    <div className="mt-6 p-4 bg-secondary/50 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-5 h-5 text-primary" />
+                          <span className="font-medium">{soldPercentage}% vendido</span>
+                        </div>
+                        <span className="text-muted-foreground text-sm">
+                          {totalAvailable - totalSold} ingressos restantes
+                        </span>
                       </div>
-                      <span className="text-muted-foreground text-sm">
-                        {event.totalTickets - event.soldTickets} ingressos restantes
-                      </span>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-primary rounded-full transition-all duration-500"
+                          style={{ width: `${soldPercentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-primary rounded-full transition-all duration-500"
-                        style={{ width: `${soldPercentage}%` }}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </motion.div>
 
                 {/* Lots */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="bg-card rounded-2xl border border-border p-6 md:p-8"
-                >
-                  <h3 className="font-display font-semibold text-xl mb-6">
-                    Escolha seus ingressos
-                  </h3>
+                {activeLots.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                  >
+                    <h3 className="font-display font-semibold text-xl mb-6">
+                      Escolha seus ingressos
+                    </h3>
 
-                  <div className="space-y-4">
-                    {event.lots.map((lot) => (
-                      <LotCard
-                        key={lot.id}
-                        lot={lot}
-                        quantity={selectedLots[lot.id] || 0}
-                        onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
-                        formatPrice={formatPrice}
-                      />
-                    ))}
-                  </div>
-                </motion.div>
+                    <div className="space-y-4">
+                      {activeLots.map((lot) => (
+                        <LotCard
+                          key={lot.id}
+                          lot={lot}
+                          quantity={selectedLots[lot.id] || 0}
+                          onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
+                          formatPrice={formatPrice}
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               {/* Sidebar - Checkout */}
@@ -232,7 +270,7 @@ const EventDetails = () => {
                   {totalTickets > 0 ? (
                     <div className="space-y-3 mb-6">
                       {Object.entries(selectedLots).map(([lotId, qty]) => {
-                        const lot = event.lots.find((l) => l.id === lotId);
+                        const lot = activeLots.find((l) => l.id === lotId);
                         if (!lot) return null;
                         return (
                           <div key={lotId} className="flex justify-between text-sm">
@@ -271,12 +309,6 @@ const EventDetails = () => {
                     Pagamento 100% seguro via PIX ou cartão
                   </p>
                 </div>
-
-                {/* Organizer */}
-                <div className="bg-card rounded-2xl border border-border p-6 mt-4">
-                  <p className="text-sm text-muted-foreground mb-1">Organizado por</p>
-                  <p className="font-semibold">{event.organizer}</p>
-                </div>
               </motion.div>
             </div>
           </section>
@@ -296,7 +328,8 @@ interface LotCardProps {
 }
 
 const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps) => {
-  const isSoldOut = lot.available === 0;
+  const available = lot.total_quantity - lot.sold_quantity;
+  const isSoldOut = available === 0;
   const isSelected = quantity > 0;
 
   return (
@@ -319,7 +352,7 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
                 Esgotado
               </Badge>
             )}
-            {lot.available > 0 && lot.available < 50 && (
+            {available > 0 && available < 50 && (
               <Badge variant="destructive" className="text-xs gap-1">
                 <AlertCircle className="w-3 h-3" />
                 Últimos
@@ -332,9 +365,9 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
           )}
 
           <div className="flex items-center gap-3">
-            {lot.originalPrice && (
+            {lot.original_price && (
               <span className="text-sm text-muted-foreground line-through">
-                {formatPrice(lot.originalPrice)}
+                {formatPrice(lot.original_price)}
               </span>
             )}
             <span className="font-display font-bold text-lg gradient-text">
@@ -343,7 +376,7 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
           </div>
 
           <p className="text-xs text-muted-foreground mt-1">
-            {lot.available} disponíveis
+            {available} disponíveis
           </p>
         </div>
 
@@ -363,7 +396,7 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
               variant="outline"
               size="icon"
               onClick={() => onQuantityChange(1)}
-              disabled={quantity >= 10 || quantity >= lot.available}
+              disabled={quantity >= 10 || quantity >= available}
               className="h-9 w-9"
             >
               <Plus className="w-4 h-4" />
