@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Camera, Save, Loader2, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Phone, Lock, Camera, Save, Loader2, CheckCircle2, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
 
 import Header from '@/components/Header';
@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import TicketCard, { TicketData } from '@/components/TicketCard';
 
 const profileSchema = z.object({
   nome_completo: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100, 'Nome muito longo'),
@@ -290,6 +291,51 @@ const MinhaConta = () => {
                     </Button>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Example Ticket Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mt-6"
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Ticket className="w-5 h-5" />
+                  Exemplo de Ingresso
+                </CardTitle>
+                <CardDescription>
+                  Veja como seus ingressos são exibidos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TicketCard
+                  ticket={{
+                    id: 'example-ticket-id',
+                    ticketCode: 'TKT-2024-ABCD1234',
+                    holderName: profile?.nome_completo || 'Seu Nome',
+                    status: 'valid',
+                    event: {
+                      title: 'Sunset Festival - Edição de Verão 2024',
+                      date: '2024-12-28',
+                      time: '16:00:00',
+                      venue: 'Parque Villa-Lobos',
+                      city: 'São Paulo',
+                      state: 'SP',
+                      imageUrl: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800&auto=format&fit=crop',
+                    },
+                    lot: {
+                      name: '1º Lote - Pista',
+                      price: 150.00,
+                    },
+                    purchaseDate: new Date().toISOString(),
+                    paymentMethod: 'Pix',
+                  }}
+                />
               </CardContent>
             </Card>
           </motion.div>
