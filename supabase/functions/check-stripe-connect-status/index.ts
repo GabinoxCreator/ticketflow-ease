@@ -44,15 +44,17 @@ serve(async (req) => {
       .from("producer_stripe_accounts")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (accountError || !accountData?.stripe_account_id) {
-      logStep("No Stripe account found");
+    const hasPin = !!accountData?.pin_hash;
+
+    if (!accountData?.stripe_account_id) {
+      logStep("No Stripe account found", { hasPin });
       return new Response(JSON.stringify({ 
         connected: false,
         status: "not_connected",
         onboarding_completed: false,
-        has_pin: false,
+        has_pin: hasPin,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
