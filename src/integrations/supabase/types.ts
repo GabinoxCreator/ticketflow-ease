@@ -135,6 +135,56 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string | null
+          event_id: string
+          id: string
+          payment_method: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_email: string
+          customer_name: string
+          customer_phone?: string | null
+          event_id: string
+          id?: string
+          payment_method?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string | null
+          event_id?: string
+          id?: string
+          payment_method?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -161,6 +211,73 @@ export type Database = {
           whatsapp?: string
         }
         Relationships: []
+      }
+      tickets: {
+        Row: {
+          created_at: string
+          event_id: string
+          holder_email: string | null
+          holder_name: string
+          holder_phone: string | null
+          id: string
+          lot_id: string
+          order_id: string
+          status: string
+          ticket_code: string
+          user_id: string | null
+          validated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          holder_email?: string | null
+          holder_name: string
+          holder_phone?: string | null
+          id?: string
+          lot_id: string
+          order_id: string
+          status?: string
+          ticket_code?: string
+          user_id?: string | null
+          validated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          holder_email?: string | null
+          holder_name?: string
+          holder_phone?: string | null
+          id?: string
+          lot_id?: string
+          order_id?: string
+          status?: string
+          ticket_code?: string
+          user_id?: string | null
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
