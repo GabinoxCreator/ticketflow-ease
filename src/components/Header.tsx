@@ -138,7 +138,7 @@ const Header = () => {
                           <>
                             <DropdownMenuItem onClick={() => navigate('/dashboard')}>
                               <LayoutDashboard className="mr-2 h-4 w-4" />
-                              Dashboard
+                              Painel do Produtor
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate('/meus-eventos')}>
                               <Calendar className="mr-2 h-4 w-4" />
@@ -251,7 +251,7 @@ const Header = () => {
                           }}
                         >
                           <LayoutDashboard className="w-4 h-4" />
-                          Dashboard
+                          Painel do Produtor
                         </Button>
                         <Button
                           variant="gradient"
