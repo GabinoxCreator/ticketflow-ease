@@ -15,6 +15,7 @@ import DashboardEventos from "./pages/DashboardEventos";
 import CriarEvento from "./pages/CriarEvento";
 import EditarEvento from "./pages/EditarEvento";
 import EventDashboard from "./pages/EventDashboard";
+import Checkout from "./pages/Checkout";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/evento/:id" element={<EventDetails />} />
+              <Route path="/checkout" element={<Checkout />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<ProtectedRoute requiredRole="produtor"><Dashboard /></ProtectedRoute>} />
               <Route path="/dashboard/eventos" element={<ProtectedRoute requiredRole="produtor"><DashboardEventos /></ProtectedRoute>} />
