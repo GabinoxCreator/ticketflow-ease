@@ -65,6 +65,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        brasil: {
+          verde: "hsl(var(--verde-bandeira))",
+          amarelo: "hsl(var(--amarelo-ouro))",
+          azul: "hsl(var(--azul-brasil))",
+        },
         category: {
           festa: "hsl(var(--category-festa))",
           show: "hsl(var(--category-show))",

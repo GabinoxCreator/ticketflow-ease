@@ -11,11 +11,11 @@ interface EventCardProps {
 }
 
 const categoryColorMap: Record<string, string> = {
-  festa: 'bg-[hsl(330,100%,60%)]',
-  show: 'bg-[hsl(270,100%,65%)]',
-  teatro: 'bg-[hsl(45,100%,55%)]',
-  festival: 'bg-[hsl(180,100%,50%)]',
-  balada: 'bg-[hsl(200,100%,60%)]',
+  festa: 'bg-primary text-primary-foreground',
+  show: 'bg-brasil-azul text-white',
+  teatro: 'bg-accent text-accent-foreground',
+  festival: 'bg-primary/80 text-primary-foreground',
+  balada: 'bg-[hsl(280,60%,50%)] text-white',
 };
 
 const EventCard = ({ event, index = 0 }: EventCardProps) => {
@@ -43,7 +43,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
       <Link to={`/evento/${event.id}`} className="block group">
-        <article className="relative bg-card rounded-2xl overflow-hidden border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10">
+        <article className="relative bg-card rounded-2xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10">
           {/* Image */}
           <div className="relative aspect-[16/10] overflow-hidden">
             <img
@@ -74,11 +74,11 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
             )}
 
             {/* Date Overlay */}
-            <div className="absolute bottom-3 left-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50">
+            <div className="absolute bottom-3 left-3 bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">
                 {new Date(event.date).toLocaleDateString('pt-BR', { weekday: 'short' })}
               </p>
-              <p className="font-display font-bold text-lg leading-tight">
+              <p className="font-display font-bold text-lg leading-tight text-foreground">
                 {formatDate(event.date)}
               </p>
             </div>
@@ -86,7 +86,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
 
           {/* Content */}
           <div className="p-4">
-            <h3 className="font-display font-semibold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-1">
+            <h3 className="font-display font-semibold text-lg mb-2 text-foreground group-hover:text-primary transition-colors line-clamp-1">
               {event.title}
             </h3>
             
@@ -113,7 +113,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
               </div>
               <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-primary rounded-full transition-all duration-500"
+                  className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${soldPercentage}%` }}
                 />
               </div>
@@ -123,11 +123,11 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">A partir de</p>
-                <p className="font-display font-bold text-xl gradient-text">
+                <p className="font-display font-bold text-xl text-primary">
                   {formatPrice(event.minPrice)}
                 </p>
               </div>
-              <div className="px-4 py-2 bg-secondary rounded-lg text-sm font-medium group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <div className="px-4 py-2 bg-secondary rounded-lg text-sm font-medium text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                 Ver Ingressos
               </div>
             </div>
