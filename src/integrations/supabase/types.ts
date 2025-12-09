@@ -185,6 +185,39 @@ export type Database = {
           },
         ]
       }
+      producer_stripe_accounts: {
+        Row: {
+          created_at: string
+          id: string
+          onboarding_completed: boolean
+          pin_hash: string | null
+          stripe_account_id: string | null
+          stripe_account_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          onboarding_completed?: boolean
+          pin_hash?: string | null
+          stripe_account_id?: string | null
+          stripe_account_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          onboarding_completed?: boolean
+          pin_hash?: string | null
+          stripe_account_id?: string | null
+          stripe_account_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
