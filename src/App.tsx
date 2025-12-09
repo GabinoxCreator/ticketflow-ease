@@ -16,6 +16,7 @@ import CriarEvento from "./pages/CriarEvento";
 import EditarEvento from "./pages/EditarEvento";
 import EventDashboard from "./pages/EventDashboard";
 import Checkout from "./pages/Checkout";
+import Financeiro from "./pages/Financeiro";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/dashboard/evento/:id" element={<ProtectedRoute requiredRole="produtor"><EventDashboard /></ProtectedRoute>} />
               <Route path="/criar-evento" element={<ProtectedRoute requiredRole="produtor"><CriarEvento /></ProtectedRoute>} />
               <Route path="/editar-evento/:id" element={<ProtectedRoute requiredRole="produtor"><EditarEvento /></ProtectedRoute>} />
+              <Route path="/dashboard/financeiro" element={<ProtectedRoute requiredRole="produtor"><Financeiro /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
