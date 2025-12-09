@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      collaborator_events: {
+        Row: {
+          collaborator_id: string
+          created_at: string
+          event_id: string
+          id: string
+        }
+        Insert: {
+          collaborator_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+        }
+        Update: {
+          collaborator_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_events_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "collaborators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaborator_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaborators: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          password_hash: string
+          producer_id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          password_hash: string
+          producer_id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          password_hash?: string
+          producer_id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       event_lots: {
         Row: {
           created_at: string
