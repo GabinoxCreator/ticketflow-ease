@@ -15,17 +15,13 @@ const Index = () => {
     return mockEvents.filter((event) => event.category === selectedCategory);
   }, [selectedCategory]);
 
-  const hotEvents = useMemo(() => {
-    return mockEvents.filter((event) => event.isHot).slice(0, 3);
-  }, []);
-
   return (
     <>
       <Helmet>
-        <title>IngressosRP - Compre Ingressos para Eventos em Ribeirão Preto</title>
+        <title>IngressosRP - Compre Ingressos para Eventos em Rio Preto</title>
         <meta
           name="description"
-          content="A plataforma mais simples para comprar ingressos para festas, shows, festivais e teatro em Ribeirão Preto. Receba seus ingressos direto no WhatsApp!"
+          content="A plataforma mais simples para comprar ingressos para festas, shows, festivais e teatro em Rio Preto. Receba seus ingressos direto no WhatsApp!"
         />
       </Helmet>
 

@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Menu, X, Ticket, User, ChevronDown } from 'lucide-react';
+import { Search, Menu, X, Ticket, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -27,16 +26,16 @@ const Header = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
               <Ticket className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-xl hidden sm:block">
-              Ingressos<span className="gradient-text">RP</span>
+            <span className="font-display font-bold text-xl hidden sm:block text-foreground">
+              Ingressos<span className="text-primary">RP</span>
             </span>
           </Link>
 
@@ -102,7 +101,7 @@ const Header = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden border-t border-border/50 bg-background"
+            className="lg:hidden border-t border-border bg-background"
           >
             <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
               {navLinks.map((link) => (
@@ -115,7 +114,7 @@ const Header = () => {
                   {link.label}
                 </Link>
               ))}
-              <div className="border-t border-border/50 mt-2 pt-4 flex flex-col gap-2">
+              <div className="border-t border-border mt-2 pt-4 flex flex-col gap-2">
                 <Button variant="outline" className="justify-start gap-2">
                   <Ticket className="w-4 h-4" />
                   Meus Ingressos
@@ -140,7 +139,7 @@ const Header = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 flex items-start justify-center pt-20 px-4"
+            className="fixed inset-0 bg-background/98 backdrop-blur-xl z-50 flex items-start justify-center pt-20 px-4"
             onClick={() => setIsSearchOpen(false)}
           >
             <motion.div
@@ -157,7 +156,7 @@ const Header = () => {
                   placeholder="Buscar eventos, artistas, locais..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-16 pl-14 pr-4 bg-card border border-border rounded-2xl text-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full h-16 pl-14 pr-4 bg-card border border-border rounded-2xl text-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
               </form>

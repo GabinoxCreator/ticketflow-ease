@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Search, MapPin, Calendar, Sparkles } from 'lucide-react';
+import { Search, MapPin, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
@@ -9,16 +9,16 @@ const Hero = () => {
 
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden pt-20">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-card" />
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-muted/30" />
       
       {/* Animated Gradient Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-float" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '-3s' }} />
       
-      {/* Grid Pattern */}
+      {/* Subtle Pattern */}
       <div 
-        className="absolute inset-0 opacity-5"
+        className="absolute inset-0 opacity-[0.02]"
         style={{
           backgroundImage: `linear-gradient(hsl(var(--primary)) 1px, transparent 1px),
                            linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)`,
@@ -45,10 +45,10 @@ const Hero = () => {
           </motion.div>
 
           {/* Title */}
-          <h1 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 leading-tight">
+          <h1 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 leading-tight text-foreground">
             Encontre os melhores{' '}
             <span className="gradient-text">eventos</span>{' '}
-            de Ribeirão Preto
+            de Rio Preto
           </h1>
 
           {/* Subtitle */}
@@ -62,7 +62,7 @@ const Hero = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-card/80 backdrop-blur-xl rounded-2xl p-2 border border-border/50 max-w-3xl mx-auto"
+            className="bg-card rounded-2xl p-2 border border-border shadow-lg max-w-3xl mx-auto"
           >
             <div className="flex flex-col md:flex-row gap-2">
               {/* Search Input */}
@@ -86,9 +86,9 @@ const Hero = () => {
                   className="w-full h-14 pl-12 pr-4 bg-secondary/50 rounded-xl text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
                 >
                   <option value="">Todas cidades</option>
-                  <option value="ribeirao-preto">Ribeirão Preto</option>
-                  <option value="sertaozinho">Sertãozinho</option>
-                  <option value="franca">Franca</option>
+                  <option value="rio-preto">Rio Preto</option>
+                  <option value="catanduva">Catanduva</option>
+                  <option value="votuporanga">Votuporanga</option>
                 </select>
               </div>
 
