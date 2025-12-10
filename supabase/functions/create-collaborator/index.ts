@@ -58,13 +58,12 @@ serve(async (req) => {
     // Hash password with bcrypt
     const passwordHash = await bcrypt.hash(password);
     
-    // Create collaborator
+    // Create collaborator (without password_hash)
     const { data: collaborator, error } = await supabase
       .from('collaborators')
       .insert({
         name,
         username,
-        password_hash: passwordHash,
         producer_id: user.id,
       })
       .select()
@@ -79,6 +78,21 @@ serve(async (req) => {
         );
       }
       throw error;
+    }
+
+    // Store password hash in separate credentials table
+    const { error: credError } = await supabase
+      .from('collaborator_credentials')
+      .insert({
+        collaborator_id: collaborator.id,
+        password_hash: passwordHash,
+      });
+
+    if (credError) {
+      console.error('Error storing credentials:', credError);
+      // Rollback collaborator creation
+      await supabase.from('collaborators').delete().eq('id', collaborator.id);
+      throw credError;
     }
 
     // Assign events to collaborator

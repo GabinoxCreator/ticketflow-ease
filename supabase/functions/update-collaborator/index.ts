@@ -68,13 +68,38 @@ serve(async (req) => {
       );
     }
 
-    // Build update object
+    // Build update object for collaborators table
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
     if (username !== undefined) updateData.username = username;
     if (is_active !== undefined) updateData.is_active = is_active;
-    
-    // Hash new password if provided
+
+    // Update collaborator data if there are changes
+    let collaborator = null;
+    if (Object.keys(updateData).length > 0) {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating collaborator:', error);
+        throw error;
+      }
+      collaborator = data;
+    } else {
+      // Fetch current data if no updates to collaborators table
+      const { data } = await supabase
+        .from('collaborators')
+        .select()
+        .eq('id', id)
+        .single();
+      collaborator = data;
+    }
+
+    // Update password in credentials table if provided
     if (password !== undefined && password.length > 0) {
       if (password.length < 6) {
         return new Response(
@@ -82,19 +107,24 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      updateData.password_hash = await bcrypt.hash(password);
-    }
 
-    const { data: collaborator, error } = await supabase
-      .from('collaborators')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+      const passwordHash = await bcrypt.hash(password);
+      
+      // Upsert to handle both existing and new credentials
+      const { error: credError } = await supabase
+        .from('collaborator_credentials')
+        .upsert({
+          collaborator_id: id,
+          password_hash: passwordHash,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'collaborator_id'
+        });
 
-    if (error) {
-      console.error('Error updating collaborator:', error);
-      throw error;
+      if (credError) {
+        console.error('Error updating credentials:', credError);
+        throw credError;
+      }
     }
 
     console.log('Collaborator updated successfully:', id);
