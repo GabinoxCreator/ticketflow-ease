@@ -25,11 +25,15 @@ export function CheckoutStepEmailVerification({
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [hasSent, setHasSent] = useState(false);
 
   useEffect(() => {
-    // Send OTP on mount
-    sendOTP();
-  }, []);
+    // Send code on mount
+    if (!hasSent) {
+      sendCode();
+      setHasSent(true);
+    }
+  }, [hasSent]);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -38,34 +42,27 @@ export function CheckoutStepEmailVerification({
     }
   }, [cooldown]);
 
-  const sendOTP = async () => {
+  const sendCode = async () => {
     setIsResending(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          data: {
-            nome_completo: name,
-            cpf: cpf,
-            tipo_conta: 'cliente',
-          },
-          shouldCreateUser: true,
-        },
+      const { data, error } = await supabase.functions.invoke('send-verification-code', {
+        body: { email, name, cpf },
       });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       
       toast.success('Código enviado para seu email!');
       setCooldown(60);
     } catch (error: any) {
-      console.error('Error sending OTP:', error);
+      console.error('Error sending code:', error);
       toast.error(error.message || 'Erro ao enviar código');
     } finally {
       setIsResending(false);
     }
   };
 
-  const verifyOTP = async () => {
+  const verifyCode = async () => {
     if (otp.length !== 6) {
       toast.error('Digite o código completo');
       return;
@@ -73,35 +70,21 @@ export function CheckoutStepEmailVerification({
 
     setIsVerifying(true);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: 'email',
+      const { data, error } = await supabase.functions.invoke('verify-email-code', {
+        body: { email, code: otp },
       });
 
       if (error) throw error;
-
-      if (data.user) {
-        // Update profile with CPF if not set
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ cpf, nome_completo: name })
-          .eq('id', data.user.id);
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-        }
-
+      
+      if (data?.success) {
         toast.success('Email verificado com sucesso!');
         onVerified();
+      } else {
+        toast.error(data?.error || 'Código inválido');
       }
     } catch (error: any) {
-      console.error('Error verifying OTP:', error);
-      if (error.message?.includes('expired')) {
-        toast.error('Código expirado. Solicite um novo.');
-      } else {
-        toast.error('Código inválido');
-      }
+      console.error('Error verifying code:', error);
+      toast.error('Código inválido ou expirado');
     } finally {
       setIsVerifying(false);
     }
@@ -145,7 +128,7 @@ export function CheckoutStepEmailVerification({
       </div>
 
       <Button
-        onClick={verifyOTP}
+        onClick={verifyCode}
         disabled={otp.length !== 6 || isVerifying}
         className="w-full"
         size="lg"
@@ -170,7 +153,7 @@ export function CheckoutStepEmailVerification({
         <Button
           variant="ghost"
           size="sm"
-          onClick={sendOTP}
+          onClick={sendCode}
           disabled={cooldown > 0 || isResending}
         >
           {cooldown > 0 ? (
