@@ -1,11 +1,14 @@
-import { CheckCircle, AlertCircle, Clock, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, AlertCircle, Clock, CreditCard, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
+import { StripeEmbeddedOnboarding } from './StripeEmbeddedOnboarding';
 
 export function StripeConnectCard() {
-  const { status, isLoading, isConnecting, startOnboarding, openDashboard } = useStripeConnect();
+  const { status, isLoading, checkStatus } = useStripeConnect();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   if (isLoading) {
     return (
@@ -14,6 +17,29 @@ export function StripeConnectCard() {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
+    );
+  }
+
+  // Show embedded onboarding if user clicked to start or if account is pending
+  if (showOnboarding || (status?.connected && status.status !== 'active')) {
+    return (
+      <StripeEmbeddedOnboarding 
+        onComplete={() => {
+          setShowOnboarding(false);
+          checkStatus();
+        }}
+        showManagement={status?.status === 'active'}
+      />
+    );
+  }
+
+  // Show management view for active accounts
+  if (status?.connected && status.status === 'active') {
+    return (
+      <StripeEmbeddedOnboarding 
+        showManagement={true}
+        onComplete={() => checkStatus()}
+      />
     );
   }
 
@@ -93,47 +119,13 @@ export function StripeConnectCard() {
               {getStatusDescription()}
             </p>
             
-            {status?.connected && status.status === 'active' && (
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span>Recebimentos ativos</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span>Transferências ativas</span>
-                </div>
-              </div>
-            )}
-            
             <div className="flex flex-wrap gap-3">
-              {!status?.connected || status.status !== 'active' ? (
-                <Button 
-                  onClick={startOnboarding} 
-                  disabled={isConnecting}
-                  className="gap-2"
-                >
-                  {isConnecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Conectando...
-                    </>
-                  ) : status?.connected ? (
-                    'Continuar cadastro'
-                  ) : (
-                    'Conectar conta'
-                  )}
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  onClick={openDashboard}
-                  className="gap-2"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Acessar Dashboard
-                </Button>
-              )}
+              <Button 
+                onClick={() => setShowOnboarding(true)}
+                className="gap-2"
+              >
+                Configurar conta de recebimento
+              </Button>
             </div>
           </div>
         </div>
