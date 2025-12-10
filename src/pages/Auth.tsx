@@ -9,8 +9,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import WhatsAppInput from '@/components/WhatsAppInput';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Mail, Lock, User, Ticket, PartyPopper, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Ticket, PartyPopper, ArrowLeft, CreditCard } from 'lucide-react';
 import { z } from 'zod';
+import { formatCPF, validateCPF } from '@/utils/cpfValidator';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -19,6 +20,7 @@ const loginSchema = z.object({
 
 const signupSchema = z.object({
   nome_completo: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
+  cpf: z.string().refine((val) => validateCPF(val), 'CPF inválido'),
   whatsapp: z.string().min(14, 'WhatsApp inválido').max(15, 'WhatsApp inválido'),
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
@@ -46,6 +48,7 @@ const Auth: React.FC = () => {
   
   // Signup form state
   const [nomeCompleto, setNomeCompleto] = useState('');
+  const [cpf, setCpf] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -103,6 +106,7 @@ const Auth: React.FC = () => {
     try {
       signupSchema.parse({
         nome_completo: nomeCompleto,
+        cpf,
         whatsapp,
         email: signupEmail,
         password: signupPassword,
@@ -122,6 +126,7 @@ const Auth: React.FC = () => {
       email: signupEmail,
       password: signupPassword,
       nome_completo: nomeCompleto,
+      cpf,
       whatsapp,
       tipo_conta: tipoConta,
     });
@@ -308,6 +313,23 @@ const Auth: React.FC = () => {
                           value={nomeCompleto}
                           onChange={(e) => setNomeCompleto(e.target.value)}
                           className="pl-10"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cpf">CPF</Label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="cpf"
+                          type="text"
+                          placeholder="000.000.000-00"
+                          value={cpf}
+                          onChange={(e) => setCpf(formatCPF(e.target.value))}
+                          className="pl-10"
+                          maxLength={14}
                           required
                         />
                       </div>

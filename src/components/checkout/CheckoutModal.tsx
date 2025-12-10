@@ -1,18 +1,20 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, ChevronLeft } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckoutStepCPF } from './CheckoutStepCPF';
+import { CheckoutStepEmailVerification } from './CheckoutStepEmailVerification';
 import { CheckoutStepPayment } from './CheckoutStepPayment';
 import { CheckoutStepPix } from './CheckoutStepPix';
+import { CheckoutStepAwaitingPayment } from './CheckoutStepAwaitingPayment';
 import { CheckoutStepSuccess } from './CheckoutStepSuccess';
 import { CheckoutStepExpired } from './CheckoutStepExpired';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-type CheckoutStep = 'cpf' | 'payment' | 'pix' | 'success' | 'expired';
+type CheckoutStep = 'cpf' | 'verify-email' | 'payment' | 'pix' | 'awaiting' | 'success' | 'expired';
 
 interface CartItem {
   lotId: string;
@@ -58,8 +60,31 @@ export function CheckoutModal({
     expiresAt: Date;
   } | null>(null);
 
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (user && isOpen && step === 'cpf') {
+      // User is logged in, skip to payment
+      setCustomerData({
+        cpf: '',
+        name: user.user_metadata?.nome_completo || '',
+        email: user.email || '',
+      });
+    }
+  }, [user, isOpen, step]);
+
   const handleCPFContinue = (cpf: string, name: string, email: string) => {
     setCustomerData({ cpf, name, email });
+    
+    // If user is already logged in with same email, skip verification
+    if (user && user.email === email) {
+      setStep('payment');
+    } else {
+      // Need to verify email
+      setStep('verify-email');
+    }
+  };
+
+  const handleEmailVerified = () => {
     setStep('payment');
   };
 
@@ -132,6 +157,11 @@ export function CheckoutModal({
     }
   }, [orderId]);
 
+  const handlePixGenerated = () => {
+    // After generating PIX, show awaiting confirmation
+    setStep('awaiting');
+  };
+
   const handlePaymentConfirmed = () => {
     setStep('success');
   };
@@ -153,10 +183,18 @@ export function CheckoutModal({
     onClose();
   };
 
-  const canGoBack = step === 'payment';
+  const canGoBack = step === 'payment' || step === 'verify-email';
 
   const handleBack = () => {
     if (step === 'payment') {
+      // If user is logged in with same email, go back to CPF
+      // Otherwise go back to email verification
+      if (user && user.email === customerData.email) {
+        setStep('cpf');
+      } else {
+        setStep('verify-email');
+      }
+    } else if (step === 'verify-email') {
       setStep('cpf');
     }
   };
@@ -177,13 +215,15 @@ export function CheckoutModal({
             )}
             <h2 className="font-display font-semibold">
               {step === 'cpf' && 'Seus Dados'}
+              {step === 'verify-email' && 'Verificar Email'}
               {step === 'payment' && 'Pagamento'}
               {step === 'pix' && 'Pagar com PIX'}
+              {step === 'awaiting' && 'Aguardando Pagamento'}
               {step === 'success' && 'Sucesso'}
               {step === 'expired' && 'Tempo Esgotado'}
             </h2>
           </div>
-          {step !== 'success' && (
+          {step !== 'success' && step !== 'awaiting' && (
             <Button variant="ghost" size="icon" onClick={handleClose}>
               <X className="w-5 h-5" />
             </Button>
@@ -191,19 +231,21 @@ export function CheckoutModal({
         </div>
 
         {/* Step Indicator */}
-        {step !== 'success' && step !== 'expired' && (
+        {step !== 'success' && step !== 'expired' && step !== 'awaiting' && (
           <div className="px-4 py-2 bg-secondary/30">
             <div className="flex gap-1">
-              {['cpf', 'payment', 'pix'].map((s, index) => (
-                <div
-                  key={s}
-                  className={`h-1 flex-1 rounded-full transition-colors ${
-                    index <= ['cpf', 'payment', 'pix'].indexOf(step)
-                      ? 'bg-primary'
-                      : 'bg-secondary'
-                  }`}
-                />
-              ))}
+              {['cpf', 'verify-email', 'payment', 'pix'].map((s, index) => {
+                const steps = ['cpf', 'verify-email', 'payment', 'pix'];
+                const currentIndex = steps.indexOf(step);
+                return (
+                  <div
+                    key={s}
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      index <= currentIndex ? 'bg-primary' : 'bg-secondary'
+                    }`}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -218,6 +260,17 @@ export function CheckoutModal({
                 initialName={customerData.name}
                 initialEmail={customerData.email}
                 onContinue={handleCPFContinue}
+              />
+            )}
+
+            {step === 'verify-email' && (
+              <CheckoutStepEmailVerification
+                key="verify-email"
+                email={customerData.email}
+                name={customerData.name}
+                cpf={customerData.cpf}
+                onVerified={handleEmailVerified}
+                onBack={() => setStep('cpf')}
               />
             )}
 
@@ -242,6 +295,15 @@ export function CheckoutModal({
                 totalAmount={totalAmount}
                 expiresAt={pixData.expiresAt}
                 onExpire={handleExpire}
+                onPaymentConfirmed={() => setStep('awaiting')}
+                checkPaymentStatus={checkPaymentStatus}
+              />
+            )}
+
+            {step === 'awaiting' && orderId && (
+              <CheckoutStepAwaitingPayment
+                key="awaiting"
+                orderId={orderId}
                 onPaymentConfirmed={handlePaymentConfirmed}
                 checkPaymentStatus={checkPaymentStatus}
               />
