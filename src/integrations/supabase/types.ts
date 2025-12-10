@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      email_verification_codes: {
+        Row: {
+          code: string
+          cpf: string | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          name: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          code: string
+          cpf?: string | null
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          name?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          code?: string
+          cpf?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          name?: string | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       event_lots: {
         Row: {
           created_at: string
