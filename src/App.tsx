@@ -30,6 +30,7 @@ import QRCodeScanner from "./pages/colaborador/QRCodeScanner";
 import ColaboradorParticipantes from "./pages/colaborador/ColaboradorParticipantes";
 import ColaboradorConvidados from "./pages/colaborador/ColaboradorConvidados";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
+import TestePagamento from "./pages/TestePagamento";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ const App = () => (
                 
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
+                <Route path="/teste-pagamento" element={<TestePagamento />} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
