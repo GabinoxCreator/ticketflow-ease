@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import {
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
+import { CheckoutModal } from '@/components/checkout/CheckoutModal';
 
 const categoryLabels: Record<string, string> = {
   'Festas e Shows': 'Festas e Shows',
@@ -47,10 +48,10 @@ interface EventLot {
 
 const EventDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data: event, isLoading: eventLoading } = useEvent(id);
   const { lots, isLoading: lotsLoading } = useEventLots(id);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   const isLoading = eventLoading || lotsLoading;
 
@@ -118,16 +119,19 @@ const EventDetails = () => {
       toast.error('Selecione pelo menos um ingresso');
       return;
     }
-    
-    // Build cart items for checkout
-    const cartItems = Object.entries(selectedLots).map(([lotId, quantity]) => ({
-      lotId,
-      quantity,
-    }));
-    
-    const cartParam = encodeURIComponent(JSON.stringify(cartItems));
-    navigate(`/checkout?evento=${id}&cart=${cartParam}`);
+    setIsCheckoutOpen(true);
   };
+
+  // Build cart items for checkout modal
+  const cartItems = Object.entries(selectedLots).map(([lotId, quantity]) => {
+    const lot = activeLots.find((l) => l.id === lotId);
+    return {
+      lotId,
+      lotName: lot?.name || '',
+      quantity,
+      price: lot?.price || 0,
+    };
+  });
 
   const totalAvailable = activeLots.reduce((sum, lot) => sum + lot.total_quantity, 0);
   const totalSold = activeLots.reduce((sum, lot) => sum + lot.sold_quantity, 0);
@@ -324,6 +328,19 @@ const EventDetails = () => {
         </main>
 
         <Footer />
+
+        {/* Checkout Modal */}
+        <CheckoutModal
+          isOpen={isCheckoutOpen}
+          onClose={() => setIsCheckoutOpen(false)}
+          eventId={id || ''}
+          eventTitle={event.title}
+          eventDate={event.date}
+          eventTime={event.time}
+          eventVenue={event.venue}
+          items={cartItems}
+          totalAmount={totalAmount}
+        />
       </div>
     </>
   );
