@@ -41,10 +41,10 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Check if user already has a Stripe Connect account
+    // Check if user already has a Stripe Connect account record
     const { data: existingAccount } = await supabaseClient
       .from("producer_stripe_accounts")
-      .select("stripe_account_id, onboarding_completed")
+      .select("id, stripe_account_id, onboarding_completed")
       .eq("user_id", user.id)
       .single();
 
@@ -52,7 +52,7 @@ serve(async (req) => {
 
     let accountId = existingAccount?.stripe_account_id;
 
-    // If no account exists, create a new Custom account (for embedded components)
+    // If stripe_account_id doesn't exist, create a new Stripe Connect account
     if (!accountId) {
       logStep("Creating new Stripe Connect Custom account");
       
@@ -81,19 +81,35 @@ serve(async (req) => {
       accountId = account.id;
       logStep("Stripe Custom account created", { accountId });
 
-      // Save account to database
-      const { error: insertError } = await supabaseClient
-        .from("producer_stripe_accounts")
-        .insert({
-          user_id: user.id,
-          stripe_account_id: accountId,
-          stripe_account_status: "pending",
-          onboarding_completed: false,
-        });
+      // If record exists, update it; otherwise insert new record
+      if (existingAccount?.id) {
+        const { error: updateError } = await supabaseClient
+          .from("producer_stripe_accounts")
+          .update({
+            stripe_account_id: accountId,
+            stripe_account_status: "pending",
+            onboarding_completed: false,
+          })
+          .eq("id", existingAccount.id);
 
-      if (insertError) {
-        logStep("Error saving account to database", { error: insertError.message });
-        throw new Error(`Failed to save account: ${insertError.message}`);
+        if (updateError) {
+          logStep("Error updating account in database", { error: updateError.message });
+          throw new Error(`Failed to save account: ${updateError.message}`);
+        }
+      } else {
+        const { error: insertError } = await supabaseClient
+          .from("producer_stripe_accounts")
+          .insert({
+            user_id: user.id,
+            stripe_account_id: accountId,
+            stripe_account_status: "pending",
+            onboarding_completed: false,
+          });
+
+        if (insertError) {
+          logStep("Error saving account to database", { error: insertError.message });
+          throw new Error(`Failed to save account: ${insertError.message}`);
+        }
       }
     }
 
