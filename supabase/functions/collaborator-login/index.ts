@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,10 +52,26 @@ serve(async (req) => {
       );
     }
 
-    // Simple password check (in production, use bcrypt)
-    // For now, we store password as plain text hash (base64 encoded)
-    const expectedHash = btoa(password);
-    if (collaborator.password_hash !== expectedHash) {
+    // Verify password with bcrypt
+    let isValidPassword = false;
+    try {
+      isValidPassword = await bcrypt.compare(password, collaborator.password_hash);
+    } catch (e) {
+      // Fallback for legacy base64 passwords - verify and upgrade
+      const legacyHash = btoa(password);
+      if (collaborator.password_hash === legacyHash) {
+        // Upgrade to bcrypt hash
+        const newHash = await bcrypt.hash(password);
+        await supabase
+          .from('collaborators')
+          .update({ password_hash: newHash })
+          .eq('id', collaborator.id);
+        isValidPassword = true;
+        console.log('Upgraded legacy password hash for collaborator:', collaborator.id);
+      }
+    }
+
+    if (!isValidPassword) {
       console.log('Invalid password');
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),

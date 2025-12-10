@@ -42,51 +42,24 @@ export function useCollaborators() {
       password: string;
       eventIds: string[];
     }) => {
-      // Create collaborator with base64 encoded password (simple hash for demo)
-      const passwordHash = btoa(password);
-      
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Usuário não autenticado');
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Usuário não autenticado');
 
-      const { data: collaborator, error } = await supabase
-        .from('collaborators')
-        .insert({
-          name,
-          username,
-          password_hash: passwordHash,
-          producer_id: user.user.id,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('create-collaborator', {
+        body: { name, username, password, eventIds },
+      });
 
       if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
-      // Assign events to collaborator
-      if (eventIds.length > 0) {
-        const { error: eventsError } = await supabase
-          .from('collaborator_events')
-          .insert(
-            eventIds.map(eventId => ({
-              collaborator_id: collaborator.id,
-              event_id: eventId,
-            }))
-          );
-
-        if (eventsError) throw eventsError;
-      }
-
-      return collaborator;
+      return data.collaborator;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collaborators'] });
       toast.success('Colaborador criado com sucesso!');
     },
     onError: (error: any) => {
-      if (error.code === '23505') {
-        toast.error('Já existe um colaborador com este username');
-      } else {
-        toast.error('Erro ao criar colaborador');
-      }
+      toast.error(error.message || 'Erro ao criar colaborador');
     },
   });
 
@@ -98,28 +71,24 @@ export function useCollaborators() {
       password?: string;
       is_active?: boolean;
     }) => {
-      const updateData: any = {};
-      if (name !== undefined) updateData.name = name;
-      if (username !== undefined) updateData.username = username;
-      if (password !== undefined) updateData.password_hash = btoa(password);
-      if (is_active !== undefined) updateData.is_active = is_active;
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Usuário não autenticado');
 
-      const { data, error } = await supabase
-        .from('collaborators')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('update-collaborator', {
+        body: { id, name, username, password, is_active },
+      });
 
       if (error) throw error;
-      return data;
+      if (data.error) throw new Error(data.error);
+
+      return data.collaborator;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collaborators'] });
       toast.success('Colaborador atualizado com sucesso!');
     },
-    onError: () => {
-      toast.error('Erro ao atualizar colaborador');
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao atualizar colaborador');
     },
   });
 

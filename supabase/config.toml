@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.verify-email-code]
 verify_jwt = false
+
+[functions.create-collaborator]
+verify_jwt = true
+
+[functions.update-collaborator]
+verify_jwt = true
