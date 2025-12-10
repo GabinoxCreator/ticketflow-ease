@@ -12,6 +12,7 @@ import {
   Check,
   CreditCard,
   QrCode,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -121,58 +122,80 @@ const Checkout = () => {
     setIsSubmitting(true);
     
     try {
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          event_id: eventId!,
-          user_id: user?.id || null,
-          customer_name: customerName.trim(),
-          customer_email: customerEmail.trim(),
-          customer_phone: customerPhone.trim() || null,
-          total_amount: orderSummary.total,
-          status: 'pending',
-          payment_method: paymentMethod,
-        })
-        .select()
-        .single();
+      if (paymentMethod === 'card') {
+        // Use Stripe Checkout with Destination Charges
+        const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+          body: {
+            eventId: eventId!,
+            cartItems: cartItems,
+            customerEmail: customerEmail.trim(),
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim() || null,
+          },
+        });
 
-      if (orderError) throw orderError;
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
-      // Create tickets for each item
-      const ticketsToCreate = orderSummary.items.flatMap(item =>
-        Array.from({ length: item.quantity }, () => ({
-          order_id: order.id,
-          event_id: eventId!,
-          lot_id: item.lot.id,
-          user_id: user?.id || null,
-          holder_name: customerName.trim(),
-          holder_email: customerEmail.trim(),
-          holder_phone: customerPhone.trim() || null,
-          status: 'valid' as const,
-        }))
-      );
-
-      const { error: ticketsError } = await supabase
-        .from('tickets')
-        .insert(ticketsToCreate);
-
-      if (ticketsError) throw ticketsError;
-
-      // Update sold_quantity for each lot
-      for (const item of orderSummary.items) {
-        const { error: updateError } = await supabase
-          .from('event_lots')
-          .update({ sold_quantity: item.lot.sold_quantity + item.quantity })
-          .eq('id', item.lot.id);
-
-        if (updateError) {
-          console.error('Error updating lot quantity:', updateError);
+        if (data?.url) {
+          // Redirect to Stripe Checkout
+          window.location.href = data.url;
+          return;
         }
-      }
+      } else {
+        // PIX payment - create order locally (existing flow)
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            event_id: eventId!,
+            user_id: user?.id || null,
+            customer_name: customerName.trim(),
+            customer_email: customerEmail.trim(),
+            customer_phone: customerPhone.trim() || null,
+            total_amount: orderSummary.total,
+            status: 'pending',
+            payment_method: paymentMethod,
+          })
+          .select()
+          .single();
 
-      setOrderCreated(true);
-      toast.success('Pedido criado com sucesso!');
+        if (orderError) throw orderError;
+
+        // Create tickets for each item
+        const ticketsToCreate = orderSummary.items.flatMap(item =>
+          Array.from({ length: item.quantity }, () => ({
+            order_id: order.id,
+            event_id: eventId!,
+            lot_id: item.lot.id,
+            user_id: user?.id || null,
+            holder_name: customerName.trim(),
+            holder_email: customerEmail.trim(),
+            holder_phone: customerPhone.trim() || null,
+            status: 'valid' as const,
+          }))
+        );
+
+        const { error: ticketsError } = await supabase
+          .from('tickets')
+          .insert(ticketsToCreate);
+
+        if (ticketsError) throw ticketsError;
+
+        // Update sold_quantity for each lot
+        for (const item of orderSummary.items) {
+          const { error: updateError } = await supabase
+            .from('event_lots')
+            .update({ sold_quantity: item.lot.sold_quantity + item.quantity })
+            .eq('id', item.lot.id);
+
+          if (updateError) {
+            console.error('Error updating lot quantity:', updateError);
+          }
+        }
+
+        setOrderCreated(true);
+        toast.success('Pedido criado com sucesso!');
+      }
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'Erro ao processar pedido');

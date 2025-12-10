@@ -18,6 +18,7 @@ import CriarEvento from "./pages/CriarEvento";
 import EditarEvento from "./pages/EditarEvento";
 import EventDashboard from "./pages/EventDashboard";
 import Checkout from "./pages/Checkout";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
 import Financeiro from "./pages/Financeiro";
 import MeusIngressos from "./pages/MeusIngressos";
 import MinhaConta from "./pages/MinhaConta";
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
                 <Route path="/auth" element={<Auth />} />
