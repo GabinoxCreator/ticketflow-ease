@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      collaborator_credentials: {
+        Row: {
+          collaborator_id: string
+          created_at: string | null
+          id: string
+          password_hash: string
+          updated_at: string | null
+        }
+        Insert: {
+          collaborator_id: string
+          created_at?: string | null
+          id?: string
+          password_hash: string
+          updated_at?: string | null
+        }
+        Update: {
+          collaborator_id?: string
+          created_at?: string | null
+          id?: string
+          password_hash?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_credentials_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: true
+            referencedRelation: "collaborators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborator_events: {
         Row: {
           collaborator_id: string
@@ -56,7 +88,6 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
-          password_hash: string
           producer_id: string
           updated_at: string
           username: string
@@ -66,7 +97,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
-          password_hash: string
           producer_id: string
           updated_at?: string
           username: string
@@ -76,7 +106,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
-          password_hash?: string
           producer_id?: string
           updated_at?: string
           username?: string
