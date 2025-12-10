@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.create-stripe-connect-account]
 verify_jwt = true
 
+[functions.create-account-session]
+verify_jwt = true
+
 [functions.get-stripe-dashboard-link]
 verify_jwt = true
 

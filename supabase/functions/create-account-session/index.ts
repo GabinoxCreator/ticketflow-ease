@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CREATE-STRIPE-CONNECT] ${step}${detailsStr}`);
+  console.log(`[CREATE-ACCOUNT-SESSION] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -40,68 +40,48 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Check if user already has a Stripe Connect account
-    const { data: existingAccount } = await supabaseClient
+    // Get the user's Stripe Connect account
+    const { data: accountData, error: accountError } = await supabaseClient
       .from("producer_stripe_accounts")
-      .select("stripe_account_id, onboarding_completed")
+      .select("stripe_account_id")
       .eq("user_id", user.id)
       .single();
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-
-    let accountId = existingAccount?.stripe_account_id;
-
-    // If no account exists, create a new Custom account (for embedded components)
-    if (!accountId) {
-      logStep("Creating new Stripe Connect Custom account");
-      
-      const account = await stripe.accounts.create({
-        type: "custom",
-        country: "BR",
-        email: user.email,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-        business_type: "individual",
-        controller: {
-          fees: {
-            payer: "application",
-          },
-          losses: {
-            payments: "application",
-          },
-          stripe_dashboard: {
-            type: "none",
-          },
-        },
-      });
-
-      accountId = account.id;
-      logStep("Stripe Custom account created", { accountId });
-
-      // Save account to database
-      const { error: insertError } = await supabaseClient
-        .from("producer_stripe_accounts")
-        .insert({
-          user_id: user.id,
-          stripe_account_id: accountId,
-          stripe_account_status: "pending",
-          onboarding_completed: false,
-        });
-
-      if (insertError) {
-        logStep("Error saving account to database", { error: insertError.message });
-        throw new Error(`Failed to save account: ${insertError.message}`);
-      }
+    if (accountError || !accountData?.stripe_account_id) {
+      throw new Error("No Stripe Connect account found for this user");
     }
 
-    logStep("Account ready for embedded onboarding", { accountId });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+    logStep("Creating account session", { accountId: accountData.stripe_account_id });
+
+    // Create an Account Session for embedded components
+    const accountSession = await stripe.accountSessions.create({
+      account: accountData.stripe_account_id,
+      components: {
+        account_onboarding: {
+          enabled: true,
+        },
+        account_management: {
+          enabled: true,
+        },
+        balances: {
+          enabled: true,
+        },
+        payouts: {
+          enabled: true,
+        },
+        payments: {
+          enabled: true,
+        },
+      },
+    });
+
+    logStep("Account session created", { clientSecret: accountSession.client_secret ? "***" : "missing" });
 
     return new Response(JSON.stringify({ 
-      success: true, 
-      account_id: accountId,
-      message: "Account created successfully. Use create-account-session to get embedded component credentials."
+      client_secret: accountSession.client_secret,
+      account_id: accountData.stripe_account_id,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
