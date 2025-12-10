@@ -56,7 +56,6 @@ serve(async (req) => {
       logStep("Creating new Stripe Connect Custom account");
       
       const account = await stripe.accounts.create({
-        type: "custom",
         country: "BR",
         email: user.email,
         capabilities: {
