@@ -18,6 +18,7 @@ interface SignUpData {
   email: string;
   password: string;
   nome_completo: string;
+  cpf?: string;
   whatsapp: string;
   tipo_conta: AppRole;
 }
@@ -139,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           emailRedirectTo: redirectUrl,
           data: {
             nome_completo: data.nome_completo,
+            cpf: data.cpf,
             whatsapp: data.whatsapp,
             tipo_conta: data.tipo_conta,
           },
