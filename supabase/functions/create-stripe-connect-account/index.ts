@@ -70,6 +70,7 @@ serve(async (req) => {
           losses: {
             payments: "application",
           },
+          requirement_collection: "application",
           stripe_dashboard: {
             type: "none",
           },
