@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { compareSync, hashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { username, password, producer_username } = await req.json();
+    const { username, password } = await req.json();
     
     console.log('Login attempt for collaborator:', username);
 
@@ -52,20 +52,44 @@ serve(async (req) => {
       );
     }
 
+    // Get credentials from separate table
+    const { data: credentials, error: credError } = await supabase
+      .from('collaborator_credentials')
+      .select('password_hash')
+      .eq('collaborator_id', collaborator.id)
+      .maybeSingle();
+
+    if (credError) {
+      console.error('Error fetching credentials:', credError);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao verificar credenciais' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!credentials) {
+      console.log('No credentials found for collaborator');
+      return new Response(
+        JSON.stringify({ error: 'Usuário ou senha inválidos' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verify password with bcrypt
     let isValidPassword = false;
     try {
-      isValidPassword = await bcrypt.compare(password, collaborator.password_hash);
+      isValidPassword = compareSync(password, credentials.password_hash);
     } catch (e) {
+      console.error('Error comparing password:', e);
       // Fallback for legacy base64 passwords - verify and upgrade
       const legacyHash = btoa(password);
-      if (collaborator.password_hash === legacyHash) {
+      if (credentials.password_hash === legacyHash) {
         // Upgrade to bcrypt hash
-        const newHash = await bcrypt.hash(password);
+        const newHash = hashSync(password);
         await supabase
-          .from('collaborators')
-          .update({ password_hash: newHash })
-          .eq('id', collaborator.id);
+          .from('collaborator_credentials')
+          .update({ password_hash: newHash, updated_at: new Date().toISOString() })
+          .eq('collaborator_id', collaborator.id);
         isValidPassword = true;
         console.log('Upgraded legacy password hash for collaborator:', collaborator.id);
       }
