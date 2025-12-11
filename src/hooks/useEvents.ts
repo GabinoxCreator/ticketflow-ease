@@ -20,6 +20,8 @@ export interface Event {
   image_url: string | null;
   is_hot: boolean;
   status: 'draft' | 'published' | 'cancelled' | 'finished';
+  fake_scarcity_enabled: boolean | null;
+  fake_scarcity_percentage: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +40,8 @@ export interface EventFormData {
   image_url?: string;
   is_hot?: boolean;
   status?: 'draft' | 'published' | 'cancelled' | 'finished';
+  fake_scarcity_enabled?: boolean;
+  fake_scarcity_percentage?: number;
 }
 
 export function useEvents() {

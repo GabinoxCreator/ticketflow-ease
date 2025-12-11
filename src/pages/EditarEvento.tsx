@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, ArrowLeft, Loader2, Save, Eye, Trash2 } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, Loader2, Save, Eye, Trash2, Flame } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { ImageUpload } from '@/components/producer/ImageUpload';
 import { LotManager } from '@/components/producer/LotManager';
@@ -28,6 +28,8 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -58,6 +60,8 @@ const eventSchema = z.object({
   category: z.string().min(1, 'Selecione uma categoria'),
   is_hot: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'cancelled', 'finished']).default('draft'),
+  fake_scarcity_enabled: z.boolean().default(false),
+  fake_scarcity_percentage: z.number().min(0).max(100).default(50),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -110,6 +114,8 @@ export default function EditarEvento() {
       category: '',
       is_hot: false,
       status: 'draft',
+      fake_scarcity_enabled: false,
+      fake_scarcity_percentage: 50,
     },
   });
 
@@ -132,6 +138,8 @@ export default function EditarEvento() {
         category: event.category,
         is_hot: event.is_hot,
         status: event.status,
+        fake_scarcity_enabled: event.fake_scarcity_enabled || false,
+        fake_scarcity_percentage: event.fake_scarcity_percentage || 50,
       });
       setImageUrl(event.image_url || undefined);
     }
@@ -144,6 +152,8 @@ export default function EditarEvento() {
       ...data,
       date: format(data.date, 'yyyy-MM-dd'),
       image_url: imageUrl,
+      fake_scarcity_enabled: data.fake_scarcity_enabled,
+      fake_scarcity_percentage: data.fake_scarcity_percentage,
     };
 
     updateEvent.mutate(
@@ -435,6 +445,78 @@ export default function EditarEvento() {
                       </Select>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Fake Scarcity */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-orange-500" />
+                    Barra de Escassez (Marketing)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div>
+                      <Label htmlFor="fake_scarcity" className="font-medium">
+                        Ativar barra fictícia
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Mostra uma porcentagem de vendas personalizada
+                      </p>
+                    </div>
+                    <Switch
+                      id="fake_scarcity"
+                      checked={watchedValues.fake_scarcity_enabled}
+                      onCheckedChange={(checked) => setValue('fake_scarcity_enabled', checked, { shouldDirty: true })}
+                    />
+                  </div>
+
+                  {watchedValues.fake_scarcity_enabled && (
+                    <>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label>Porcentagem exibida</Label>
+                          <span className="font-bold text-lg text-primary">
+                            {watchedValues.fake_scarcity_percentage}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={[watchedValues.fake_scarcity_percentage || 50]}
+                          onValueChange={(value) => setValue('fake_scarcity_percentage', value[0], { shouldDirty: true })}
+                          min={0}
+                          max={100}
+                          step={1}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Preview */}
+                      <div className="p-4 bg-secondary/50 rounded-xl space-y-3">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Preview (como aparece no site):
+                        </p>
+                        <div className="bg-card rounded-lg p-4 border">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Flame className="w-4 h-4 text-orange-500" />
+                              <span className="font-medium text-sm">
+                                {watchedValues.fake_scarcity_percentage}% vendido
+                              </span>
+                            </div>
+                            <span className="text-muted-foreground text-xs">
+                              Restam poucos!
+                            </span>
+                          </div>
+                          <Progress 
+                            value={watchedValues.fake_scarcity_percentage || 50} 
+                            className="h-2"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

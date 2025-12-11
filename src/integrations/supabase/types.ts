@@ -206,6 +206,8 @@ export type Database = {
           created_at: string
           date: string
           description: string | null
+          fake_scarcity_enabled: boolean | null
+          fake_scarcity_percentage: number | null
           id: string
           image_url: string | null
           is_hot: boolean | null
@@ -225,6 +227,8 @@ export type Database = {
           created_at?: string
           date: string
           description?: string | null
+          fake_scarcity_enabled?: boolean | null
+          fake_scarcity_percentage?: number | null
           id?: string
           image_url?: string | null
           is_hot?: boolean | null
@@ -244,6 +248,8 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string | null
+          fake_scarcity_enabled?: boolean | null
+          fake_scarcity_percentage?: number | null
           id?: string
           image_url?: string | null
           is_hot?: boolean | null
