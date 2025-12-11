@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { hashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,7 +56,7 @@ serve(async (req) => {
     }
 
     // Hash password with bcrypt
-    const passwordHash = await bcrypt.hash(password);
+    const passwordHash = hashSync(password);
     
     // Create collaborator (without password_hash)
     const { data: collaborator, error } = await supabase
