@@ -45,6 +45,8 @@ interface EventLot {
   sold_quantity: number;
   description?: string | null;
   is_active?: boolean | null;
+  fake_scarcity_enabled?: boolean | null;
+  fake_scarcity_percentage?: number | null;
 }
 
 const EventDetails = () => {
@@ -369,6 +371,16 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
   const available = lot.total_quantity - lot.sold_quantity;
   const isSoldOut = available === 0;
   const isSelected = quantity > 0;
+  
+  // Calculate real sold percentage for this lot
+  const realSoldPercentage = lot.total_quantity > 0 
+    ? Math.round((lot.sold_quantity / lot.total_quantity) * 100) 
+    : 0;
+  
+  // Use fake scarcity if enabled, otherwise real percentage
+  const displayPercentage = lot.fake_scarcity_enabled 
+    ? (lot.fake_scarcity_percentage || 50) 
+    : realSoldPercentage;
 
   return (
     <div
@@ -413,9 +425,41 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
             </span>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-1">
-            {available} disponíveis
-          </p>
+          {/* Scarcity bar for each lot */}
+          {!isSoldOut && displayPercentage > 0 && (
+            <div className="mt-3 space-y-1">
+              <div className="flex items-center gap-2 text-xs">
+                {lot.fake_scarcity_enabled ? (
+                  <Flame className="w-3.5 h-3.5 text-orange-500" />
+                ) : (
+                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+                <span className={cn(
+                  "font-medium",
+                  lot.fake_scarcity_enabled && "text-orange-500"
+                )}>
+                  {displayPercentage}% vendido
+                </span>
+              </div>
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    lot.fake_scarcity_enabled 
+                      ? "bg-gradient-to-r from-orange-500 to-red-500" 
+                      : "bg-primary"
+                  )}
+                  style={{ width: `${displayPercentage}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {isSoldOut ? null : (
+            <p className="text-xs text-muted-foreground mt-2">
+              {available} disponíveis
+            </p>
+          )}
         </div>
 
         {!isSoldOut && (

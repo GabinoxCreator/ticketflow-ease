@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -29,6 +31,8 @@ const emptyLot: LotFormData = {
   price: 0,
   total_quantity: 100,
   is_active: true,
+  fake_scarcity_enabled: false,
+  fake_scarcity_percentage: 50,
 };
 
 export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotManagerProps) {
@@ -48,6 +52,8 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         end_date: lot.end_date || undefined,
         description: lot.description || undefined,
         is_active: lot.is_active,
+        fake_scarcity_enabled: lot.fake_scarcity_enabled || false,
+        fake_scarcity_percentage: lot.fake_scarcity_percentage || 50,
       });
     } else {
       setEditingLot(null);
@@ -232,6 +238,53 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                 checked={formData.is_active}
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
+            </div>
+
+            {/* Fake Scarcity Section */}
+            <div className="border-t pt-4 mt-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-orange-500" />
+                <span className="font-medium text-sm">Escassez Fictícia</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="fake-scarcity" className="text-sm">
+                  Mostrar barra de urgência
+                </Label>
+                <Switch
+                  id="fake-scarcity"
+                  checked={formData.fake_scarcity_enabled}
+                  onCheckedChange={(checked) => setFormData({ ...formData, fake_scarcity_enabled: checked })}
+                />
+              </div>
+
+              {formData.fake_scarcity_enabled && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <Label>Porcentagem exibida</Label>
+                      <span className="font-medium">{formData.fake_scarcity_percentage}%</span>
+                    </div>
+                    <Slider
+                      value={[formData.fake_scarcity_percentage || 50]}
+                      onValueChange={([value]) => setFormData({ ...formData, fake_scarcity_percentage: value })}
+                      min={10}
+                      max={95}
+                      step={5}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-secondary/50 rounded-lg space-y-2">
+                    <p className="text-xs text-muted-foreground">Preview:</p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Flame className="w-4 h-4 text-orange-500" />
+                      <span className="font-medium">{formData.fake_scarcity_percentage}% vendido</span>
+                    </div>
+                    <Progress value={formData.fake_scarcity_percentage} className="h-2" />
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <DialogFooter>
