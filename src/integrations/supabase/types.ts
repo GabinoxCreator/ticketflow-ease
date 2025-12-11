@@ -151,6 +151,8 @@ export type Database = {
           description: string | null
           end_date: string | null
           event_id: string
+          fake_scarcity_enabled: boolean | null
+          fake_scarcity_percentage: number | null
           id: string
           is_active: boolean | null
           name: string
@@ -165,6 +167,8 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           event_id: string
+          fake_scarcity_enabled?: boolean | null
+          fake_scarcity_percentage?: number | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -179,6 +183,8 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           event_id?: string
+          fake_scarcity_enabled?: boolean | null
+          fake_scarcity_percentage?: number | null
           id?: string
           is_active?: boolean | null
           name?: string

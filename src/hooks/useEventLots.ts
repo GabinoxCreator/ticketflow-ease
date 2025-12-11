@@ -15,6 +15,8 @@ export interface EventLot {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  fake_scarcity_enabled: boolean | null;
+  fake_scarcity_percentage: number | null;
 }
 
 export interface LotFormData {
@@ -26,6 +28,8 @@ export interface LotFormData {
   end_date?: string;
   description?: string;
   is_active?: boolean;
+  fake_scarcity_enabled?: boolean;
+  fake_scarcity_percentage?: number;
 }
 
 export function useEventLots(eventId: string | undefined) {
