@@ -79,15 +79,15 @@ function AddCollaboratorDialog({ onClose }: { onClose: () => void }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
+        <Label htmlFor="password">Senha (mínimo 6 caracteres)</Label>
         <Input
           id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Digite uma senha"
+          placeholder="Mínimo 6 caracteres"
           required
-          minLength={4}
+          minLength={6}
         />
       </div>
       <div className="space-y-2">
