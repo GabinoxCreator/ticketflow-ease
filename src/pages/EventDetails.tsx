@@ -15,6 +15,7 @@ import {
   Users,
   AlertCircle,
   Loader2,
+  Flame,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -135,7 +136,12 @@ const EventDetails = () => {
 
   const totalAvailable = activeLots.reduce((sum, lot) => sum + lot.total_quantity, 0);
   const totalSold = activeLots.reduce((sum, lot) => sum + lot.sold_quantity, 0);
-  const soldPercentage = totalAvailable > 0 ? Math.round((totalSold / totalAvailable) * 100) : 0;
+  const realSoldPercentage = totalAvailable > 0 ? Math.round((totalSold / totalAvailable) * 100) : 0;
+  
+  // Use fake scarcity percentage if enabled, otherwise use real percentage
+  const displayPercentage = (event as any).fake_scarcity_enabled 
+    ? ((event as any).fake_scarcity_percentage || 50) 
+    : realSoldPercentage;
 
   return (
     <>
@@ -226,17 +232,23 @@ const EventDetails = () => {
                     <div className="mt-6 p-4 bg-secondary/50 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <Users className="w-5 h-5 text-primary" />
-                          <span className="font-medium">{soldPercentage}% vendido</span>
+                          {(event as any).fake_scarcity_enabled ? (
+                            <Flame className="w-5 h-5 text-orange-500" />
+                          ) : (
+                            <Users className="w-5 h-5 text-primary" />
+                          )}
+                          <span className="font-medium">{displayPercentage}% vendido</span>
                         </div>
                         <span className="text-muted-foreground text-sm">
-                          {totalAvailable - totalSold} ingressos restantes
+                          {(event as any).fake_scarcity_enabled 
+                            ? 'Restam poucos!' 
+                            : `${totalAvailable - totalSold} ingressos restantes`}
                         </span>
                       </div>
                       <div className="h-2 bg-secondary rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-primary rounded-full transition-all duration-500"
-                          style={{ width: `${soldPercentage}%` }}
+                          style={{ width: `${displayPercentage}%` }}
                         />
                       </div>
                     </div>
