@@ -14,10 +14,12 @@ interface CartItem {
 
 interface CheckoutRequest {
   eventId: string;
-  cartItems: CartItem[];
+  cartItems?: CartItem[];
+  items?: CartItem[]; // Alternative name used by frontend
   customerEmail: string;
   customerName: string;
   customerPhone?: string;
+  customerCPF?: string;
 }
 
 serve(async (req) => {
@@ -31,7 +33,10 @@ serve(async (req) => {
   );
 
   try {
-    const { eventId, cartItems, customerEmail, customerName, customerPhone }: CheckoutRequest = await req.json();
+    const requestBody: CheckoutRequest = await req.json();
+    const { eventId, customerEmail, customerName, customerPhone } = requestBody;
+    // Support both 'cartItems' and 'items' parameter names
+    const cartItems = requestBody.cartItems || requestBody.items;
     
     console.log("[CREATE-CHECKOUT] Starting checkout session creation", { eventId, cartItems });
 
