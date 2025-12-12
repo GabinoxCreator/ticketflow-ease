@@ -3,8 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X, ChevronLeft } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckoutStepCPF } from './CheckoutStepCPF';
-import { CheckoutStepEmailVerification } from './CheckoutStepEmailVerification';
+import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
 import { CheckoutStepPayment } from './CheckoutStepPayment';
 import { CheckoutStepPix } from './CheckoutStepPix';
 import { CheckoutStepAwaitingPayment } from './CheckoutStepAwaitingPayment';
@@ -14,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-type CheckoutStep = 'cpf' | 'verify-email' | 'payment' | 'pix' | 'awaiting' | 'success' | 'expired';
+type CheckoutStep = 'form' | 'payment' | 'pix' | 'awaiting' | 'success' | 'expired';
 
 interface CartItem {
   lotId: string;
@@ -46,12 +45,13 @@ export function CheckoutModal({
   items,
   totalAmount,
 }: CheckoutModalProps) {
-  const { user } = useAuth();
-  const [step, setStep] = useState<CheckoutStep>('cpf');
+  const { user, profile } = useAuth();
+  const [step, setStep] = useState<CheckoutStep>('form');
   const [customerData, setCustomerData] = useState({
     cpf: '',
-    name: user?.user_metadata?.nome_completo || '',
-    email: user?.email || '',
+    name: '',
+    email: '',
+    phone: '',
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -60,31 +60,37 @@ export function CheckoutModal({
     expiresAt: Date;
   } | null>(null);
 
-  // Check if user is already authenticated
+  // Check if user is already authenticated - skip directly to payment
   useEffect(() => {
-    if (user && isOpen && step === 'cpf') {
-      // User is logged in, skip to payment
+    if (user && isOpen) {
+      // User is logged in, skip to payment with pre-filled data
       setCustomerData({
-        cpf: '',
-        name: user.user_metadata?.nome_completo || '',
+        cpf: '', // CPF will need to be entered if not available
+        name: profile?.nome_completo || user.user_metadata?.nome_completo || '',
         email: user.email || '',
+        phone: profile?.whatsapp || '',
       });
-    }
-  }, [user, isOpen, step]);
-
-  const handleCPFContinue = (cpf: string, name: string, email: string) => {
-    setCustomerData({ cpf, name, email });
-    
-    // If user is already logged in with same email, skip verification
-    if (user && user.email === email) {
       setStep('payment');
-    } else {
-      // Need to verify email
-      setStep('verify-email');
+    } else if (isOpen) {
+      // Not logged in, start with form
+      setStep('form');
     }
-  };
+  }, [user, isOpen, profile]);
 
-  const handleEmailVerified = () => {
+  const handleFormComplete = (data: {
+    cpf: string;
+    name: string;
+    email: string;
+    phone: string;
+    password?: string;
+  }) => {
+    setCustomerData({
+      cpf: data.cpf,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+    });
+    // TODO: If password is provided, create account
     setStep('payment');
   };
 
@@ -101,6 +107,7 @@ export function CheckoutModal({
             customerName: customerData.name,
             customerEmail: customerData.email,
             customerCPF: customerData.cpf,
+            customerPhone: customerData.phone,
           },
         });
 
@@ -118,6 +125,7 @@ export function CheckoutModal({
             customerName: customerData.name,
             customerEmail: customerData.email,
             customerCPF: customerData.cpf,
+            customerPhone: customerData.phone,
           },
         });
 
@@ -157,11 +165,6 @@ export function CheckoutModal({
     }
   }, [orderId]);
 
-  const handlePixGenerated = () => {
-    // After generating PIX, show awaiting confirmation
-    setStep('awaiting');
-  };
-
   const handlePaymentConfirmed = () => {
     setStep('success');
   };
@@ -171,31 +174,25 @@ export function CheckoutModal({
   };
 
   const handleRetry = () => {
-    setStep('cpf');
+    setStep('form');
     setPixData(null);
     setOrderId(null);
   };
 
   const handleClose = () => {
-    setStep('cpf');
+    // Reset to form only if not logged in
+    setStep(user ? 'payment' : 'form');
     setPixData(null);
     setOrderId(null);
     onClose();
   };
 
-  const canGoBack = step === 'payment' || step === 'verify-email';
+  // For logged-in users on payment step, they can go back to form to edit
+  const canGoBack = step === 'payment' && !user;
 
   const handleBack = () => {
-    if (step === 'payment') {
-      // If user is logged in with same email, go back to CPF
-      // Otherwise go back to email verification
-      if (user && user.email === customerData.email) {
-        setStep('cpf');
-      } else {
-        setStep('verify-email');
-      }
-    } else if (step === 'verify-email') {
-      setStep('cpf');
+    if (step === 'payment' && !user) {
+      setStep('form');
     }
   };
 
@@ -214,8 +211,7 @@ export function CheckoutModal({
               </Button>
             )}
             <h2 className="font-display font-semibold">
-              {step === 'cpf' && 'Seus Dados'}
-              {step === 'verify-email' && 'Verificar Email'}
+              {step === 'form' && 'Seus Dados'}
               {step === 'payment' && 'Pagamento'}
               {step === 'pix' && 'Pagar com PIX'}
               {step === 'awaiting' && 'Aguardando Pagamento'}
@@ -234,8 +230,8 @@ export function CheckoutModal({
         {step !== 'success' && step !== 'expired' && step !== 'awaiting' && (
           <div className="px-4 py-2 bg-secondary/30">
             <div className="flex gap-1">
-              {['cpf', 'verify-email', 'payment', 'pix'].map((s, index) => {
-                const steps = ['cpf', 'verify-email', 'payment', 'pix'];
+              {['form', 'payment', 'pix'].map((s, index) => {
+                const steps = ['form', 'payment', 'pix'];
                 const currentIndex = steps.indexOf(step);
                 return (
                   <div
@@ -253,24 +249,16 @@ export function CheckoutModal({
         {/* Content */}
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           <AnimatePresence mode="wait">
-            {step === 'cpf' && (
-              <CheckoutStepCPF
-                key="cpf"
-                initialCPF={customerData.cpf}
-                initialName={customerData.name}
-                initialEmail={customerData.email}
-                onContinue={handleCPFContinue}
-              />
-            )}
-
-            {step === 'verify-email' && (
-              <CheckoutStepEmailVerification
-                key="verify-email"
-                email={customerData.email}
-                name={customerData.name}
-                cpf={customerData.cpf}
-                onVerified={handleEmailVerified}
-                onBack={() => setStep('cpf')}
+            {step === 'form' && (
+              <CheckoutStepProgressiveForm
+                key="form"
+                initialData={{
+                  cpf: customerData.cpf,
+                  name: customerData.name,
+                  email: customerData.email,
+                  phone: customerData.phone,
+                }}
+                onComplete={handleFormComplete}
               />
             )}
 
