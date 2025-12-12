@@ -169,11 +169,11 @@ export const CheckoutStepProgressiveForm: React.FC<CheckoutStepProgressiveFormPr
 
       if (error) throw error;
 
-      if (data.valid) {
+      if (data.success) {
         setEmailVerified(true);
         toast.success('Email verificado com sucesso!');
       } else {
-        toast.error('Código inválido ou expirado');
+        toast.error(data.error || 'Código inválido ou expirado');
         setOtp('');
       }
     } catch (error) {
