@@ -28,7 +28,7 @@ interface TicketResult {
 export default function QRCodeScanner() {
   const navigate = useNavigate();
   const { id: eventId } = useParams<{ id: string }>();
-  const { collaborator, events } = useColaboradorAuth();
+  const { collaborator, events, session, logout } = useColaboradorAuth();
 
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -93,7 +93,7 @@ export default function QRCodeScanner() {
   };
 
   const handleTicketCode = async (code: string, action: 'check' | 'validate' = 'check') => {
-    if (!code.trim() || !collaborator) return;
+    if (!code.trim() || !collaborator || !session) return;
 
     setIsLoading(true);
     setResult(null);
@@ -111,12 +111,21 @@ export default function QRCodeScanner() {
             ticket_code: code.trim(),
             event_id: eventId,
             collaborator_id: collaborator.id,
+            session_token: session.token, // SECURITY: Pass session token for server validation
             action,
           }),
         }
       );
 
       const data = await response.json();
+      
+      // Handle session expiration
+      if (data.session_expired) {
+        logout();
+        navigate('/colaborador/login');
+        return;
+      }
+      
       setResult(data);
 
       if (action === 'validate' && data.success) {

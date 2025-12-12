@@ -28,7 +28,7 @@ interface Ticket {
 export default function ColaboradorParticipantes() {
   const navigate = useNavigate();
   const { id: eventId } = useParams<{ id: string }>();
-  const { events, collaborator } = useColaboradorAuth();
+  const { events, collaborator, session, logout } = useColaboradorAuth();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +94,7 @@ export default function ColaboradorParticipantes() {
   };
 
   const handleQuickValidate = async (ticket: Ticket) => {
-    if (ticket.status !== 'valid' || !collaborator) return;
+    if (ticket.status !== 'valid' || !collaborator || !session) return;
 
     try {
       const response = await fetch(
@@ -109,10 +109,20 @@ export default function ColaboradorParticipantes() {
             ticket_code: ticket.ticket_code,
             event_id: eventId,
             collaborator_id: collaborator.id,
+            session_token: session.token, // SECURITY: Pass session token for server validation
             action: 'validate',
           }),
         }
       );
+
+      const data = await response.json();
+      
+      // Handle session expiration
+      if (data.session_expired) {
+        logout();
+        navigate('/colaborador/login');
+        return;
+      }
 
       if (response.ok) {
         fetchTickets(); // Refresh list

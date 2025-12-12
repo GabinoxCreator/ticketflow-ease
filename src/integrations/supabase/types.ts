@@ -82,6 +82,38 @@ export type Database = {
           },
         ]
       }
+      collaborator_sessions: {
+        Row: {
+          collaborator_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          session_token_hash: string
+        }
+        Insert: {
+          collaborator_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          session_token_hash: string
+        }
+        Update: {
+          collaborator_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          session_token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_sessions_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: true
+            referencedRelation: "collaborators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborators: {
         Row: {
           created_at: string

@@ -46,7 +46,7 @@ type Guest = TicketGuest | ListGuest;
 export default function ColaboradorConvidados() {
   const navigate = useNavigate();
   const { id: eventId } = useParams<{ id: string }>();
-  const { events, collaborator } = useColaboradorAuth();
+  const { events, collaborator, session, logout } = useColaboradorAuth();
 
   const [guests, setGuests] = useState<Guest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -189,19 +189,27 @@ export default function ColaboradorConvidados() {
   };
 
   const handleValidate = async (guest: Guest) => {
-    if (!collaborator) return;
+    if (!collaborator || !session) return;
 
     try {
       if (guest.type === 'ticket') {
-        // Validate ticket
+        // Validate ticket with session token for security
         const response = await supabase.functions.invoke('collaborator-validate-ticket', {
           body: {
             ticket_code: guest.ticket_code,
             event_id: eventId,
             collaborator_id: collaborator.id,
+            session_token: session.token, // SECURITY: Pass session token for server validation
             action: 'validate',
           },
         });
+
+        // Handle session expiration
+        if (response.data?.session_expired) {
+          logout();
+          navigate('/colaborador/login');
+          return;
+        }
 
         if (response.error) throw response.error;
         
@@ -215,14 +223,22 @@ export default function ColaboradorConvidados() {
           throw new Error(response.data.error);
         }
       } else {
-        // Validate guest list entry
+        // Validate guest list entry with session token for security
         const response = await supabase.functions.invoke('collaborator-validate-guest-entry', {
           body: {
             entry_id: guest.id,
             event_id: eventId,
             collaborator_id: collaborator.id,
+            session_token: session.token, // SECURITY: Pass session token for server validation
           },
         });
+        
+        // Handle session expiration
+        if (response.data?.session_expired) {
+          logout();
+          navigate('/colaborador/login');
+          return;
+        }
         
         // Handle already checked in gracefully
         if (response.data?.error) {
