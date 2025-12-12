@@ -1,34 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Lock, 
-  CheckCircle2, 
-  AlertCircle, 
-  ChevronDown,
-  ArrowRight,
-  RefreshCw,
-  CreditCard
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Check, User, Mail, Phone, Lock, CreditCard, Loader2, ArrowLeft, Pencil } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { formatCPF, validateCPF, unformatCPF } from '@/utils/cpfValidator';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { validateCPF, formatCPF } from '@/utils/cpfValidator';
 
 interface CheckoutStepProgressiveFormProps {
-  onComplete: (data: {
-    cpf: string;
-    name: string;
-    email: string;
-    phone: string;
-    password?: string;
-  }) => void;
+  onComplete: (data: { cpf: string; name: string; email: string; phone: string; password: string }) => void;
   initialData?: {
     cpf?: string;
     name?: string;
@@ -39,66 +20,54 @@ interface CheckoutStepProgressiveFormProps {
 
 type Step = 'cpf' | 'name' | 'email' | 'phone' | 'password';
 
-interface StepState {
-  value: string;
-  isValid: boolean;
-  isComplete: boolean;
-  error: string;
+interface FormData {
+  cpf: string;
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
 }
 
-export function CheckoutStepProgressiveForm({ 
+const STEPS: Step[] = ['cpf', 'name', 'email', 'phone', 'password'];
+
+const STEP_CONFIG = {
+  cpf: { label: 'CPF', icon: CreditCard, index: 1 },
+  name: { label: 'Nome Completo', icon: User, index: 2 },
+  email: { label: 'Email', icon: Mail, index: 3 },
+  phone: { label: 'WhatsApp', icon: Phone, index: 4 },
+  password: { label: 'Criar Senha', icon: Lock, index: 5 },
+};
+
+export const CheckoutStepProgressiveForm: React.FC<CheckoutStepProgressiveFormProps> = ({
   onComplete,
-  initialData 
-}: CheckoutStepProgressiveFormProps) {
-  // Step states
-  const [cpf, setCpf] = useState<StepState>({
-    value: initialData?.cpf || '',
-    isValid: false,
-    isComplete: false,
-    error: ''
+  initialData
+}) => {
+  const [currentStep, setCurrentStep] = useState<Step>('cpf');
+  const [formData, setFormData] = useState<FormData>({
+    cpf: initialData?.cpf || '',
+    name: initialData?.name || '',
+    email: initialData?.email || '',
+    phone: initialData?.phone || '',
+    password: '',
+    confirmPassword: '',
   });
-  const [name, setName] = useState<StepState>({
-    value: initialData?.name || '',
-    isValid: false,
-    isComplete: false,
-    error: ''
-  });
-  const [email, setEmail] = useState<StepState>({
-    value: initialData?.email || '',
-    isValid: false,
-    isComplete: false,
-    error: ''
-  });
-  const [phone, setPhone] = useState<StepState>({
-    value: initialData?.phone || '',
-    isValid: false,
-    isComplete: false,
-    error: ''
-  });
-  const [password, setPassword] = useState<StepState>({
-    value: '',
-    isValid: false,
-    isComplete: false,
-    error: ''
-  });
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [completedSteps, setCompletedSteps] = useState<Set<Step>>(new Set());
   
-  // Email verification states
+  // Email verification state
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   
-  // Current active step
-  const [activeStep, setActiveStep] = useState<Step>('cpf');
-  
   // Refs for auto-focus
-  const cpfRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const emailRef = useRef<HTMLInputElement>(null);
-  const phoneRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
+  const cpfInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   // Cooldown timer
   useEffect(() => {
@@ -108,578 +77,478 @@ export function CheckoutStepProgressiveForm({
     }
   }, [cooldown]);
 
-  // Auto-focus when step changes
+  // Auto-focus on step change
   useEffect(() => {
-    const refs: Record<Step, React.RefObject<HTMLInputElement>> = {
-      cpf: cpfRef,
-      name: nameRef,
-      email: emailRef,
-      phone: phoneRef,
-      password: passwordRef
-    };
-    
-    setTimeout(() => {
-      refs[activeStep]?.current?.focus();
-    }, 300);
-  }, [activeStep]);
-
-  // Format phone number
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-  };
-
-  // Handlers
-  const handleCPFChange = (value: string) => {
-    const formatted = formatCPF(value);
-    const digits = unformatCPF(value);
-    
-    let isValid = false;
-    let error = '';
-    
-    if (digits.length === 11) {
-      if (validateCPF(digits)) {
-        isValid = true;
-      } else {
-        error = 'CPF inválido';
+    const timeout = setTimeout(() => {
+      switch (currentStep) {
+        case 'cpf':
+          cpfInputRef.current?.focus();
+          break;
+        case 'name':
+          nameInputRef.current?.focus();
+          break;
+        case 'email':
+          emailInputRef.current?.focus();
+          break;
+        case 'phone':
+          phoneInputRef.current?.focus();
+          break;
+        case 'password':
+          passwordInputRef.current?.focus();
+          break;
       }
+    }, 100);
+    return () => clearTimeout(timeout);
+  }, [currentStep]);
+
+  const formatPhone = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 7) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (numbers.length <= 11) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  };
+
+  const validateCurrentStep = (): boolean => {
+    switch (currentStep) {
+      case 'cpf':
+        return validateCPF(formData.cpf);
+      case 'name':
+        return formData.name.trim().length >= 3;
+      case 'email':
+        return emailVerified;
+      case 'phone':
+        return formData.phone.replace(/\D/g, '').length >= 10;
+      case 'password':
+        return formData.password.length >= 6 && formData.password === formData.confirmPassword;
+      default:
+        return false;
     }
+  };
+
+  const sendVerificationCode = useCallback(async () => {
+    if (!formData.email || cooldown > 0) return;
     
-    setCpf({ value: formatted, isValid, isComplete: false, error });
-  };
-
-  const handleCPFComplete = () => {
-    const digits = unformatCPF(cpf.value);
-    if (digits.length === 11 && validateCPF(digits)) {
-      setCpf(prev => ({ ...prev, isComplete: true }));
-      setActiveStep('name');
-    } else {
-      setCpf(prev => ({ ...prev, error: 'CPF inválido' }));
-    }
-  };
-
-  const handleNameChange = (value: string) => {
-    const isValid = value.trim().length >= 3;
-    setName({ 
-      value, 
-      isValid, 
-      isComplete: false, 
-      error: '' 
-    });
-  };
-
-  const handleNameComplete = () => {
-    if (name.value.trim().length >= 3) {
-      setName(prev => ({ ...prev, isComplete: true }));
-      setActiveStep('email');
-    } else {
-      setName(prev => ({ ...prev, error: 'Nome deve ter pelo menos 3 caracteres' }));
-    }
-  };
-
-  const handleEmailChange = (value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const isValid = emailRegex.test(value);
-    setEmail({ 
-      value, 
-      isValid, 
-      isComplete: false, 
-      error: '' 
-    });
-    // Reset verification when email changes
-    setEmailVerificationSent(false);
-    setOtp('');
-  };
-
-  const sendVerificationCode = async () => {
-    if (!email.isValid) {
-      setEmail(prev => ({ ...prev, error: 'Email inválido' }));
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Por favor, insira um email válido');
       return;
     }
-    
+
     setIsSendingCode(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-verification-code', {
+      const { error } = await supabase.functions.invoke('send-verification-code', {
         body: { 
-          email: email.value, 
-          name: name.value, 
-          cpf: unformatCPF(cpf.value) 
-        },
+          email: formData.email,
+          cpf: formData.cpf.replace(/\D/g, ''),
+          name: formData.name
+        }
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      
-      toast.success('Código enviado para seu email!');
+
       setEmailVerificationSent(true);
       setCooldown(60);
-    } catch (error: any) {
-      console.error('Error sending code:', error);
-      toast.error(error.message || 'Erro ao enviar código');
+      toast.success('Código enviado para seu email!');
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+      toast.error('Erro ao enviar código. Tente novamente.');
     } finally {
       setIsSendingCode(false);
     }
-  };
+  }, [formData.email, formData.cpf, formData.name, cooldown]);
 
-  const verifyEmailCode = async () => {
-    if (otp.length !== 6) {
-      toast.error('Digite o código completo');
-      return;
-    }
+  const verifyEmailCode = useCallback(async () => {
+    if (otp.length !== 6) return;
 
     setIsVerifyingEmail(true);
     try {
       const { data, error } = await supabase.functions.invoke('verify-email-code', {
-        body: { email: email.value, code: otp },
+        body: { email: formData.email, code: otp }
       });
 
       if (error) throw error;
-      
-      if (data?.success) {
-        toast.success('Email verificado!');
-        setEmail(prev => ({ ...prev, isComplete: true }));
-        setActiveStep('phone');
+
+      if (data.valid) {
+        setEmailVerified(true);
+        toast.success('Email verificado com sucesso!');
       } else {
-        toast.error(data?.error || 'Código inválido');
+        toast.error('Código inválido ou expirado');
+        setOtp('');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error verifying code:', error);
-      toast.error('Código inválido ou expirado');
+      toast.error('Erro ao verificar código');
+      setOtp('');
     } finally {
       setIsVerifyingEmail(false);
     }
-  };
+  }, [otp, formData.email]);
 
-  const handlePhoneChange = (value: string) => {
-    const formatted = formatPhone(value);
-    const digits = value.replace(/\D/g, '');
-    const isValid = digits.length >= 10 && digits.length <= 11;
-    setPhone({ 
-      value: formatted, 
-      isValid, 
-      isComplete: false, 
-      error: '' 
-    });
-  };
+  const handleNext = () => {
+    if (!validateCurrentStep()) return;
 
-  const handlePhoneComplete = () => {
-    const digits = phone.value.replace(/\D/g, '');
-    if (digits.length >= 10) {
-      setPhone(prev => ({ ...prev, isComplete: true }));
-      setActiveStep('password');
+    setCompletedSteps(prev => new Set([...prev, currentStep]));
+    
+    const currentIndex = STEPS.indexOf(currentStep);
+    if (currentIndex < STEPS.length - 1) {
+      setCurrentStep(STEPS[currentIndex + 1]);
     } else {
-      setPhone(prev => ({ ...prev, error: 'Telefone inválido' }));
+      // All steps completed
+      onComplete({
+        cpf: formData.cpf.replace(/\D/g, ''),
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone.replace(/\D/g, ''),
+        password: formData.password,
+      });
     }
   };
 
-  const handlePasswordChange = (value: string) => {
-    const isValid = value.length >= 6;
-    setPassword({ 
-      value, 
-      isValid, 
-      isComplete: false, 
-      error: '' 
-    });
+  const handleBack = () => {
+    const currentIndex = STEPS.indexOf(currentStep);
+    if (currentIndex > 0) {
+      setCurrentStep(STEPS[currentIndex - 1]);
+    }
   };
 
-  const handleFinalSubmit = () => {
-    // Validate password
-    if (password.value.length < 6) {
-      setPassword(prev => ({ ...prev, error: 'Senha deve ter pelo menos 6 caracteres' }));
-      return;
-    }
-    
-    if (password.value !== confirmPassword) {
-      setPassword(prev => ({ ...prev, error: 'Senhas não conferem' }));
-      return;
-    }
-
-    setPassword(prev => ({ ...prev, isComplete: true }));
-    
-    onComplete({
-      cpf: unformatCPF(cpf.value),
-      name: name.value.trim(),
-      email: email.value.trim(),
-      phone: phone.value.replace(/\D/g, ''),
-      password: password.value
-    });
+  const handleEditStep = (step: Step) => {
+    setCurrentStep(step);
   };
 
-  // Check if all steps are complete
-  const allComplete = cpf.isComplete && name.isComplete && email.isComplete && phone.isComplete;
+  const currentStepIndex = STEPS.indexOf(currentStep) + 1;
+  const config = STEP_CONFIG[currentStep];
+  const Icon = config.icon;
 
-  // Step component
-  const StepSection = ({ 
-    step, 
-    icon: Icon, 
-    label, 
-    isComplete, 
-    isActive, 
-    children,
-    onEdit
-  }: {
-    step: Step;
-    icon: React.ElementType;
-    label: string;
-    isComplete: boolean;
-    isActive: boolean;
-    children: React.ReactNode;
-    onEdit?: () => void;
-  }) => {
-    const canOpen = step === 'cpf' || 
-      (step === 'name' && cpf.isComplete) ||
-      (step === 'email' && name.isComplete) ||
-      (step === 'phone' && email.isComplete) ||
-      (step === 'password' && phone.isComplete);
+  const renderCompletedSummary = () => {
+    const stepsToShow = STEPS.filter(step => completedSteps.has(step) && step !== currentStep);
+    if (stepsToShow.length === 0) return null;
 
     return (
-      <div 
-        className={cn(
-          "border rounded-lg transition-all duration-300",
-          isActive ? "border-primary bg-card shadow-sm" : "border-border",
-          isComplete && "border-green-500/50 bg-green-500/5"
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => canOpen && (isComplete ? onEdit?.() : setActiveStep(step))}
-          disabled={!canOpen}
-          className={cn(
-            "w-full flex items-center justify-between p-4 text-left",
-            !canOpen && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-              isComplete ? "bg-green-500 text-white" : 
-              isActive ? "bg-primary text-primary-foreground" : 
-              "bg-muted text-muted-foreground"
-            )}>
-              {isComplete ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
-            </div>
-            <span className={cn(
-              "font-medium",
-              isComplete && "text-green-600 dark:text-green-400"
-            )}>
-              {label}
-            </span>
-          </div>
-          <ChevronDown className={cn(
-            "w-5 h-5 text-muted-foreground transition-transform",
-            isActive && "rotate-180"
-          )} />
-        </button>
-        
-        <AnimatePresence>
-          {isActive && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
+      <div className="space-y-2 mb-6">
+        {stepsToShow.map(step => {
+          const stepConfig = STEP_CONFIG[step];
+          const StepIcon = stepConfig.icon;
+          let value = '';
+          
+          switch (step) {
+            case 'cpf':
+              value = formatCPF(formData.cpf);
+              break;
+            case 'name':
+              value = formData.name;
+              break;
+            case 'email':
+              value = formData.email;
+              break;
+            case 'phone':
+              value = formData.phone;
+              break;
+            case 'password':
+              value = '••••••••';
+              break;
+          }
+
+          return (
+            <div 
+              key={step}
+              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
             >
-              <div className="px-4 pb-4 pt-0">
-                {children}
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                  <Check className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{stepConfig.label}</p>
+                  <p className="text-sm font-medium">{value}</p>
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEditStep(step)}
+                className="h-8 w-8 p-0"
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            </div>
+          );
+        })}
       </div>
     );
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="space-y-3"
-    >
-      <div className="text-center mb-6">
-        <h2 className="font-display font-bold text-xl">Complete seus dados</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Preencha as informações para continuar
-        </p>
-      </div>
-
-      {/* Step 1: CPF */}
-      <StepSection 
-        step="cpf" 
-        icon={CreditCard} 
-        label="CPF" 
-        isComplete={cpf.isComplete}
-        isActive={activeStep === 'cpf'}
-        onEdit={() => setActiveStep('cpf')}
-      >
-        <div className="space-y-3">
-          <div className="relative">
-            <Input
-              ref={cpfRef}
-              type="text"
-              inputMode="numeric"
-              placeholder="000.000.000-00"
-              value={cpf.value}
-              onChange={(e) => handleCPFChange(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleCPFComplete()}
-              maxLength={14}
-              className={cn(
-                'pr-10',
-                cpf.error && 'border-destructive',
-                cpf.isValid && 'border-green-500'
+  const renderCurrentStep = () => {
+    switch (currentStep) {
+      case 'cpf':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cpf-input">CPF</Label>
+              <Input
+                id="cpf-input"
+                ref={cpfInputRef}
+                type="text"
+                placeholder="000.000.000-00"
+                value={formatCPF(formData.cpf)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                  setFormData(prev => ({ ...prev, cpf: value }));
+                }}
+                className="text-lg h-12"
+              />
+              {formData.cpf.length === 11 && !validateCPF(formData.cpf) && (
+                <p className="text-sm text-destructive">CPF inválido</p>
               )}
-            />
-            {cpf.isValid && (
-              <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-green-500" />
+            </div>
+          </div>
+        );
+
+      case 'name':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name-input">Nome Completo</Label>
+              <Input
+                id="name-input"
+                ref={nameInputRef}
+                type="text"
+                placeholder="Seu nome completo"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="text-lg h-12"
+              />
+              {formData.name.length > 0 && formData.name.length < 3 && (
+                <p className="text-sm text-destructive">Nome deve ter pelo menos 3 caracteres</p>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'email':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-input">Email</Label>
+              <Input
+                id="email-input"
+                ref={emailInputRef}
+                type="email"
+                placeholder="seu@email.com"
+                value={formData.email}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, email: e.target.value }));
+                  setEmailVerified(false);
+                  setEmailVerificationSent(false);
+                  setOtp('');
+                }}
+                disabled={emailVerified}
+                className="text-lg h-12"
+              />
+            </div>
+
+            {!emailVerified && (
+              <>
+                {!emailVerificationSent ? (
+                  <Button
+                    type="button"
+                    onClick={sendVerificationCode}
+                    disabled={isSendingCode || !formData.email || cooldown > 0}
+                    className="w-full"
+                  >
+                    {isSendingCode ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : cooldown > 0 ? (
+                      `Reenviar em ${cooldown}s`
+                    ) : (
+                      'Enviar código de verificação'
+                    )}
+                  </Button>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Digite o código de 6 dígitos enviado para seu email
+                    </p>
+                    <div className="flex justify-center">
+                      <InputOTP
+                        maxLength={6}
+                        value={otp}
+                        onChange={setOtp}
+                        disabled={isVerifyingEmail}
+                      >
+                        <InputOTPGroup>
+                          {[0, 1, 2, 3, 4, 5].map((index) => (
+                            <InputOTPSlot key={index} index={index} />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={verifyEmailCode}
+                      disabled={otp.length !== 6 || isVerifyingEmail}
+                      className="w-full"
+                    >
+                      {isVerifyingEmail ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Verificando...
+                        </>
+                      ) : (
+                        'Verificar código'
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={sendVerificationCode}
+                      disabled={cooldown > 0 || isSendingCode}
+                      className="w-full"
+                    >
+                      {cooldown > 0 ? `Reenviar em ${cooldown}s` : 'Reenviar código'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {emailVerified && (
+              <div className="flex items-center gap-2 text-primary">
+                <Check className="w-5 h-5" />
+                <span className="text-sm font-medium">Email verificado!</span>
+              </div>
             )}
           </div>
-          {cpf.error && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {cpf.error}
-            </p>
-          )}
-          <Button 
-            onClick={handleCPFComplete} 
-            disabled={!cpf.isValid}
-            className="w-full"
-          >
-            Continuar <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      </StepSection>
+        );
 
-      {/* Step 2: Name */}
-      <StepSection 
-        step="name" 
-        icon={User} 
-        label="Nome Completo" 
-        isComplete={name.isComplete}
-        isActive={activeStep === 'name'}
-        onEdit={() => setActiveStep('name')}
-      >
-        <div className="space-y-3">
-          <Input
-            ref={nameRef}
-            type="text"
-            placeholder="Seu nome completo"
-            value={name.value}
-            onChange={(e) => handleNameChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleNameComplete()}
-            className={cn(name.error && 'border-destructive')}
-          />
-          {name.error && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {name.error}
-            </p>
-          )}
-          <Button 
-            onClick={handleNameComplete} 
-            disabled={!name.isValid}
-            className="w-full"
-          >
-            Continuar <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      </StepSection>
-
-      {/* Step 3: Email with Verification */}
-      <StepSection 
-        step="email" 
-        icon={Mail} 
-        label="Email" 
-        isComplete={email.isComplete}
-        isActive={activeStep === 'email'}
-        onEdit={() => setActiveStep('email')}
-      >
-        <div className="space-y-3">
-          <Input
-            ref={emailRef}
-            type="email"
-            placeholder="seu@email.com"
-            value={email.value}
-            onChange={(e) => handleEmailChange(e.target.value)}
-            className={cn(email.error && 'border-destructive')}
-            disabled={emailVerificationSent}
-          />
-          {email.error && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {email.error}
-            </p>
-          )}
-          
-          {!emailVerificationSent ? (
-            <Button 
-              onClick={sendVerificationCode} 
-              disabled={!email.isValid || isSendingCode}
-              className="w-full"
-            >
-              {isSendingCode ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                <>Enviar código de verificação</>
-              )}
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center">
-                Digite o código enviado para <span className="font-medium text-primary">{email.value}</span>
+      case 'phone':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone-input">WhatsApp</Label>
+              <Input
+                id="phone-input"
+                ref={phoneInputRef}
+                type="tel"
+                placeholder="(00) 00000-0000"
+                value={formData.phone}
+                onChange={(e) => {
+                  const formatted = formatPhone(e.target.value);
+                  setFormData(prev => ({ ...prev, phone: formatted }));
+                }}
+                className="text-lg h-12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Seus ingressos serão enviados para este número
               </p>
-              <div className="flex justify-center">
-                <InputOTP
-                  maxLength={6}
-                  value={otp}
-                  onChange={setOtp}
-                >
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-              <Button 
-                onClick={verifyEmailCode} 
-                disabled={otp.length !== 6 || isVerifyingEmail}
-                className="w-full"
-              >
-                {isVerifyingEmail ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Verificando...
-                  </>
-                ) : (
-                  <>Verificar código</>
-                )}
-              </Button>
-              <div className="flex justify-between items-center text-sm">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={sendVerificationCode}
-                  disabled={cooldown > 0 || isSendingCode}
-                >
-                  {cooldown > 0 ? `Reenviar em ${cooldown}s` : 'Reenviar código'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setEmailVerificationSent(false);
-                    setOtp('');
-                  }}
-                >
-                  Alterar email
-                </Button>
-              </div>
             </div>
-          )}
-        </div>
-      </StepSection>
-
-      {/* Step 4: Phone */}
-      <StepSection 
-        step="phone" 
-        icon={Phone} 
-        label="WhatsApp" 
-        isComplete={phone.isComplete}
-        isActive={activeStep === 'phone'}
-        onEdit={() => setActiveStep('phone')}
-      >
-        <div className="space-y-3">
-          <Input
-            ref={phoneRef}
-            type="tel"
-            inputMode="numeric"
-            placeholder="(00) 00000-0000"
-            value={phone.value}
-            onChange={(e) => handlePhoneChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handlePhoneComplete()}
-            maxLength={15}
-            className={cn(phone.error && 'border-destructive')}
-          />
-          {phone.error && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {phone.error}
-            </p>
-          )}
-          <Button 
-            onClick={handlePhoneComplete} 
-            disabled={!phone.isValid}
-            className="w-full"
-          >
-            Continuar <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      </StepSection>
-
-      {/* Step 5: Password */}
-      <StepSection 
-        step="password" 
-        icon={Lock} 
-        label="Criar Senha" 
-        isComplete={password.isComplete}
-        isActive={activeStep === 'password'}
-        onEdit={() => setActiveStep('password')}
-      >
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="password" className="text-sm text-muted-foreground mb-1.5 block">
-              Senha (mínimo 6 caracteres)
-            </Label>
-            <Input
-              ref={passwordRef}
-              id="password"
-              type="password"
-              placeholder="••••••"
-              value={password.value}
-              onChange={(e) => handlePasswordChange(e.target.value)}
-              className={cn(password.error && 'border-destructive')}
-            />
           </div>
-          <div>
-            <Label htmlFor="confirmPassword" className="text-sm text-muted-foreground mb-1.5 block">
-              Confirmar senha
-            </Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleFinalSubmit()}
-            />
+        );
+
+      case 'password':
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password-input">Senha</Label>
+              <Input
+                id="password-input"
+                ref={passwordInputRef}
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                className="text-lg h-12"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password-input">Confirmar Senha</Label>
+              <Input
+                id="confirm-password-input"
+                type="password"
+                placeholder="Digite a senha novamente"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                className="text-lg h-12"
+              />
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p className="text-sm text-destructive">As senhas não coincidem</p>
+              )}
+            </div>
           </div>
-          {password.error && (
-            <p className="text-destructive text-sm flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              {password.error}
-            </p>
-          )}
-          <Button 
-            onClick={handleFinalSubmit} 
-            disabled={!password.isValid || !confirmPassword}
-            className="w-full"
-            variant="hero"
-            size="lg"
-          >
-            Continuar para Pagamento <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const isNextDisabled = () => {
+    if (currentStep === 'email' && !emailVerified) return true;
+    return !validateCurrentStep();
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Progress indicator */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Etapa {currentStepIndex} de {STEPS.length}</span>
         </div>
-      </StepSection>
-    </motion.div>
+        <div className="flex gap-1">
+          {STEPS.map((step, index) => (
+            <div
+              key={step}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${
+                index < currentStepIndex
+                  ? 'bg-primary'
+                  : index === currentStepIndex - 1
+                  ? 'bg-primary'
+                  : 'bg-muted'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Completed steps summary */}
+      {renderCompletedSummary()}
+
+      {/* Current step header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+          <Icon className="w-5 h-5 text-primary" />
+        </div>
+        <h3 className="text-lg font-semibold">{config.label}</h3>
+      </div>
+
+      {/* Current step content */}
+      {renderCurrentStep()}
+
+      {/* Navigation buttons */}
+      <div className="flex gap-3 pt-4">
+        {currentStepIndex > 1 && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleBack}
+            className="flex-1"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+        )}
+        <Button
+          type="button"
+          onClick={handleNext}
+          disabled={isNextDisabled()}
+          className="flex-1"
+        >
+          {currentStepIndex === STEPS.length ? 'Continuar para Pagamento' : 'Continuar'}
+        </Button>
+      </div>
+    </div>
   );
-}
+};
