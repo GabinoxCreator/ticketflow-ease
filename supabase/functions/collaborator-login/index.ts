@@ -126,9 +126,31 @@ serve(async (req) => {
       console.error('Error fetching collaborator events:', eventsError);
     }
 
-    // Create a simple session token (in production, use JWT)
+    // Generate a secure session token
     const sessionToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Hash the token before storing (so even if DB is compromised, tokens are safe)
+    const tokenHash = hashSync(sessionToken);
+
+    // Store session in database (upsert to handle existing sessions)
+    const { error: sessionError } = await supabase
+      .from('collaborator_sessions')
+      .upsert({
+        collaborator_id: collaborator.id,
+        session_token_hash: tokenHash,
+        expires_at: expiresAt.toISOString(),
+      }, {
+        onConflict: 'collaborator_id'
+      });
+
+    if (sessionError) {
+      console.error('Failed to create session:', sessionError);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao criar sessão' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('Login successful for collaborator:', collaborator.name);
 
@@ -143,8 +165,8 @@ serve(async (req) => {
         },
         events: collaboratorEvents?.map(ce => ce.events).filter(Boolean) || [],
         session: {
-          token: sessionToken,
-          expires_at: expiresAt,
+          token: sessionToken, // Send plain token to client (hashed in DB)
+          expires_at: expiresAt.toISOString(),
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

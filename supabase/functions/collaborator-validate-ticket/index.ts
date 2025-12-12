@@ -1,10 +1,54 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper function to validate collaborator session
+async function validateCollaboratorSession(
+  supabase: any,
+  collaboratorId: string,
+  sessionToken: string
+): Promise<{ valid: boolean; error?: string }> {
+  if (!sessionToken) {
+    return { valid: false, error: 'Token de sessão não fornecido' };
+  }
+
+  // Get session from database
+  const { data: session, error: sessionError } = await supabase
+    .from('collaborator_sessions')
+    .select('session_token_hash, expires_at')
+    .eq('collaborator_id', collaboratorId)
+    .single();
+
+  if (sessionError || !session) {
+    console.log('Session not found for collaborator:', collaboratorId);
+    return { valid: false, error: 'Sessão não encontrada. Faça login novamente.' };
+  }
+
+  // Check if session is expired
+  if (new Date(session.expires_at) < new Date()) {
+    console.log('Session expired for collaborator:', collaboratorId);
+    return { valid: false, error: 'Sessão expirada. Faça login novamente.' };
+  }
+
+  // Verify token hash
+  try {
+    const isValidToken = compareSync(sessionToken, session.session_token_hash);
+    if (!isValidToken) {
+      console.log('Invalid session token for collaborator:', collaboratorId);
+      return { valid: false, error: 'Token de sessão inválido. Faça login novamente.' };
+    }
+  } catch {
+    console.log('Error verifying session token');
+    return { valid: false, error: 'Erro ao verificar sessão' };
+  }
+
+  return { valid: true };
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,7 +56,7 @@ serve(async (req) => {
   }
 
   try {
-    const { ticket_code, event_id, collaborator_id, action } = await req.json();
+    const { ticket_code, event_id, collaborator_id, session_token, action } = await req.json();
     
     console.log('Ticket validation request:', { ticket_code, event_id, collaborator_id, action });
 
@@ -26,6 +70,15 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // SECURITY: Validate session token FIRST
+    const sessionValidation = await validateCollaboratorSession(supabase, collaborator_id, session_token);
+    if (!sessionValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: sessionValidation.error, session_expired: true }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Verify collaborator has access to this event
     const { data: access, error: accessError } = await supabase
@@ -133,6 +186,22 @@ serve(async (req) => {
           JSON.stringify({
             found: true,
             error: 'Ingresso cancelado',
+            ticket: {
+              id: ticket.id,
+              ticket_code: ticket.ticket_code,
+              holder_name: ticket.holder_name,
+              status: ticket.status,
+            },
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (ticket.status === 'pending') {
+        return new Response(
+          JSON.stringify({
+            found: true,
+            error: 'Ingresso com pagamento pendente',
             ticket: {
               id: ticket.id,
               ticket_code: ticket.ticket_code,

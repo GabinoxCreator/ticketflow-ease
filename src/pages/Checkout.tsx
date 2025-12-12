@@ -143,58 +143,23 @@ const Checkout = () => {
           return;
         }
       } else {
-        // PIX payment - create order locally (existing flow)
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            event_id: eventId!,
-            user_id: user?.id || null,
-            customer_name: customerName.trim(),
-            customer_email: customerEmail.trim(),
-            customer_phone: customerPhone.trim() || null,
-            total_amount: orderSummary.total,
-            status: 'pending',
-            payment_method: paymentMethod,
-          })
-          .select()
-          .single();
+        // PIX payment - use secure server-side order creation
+        const { data, error } = await supabase.functions.invoke('create-pix-order', {
+          body: {
+            eventId: eventId!,
+            cartItems: cartItems,
+            customerName: customerName.trim(),
+            customerEmail: customerEmail.trim(),
+            customerPhone: customerPhone.trim() || null,
+            userId: user?.id || null,
+          },
+        });
 
-        if (orderError) throw orderError;
-
-        // Create tickets for each item
-        const ticketsToCreate = orderSummary.items.flatMap(item =>
-          Array.from({ length: item.quantity }, () => ({
-            order_id: order.id,
-            event_id: eventId!,
-            lot_id: item.lot.id,
-            user_id: user?.id || null,
-            holder_name: customerName.trim(),
-            holder_email: customerEmail.trim(),
-            holder_phone: customerPhone.trim() || null,
-            status: 'valid' as const,
-          }))
-        );
-
-        const { error: ticketsError } = await supabase
-          .from('tickets')
-          .insert(ticketsToCreate);
-
-        if (ticketsError) throw ticketsError;
-
-        // Update sold_quantity for each lot
-        for (const item of orderSummary.items) {
-          const { error: updateError } = await supabase
-            .from('event_lots')
-            .update({ sold_quantity: item.lot.sold_quantity + item.quantity })
-            .eq('id', item.lot.id);
-
-          if (updateError) {
-            console.error('Error updating lot quantity:', updateError);
-          }
-        }
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
         setOrderCreated(true);
-        toast.success('Pedido criado com sucesso!');
+        toast.success('Pedido criado! Complete o pagamento PIX para ativar seus ingressos.');
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
