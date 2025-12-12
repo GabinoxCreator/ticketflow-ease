@@ -46,7 +46,7 @@ serve(async (req) => {
     // Fetch event details
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('*, producer_stripe_accounts!inner(stripe_account_id)')
+      .select('*')
       .eq('id', eventId)
       .single();
 
@@ -55,12 +55,22 @@ serve(async (req) => {
       throw new Error('Evento não encontrado');
     }
 
-    const stripeAccountId = event.producer_stripe_accounts?.stripe_account_id;
-    if (!stripeAccountId) {
+    logStep('Event found', { title: event.title, producerId: event.producer_id });
+
+    // Fetch producer's Stripe account
+    const { data: stripeAccount, error: stripeError } = await supabaseClient
+      .from('producer_stripe_accounts')
+      .select('stripe_account_id')
+      .eq('user_id', event.producer_id)
+      .single();
+
+    if (stripeError || !stripeAccount?.stripe_account_id) {
+      logStep('Stripe account not found', { stripeError });
       throw new Error('Produtor não configurou conta de pagamentos');
     }
 
-    logStep('Event found', { title: event.title, stripeAccountId });
+    const stripeAccountId = stripeAccount.stripe_account_id;
+    logStep('Stripe account found', { stripeAccountId });
 
     // Fetch lots and validate availability
     const lotIds = items.map(item => item.lotId);
