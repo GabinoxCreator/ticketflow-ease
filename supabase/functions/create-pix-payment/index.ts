@@ -177,12 +177,11 @@ serve(async (req) => {
       apiVersion: '2025-08-27.basil',
     });
 
-    // Calculate platform fee (10%)
-    const platformFee = Math.round(totalAmount * 0.1 * 100); // In cents
     const amountInCents = Math.round(totalAmount * 100);
 
-    // Create a PaymentIntent with PIX
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Create PaymentIntent - simplified without Connect for now
+    // Connect features (transfer_data, application_fee) require a separate connected account
+    const paymentIntentParams: any = {
       amount: amountInCents,
       currency: 'brl',
       payment_method_types: ['pix'],
@@ -190,14 +189,13 @@ serve(async (req) => {
         orderId: order.id,
         eventId: eventId,
         customerEmail: customerEmail,
+        producerId: event.producer_id,
       },
-      application_fee_amount: platformFee,
-      transfer_data: {
-        destination: stripeAccountId,
-      },
-    }, {
-      stripeAccount: stripeAccountId,
-    });
+    };
+
+    logStep('Creating payment intent', { amount: amountInCents, stripeAccountId });
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
     // For PIX, we need to confirm the payment intent to get the QR code
     // In test mode, we'll generate a simulated PIX code
