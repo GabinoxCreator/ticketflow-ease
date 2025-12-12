@@ -143,7 +143,7 @@ serve(async (req) => {
 
     logStep('Order created', { orderId: order.id });
 
-    // Reserve tickets (create with pending status)
+    // Reserve tickets (create with valid status - order status tracks payment)
     const ticketsToCreate = [];
     for (const item of lineItems) {
       for (let i = 0; i < item.quantity; i++) {
@@ -154,7 +154,7 @@ serve(async (req) => {
           holder_name: customerName,
           holder_email: customerEmail,
           user_id: userId,
-          status: 'pending',
+          status: 'valid',
         });
       }
     }
