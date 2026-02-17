@@ -17,32 +17,32 @@ const Hero = () => {
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '-3s' }} />
       
       {/* Subtle Pattern */}
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.02]"
         style={{
           backgroundImage: `linear-gradient(hsl(var(--primary)) 1px, transparent 1px),
                            linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }}
-      />
+          backgroundSize: '60px 60px'
+        }} />
+
 
       <div className="container relative z-10 px-4">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center max-w-4xl mx-auto"
-        >
+          className="text-center max-w-4xl mx-auto">
+
           {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 rounded-full mb-6"
-          >
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Seus ingressos na palma da mão</span>
-          </motion.div>
+          
+
+
+
+
+
+
+
+
 
           {/* Title */}
           <h1 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-6 leading-tight text-foreground">
@@ -62,8 +62,8 @@ const Hero = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-card rounded-2xl p-2 border border-border shadow-lg max-w-3xl mx-auto"
-          >
+            className="bg-card rounded-2xl p-2 border border-border shadow-lg max-w-3xl mx-auto">
+
             <div className="flex flex-col md:flex-row gap-2">
               {/* Search Input */}
               <div className="flex-1 relative">
@@ -73,8 +73,8 @@ const Hero = () => {
                   placeholder="Buscar eventos, artistas..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-secondary/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
+                  className="w-full h-14 pl-12 pr-4 bg-secondary/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+
               </div>
 
               {/* City Select */}
@@ -83,8 +83,8 @@ const Hero = () => {
                 <select
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-secondary/50 rounded-xl text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
-                >
+                  className="w-full h-14 pl-12 pr-4 bg-secondary/50 rounded-xl text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer">
+
                   <option value="">Todas cidades</option>
                   <option value="rio-preto">Rio Preto</option>
                   <option value="catanduva">Catanduva</option>
@@ -105,28 +105,28 @@ const Hero = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="flex flex-wrap justify-center gap-8 mt-12"
-          >
+            className="flex flex-wrap justify-center gap-8 mt-12">
+
             {[
-              { label: 'Eventos Ativos', value: '50+' },
-              { label: 'Ingressos Vendidos', value: '25k+' },
-              { label: 'Clientes Satisfeitos', value: '15k+' },
-            ].map((stat, index) => (
-              <div key={index} className="text-center">
+            { label: 'Eventos Ativos', value: '50+' },
+            { label: 'Ingressos Vendidos', value: '25k+' },
+            { label: 'Clientes Satisfeitos', value: '15k+' }].
+            map((stat, index) =>
+            <div key={index} className="text-center">
                 <p className="font-display font-bold text-2xl md:text-3xl gradient-text">
                   {stat.value}
                 </p>
                 <p className="text-muted-foreground text-sm">{stat.label}</p>
               </div>
-            ))}
+            )}
           </motion.div>
         </motion.div>
       </div>
 
       {/* Bottom Gradient */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
-    </section>
-  );
+    </section>);
+
 };
 
 export default Hero;
