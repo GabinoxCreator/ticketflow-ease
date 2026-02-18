@@ -188,7 +188,7 @@ const EventDetails = () => {
           </section>
 
           {/* Content */}
-          <section className="container px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
+          <section className="container mx-auto px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Info */}
               <div className="lg:col-span-2 space-y-6">
@@ -226,37 +226,6 @@ const EventDetails = () => {
                     </div>
                   </div>
 
-                  <h3 className="font-display font-semibold text-lg mb-3">Sobre o evento</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {event.description || event.short_description}
-                  </p>
-
-                  {/* Progress */}
-                  {totalAvailable > 0 && (
-                    <div className="mt-6 p-4 bg-secondary/50 rounded-xl">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {(event as any).fake_scarcity_enabled ? (
-                            <Flame className="w-5 h-5 text-orange-500" />
-                          ) : (
-                            <Users className="w-5 h-5 text-primary" />
-                          )}
-                          <span className="font-medium">{displayPercentage}% vendido</span>
-                        </div>
-                        <span className="text-muted-foreground text-sm">
-                          {(event as any).fake_scarcity_enabled 
-                            ? 'Restam poucos!' 
-                            : `${totalAvailable - totalSold} ingressos restantes`}
-                        </span>
-                      </div>
-                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-primary rounded-full transition-all duration-500"
-                          style={{ width: `${displayPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </motion.div>
 
                 {/* Lots */}
@@ -282,6 +251,21 @@ const EventDetails = () => {
                         />
                       ))}
                     </div>
+                  </motion.div>
+                )}
+
+                {/* Sobre o evento */}
+                {(event.description || event.short_description) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                  >
+                    <h3 className="font-display font-semibold text-lg mb-3">Sobre o evento</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {event.description || event.short_description}
+                    </p>
                   </motion.div>
                 )}
               </div>
@@ -427,41 +411,6 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
             </span>
           </div>
 
-          {/* Scarcity bar for each lot */}
-          {!isSoldOut && displayPercentage > 0 && (
-            <div className="mt-3 space-y-1">
-              <div className="flex items-center gap-2 text-xs">
-                {lot.fake_scarcity_enabled ? (
-                  <Flame className="w-3.5 h-3.5 text-orange-500" />
-                ) : (
-                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                )}
-                <span className={cn(
-                  "font-medium",
-                  lot.fake_scarcity_enabled && "text-orange-500"
-                )}>
-                  {displayPercentage}% vendido
-                </span>
-              </div>
-              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500",
-                    lot.fake_scarcity_enabled 
-                      ? "bg-gradient-to-r from-orange-500 to-red-500" 
-                      : "bg-primary"
-                  )}
-                  style={{ width: `${displayPercentage}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {isSoldOut ? null : (
-            <p className="text-xs text-muted-foreground mt-2">
-              {available} disponíveis
-            </p>
-          )}
         </div>
 
         {!isSoldOut && (
