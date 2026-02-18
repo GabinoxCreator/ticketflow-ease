@@ -1,54 +1,26 @@
 
-# Corrigir Layout e Reorganizar Pagina de Evento
+# Corrigir Centralizacao dos Cards no Mobile
 
-## Mudancas
+## Problema
+A pagina tem overflow horizontal (barra de rolagem horizontal visivel na captura de tela). Isso faz com que todo o conteudo pareja deslocado para a esquerda, porque a pagina fica mais larga que a viewport.
 
-### 1. Centralizar cards no mobile
-O `container` com `px-4` pode nao estar centralizando corretamente. Vou garantir que o grid e os cards fiquem centralizados com `mx-auto` e largura maxima adequada.
+O `container` do Tailwind ja esta configurado com `center: true` no `tailwind.config.ts`, entao o problema nao e a centralizacao em si, mas sim o overflow horizontal que cria uma barra de scroll e desloca tudo.
 
-### 2. Reordenar: Ingressos ANTES de "Sobre o evento"
-Dentro do primeiro card (motion.div), a ordem atual e:
-- Badge de categoria
-- Titulo
-- Data/hora
-- Local
-- "Sobre o evento" (descricao)
-- Barra de progresso (% vendido)
+## Solucao
 
-A nova ordem sera:
-- Badge de categoria
-- Titulo
-- Data/hora
-- Local
-- (Sem "Sobre o evento" aqui - movido para depois dos ingressos)
+### Arquivo: `src/pages/EventDetails.tsx`
 
-O bloco de "Escolha seus ingressos" vem logo depois, e ABAIXO dele um novo card com "Sobre o evento".
+Adicionar `overflow-x-hidden` no div raiz da pagina (linha 155) para impedir que qualquer elemento interno cause overflow horizontal:
 
-### 3. Remover secao "% vendido / ingressos restantes"
-- Remover o bloco de progresso geral do evento (linhas 234-259)
-- Remover tambem a barra de scarcity de cada lote individual (linhas 430-457)
-- Remover o texto "X disponiveis" de cada lote (linhas 460-464)
+```
+// De:
+<div className="min-h-screen bg-background">
 
----
+// Para:
+<div className="min-h-screen bg-background overflow-x-hidden">
+```
 
-## Detalhes Tecnicos
-
-**Arquivo: `src/pages/EventDetails.tsx`**
-
-**Card principal (linhas 195-260):**
-- Remover linhas 229-259 (secao "Sobre o evento" + bloco de progresso)
-- O card fica apenas com: badge, titulo, data/hora, local
-
-**Bloco de ingressos (linhas 262-286):**
-- Permanece igual, logo abaixo do card principal
-
-**Novo card "Sobre o evento":**
-- Adicionar ABAIXO do bloco de ingressos
-- Contem apenas o titulo "Sobre o evento" e a descricao
-
-**LotCard (linhas 430-464):**
-- Remover o bloco de scarcity bar (linhas 430-457)
-- Remover o texto "X disponiveis" (linhas 460-464)
-
-**Centralizacao:**
-- Adicionar `mx-auto` na section de conteudo para garantir centralizacao
+Isso vai:
+- Eliminar a barra de rolagem horizontal
+- Manter todos os cards centralizados corretamente
+- Nao afetar o scroll vertical
