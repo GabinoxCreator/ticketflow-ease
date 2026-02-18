@@ -152,7 +152,7 @@ const EventDetails = () => {
         <meta name="description" content={event.short_description || event.description || ''} />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
 
         <main className="pt-20">
