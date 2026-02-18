@@ -157,13 +157,15 @@ const EventDetails = () => {
 
         <main className="pt-20">
           {/* Hero */}
-          <section className="relative h-[50vh] md:h-[60vh] overflow-hidden">
-            <img
-              src={event.image_url || '/placeholder.svg'}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+          <section className="relative overflow-hidden bg-black">
+            <div className="max-h-[70vh] flex items-center justify-center">
+              <img
+                src={event.image_url || '/placeholder.svg'}
+                alt={event.title}
+                className="w-full max-h-[70vh] object-contain"
+              />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
             {/* Back Button */}
             <Link
