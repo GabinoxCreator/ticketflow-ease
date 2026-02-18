@@ -189,7 +189,16 @@ const EventDetails = () => {
 
         <main className={cn("pt-20 w-full", totalTickets > 0 && "pb-24 lg:pb-0")}>
         {/* Desktop Hero Split */}
-          <section className="hidden lg:flex pt-8 w-full max-w-7xl mx-auto px-4 min-h-[50vh] items-center gap-12">
+          <section className="relative overflow-hidden hidden lg:flex pt-8 w-full max-w-7xl mx-auto px-4 min-h-[50vh] items-center gap-12">
+            {/* Blurred background */}
+            <div className="absolute inset-0 -z-10">
+              <img
+                src={event.image_url || '/placeholder.svg'}
+                alt=""
+                className="w-full h-full object-cover scale-110 blur-3xl opacity-30"
+              />
+              <div className="absolute inset-0 bg-background/60" />
+            </div>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
