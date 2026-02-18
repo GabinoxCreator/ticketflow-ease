@@ -155,7 +155,7 @@ const EventDetails = () => {
       <div className="min-h-screen bg-background overflow-x-hidden">
         <Header />
 
-        <main className="pt-20">
+        <main className="pt-20 w-full max-w-full">
           {/* Hero */}
           <section className="relative overflow-hidden bg-black w-full">
             <div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
