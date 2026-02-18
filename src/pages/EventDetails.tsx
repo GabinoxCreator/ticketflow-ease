@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
   Clock,
@@ -12,10 +12,8 @@ import {
   Minus,
   Plus,
   Ticket,
-  Users,
   AlertCircle,
   Loader2,
-  Flame,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -26,15 +24,6 @@ import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
 import { CheckoutModal } from '@/components/checkout/CheckoutModal';
-
-const categoryLabels: Record<string, string> = {
-  'Festas e Shows': 'Festas e Shows',
-  'Esportes': 'Esportes',
-  'Teatro e Cultura': 'Teatro e Cultura',
-  'Gastronomia': 'Gastronomia',
-  'Congressos': 'Congressos',
-  'Cursos e Workshops': 'Cursos e Workshops',
-};
 
 interface EventLot {
   id: string;
@@ -125,7 +114,6 @@ const EventDetails = () => {
     setIsCheckoutOpen(true);
   };
 
-  // Build cart items for checkout modal
   const cartItems = Object.entries(selectedLots).map(([lotId, quantity]) => {
     const lot = activeLots.find((l) => l.id === lotId);
     return {
@@ -135,15 +123,6 @@ const EventDetails = () => {
       price: lot?.price || 0,
     };
   });
-
-  const totalAvailable = activeLots.reduce((sum, lot) => sum + lot.total_quantity, 0);
-  const totalSold = activeLots.reduce((sum, lot) => sum + lot.sold_quantity, 0);
-  const realSoldPercentage = totalAvailable > 0 ? Math.round((totalSold / totalAvailable) * 100) : 0;
-  
-  // Use fake scarcity percentage if enabled, otherwise use real percentage
-  const displayPercentage = (event as any).fake_scarcity_enabled 
-    ? ((event as any).fake_scarcity_percentage || 50) 
-    : realSoldPercentage;
 
   return (
     <>
@@ -155,9 +134,9 @@ const EventDetails = () => {
       <div className="min-h-screen bg-background">
         <Header />
 
-        <main className="pt-20 w-full">
-          {/* Hero */}
-          <section className="relative overflow-hidden bg-black max-w-full">
+        <main className={cn("pt-20 w-full", totalTickets > 0 && "pb-24 lg:pb-0")}>
+          {/* Banner */}
+          <section className="relative overflow-x-clip bg-black max-w-full">
             <div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
               <img
                 src={event.image_url || '/placeholder.svg'}
@@ -188,59 +167,59 @@ const EventDetails = () => {
           </section>
 
           {/* Content */}
-          <section className="w-full max-w-7xl mx-auto px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
+          <section className="w-full max-w-7xl mx-auto px-4 mt-0 lg:-mt-32 relative z-10 pb-8">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Info */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-6 min-w-0">
+                {/* Event Info - no card on mobile, card on desktop */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                  className="py-6 lg:bg-card lg:rounded-2xl lg:border lg:border-border lg:p-8"
                 >
-                  <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">
-                    {categoryLabels[event.category] || event.category}
-                  </Badge>
-
-                  <h1 className="font-display font-bold text-3xl md:text-4xl mb-4">
+                  <h1 className="font-display font-bold text-3xl md:text-4xl mb-2">
                     {event.title}
                   </h1>
 
-                  <div className="flex flex-wrap gap-4 text-muted-foreground mb-6">
+                  <p className="text-muted-foreground mb-4">
+                    {event.city}, {event.state}
+                  </p>
+
+                  <p className="text-primary font-semibold text-lg mb-4 break-words">
+                    {event.venue}
+                  </p>
+
+                  {event.address && (
+                    <div className="flex items-start gap-2 text-muted-foreground mb-4 min-w-0">
+                      <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                      <span className="text-sm break-words">{event.address}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-muted-foreground">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Calendar className="w-5 h-5 shrink-0" />
-                      <span className="break-words">{formatDate(event.date)}</span>
+                      <Calendar className="w-4 h-4 shrink-0" />
+                      <span className="text-sm break-words">{formatDate(event.date)}</span>
                     </div>
                     <div className="flex items-center gap-2 min-w-0">
-                      <Clock className="w-5 h-5 shrink-0" />
-                      <span>{event.time}</span>
+                      <Clock className="w-4 h-4 shrink-0" />
+                      <span className="text-sm">{event.time}</span>
                     </div>
                   </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-xl mb-6 min-w-0">
-                    <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-medium break-words">{event.venue}</p>
-                      <p className="text-sm text-muted-foreground break-words">
-                        {event.address} - {event.city}, {event.state}
-                      </p>
-                    </div>
-                  </div>
-
                 </motion.div>
 
-                {/* Lots */}
+                {/* Tickets Section */}
                 {activeLots.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                    className="bg-card rounded-2xl border border-border p-5 md:p-8"
                   >
-                    <h3 className="font-display font-semibold text-xl mb-6">
-                      Escolha seus ingressos
+                    <h3 className="font-display font-bold text-sm uppercase tracking-wider mb-4">
+                      Ingressos
                     </h3>
-
-                    <div className="space-y-4">
+                    <div className="border-t border-border">
                       {activeLots.map((lot) => (
                         <LotCard
                           key={lot.id}
@@ -254,15 +233,15 @@ const EventDetails = () => {
                   </motion.div>
                 )}
 
-                {/* Sobre o evento */}
+                {/* About */}
                 {(event.description || event.short_description) && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
-                    className="bg-card rounded-2xl border border-border p-6 md:p-8"
+                    className="py-6"
                   >
-                    <h3 className="font-display font-semibold text-lg mb-3">Sobre o evento</h3>
+                    <h3 className="font-display font-bold text-xl mb-4">Sobre o evento</h3>
                     <p className="text-muted-foreground leading-relaxed">
                       {event.description || event.short_description}
                     </p>
@@ -270,12 +249,12 @@ const EventDetails = () => {
                 )}
               </div>
 
-              {/* Sidebar - Checkout */}
+              {/* Sidebar - Desktop only */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="lg:sticky lg:top-24 h-fit"
+                className="hidden lg:block lg:sticky lg:top-24 h-fit"
               >
                 <div className="bg-card rounded-2xl border border-border p-6">
                   <h3 className="font-display font-semibold text-lg mb-4">Resumo</h3>
@@ -329,6 +308,35 @@ const EventDetails = () => {
 
         <Footer />
 
+        {/* Mobile Fixed Bottom Bar */}
+        <AnimatePresence>
+          {totalTickets > 0 && (
+            <motion.div
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card border-t border-border px-4 py-3"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">{totalTickets} ingresso{totalTickets > 1 ? 's' : ''}</p>
+                  <p className="font-bold text-lg gradient-text">{formatPrice(totalAmount)}</p>
+                </div>
+                <Button
+                  variant="hero"
+                  size="lg"
+                  onClick={handleCheckout}
+                  className="shrink-0"
+                >
+                  <Ticket className="w-5 h-5 mr-2" />
+                  Comprar
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Checkout Modal */}
         <CheckoutModal
           isOpen={isCheckoutOpen}
@@ -356,39 +364,22 @@ interface LotCardProps {
 const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps) => {
   const available = lot.total_quantity - lot.sold_quantity;
   const isSoldOut = available === 0;
-  const isSelected = quantity > 0;
-  
-  // Calculate real sold percentage for this lot
-  const realSoldPercentage = lot.total_quantity > 0 
-    ? Math.round((lot.sold_quantity / lot.total_quantity) * 100) 
-    : 0;
-  
-  // Use fake scarcity if enabled, otherwise real percentage
-  const displayPercentage = lot.fake_scarcity_enabled 
-    ? (lot.fake_scarcity_percentage || 50) 
-    : realSoldPercentage;
 
   return (
     <div
       className={cn(
-        'border rounded-xl p-4 transition-all duration-300',
-        isSoldOut
-          ? 'border-border bg-secondary/30 opacity-60'
-          : isSelected
-          ? 'border-primary bg-primary/5'
-          : 'border-border hover:border-muted-foreground'
+        'py-4 border-b border-border last:border-b-0',
+        isSoldOut && 'opacity-50'
       )}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold">{lot.name}</h4>
+            <h4 className="font-bold text-sm uppercase tracking-wide">{lot.name}</h4>
             {isSoldOut && (
-              <Badge variant="secondary" className="text-xs">
-                Esgotado
-              </Badge>
+              <Badge variant="secondary" className="text-xs">Esgotado</Badge>
             )}
-            {available > 0 && available < 50 && (
+            {!isSoldOut && available < 50 && (
               <Badge variant="destructive" className="text-xs gap-1">
                 <AlertCircle className="w-3 h-3" />
                 Últimos
@@ -397,43 +388,48 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
           </div>
 
           {lot.description && (
-            <p className="text-sm text-muted-foreground mb-2">{lot.description}</p>
+            <p className="text-xs text-muted-foreground mb-1">{lot.description}</p>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {lot.original_price && (
-              <span className="text-sm text-muted-foreground line-through">
+              <span className="text-xs text-muted-foreground line-through">
                 {formatPrice(lot.original_price)}
               </span>
             )}
-            <span className="font-display font-bold text-lg gradient-text">
+            <span className="font-semibold text-base">
               {formatPrice(lot.price)}
             </span>
           </div>
-
         </div>
 
         {!isSoldOut && (
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="icon"
+          <div className="flex items-center gap-3 shrink-0">
+            <button
               onClick={() => onQuantityChange(-1)}
               disabled={quantity === 0}
-              className="h-9 w-9"
+              className={cn(
+                'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                quantity === 0
+                  ? 'border-muted text-muted cursor-not-allowed'
+                  : 'border-muted-foreground text-foreground hover:bg-muted'
+              )}
             >
               <Minus className="w-4 h-4" />
-            </Button>
-            <span className="w-8 text-center font-semibold">{quantity}</span>
-            <Button
-              variant="outline"
-              size="icon"
+            </button>
+            <span className="w-6 text-center font-semibold text-sm">{quantity}</span>
+            <button
               onClick={() => onQuantityChange(1)}
               disabled={quantity >= 10 || quantity >= available}
-              className="h-9 w-9"
+              className={cn(
+                'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                (quantity >= 10 || quantity >= available)
+                  ? 'border-muted text-muted cursor-not-allowed'
+                  : 'border-muted-foreground text-foreground hover:bg-muted'
+              )}
             >
               <Plus className="w-4 h-4" />
-            </Button>
+            </button>
           </div>
         )}
       </div>
