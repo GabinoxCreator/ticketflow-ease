@@ -1,43 +1,55 @@
 
-# Corrigir Layout Mobile e Banner de Eventos
+# Corrigir Layout Mobile: Centralização e Banner
 
 ## Problemas Identificados
 
-### 1. Paginas fora do centro no mobile
-O arquivo `src/App.css` contem estilos padrao do Vite que limitam o layout:
-- `max-width: 1280px` - restringe a largura
-- `padding: 2rem` - adiciona espacamento indesejado
-- `text-align: center` - centraliza texto indevidamente
+1. **Banner sangrando para fora da tela**: A imagem do banner ultrapassa os limites da tela no mobile, aparecendo cortada na esquerda. Isso acontece porque a section do banner nao tem restricao de largura adequada.
 
-Esses estilos no `#root` afetam TODAS as paginas e causam desalinhamento no mobile.
-
-### 2. Banner do evento cortado
-Na pagina de detalhes do evento (`src/pages/EventDetails.tsx`), o banner usa:
-- `h-[50vh] md:h-[60vh]` com `object-cover` - isso corta a imagem para caber na altura fixa
-- O usuario quer ver a imagem inteira e visivel
+2. **Conteudo sobrepondo o banner**: O `-mt-32` na section de conteudo puxa os cards muito para cima, cobrindo parte do banner. No mobile isso fica especialmente ruim.
 
 ---
 
 ## Solucao
 
-### Passo 1: Limpar App.css
-Remover os estilos do `#root` no `src/App.css` que sao restos do template Vite. Manter apenas o necessario (ou deixar o arquivo vazio, ja que os estilos reais estao no `index.css`).
+### Arquivo: `src/pages/EventDetails.tsx`
 
-### Passo 2: Ajustar o banner do evento
-Alterar a secao hero em `src/pages/EventDetails.tsx`:
-- Trocar de altura fixa (`h-[50vh]`) para `aspect-ratio` ou `auto` height
-- Usar `object-contain` em vez de `object-cover` para mostrar a imagem inteira
-- Adicionar background escuro atras da imagem para preencher espacos vazios
-- Ajustar o gradiente overlay para funcionar com a nova abordagem
+**Correcao 1 - Banner centralizado e contido:**
+- Adicionar `w-full` e garantir que a imagem nao ultrapasse os limites da viewport
+- Trocar `object-contain` por `object-cover` com altura controlada para preencher melhor o espaco
+- Ou manter `object-contain` mas garantir que o container pai limite corretamente
 
----
+**Correcao 2 - Reduzir sobreposicao do conteudo:**
+- Reduzir o `-mt-32` para `-mt-16` ou `-mt-8` no mobile para que o card nao cubra tanto o banner
+- Usar classes responsivas: `-mt-8 md:-mt-16 lg:-mt-32`
 
-## Detalhes Tecnicos
+### Alteracoes especificas:
 
-**Arquivo: `src/App.css`**
-- Remover todo o bloco `#root { ... }` e os demais estilos nao utilizados (`.logo`, `.card`, `.read-the-docs`, `@keyframes logo-spin`)
+**Linha 160 - Section do banner:**
+Mudar de:
+```
+<section className="relative overflow-hidden bg-black">
+```
+Para:
+```
+<section className="relative overflow-hidden bg-black w-full">
+```
 
-**Arquivo: `src/pages/EventDetails.tsx` (linhas 160-186)**
-- Mudar a secao de `h-[50vh]` para altura automatica baseada na imagem
-- Alterar `object-cover` para `object-contain` com fundo escuro
-- Manter o layout responsivo e o gradiente overlay
+**Linha 161 - Container da imagem:**
+Mudar para garantir que a imagem fique dentro dos limites:
+```
+<div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
+```
+
+**Linha 165 - Imagem:**
+Ajustar para mobile:
+```
+className="w-full h-auto max-h-[50vh] md:max-h-[70vh] object-contain"
+```
+
+**Linha 191 - Section de conteudo:**
+Reduzir margem negativa no mobile:
+```
+<section className="container px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
+```
+
+Essas mudancas vao: (1) manter o banner dentro da tela em qualquer dispositivo e (2) evitar que o conteudo cubra o banner no mobile.
