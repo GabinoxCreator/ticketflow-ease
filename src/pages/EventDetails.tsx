@@ -157,12 +157,12 @@ const EventDetails = () => {
 
         <main className="pt-20">
           {/* Hero */}
-          <section className="relative overflow-hidden bg-black">
-            <div className="max-h-[70vh] flex items-center justify-center">
+          <section className="relative overflow-hidden bg-black w-full">
+            <div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
               <img
                 src={event.image_url || '/placeholder.svg'}
                 alt={event.title}
-                className="w-full max-h-[70vh] object-contain"
+                className="w-full h-auto max-h-[50vh] md:max-h-[70vh] object-contain"
               />
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
@@ -188,7 +188,7 @@ const EventDetails = () => {
           </section>
 
           {/* Content */}
-          <section className="container px-4 -mt-32 relative z-10 pb-32">
+          <section className="container px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Info */}
               <div className="lg:col-span-2 space-y-6">
