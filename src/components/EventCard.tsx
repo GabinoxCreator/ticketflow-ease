@@ -34,7 +34,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
     });
   };
 
-  const soldPercentage = Math.round((event.soldTickets / event.totalTickets) * 100);
+  
 
   return (
     <motion.div
@@ -89,10 +89,6 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
             <h3 className="font-display font-semibold text-lg mb-2 text-foreground group-hover:text-primary transition-colors line-clamp-1">
               {event.title}
             </h3>
-            
-            <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
-              {event.shortDescription}
-            </p>
 
             <div className="flex flex-col gap-2 text-sm text-muted-foreground mb-4">
               <div className="flex items-center gap-2">
@@ -102,20 +98,6 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 flex-shrink-0" />
                 <span>{event.time}</span>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mb-3">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground">{soldPercentage}% vendido</span>
-                <span className="text-muted-foreground">{event.totalTickets - event.soldTickets} restantes</span>
-              </div>
-              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-500"
-                  style={{ width: `${soldPercentage}%` }}
-                />
               </div>
             </div>
 
