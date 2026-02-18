@@ -188,8 +188,65 @@ const EventDetails = () => {
         <Header />
 
         <main className={cn("pt-20 w-full", totalTickets > 0 && "pb-24 lg:pb-0")}>
-          {/* Banner */}
-          <section className="relative overflow-x-clip bg-black max-w-full">
+        {/* Desktop Hero Split */}
+          <section className="hidden lg:flex pt-8 w-full max-w-7xl mx-auto px-4 min-h-[50vh] items-center gap-12">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex-1 space-y-4"
+            >
+              <h1 className="font-display font-bold text-4xl xl:text-5xl">
+                {event.title}
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                {event.city}, {event.state}
+              </p>
+              <p className="text-primary font-semibold text-xl break-words">
+                {event.venue}
+              </p>
+              {event.address && (
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <MapPin className="w-5 h-5 mt-0.5 shrink-0" />
+                  <span className="break-words">{event.address}</span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-6 text-muted-foreground pt-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 shrink-0" />
+                  <span>{formatDate(event.date)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 shrink-0" />
+                  <span>{event.time}</span>
+                </div>
+              </div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex-1 relative"
+            >
+              <div className="rounded-xl overflow-hidden">
+                <img
+                  src={event.image_url || '/placeholder.svg'}
+                  alt={event.title}
+                  className="w-full h-auto max-h-[50vh] object-cover"
+                />
+              </div>
+              <button
+                onClick={handleLike}
+                className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2 transition-colors hover:bg-black/70"
+              >
+                <Heart className={cn('w-5 h-5 transition-colors', liked ? 'fill-red-500 text-red-500' : 'text-white')} />
+                {likeCount > 0 && (
+                  <span className={cn('text-sm font-medium', liked ? 'text-red-500' : 'text-white')}>{likeCount}</span>
+                )}
+              </button>
+            </motion.div>
+          </section>
+
+          {/* Mobile Banner */}
+          <section className="lg:hidden relative overflow-x-clip bg-black max-w-full">
             <div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
               <img
                 src={event.image_url || '/placeholder.svg'}
@@ -198,59 +255,43 @@ const EventDetails = () => {
               />
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-
-            {/* Like Button */}
             <button
               onClick={handleLike}
               className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2 transition-colors hover:bg-black/70"
             >
-              <Heart
-                className={cn(
-                  'w-5 h-5 transition-colors',
-                  liked ? 'fill-red-500 text-red-500' : 'text-white'
-                )}
-              />
+              <Heart className={cn('w-5 h-5 transition-colors', liked ? 'fill-red-500 text-red-500' : 'text-white')} />
               {likeCount > 0 && (
-                <span className={cn(
-                  'text-sm font-medium',
-                  liked ? 'text-red-500' : 'text-white'
-                )}>
-                  {likeCount}
-                </span>
+                <span className={cn('text-sm font-medium', liked ? 'text-red-500' : 'text-white')}>{likeCount}</span>
               )}
             </button>
           </section>
 
           {/* Content */}
-          <section className="w-full max-w-7xl mx-auto px-4 mt-0 lg:-mt-32 relative z-10 pb-8">
+          <section className="w-full max-w-7xl mx-auto px-4 mt-0 relative z-10 pb-8">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Info */}
               <div className="lg:col-span-2 space-y-6 min-w-0">
-                {/* Event Info - no card on mobile, card on desktop */}
+                {/* Event Info - mobile only */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="py-6 lg:bg-card lg:rounded-2xl lg:border lg:border-border lg:p-8"
+                  className="py-6 lg:hidden"
                 >
                   <h1 className="font-display font-bold text-3xl md:text-4xl mb-2">
                     {event.title}
                   </h1>
-
                   <p className="text-muted-foreground mb-4">
                     {event.city}, {event.state}
                   </p>
-
                   <p className="text-primary font-semibold text-lg mb-4 break-words">
                     {event.venue}
                   </p>
-
                   {event.address && (
                     <div className="flex items-start gap-2 text-muted-foreground mb-4 min-w-0">
                       <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
                       <span className="text-sm break-words">{event.address}</span>
                     </div>
                   )}
-
                   <div className="flex flex-wrap gap-4 text-muted-foreground">
                     <div className="flex items-center gap-2 min-w-0">
                       <Calendar className="w-4 h-4 shrink-0" />
@@ -261,7 +302,6 @@ const EventDetails = () => {
                       <span className="text-sm">{event.time}</span>
                     </div>
                   </div>
-
                 </motion.div>
 
                 {/* Tickets Section */}
