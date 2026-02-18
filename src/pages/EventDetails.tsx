@@ -152,12 +152,12 @@ const EventDetails = () => {
         <meta name="description" content={event.short_description || event.description || ''} />
       </Helmet>
 
-      <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="min-h-screen bg-background">
         <Header />
 
-        <main className="pt-20 w-full max-w-full">
+        <main className="pt-20 w-full">
           {/* Hero */}
-          <section className="relative overflow-hidden bg-black w-full">
+          <section className="relative overflow-hidden bg-black max-w-full">
             <div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
               <img
                 src={event.image_url || '/placeholder.svg'}
@@ -188,7 +188,7 @@ const EventDetails = () => {
           </section>
 
           {/* Content */}
-          <section className="container mx-auto px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
+          <section className="w-full max-w-7xl mx-auto px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Info */}
               <div className="lg:col-span-2 space-y-6">
