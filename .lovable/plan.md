@@ -1,26 +1,37 @@
 
-# Corrigir Centralizacao dos Cards no Mobile
+# Corrigir Centralizacao dos Cards no Mobile - Solucao Definitiva
 
 ## Problema
-A pagina tem overflow horizontal (barra de rolagem horizontal visivel na captura de tela). Isso faz com que todo o conteudo pareja deslocado para a esquerda, porque a pagina fica mais larga que a viewport.
-
-O `container` do Tailwind ja esta configurado com `center: true` no `tailwind.config.ts`, entao o problema nao e a centralizacao em si, mas sim o overflow horizontal que cria uma barra de scroll e desloca tudo.
+Mesmo com `overflow-x-hidden` no div raiz da pagina, os cards continuam deslocados para a esquerda no mobile. Isso indica que o overflow esta acontecendo em um nivel acima (body/html) ou que algum elemento absoluto/fixo esta empurrando o layout.
 
 ## Solucao
 
-### Arquivo: `src/pages/EventDetails.tsx`
+### 1. Arquivo: `src/index.css` - Forcar overflow-x hidden globalmente
 
-Adicionar `overflow-x-hidden` no div raiz da pagina (linha 155) para impedir que qualquer elemento interno cause overflow horizontal:
+Adicionar regras no `html` e `body` para impedir overflow horizontal em toda a aplicacao:
 
+```css
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  @apply bg-background text-foreground font-body antialiased;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
 ```
-// De:
-<div className="min-h-screen bg-background">
 
-// Para:
-<div className="min-h-screen bg-background overflow-x-hidden">
+### 2. Arquivo: `src/pages/EventDetails.tsx` - Ajustar banner e conteudo
+
+- Trocar a section do banner para usar `max-w-full` explicitamente
+- Adicionar `w-full max-w-full` na `main` para garantir que nada extrapole
+
+Alterar a `main` (linha 158):
+```
+<main className="pt-20 w-full max-w-full">
 ```
 
-Isso vai:
-- Eliminar a barra de rolagem horizontal
-- Manter todos os cards centralizados corretamente
-- Nao afetar o scroll vertical
+Essas mudancas resolvem o problema na raiz, impedindo que qualquer elemento cause overflow horizontal independentemente do dispositivo.
