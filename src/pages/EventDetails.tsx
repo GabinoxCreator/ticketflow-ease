@@ -206,21 +206,21 @@ const EventDetails = () => {
                   </h1>
 
                   <div className="flex flex-wrap gap-4 text-muted-foreground mb-6">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5" />
-                      <span>{formatDate(event.date)}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Calendar className="w-5 h-5 shrink-0" />
+                      <span className="break-words">{formatDate(event.date)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5" />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Clock className="w-5 h-5 shrink-0" />
                       <span>{event.time}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-xl mb-6">
-                    <MapPin className="w-5 h-5 text-primary mt-0.5" />
-                    <div>
-                      <p className="font-medium">{event.venue}</p>
-                      <p className="text-sm text-muted-foreground">
+                  <div className="flex items-start gap-3 p-4 bg-secondary/50 rounded-xl mb-6 min-w-0">
+                    <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium break-words">{event.venue}</p>
+                      <p className="text-sm text-muted-foreground break-words">
                         {event.address} - {event.city}, {event.state}
                       </p>
                     </div>
