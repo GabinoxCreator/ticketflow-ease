@@ -1,55 +1,54 @@
 
-# Corrigir Layout Mobile: Centralização e Banner
+# Corrigir Layout e Reorganizar Pagina de Evento
 
-## Problemas Identificados
+## Mudancas
 
-1. **Banner sangrando para fora da tela**: A imagem do banner ultrapassa os limites da tela no mobile, aparecendo cortada na esquerda. Isso acontece porque a section do banner nao tem restricao de largura adequada.
+### 1. Centralizar cards no mobile
+O `container` com `px-4` pode nao estar centralizando corretamente. Vou garantir que o grid e os cards fiquem centralizados com `mx-auto` e largura maxima adequada.
 
-2. **Conteudo sobrepondo o banner**: O `-mt-32` na section de conteudo puxa os cards muito para cima, cobrindo parte do banner. No mobile isso fica especialmente ruim.
+### 2. Reordenar: Ingressos ANTES de "Sobre o evento"
+Dentro do primeiro card (motion.div), a ordem atual e:
+- Badge de categoria
+- Titulo
+- Data/hora
+- Local
+- "Sobre o evento" (descricao)
+- Barra de progresso (% vendido)
+
+A nova ordem sera:
+- Badge de categoria
+- Titulo
+- Data/hora
+- Local
+- (Sem "Sobre o evento" aqui - movido para depois dos ingressos)
+
+O bloco de "Escolha seus ingressos" vem logo depois, e ABAIXO dele um novo card com "Sobre o evento".
+
+### 3. Remover secao "% vendido / ingressos restantes"
+- Remover o bloco de progresso geral do evento (linhas 234-259)
+- Remover tambem a barra de scarcity de cada lote individual (linhas 430-457)
+- Remover o texto "X disponiveis" de cada lote (linhas 460-464)
 
 ---
 
-## Solucao
+## Detalhes Tecnicos
 
-### Arquivo: `src/pages/EventDetails.tsx`
+**Arquivo: `src/pages/EventDetails.tsx`**
 
-**Correcao 1 - Banner centralizado e contido:**
-- Adicionar `w-full` e garantir que a imagem nao ultrapasse os limites da viewport
-- Trocar `object-contain` por `object-cover` com altura controlada para preencher melhor o espaco
-- Ou manter `object-contain` mas garantir que o container pai limite corretamente
+**Card principal (linhas 195-260):**
+- Remover linhas 229-259 (secao "Sobre o evento" + bloco de progresso)
+- O card fica apenas com: badge, titulo, data/hora, local
 
-**Correcao 2 - Reduzir sobreposicao do conteudo:**
-- Reduzir o `-mt-32` para `-mt-16` ou `-mt-8` no mobile para que o card nao cubra tanto o banner
-- Usar classes responsivas: `-mt-8 md:-mt-16 lg:-mt-32`
+**Bloco de ingressos (linhas 262-286):**
+- Permanece igual, logo abaixo do card principal
 
-### Alteracoes especificas:
+**Novo card "Sobre o evento":**
+- Adicionar ABAIXO do bloco de ingressos
+- Contem apenas o titulo "Sobre o evento" e a descricao
 
-**Linha 160 - Section do banner:**
-Mudar de:
-```
-<section className="relative overflow-hidden bg-black">
-```
-Para:
-```
-<section className="relative overflow-hidden bg-black w-full">
-```
+**LotCard (linhas 430-464):**
+- Remover o bloco de scarcity bar (linhas 430-457)
+- Remover o texto "X disponiveis" (linhas 460-464)
 
-**Linha 161 - Container da imagem:**
-Mudar para garantir que a imagem fique dentro dos limites:
-```
-<div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
-```
-
-**Linha 165 - Imagem:**
-Ajustar para mobile:
-```
-className="w-full h-auto max-h-[50vh] md:max-h-[70vh] object-contain"
-```
-
-**Linha 191 - Section de conteudo:**
-Reduzir margem negativa no mobile:
-```
-<section className="container px-4 -mt-8 md:-mt-16 lg:-mt-32 relative z-10 pb-32">
-```
-
-Essas mudancas vao: (1) manter o banner dentro da tela em qualquer dispositivo e (2) evitar que o conteudo cubra o banner no mobile.
+**Centralizacao:**
+- Adicionar `mx-auto` na section de conteudo para garantir centralizacao
