@@ -199,6 +199,26 @@ const EventDetails = () => {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
+            {/* Like Button */}
+            <button
+              onClick={handleLike}
+              className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2 transition-colors hover:bg-black/70"
+            >
+              <Heart
+                className={cn(
+                  'w-5 h-5 transition-colors',
+                  liked ? 'fill-red-500 text-red-500' : 'text-white'
+                )}
+              />
+              {likeCount > 0 && (
+                <span className={cn(
+                  'text-sm font-medium',
+                  liked ? 'text-red-500' : 'text-white'
+                )}>
+                  {likeCount}
+                </span>
+              )}
+            </button>
           </section>
 
           {/* Content */}
@@ -242,26 +262,6 @@ const EventDetails = () => {
                     </div>
                   </div>
 
-                  {/* Like Button */}
-                  <button
-                    onClick={handleLike}
-                    className="flex items-center gap-2 mt-4 group transition-colors"
-                  >
-                    <Heart
-                      className={cn(
-                        'w-6 h-6 transition-colors',
-                        liked ? 'fill-red-500 text-red-500' : 'text-muted-foreground group-hover:text-red-400'
-                      )}
-                    />
-                    {likeCount > 0 && (
-                      <span className={cn(
-                        'text-sm font-medium',
-                        liked ? 'text-red-500' : 'text-muted-foreground'
-                      )}>
-                        {likeCount}
-                      </span>
-                    )}
-                  </button>
                 </motion.div>
 
                 {/* Tickets Section */}
