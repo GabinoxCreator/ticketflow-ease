@@ -1,8 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
-import Hero from '@/components/Hero';
-import CategoryFilter from '@/components/CategoryFilter';
 import EventGrid from '@/components/EventGrid';
 import Footer from '@/components/Footer';
 import { usePublicEvents } from '@/hooks/useEvents';
@@ -10,10 +8,8 @@ import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
 
 const Index = () => {
-  const [selectedCategory, setSelectedCategory] = useState<EventCategory | null>(null);
   const { data: dbEvents, isLoading } = usePublicEvents();
 
-  // Transform database events to the format expected by EventGrid
   const events: EventData[] = useMemo(() => {
     if (!dbEvents) return [];
 
@@ -59,11 +55,6 @@ const Index = () => {
     });
   }, [dbEvents]);
 
-  const filteredEvents = useMemo(() => {
-    if (!selectedCategory) return events;
-    return events.filter((event) => event.category === selectedCategory);
-  }, [selectedCategory, events]);
-
   return (
     <>
       <Helmet>
@@ -76,12 +67,7 @@ const Index = () => {
 
       <div className="min-h-screen bg-background">
         <Header />
-        <main>
-          <Hero />
-          <CategoryFilter
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-          />
+        <main className="pt-24">
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -94,9 +80,9 @@ const Index = () => {
             </div>
           ) : (
             <EventGrid
-              events={filteredEvents}
-              title={selectedCategory ? undefined : 'Próximos Eventos'}
-              subtitle={selectedCategory ? undefined : 'Não perca os melhores eventos da região'}
+              events={events}
+              title="Próximos Eventos"
+              subtitle="Não perca os melhores eventos da região"
             />
           )}
         </main>
