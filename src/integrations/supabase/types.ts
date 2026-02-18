@@ -177,6 +177,35 @@ export type Database = {
         }
         Relationships: []
       }
+      event_likes: {
+        Row: {
+          anonymous_id: string
+          created_at: string | null
+          event_id: string
+          id: string
+        }
+        Insert: {
+          anonymous_id: string
+          created_at?: string | null
+          event_id: string
+          id?: string
+        }
+        Update: {
+          anonymous_id?: string
+          created_at?: string | null
+          event_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_likes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_lots: {
         Row: {
           created_at: string
