@@ -117,7 +117,7 @@ const Footer = () => {
           <p className="text-muted-foreground text-sm">
             © {currentYear} IngressosRP. Todos os direitos reservados.
           </p>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
             {footerLinks.legal.map((link) => (
               <Link
                 key={link.href}
