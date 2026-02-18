@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,9 +6,7 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Share2,
   Heart,
-  ChevronLeft,
   Minus,
   Plus,
   Ticket,
@@ -24,6 +22,16 @@ import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
 import { CheckoutModal } from '@/components/checkout/CheckoutModal';
+import { supabase } from '@/integrations/supabase/client';
+
+const getAnonymousId = () => {
+  let id = localStorage.getItem('anonymous_like_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('anonymous_like_id', id);
+  }
+  return id;
+};
 
 interface EventLot {
   id: string;
@@ -44,6 +52,51 @@ const EventDetails = () => {
   const { lots, isLoading: lotsLoading } = useEventLots(id);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    const anonymousId = getAnonymousId();
+    
+    const fetchLikes = async () => {
+      const { count } = await supabase
+        .from('event_likes' as any)
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', id);
+      setLikeCount(count || 0);
+
+      const { data } = await supabase
+        .from('event_likes' as any)
+        .select('id')
+        .eq('event_id', id)
+        .eq('anonymous_id', anonymousId)
+        .maybeSingle();
+      setLiked(!!data);
+    };
+    fetchLikes();
+  }, [id]);
+
+  const handleLike = useCallback(async () => {
+    if (!id) return;
+    const anonymousId = getAnonymousId();
+    
+    if (liked) {
+      setLiked(false);
+      setLikeCount(prev => Math.max(0, prev - 1));
+      await supabase
+        .from('event_likes' as any)
+        .delete()
+        .eq('event_id', id)
+        .eq('anonymous_id', anonymousId);
+    } else {
+      setLiked(true);
+      setLikeCount(prev => prev + 1);
+      await supabase
+        .from('event_likes' as any)
+        .insert({ event_id: id, anonymous_id: anonymousId } as any);
+    }
+  }, [id, liked]);
 
   const isLoading = eventLoading || lotsLoading;
 
@@ -146,24 +199,6 @@ const EventDetails = () => {
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
-            {/* Back Button */}
-            <Link
-              to="/"
-              className="absolute top-24 left-4 md:left-8 flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors glass px-4 py-2 rounded-full"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="text-sm font-medium">Voltar</span>
-            </Link>
-
-            {/* Actions */}
-            <div className="absolute top-24 right-4 md:right-8 flex gap-2">
-              <Button variant="glass" size="icon">
-                <Share2 className="w-5 h-5" />
-              </Button>
-              <Button variant="glass" size="icon">
-                <Heart className="w-5 h-5" />
-              </Button>
-            </div>
           </section>
 
           {/* Content */}
@@ -206,6 +241,27 @@ const EventDetails = () => {
                       <span className="text-sm">{event.time}</span>
                     </div>
                   </div>
+
+                  {/* Like Button */}
+                  <button
+                    onClick={handleLike}
+                    className="flex items-center gap-2 mt-4 group transition-colors"
+                  >
+                    <Heart
+                      className={cn(
+                        'w-6 h-6 transition-colors',
+                        liked ? 'fill-red-500 text-red-500' : 'text-muted-foreground group-hover:text-red-400'
+                      )}
+                    />
+                    {likeCount > 0 && (
+                      <span className={cn(
+                        'text-sm font-medium',
+                        liked ? 'text-red-500' : 'text-muted-foreground'
+                      )}>
+                        {likeCount}
+                      </span>
+                    )}
+                  </button>
                 </motion.div>
 
                 {/* Tickets Section */}
