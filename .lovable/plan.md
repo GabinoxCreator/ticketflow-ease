@@ -1,23 +1,74 @@
 
-
-# Simplificar Tela Inicial - Remover Hero e Mostrar Eventos Direto
+# Botao Curtir com Contagem de Curtidas
 
 ## O que sera feito
 
-Remover o componente Hero (aquele espaco vazio com gradientes) e o filtro de categorias da pagina inicial. O conteudo comecara direto com a lista "Proximos Eventos" logo apos o Header.
+1. Remover os botoes "Voltar" e "Compartilhar" do banner
+2. Mover o botao "Curtir" (coracao) para o canto inferior esquerdo da secao de informacoes do evento
+3. Ao curtir: coracao fica vermelho (preenchido) e exibe o numero total de curtidas ao lado
+4. Curtidas persistidas no banco de dados (por evento, usando localStorage para identificar o usuario anonimo)
 
-## Alteracoes
+## Alteracoes no Banco de Dados
 
-### Arquivo: `src/pages/Index.tsx`
+Criar tabela `event_likes` para armazenar curtidas:
 
-- Remover import do `Hero` e `CategoryFilter`
-- Remover o state `selectedCategory` (nao sera mais necessario)
-- Remover `<Hero />` e `<CategoryFilter />` do JSX
-- Passar todos os eventos direto para o `EventGrid` (sem filtro de categoria)
-- Adicionar um `pt-24` no main para compensar o header fixo
+```sql
+CREATE TABLE public.event_likes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid REFERENCES public.events(id) ON DELETE CASCADE NOT NULL,
+  anonymous_id text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
 
-### Arquivos que podem ser deletados (opcional)
+-- Indice para busca rapida por evento
+CREATE INDEX idx_event_likes_event_id ON public.event_likes(event_id);
 
-- `src/components/Hero.tsx` - nao sera mais usado
-- `src/components/CategoryFilter.tsx` - nao sera mais usado
+-- Evitar curtida duplicada do mesmo usuario
+CREATE UNIQUE INDEX idx_event_likes_unique ON public.event_likes(event_id, anonymous_id);
 
+-- RLS: leitura publica, insert/delete publico (usuario anonimo)
+ALTER TABLE public.event_likes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read likes" ON public.event_likes FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert likes" ON public.event_likes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can delete own likes" ON public.event_likes FOR DELETE USING (true);
+```
+
+## Alteracoes em Codigo
+
+### Arquivo: `src/pages/EventDetails.tsx`
+
+**Remover do banner (linhas 149-166):**
+- Remover o bloco do botao "Voltar" (Link com ChevronLeft)
+- Remover o bloco dos botoes "Compartilhar" e "Curtir" (div com Share2 e Heart)
+
+**Adicionar botao curtir na secao de informacoes:**
+- Logo abaixo da data/hora (apos linha 208), adicionar um botao com icone Heart
+- Estado local `liked` (boolean) e `likeCount` (number)
+- Ao clicar: toggle liked, coracao fica vermelho (`fill-red-500 text-red-500`), exibe contagem
+- Usar `anonymous_id` gerado via localStorage para identificar o usuario
+
+**Logica de curtida:**
+- No mount, buscar contagem de curtidas do evento e se o usuario ja curtiu
+- Ao curtir: INSERT na tabela `event_likes`
+- Ao descurtir: DELETE da tabela `event_likes`
+- Atualizar contagem localmente (otimistic update)
+
+**Gerar anonymous_id:**
+- Verificar localStorage por `anonymous_like_id`
+- Se nao existir, gerar um UUID e salvar
+
+**Visual do botao:**
+- Botao com estilo inline (sem fundo card), apenas icone Heart + numero
+- Quando curtido: Heart preenchido vermelho + numero
+- Quando nao curtido: Heart outline + numero (se > 0)
+
+### Imports a remover
+- `ChevronLeft` e `Share2` (nao serao mais usados)
+
+### Imports a manter
+- `Heart` (continua sendo usado)
+
+## Resumo de arquivos alterados
+- Migration SQL: criar tabela `event_likes`
+- `src/pages/EventDetails.tsx`: remover botoes, adicionar logica de curtida com banco de dados
