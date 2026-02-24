@@ -5,6 +5,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
 import { CheckoutStepPayment } from './CheckoutStepPayment';
+import { CheckoutStepCard } from './CheckoutStepCard';
 import { CheckoutStepPix } from './CheckoutStepPix';
 import { CheckoutStepAwaitingPayment } from './CheckoutStepAwaitingPayment';
 import { CheckoutStepSuccess } from './CheckoutStepSuccess';
@@ -13,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-type CheckoutStep = 'form' | 'payment' | 'pix' | 'awaiting' | 'success' | 'expired';
+type CheckoutStep = 'form' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
 interface CartItem {
   lotId: string;
@@ -95,6 +96,11 @@ export function CheckoutModal({
   };
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
+    if (method === 'card') {
+      setStep('card');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -107,32 +113,19 @@ export function CheckoutModal({
         customerPhone: customerData.phone,
       };
 
-      if (method === 'card') {
-        // Redirect to Mercado Pago Checkout
-        const { data, error } = await supabase.functions.invoke('create-mercadopago-preference', {
-          body: requestBody,
-        });
+      // PIX payment via Mercado Pago
+      const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
+        body: requestBody,
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (data?.url) {
-          window.location.href = data.url;
-        }
-      } else {
-        // PIX payment via Mercado Pago
-        const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
-          body: requestBody,
-        });
-
-        if (error) throw error;
-
-        setOrderId(data.orderId);
-        setPixData({
-          code: data.pixCode,
-          expiresAt: new Date(data.expiresAt),
-        });
-        setStep('pix');
-      }
+      setOrderId(data.orderId);
+      setPixData({
+        code: data.pixCode,
+        expiresAt: new Date(data.expiresAt),
+      });
+      setStep('pix');
     } catch (error: any) {
       console.error('Payment error:', error);
       toast.error(error.message || 'Erro ao processar pagamento');
@@ -183,11 +176,13 @@ export function CheckoutModal({
   };
 
   // For logged-in users on payment step, they can go back to form to edit
-  const canGoBack = step === 'payment' && !user;
+  const canGoBack = (step === 'payment' && !user) || step === 'card';
 
   const handleBack = () => {
     if (step === 'payment' && !user) {
       setStep('form');
+    } else if (step === 'card') {
+      setStep('payment');
     }
   };
 
@@ -208,6 +203,7 @@ export function CheckoutModal({
             <h2 className="font-display font-semibold">
               {step === 'form' && 'Seus Dados'}
               {step === 'payment' && 'Pagamento'}
+              {step === 'card' && 'Dados do Cartão'}
               {step === 'pix' && 'Pagar com PIX'}
               {step === 'awaiting' && 'Aguardando Pagamento'}
               {step === 'success' && 'Sucesso'}
@@ -225,9 +221,9 @@ export function CheckoutModal({
         {step !== 'success' && step !== 'expired' && step !== 'awaiting' && (
           <div className="px-4 py-2 bg-secondary/30">
             <div className="flex gap-1">
-              {['form', 'payment', 'pix'].map((s, index) => {
-                const steps = ['form', 'payment', 'pix'];
-                const currentIndex = steps.indexOf(step);
+              {['form', 'payment', 'card'].map((s, index) => {
+                const steps = ['form', 'payment', 'card'];
+                const currentIndex = steps.indexOf(step === 'pix' ? 'card' : step);
                 return (
                   <div
                     key={s}
@@ -268,6 +264,25 @@ export function CheckoutModal({
                 totalAmount={totalAmount}
                 isProcessing={isProcessing}
                 onSelectPayment={handlePaymentSelect}
+              />
+            )}
+
+            {step === 'card' && (
+              <CheckoutStepCard
+                key="card"
+                eventId={eventId}
+                eventTitle={eventTitle}
+                items={items}
+                totalAmount={totalAmount}
+                customerName={customerData.name}
+                customerEmail={customerData.email}
+                customerPhone={customerData.phone}
+                customerCPF={customerData.cpf}
+                onSuccess={(newOrderId) => {
+                  setOrderId(newOrderId);
+                  setStep('success');
+                }}
+                onError={() => {}}
               />
             )}
 
