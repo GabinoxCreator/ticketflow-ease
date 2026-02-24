@@ -121,7 +121,8 @@ const EventDetails = () => {
     );
   }
 
-  const activeLots = lots?.filter(lot => lot.is_active) || [];
+  const isEventFinished = event ? (event.status === 'finished' || new Date(event.date + 'T23:59:59') < new Date()) : false;
+  const activeLots = isEventFinished ? [] : (lots?.filter(lot => lot.is_active) || []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -188,6 +189,16 @@ const EventDetails = () => {
         <Header />
 
         <main className={cn("pt-20 w-full", totalTickets > 0 && "pb-24 lg:pb-0")}>
+          {/* Evento Encerrado Banner */}
+          {isEventFinished && (
+            <div className="w-full bg-destructive/10 border-b border-destructive/20">
+              <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
+                <AlertCircle className="w-5 h-5 text-destructive" />
+                <span className="font-semibold text-destructive">Evento Encerrado</span>
+              </div>
+            </div>
+          )}
+
         {/* Desktop Hero Split */}
           <section className="relative overflow-hidden hidden lg:flex pt-8 w-full max-w-7xl mx-auto px-4 min-h-[50vh] items-center gap-12">
             {/* Blurred background */}
@@ -391,20 +402,28 @@ const EventDetails = () => {
                     </p>
                   )}
 
-                  <Button
-                    variant="hero"
-                    size="xl"
-                    className="w-full"
-                    onClick={handleCheckout}
-                    disabled={totalTickets === 0}
-                  >
-                    <Ticket className="w-5 h-5 mr-2" />
-                    Comprar Ingressos
-                  </Button>
-
-                  <p className="text-xs text-muted-foreground text-center mt-4">
-                    Pagamento 100% seguro via PIX ou cartão
-                  </p>
+                  {isEventFinished ? (
+                    <div className="text-center">
+                      <Badge variant="destructive" className="mb-2">Evento Encerrado</Badge>
+                      <p className="text-sm text-muted-foreground">Este evento já foi finalizado.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Button
+                        variant="hero"
+                        size="xl"
+                        className="w-full"
+                        onClick={handleCheckout}
+                        disabled={totalTickets === 0}
+                      >
+                        <Ticket className="w-5 h-5 mr-2" />
+                        Comprar Ingressos
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center mt-4">
+                        Pagamento 100% seguro via PIX ou cartão
+                      </p>
+                    </>
+                  )}
                 </div>
               </motion.div>
             </div>

@@ -169,6 +169,7 @@ export function usePublicEvents() {
   return useQuery({
     queryKey: ['public-events'],
     queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -184,6 +185,7 @@ export function usePublicEvents() {
           )
         `)
         .eq('status', 'published')
+        .gte('date', today)
         .order('date', { ascending: true });
 
       if (error) throw error;

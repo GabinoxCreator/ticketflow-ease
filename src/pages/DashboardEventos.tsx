@@ -129,17 +129,17 @@ export default function DashboardEventos() {
 
         {/* Tabs */}
         <Tabs defaultValue="active" className="space-y-6">
-          <TabsList className="w-full overflow-x-auto">
-            <TabsTrigger value="active">
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="active" className="text-xs sm:text-sm">
               Ativos ({activeEvents.length})
             </TabsTrigger>
-            <TabsTrigger value="drafts">
+            <TabsTrigger value="drafts" className="text-xs sm:text-sm">
               Rascunhos ({draftEvents.length})
             </TabsTrigger>
-            <TabsTrigger value="past">
+            <TabsTrigger value="past" className="text-xs sm:text-sm">
               Passados ({pastEvents.length})
             </TabsTrigger>
-            <TabsTrigger value="all">
+            <TabsTrigger value="all" className="text-xs sm:text-sm">
               Todos ({events?.length || 0})
             </TabsTrigger>
           </TabsList>
