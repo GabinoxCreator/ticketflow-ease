@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Lock, CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { useStripeConnect } from '@/hooks/useStripeConnect';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function PinSetupCard() {
-  const { status, setPin, isLoading } = useStripeConnect();
+  const [hasPin, setHasPin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -17,7 +19,23 @@ export function PinSetupCard() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const hasExistingPin = status?.has_pin;
+  const checkPinStatus = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('producer_stripe_accounts')
+        .select('pin_hash')
+        .single();
+      setHasPin(!!data?.pin_hash);
+    } catch {
+      setHasPin(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkPinStatus();
+  }, [checkPinStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,20 +51,31 @@ export function PinSetupCard() {
       return;
     }
 
-    if (hasExistingPin && currentPin.length !== 4) {
+    if (hasPin && currentPin.length !== 4) {
       setError('Digite seu PIN atual');
       return;
     }
 
     setIsSaving(true);
-    const success = await setPin(newPin, hasExistingPin ? currentPin : undefined);
-    setIsSaving(false);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('set-producer-pin', {
+        body: { pin: newPin, current_pin: hasPin ? currentPin : undefined },
+      });
 
-    if (success) {
-      setIsEditing(false);
-      setCurrentPin('');
-      setNewPin('');
-      setConfirmPin('');
+      if (fnError) throw fnError;
+
+      if (data?.success) {
+        toast.success('PIN configurado com sucesso');
+        setIsEditing(false);
+        setCurrentPin('');
+        setNewPin('');
+        setConfirmPin('');
+        await checkPinStatus();
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao configurar PIN');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -76,7 +105,7 @@ export function PinSetupCard() {
             <CardTitle className="flex items-center gap-2">
               <Lock className="w-5 h-5" />
               PIN de Segurança
-              {hasExistingPin && (
+              {hasPin && (
                 <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
                   Configurado
                 </Badge>
@@ -92,7 +121,7 @@ export function PinSetupCard() {
         {!isEditing ? (
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-xl bg-muted/50">
-              {hasExistingPin ? (
+              {hasPin ? (
                 <CheckCircle className="w-10 h-10 text-green-500" />
               ) : (
                 <Lock className="w-10 h-10 text-muted-foreground" />
@@ -100,47 +129,41 @@ export function PinSetupCard() {
             </div>
             <div className="flex-1 space-y-4">
               <p className="text-muted-foreground">
-                {hasExistingPin
-                  ? 'Seu PIN está configurado. Use-o para confirmar saques e outras operações financeiras.'
+                {hasPin
+                  ? 'Seu PIN está configurado. Use-o para confirmar operações financeiras.'
                   : 'Configure um PIN de 4 dígitos para proteger suas operações financeiras.'}
               </p>
               <Button onClick={() => setIsEditing(true)}>
-                {hasExistingPin ? 'Alterar PIN' : 'Configurar PIN'}
+                {hasPin ? 'Alterar PIN' : 'Configurar PIN'}
               </Button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
-            {hasExistingPin && (
+            {hasPin && (
               <div className="space-y-2">
                 <Label htmlFor="current-pin">PIN Atual</Label>
-                <div className="relative">
-                  <Input
-                    id="current-pin"
-                    type={showPins ? 'text' : 'password'}
-                    value={currentPin}
-                    onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="••••"
-                    maxLength={4}
-                    className="pr-10"
-                  />
-                </div>
+                <Input
+                  id="current-pin"
+                  type={showPins ? 'text' : 'password'}
+                  value={currentPin}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
+                  maxLength={4}
+                />
               </div>
             )}
             
             <div className="space-y-2">
               <Label htmlFor="new-pin">Novo PIN</Label>
-              <div className="relative">
-                <Input
-                  id="new-pin"
-                  type={showPins ? 'text' : 'password'}
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="••••"
-                  maxLength={4}
-                  className="pr-10"
-                />
-              </div>
+              <Input
+                id="new-pin"
+                type={showPins ? 'text' : 'password'}
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="••••"
+                maxLength={4}
+              />
             </div>
 
             <div className="space-y-2">
@@ -167,9 +190,7 @@ export function PinSetupCard() {
               </div>
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="flex gap-3">
               <Button type="submit" disabled={isSaving}>

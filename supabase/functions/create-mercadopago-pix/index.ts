@@ -1,10 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface CartItem {
@@ -18,11 +17,12 @@ interface PixRequest {
   customerName: string;
   customerEmail: string;
   customerCPF: string;
+  customerPhone?: string;
 }
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CREATE-PIX-PAYMENT] ${step}${detailsStr}`);
+  console.log(`[CREATE-MERCADOPAGO-PIX] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -33,51 +33,41 @@ serve(async (req) => {
   try {
     logStep('Function started');
 
+    const mercadopagoToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+    if (!mercadopagoToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN is not set');
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { persistSession: false } }
     );
 
-    const { eventId, items, customerName, customerEmail, customerCPF } = await req.json() as PixRequest;
+    const { eventId, items, customerName, customerEmail, customerCPF, customerPhone } = await req.json() as PixRequest;
 
     logStep('Request received', { eventId, itemsCount: items.length, customerEmail });
 
     // Fetch event details
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('*')
+      .select('id, title, status')
       .eq('id', eventId)
       .single();
 
     if (eventError || !event) {
-      logStep('Event not found', { eventError });
       throw new Error('Evento não encontrado');
     }
 
-    logStep('Event found', { title: event.title, producerId: event.producer_id });
-
-    // Fetch producer's Stripe account
-    const { data: stripeAccount, error: stripeError } = await supabaseClient
-      .from('producer_stripe_accounts')
-      .select('stripe_account_id')
-      .eq('user_id', event.producer_id)
-      .single();
-
-    if (stripeError || !stripeAccount?.stripe_account_id) {
-      logStep('Stripe account not found', { stripeError });
-      throw new Error('Produtor não configurou conta de pagamentos');
+    if (event.status !== 'published') {
+      throw new Error('Evento não está disponível para vendas');
     }
-
-    const stripeAccountId = stripeAccount.stripe_account_id;
-    logStep('Stripe account found', { stripeAccountId });
 
     // Fetch lots and validate availability
     const lotIds = items.map(item => item.lotId);
     const { data: lots, error: lotsError } = await supabaseClient
       .from('event_lots')
-      .select('*')
-      .in('id', lotIds);
+      .select('id, name, price, total_quantity, sold_quantity, is_active')
+      .in('id', lotIds)
+      .eq('event_id', eventId);
 
     if (lotsError || !lots) {
       throw new Error('Erro ao buscar lotes');
@@ -89,9 +79,8 @@ serve(async (req) => {
 
     for (const item of items) {
       const lot = lots.find(l => l.id === item.lotId);
-      if (!lot) {
-        throw new Error(`Lote não encontrado: ${item.lotId}`);
-      }
+      if (!lot) throw new Error(`Lote não encontrado: ${item.lotId}`);
+      if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
 
       const available = lot.total_quantity - lot.sold_quantity;
       if (available < item.quantity) {
@@ -110,7 +99,7 @@ serve(async (req) => {
     logStep('Items validated', { totalAmount, itemsCount: lineItems.length });
 
     // Get user ID if authenticated
-    let userId = null;
+    let userId: string | null = null;
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '');
@@ -119,15 +108,13 @@ serve(async (req) => {
     }
 
     // Create order with pending status
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
       .insert({
         event_id: eventId,
         customer_name: customerName,
         customer_email: customerEmail,
-        customer_phone: customerCPF, // Using phone field for CPF temporarily
+        customer_phone: customerPhone || null,
         total_amount: totalAmount,
         payment_method: 'pix',
         status: 'pending',
@@ -143,21 +130,19 @@ serve(async (req) => {
 
     logStep('Order created', { orderId: order.id });
 
-    // Reserve tickets (create with valid status - order status tracks payment)
-    const ticketsToCreate = [];
-    for (const item of lineItems) {
-      for (let i = 0; i < item.quantity; i++) {
-        ticketsToCreate.push({
-          event_id: eventId,
-          order_id: order.id,
-          lot_id: item.lotId,
-          holder_name: customerName,
-          holder_email: customerEmail,
-          user_id: userId,
-          status: 'valid',
-        });
-      }
-    }
+    // Create tickets with pending status
+    const ticketsToCreate = lineItems.flatMap(item =>
+      Array.from({ length: item.quantity }, () => ({
+        event_id: eventId,
+        order_id: order.id,
+        lot_id: item.lotId,
+        holder_name: customerName,
+        holder_email: customerEmail,
+        holder_phone: customerPhone || null,
+        user_id: userId,
+        status: 'pending',
+      }))
+    );
 
     const { error: ticketsError } = await supabaseClient
       .from('tickets')
@@ -165,69 +150,80 @@ serve(async (req) => {
 
     if (ticketsError) {
       logStep('Tickets creation failed', { ticketsError });
-      // Rollback order
       await supabaseClient.from('orders').delete().eq('id', order.id);
       throw new Error('Erro ao reservar ingressos');
     }
 
-    logStep('Tickets reserved', { count: ticketsToCreate.length });
-
-    // Generate PIX code using Stripe
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-      apiVersion: '2025-08-27.basil',
-    });
-
-    const amountInCents = Math.round(totalAmount * 100);
-
-    // Create PaymentIntent - simplified without Connect for now
-    // Connect features (transfer_data, application_fee) require a separate connected account
-    const paymentIntentParams: any = {
-      amount: amountInCents,
-      currency: 'brl',
-      payment_method_types: ['pix'],
-      metadata: {
-        orderId: order.id,
-        eventId: eventId,
-        customerEmail: customerEmail,
-        producerId: event.producer_id,
-      },
-    };
-
-    logStep('Creating payment intent', { amount: amountInCents, stripeAccountId });
-
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
-
-    // For PIX, we need to confirm the payment intent to get the QR code
-    // In test mode, we'll generate a simulated PIX code
-    let pixCode: string;
-    
-    if (paymentIntent.next_action?.pix_display_qr_code) {
-      pixCode = paymentIntent.next_action.pix_display_qr_code.data || '';
-    } else {
-      // Fallback: Generate a simulated PIX code for testing
-      pixCode = `00020126580014br.gov.bcb.pix0136${order.id}520400005303986540${totalAmount.toFixed(2)}5802BR5925${customerName.slice(0, 25)}6009SAO PAULO62070503***6304`;
+    // Update sold_quantity for each lot
+    for (const item of lineItems) {
+      const lot = lots.find(l => l.id === item.lotId)!;
+      await supabaseClient
+        .from('event_lots')
+        .update({ sold_quantity: lot.sold_quantity + item.quantity })
+        .eq('id', item.lotId);
     }
 
-    logStep('PIX payment intent created', { 
-      paymentIntentId: paymentIntent.id,
-      status: paymentIntent.status 
+    logStep('Tickets reserved', { count: ticketsToCreate.length });
+
+    // Clean CPF for Mercado Pago (numbers only)
+    const cleanCPF = customerCPF.replace(/\D/g, '');
+
+    // Create PIX payment via Mercado Pago API
+    const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${mercadopagoToken}`,
+        'X-Idempotency-Key': order.id,
+      },
+      body: JSON.stringify({
+        transaction_amount: totalAmount,
+        description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
+        payment_method_id: 'pix',
+        payer: {
+          email: customerEmail,
+          first_name: customerName.split(' ')[0],
+          last_name: customerName.split(' ').slice(1).join(' ') || customerName.split(' ')[0],
+          identification: {
+            type: 'CPF',
+            number: cleanCPF,
+          },
+        },
+        external_reference: order.id,
+      }),
     });
 
-    // Update order with payment intent ID
+    if (!mpResponse.ok) {
+      const mpError = await mpResponse.json();
+      logStep('Mercado Pago error', mpError);
+      // Rollback
+      await supabaseClient.from('tickets').delete().eq('order_id', order.id);
+      await supabaseClient.from('orders').delete().eq('id', order.id);
+      throw new Error(mpError.message || 'Erro ao criar pagamento PIX');
+    }
+
+    const mpPayment = await mpResponse.json();
+    logStep('Mercado Pago payment created', { paymentId: mpPayment.id, status: mpPayment.status });
+
+    const pixInfo = mpPayment.point_of_interaction?.transaction_data;
+
+    // Update order with MP payment ID
     await supabaseClient
       .from('orders')
-      .update({ 
-        payment_method: `pix:${paymentIntent.id}` 
-      })
+      .update({ payment_method: `pix:${mpPayment.id}` })
       .eq('id', order.id);
+
+    // Expiration from MP or fallback 30 min
+    const expiresAt = pixInfo?.expiration_date || new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
     return new Response(
       JSON.stringify({
         success: true,
         orderId: order.id,
-        pixCode: pixCode,
-        expiresAt: expiresAt.toISOString(),
-        paymentIntentId: paymentIntent.id,
+        pixCode: pixInfo?.qr_code || '',
+        qrCodeBase64: pixInfo?.qr_code_base64 || '',
+        expiresAt,
+        paymentId: mpPayment.id,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

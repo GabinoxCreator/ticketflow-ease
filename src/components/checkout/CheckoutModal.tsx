@@ -98,17 +98,19 @@ export function CheckoutModal({
     setIsProcessing(true);
 
     try {
+      const requestBody = {
+        eventId,
+        items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
+        customerName: customerData.name,
+        customerEmail: customerData.email,
+        customerCPF: customerData.cpf,
+        customerPhone: customerData.phone,
+      };
+
       if (method === 'card') {
-        // Redirect to Stripe Checkout
-        const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-          body: {
-            eventId,
-            items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
-            customerName: customerData.name,
-            customerEmail: customerData.email,
-            customerCPF: customerData.cpf,
-            customerPhone: customerData.phone,
-          },
+        // Redirect to Mercado Pago Checkout
+        const { data, error } = await supabase.functions.invoke('create-mercadopago-preference', {
+          body: requestBody,
         });
 
         if (error) throw error;
@@ -117,16 +119,9 @@ export function CheckoutModal({
           window.location.href = data.url;
         }
       } else {
-        // PIX payment - create order and generate PIX code
-        const { data, error } = await supabase.functions.invoke('create-pix-payment', {
-          body: {
-            eventId,
-            items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
-            customerName: customerData.name,
-            customerEmail: customerData.email,
-            customerCPF: customerData.cpf,
-            customerPhone: customerData.phone,
-          },
+        // PIX payment via Mercado Pago
+        const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
+          body: requestBody,
         });
 
         if (error) throw error;
@@ -146,24 +141,24 @@ export function CheckoutModal({
     }
   };
 
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
 
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('status')
-        .eq('id', orderId)
-        .single();
+      const { data, error } = await supabase.functions.invoke('check-mercadopago-payment', {
+        body: { orderId, paymentId },
+      });
 
       if (error) throw error;
 
-      return data?.status === 'paid';
+      return data?.paid === true;
     } catch (error) {
       console.error('Error checking payment status:', error);
       return false;
     }
-  }, [orderId]);
+  }, [orderId, paymentId]);
 
   const handlePaymentConfirmed = () => {
     setStep('success');
