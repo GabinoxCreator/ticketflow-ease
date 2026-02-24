@@ -123,8 +123,8 @@ const Checkout = () => {
     
     try {
       if (paymentMethod === 'card') {
-        // Use Stripe Checkout with Destination Charges
-        const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        // Redirect to Mercado Pago Checkout
+        const { data, error } = await supabase.functions.invoke('create-mercadopago-preference', {
           body: {
             eventId: eventId!,
             cartItems: cartItems,
@@ -138,20 +138,19 @@ const Checkout = () => {
         if (data?.error) throw new Error(data.error);
 
         if (data?.url) {
-          // Redirect to Stripe Checkout
           window.location.href = data.url;
           return;
         }
       } else {
-        // PIX payment - use secure server-side order creation
-        const { data, error } = await supabase.functions.invoke('create-pix-order', {
+        // PIX payment via Mercado Pago
+        const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
           body: {
             eventId: eventId!,
-            cartItems: cartItems,
+            items: cartItems,
             customerName: customerName.trim(),
             customerEmail: customerEmail.trim(),
             customerPhone: customerPhone.trim() || null,
-            userId: user?.id || null,
+            customerCPF: '',
           },
         });
 

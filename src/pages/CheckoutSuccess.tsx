@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Check, Loader2, Ticket, Home } from 'lucide-react';
@@ -17,41 +17,57 @@ const CheckoutSuccess = () => {
     customer_email: string;
   } | null>(null);
 
-  const sessionId = searchParams.get('session_id');
   const orderId = searchParams.get('order_id');
+  const paymentId = searchParams.get('payment_id');
+  const mpStatus = searchParams.get('status');
+  const externalReference = searchParams.get('external_reference');
+
+  // Use external_reference as fallback for orderId (Mercado Pago sends it)
+  const resolvedOrderId = orderId || externalReference;
 
   useEffect(() => {
     const confirmPayment = async () => {
-      if (!orderId) {
+      if (!resolvedOrderId) {
         toast.error('Pedido não encontrado');
         navigate('/');
         return;
       }
 
       try {
+        // Check payment status via Mercado Pago
+        if (paymentId) {
+          const { data: mpData, error: mpError } = await supabase.functions.invoke('check-mercadopago-payment', {
+            body: { paymentId, orderId: resolvedOrderId },
+          });
+
+          if (mpError) {
+            console.error('Error checking MP payment:', mpError);
+          }
+        } else {
+          // No payment ID - check by order
+          const { data: mpData } = await supabase.functions.invoke('check-mercadopago-payment', {
+            body: { orderId: resolvedOrderId },
+          });
+        }
+
         // Get order details
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .select('*')
-          .eq('id', orderId)
+          .eq('id', resolvedOrderId)
           .single();
 
         if (orderError || !order) {
           throw new Error('Order not found');
         }
 
-        // Update order status to paid
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({ status: 'paid' })
-          .eq('id', orderId);
-
-        if (updateError) {
-          console.error('Error updating order status:', updateError);
-        }
-
         setOrderDetails(order);
-        toast.success('Pagamento confirmado!');
+        
+        if (order.status === 'paid') {
+          toast.success('Pagamento confirmado!');
+        } else {
+          toast.info('Pagamento está sendo processado');
+        }
       } catch (error: any) {
         console.error('Error confirming payment:', error);
         toast.error('Erro ao confirmar pagamento');
@@ -61,7 +77,7 @@ const CheckoutSuccess = () => {
     };
 
     confirmPayment();
-  }, [orderId, navigate]);
+  }, [resolvedOrderId, paymentId, navigate]);
 
   const formatPrice = (price: number) => {
     return price.toLocaleString('pt-BR', {
