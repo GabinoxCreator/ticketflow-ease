@@ -42,7 +42,7 @@ export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutP
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <ProducerSidebar />
-        <SidebarInset className="flex-1">
+        <SidebarInset className="flex-1 min-w-0">
           <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border/50 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
@@ -67,7 +67,7 @@ export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutP
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-6 overflow-hidden">
             {children}
           </main>
         </SidebarInset>
