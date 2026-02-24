@@ -79,14 +79,14 @@ export default function EventDashboard() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full justify-start mb-6 overflow-x-auto">
+        <TabsList className="grid grid-cols-6 w-full mb-6">
           {tabItems.map((tab) => (
             <TabsTrigger 
               key={tab.value} 
               value={tab.value}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-xs sm:text-sm"
             >
-              <tab.icon className="h-4 w-4" />
+              <tab.icon className="h-5 w-5" />
               <span className="hidden sm:inline">{tab.label}</span>
             </TabsTrigger>
           ))}
