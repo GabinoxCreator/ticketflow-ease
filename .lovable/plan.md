@@ -1,43 +1,121 @@
 
 
-# Fundo do Hero Desktop com Banner Desfocado
+# Migrar Gateway de Pagamento: Stripe para Mercado Pago
 
-## O que sera feito
+## Resumo
 
-Adicionar a imagem do banner do evento como fundo da secao hero no desktop, com efeito de desfoque (blur) intenso, criando um efeito visual similar ao Ze do Ingresso. A imagem principal continua nitida no lado direito.
+Substituir toda a integracao com Stripe pela API do Mercado Pago, mantendo o checkout personalizado atual com suporte a PIX e Cartao de Credito. Como o modelo sera pagamento direto (sem split), a parte de Stripe Connect (onboarding de produtores) sera removida.
 
-## Alteracoes
+## Etapa 1: Configurar credenciais do Mercado Pago
 
-### Arquivo: `src/pages/EventDetails.tsx`
+- Solicitar ao usuario o **Access Token** do Mercado Pago (chave privada) para ser armazenado como secret na Lovable Cloud
+- A **Public Key** do Mercado Pago sera armazenada no codigo como variavel de ambiente `VITE_MERCADOPAGO_PUBLIC_KEY`
 
-**Secao hero desktop (linhas ~160-195):**
+## Etapa 2: Criar edge function `create-mercadopago-preference`
 
-1. Adicionar um elemento `<div>` com a imagem do evento como `background-image` posicionado absoluto atras de todo o conteudo do hero
-2. Aplicar `blur-2xl` ou `blur-3xl` + `opacity-30` + `scale-110` para criar o efeito de fundo desfocado que sangra suavemente
-3. Adicionar um overlay escuro/claro sutil por cima para manter a legibilidade do texto
-4. A `<section>` do hero recebera `relative overflow-hidden` para conter o fundo desfocado
+Substituir `create-checkout-session` por uma nova funcao que:
+- Recebe os dados do pedido (eventId, items, dados do cliente)
+- Valida disponibilidade dos lotes
+- Cria o pedido na tabela `orders` com status `pending`
+- Cria uma **Preference** no Mercado Pago via API REST com:
+  - Itens do carrinho
+  - URLs de retorno (success, failure, pending)
+  - Dados do pagador (email, nome, CPF)
+  - Metodos de pagamento: PIX e cartao de credito
+- Retorna o `init_point` (URL do checkout do Mercado Pago) ou o ID da preference
 
-### Estrutura resultante
+## Etapa 3: Criar edge function `create-mercadopago-pix`
 
-```text
-<section class="relative overflow-hidden ...">
-  <!-- Fundo desfocado -->
-  <div class="absolute inset-0">
-    <img src={banner} class="w-full h-full object-cover scale-110 blur-3xl opacity-30" />
-    <div class="absolute inset-0 bg-background/60" />  <!-- overlay -->
-  </div>
-  <!-- Conteudo (info + imagem) com z-10 -->
-  <div class="relative z-10 flex ...">
-    ...
-  </div>
-</section>
-```
+Substituir `create-pix-payment` por uma funcao que:
+- Cria o pedido na tabela `orders`
+- Cria um **pagamento PIX** via API do Mercado Pago (`/v1/payments`)
+  - `payment_method_id: "pix"`
+  - Inclui dados do pagador com CPF
+- Retorna o `qr_code` e `qr_code_base64` para exibir no checkout
+- Retorna o `ticket_url` e data de expiracao
 
-### Detalhes tecnicos
+## Etapa 4: Criar edge function `check-mercadopago-payment`
 
-- `scale-110` evita bordas brancas causadas pelo blur
-- `opacity-30` mantem o efeito sutil sem prejudicar leitura
-- Overlay com `bg-background/60` garante contraste com o texto
-- `overflow-hidden` na section impede que o blur vaze para fora
-- Nenhuma mudanca no layout mobile
+Nova funcao para verificar status de pagamento:
+- Recebe o `payment_id` ou `order_id`
+- Consulta a API do Mercado Pago (`/v1/payments/{id}`)
+- Retorna o status atualizado (approved, pending, rejected)
+- Se aprovado, atualiza o pedido e tickets no banco
+
+## Etapa 5: Atualizar o frontend do Checkout
+
+### `CheckoutModal.tsx`
+- Alterar `handlePaymentSelect` para chamar as novas edge functions
+- Para cartao: redirecionar para o `init_point` do Mercado Pago (checkout hospedado) ou usar o Checkout Bricks inline
+- Para PIX: chamar `create-mercadopago-pix` e exibir QR Code retornado pela API
+
+### `CheckoutStepPayment.tsx`
+- Sem mudancas visuais significativas, apenas manter PIX e Cartao
+
+### `CheckoutStepPix.tsx`
+- Atualizar para usar o QR Code retornado pelo Mercado Pago (que ja vem pronto)
+- Polling de status usando `check-mercadopago-payment`
+
+### `Checkout.tsx` (pagina separada de checkout)
+- Atualizar chamadas de funcoes para as novas edge functions do Mercado Pago
+
+### `CheckoutSuccess.tsx`
+- Atualizar para funcionar com parametros de retorno do Mercado Pago (`payment_id`, `status`, `external_reference`)
+
+## Etapa 6: Remover integracao Stripe Connect (produtor)
+
+Como o modelo agora e pagamento direto:
+- Remover `StripeEmbeddedOnboarding.tsx`
+- Remover `StripeConnectCard.tsx`
+- Remover `useStripeConnect.ts`
+- Simplificar `Financeiro.tsx` (remover componentes do Stripe Connect)
+- Remover edge functions:
+  - `create-stripe-connect-account`
+  - `check-stripe-connect-status`
+  - `create-account-session`
+  - `get-stripe-dashboard-link`
+- Remover dependencias npm: `@stripe/connect-js`, `@stripe/react-connect-js`
+
+## Etapa 7: Remover edge functions antigas do Stripe
+
+- `create-checkout-session`
+- `create-pix-payment`
+- Atualizar `supabase/config.toml` com as novas funcoes
+
+## Etapa 8: Limpar variaveis e secrets
+
+- Remover `VITE_STRIPE_PUBLISHABLE_KEY` do `.env`
+- O `STRIPE_SECRET_KEY` podera ser removido dos secrets
+- Adicionar `MERCADOPAGO_ACCESS_TOKEN` como novo secret
+- Adicionar `VITE_MERCADOPAGO_PUBLIC_KEY` ao codigo
+
+## Arquivos afetados
+
+| Arquivo | Acao |
+|---------|------|
+| `supabase/functions/create-mercadopago-preference/index.ts` | Criar (novo) |
+| `supabase/functions/create-mercadopago-pix/index.ts` | Criar (novo) |
+| `supabase/functions/check-mercadopago-payment/index.ts` | Criar (novo) |
+| `supabase/functions/create-checkout-session/index.ts` | Remover |
+| `supabase/functions/create-pix-payment/index.ts` | Remover |
+| `supabase/functions/create-stripe-connect-account/index.ts` | Remover |
+| `supabase/functions/check-stripe-connect-status/index.ts` | Remover |
+| `supabase/functions/create-account-session/index.ts` | Remover |
+| `supabase/functions/get-stripe-dashboard-link/index.ts` | Remover |
+| `supabase/config.toml` | Atualizar (novas funcoes) |
+| `src/components/checkout/CheckoutModal.tsx` | Editar |
+| `src/components/checkout/CheckoutStepPix.tsx` | Editar |
+| `src/pages/Checkout.tsx` | Editar |
+| `src/pages/CheckoutSuccess.tsx` | Editar |
+| `src/components/producer/StripeEmbeddedOnboarding.tsx` | Remover |
+| `src/components/producer/StripeConnectCard.tsx` | Remover |
+| `src/hooks/useStripeConnect.ts` | Remover |
+| `src/pages/Financeiro.tsx` | Simplificar |
+
+## Observacoes importantes
+
+- A API do Mercado Pago usa chamadas REST diretas (fetch) nas edge functions, nao precisa de SDK especial
+- O PIX do Mercado Pago retorna QR Code pronto (base64 e texto copia-cola)
+- O checkout para cartao de credito pode usar o checkout hospedado do Mercado Pago (redirect) ou Checkout Bricks (inline) - inicialmente usaremos o redirect por ser mais simples
+- A validacao do pagamento do cartao sera feita na pagina de sucesso consultando o status via API
 
