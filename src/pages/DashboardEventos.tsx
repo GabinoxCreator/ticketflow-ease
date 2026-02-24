@@ -101,7 +101,7 @@ export default function DashboardEventos() {
 
   return (
     <ProducerLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-hidden">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -129,7 +129,7 @@ export default function DashboardEventos() {
 
         {/* Tabs */}
         <Tabs defaultValue="active" className="space-y-6">
-          <TabsList>
+          <TabsList className="w-full overflow-x-auto">
             <TabsTrigger value="active">
               Ativos ({activeEvents.length})
             </TabsTrigger>
