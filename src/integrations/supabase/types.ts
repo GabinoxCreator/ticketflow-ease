@@ -471,6 +471,48 @@ export type Database = {
           },
         ]
       }
+      producer_bank_accounts: {
+        Row: {
+          account_holder_name: string
+          account_number: string
+          account_type: string
+          agency: string
+          bank_name: string
+          created_at: string | null
+          id: string
+          pix_key: string
+          pix_key_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_holder_name?: string
+          account_number?: string
+          account_type?: string
+          agency?: string
+          bank_name?: string
+          created_at?: string | null
+          id?: string
+          pix_key?: string
+          pix_key_type?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_holder_name?: string
+          account_number?: string
+          account_type?: string
+          agency?: string
+          bank_name?: string
+          created_at?: string | null
+          id?: string
+          pix_key?: string
+          pix_key_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       producer_stripe_accounts: {
         Row: {
           created_at: string
