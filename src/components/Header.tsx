@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Menu, X, Ticket, User, LogOut, LayoutDashboard, Calendar, ChevronDown } from 'lucide-react';
+import { Search, Ticket, User, LogOut, LayoutDashboard, Calendar, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -14,7 +14,6 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
@@ -155,7 +154,7 @@ const Header = () => {
                     {/* Login */}
                     <Button
                       variant="outline"
-                      className="hidden sm:flex gap-2"
+                      className="flex gap-2"
                       onClick={() => navigate('/auth')}
                     >
                       <User className="w-4 h-4" />
@@ -175,114 +174,9 @@ const Header = () => {
               </>
             )}
 
-            {/* Mobile Menu Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
           </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden border-t border-border bg-background"
-          >
-            <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
-              <div className="flex flex-col gap-2">
-                {user ? (
-                  <>
-                    <div className="px-4 py-2 mb-2">
-                      <p className="font-medium">{profile?.nome_completo}</p>
-                      <p className="text-sm text-muted-foreground">{profile?.email}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => {
-                        navigate('/meus-ingressos');
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      <Ticket className="w-4 h-4" />
-                      Meus Ingressos
-                    </Button>
-                    {isProdutor && (
-                      <>
-                        <Button
-                          variant="outline"
-                          className="justify-start gap-2"
-                          onClick={() => {
-                            navigate('/dashboard');
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          <LayoutDashboard className="w-4 h-4" />
-                          Painel do Produtor
-                        </Button>
-                        <Button
-                          variant="gradient"
-                          className="mt-2"
-                          onClick={() => {
-                            navigate('/criar-evento');
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          Criar Evento
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      variant="ghost"
-                      className="justify-start gap-2 text-destructive"
-                      onClick={() => {
-                        handleSignOut();
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Sair
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="justify-start gap-2"
-                      onClick={() => {
-                        navigate('/auth');
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      <User className="w-4 h-4" />
-                      Entrar
-                    </Button>
-                    <Button
-                      variant="gradient"
-                      className="mt-2"
-                      onClick={() => {
-                        navigate('/auth?tipo=produtor&redirect=/criar-evento');
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      Criar Evento
-                    </Button>
-                  </>
-                )}
-              </div>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Search Modal */}
       <AnimatePresence>
