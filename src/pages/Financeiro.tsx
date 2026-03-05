@@ -2,13 +2,14 @@ import { Helmet } from 'react-helmet-async';
 import { Wallet } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { PinSetupCard } from '@/components/producer/PinSetupCard';
+import { BankAccountCard } from '@/components/producer/BankAccountCard';
 
 export default function Financeiro() {
   return (
     <ProducerLayout>
       <Helmet>
         <title>Financeiro | IngressoFácil</title>
-        <meta name="description" content="Gerencie suas configurações financeiras" />
+        <meta name="description" content="Gerencie seus dados bancários para recebimento" />
       </Helmet>
 
       <div className="space-y-6">
@@ -18,18 +19,12 @@ export default function Financeiro() {
             Financeiro
           </h1>
           <p className="text-muted-foreground mt-1">
-            Pagamentos processados via Mercado Pago
+            Gerencie seus dados bancários para recebimento
           </p>
         </div>
 
         <div className="grid gap-6">
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <h2 className="font-semibold text-lg mb-2">Mercado Pago</h2>
-            <p className="text-muted-foreground text-sm">
-              Os pagamentos são processados diretamente pela sua conta do Mercado Pago. 
-              Acesse o painel do Mercado Pago para ver seus recebimentos e extratos.
-            </p>
-          </div>
+          <BankAccountCard />
           <PinSetupCard />
         </div>
       </div>
