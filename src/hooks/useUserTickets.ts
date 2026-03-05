@@ -8,7 +8,7 @@ export interface UserTicket {
   holder_name: string;
   holder_email: string | null;
   holder_phone: string | null;
-  status: 'valid' | 'used' | 'cancelled';
+  status: 'pending' | 'valid' | 'used' | 'cancelled';
   validated_at: string | null;
   created_at: string;
   event: {
@@ -53,7 +53,8 @@ export function useUserTickets() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as UserTicket[];
+      // Filter out pending tickets (not yet paid)
+      return (data as UserTicket[]).filter(t => t.status !== 'pending');
     },
     enabled: !!user,
   });
