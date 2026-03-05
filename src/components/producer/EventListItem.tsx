@@ -32,7 +32,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   const navigate = useNavigate();
   const status = statusConfig[event.status];
 
-  const eventDate = new Date(event.date + 'T00:00:00');
+  const eventDate = new Date(event.date + 'T12:00:00');
   const formattedDate = format(eventDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   return (
