@@ -31,9 +31,9 @@ export function SalesChart({ data = mockData }: SalesChartProps) {
         <CardTitle>Vendas por Mês</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[300px] min-w-0">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
+            <AreaChart data={data} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorVendas" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
@@ -43,11 +43,13 @@ export function SalesChart({ data = mockData }: SalesChartProps) {
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="date"
-                className="text-xs"
+                fontSize={11}
+                tickMargin={8}
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
               <YAxis
-                className="text-xs"
+                width={40}
+                fontSize={11}
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
               />
               <Tooltip

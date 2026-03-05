@@ -67,9 +67,11 @@ export default function Dashboard() {
 
         {/* Chart and Recent Events */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <SalesChart />
+          <div className="min-w-0">
+            <SalesChart />
+          </div>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Eventos Ativos</CardTitle>
               <Button
