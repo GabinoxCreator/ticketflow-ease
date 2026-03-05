@@ -76,13 +76,29 @@ export function CheckoutStepCard({
   const [isProcessing, setIsProcessing] = useState(false);
   const [cardBrand, setCardBrand] = useState('');
   const [mpReady, setMpReady] = useState(false);
+  const [publicKey, setPublicKey] = useState<string | null>(null);
 
-  const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+  // Fetch MercadoPago public key from backend
+  useEffect(() => {
+    const fetchPublicKey = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mercadopago-public-key');
+        if (error) throw error;
+        if (data?.publicKey) {
+          setPublicKey(data.publicKey);
+        }
+      } catch (err) {
+        console.error('Error fetching MP public key:', err);
+      }
+    };
+    fetchPublicKey();
+  }, []);
 
   // Initialize MercadoPago SDK
   useEffect(() => {
+    if (!publicKey) return;
     const checkMP = () => {
-      if (window.MercadoPago && publicKey) {
+      if (window.MercadoPago) {
         setMpReady(true);
       } else {
         setTimeout(checkMP, 200);
