@@ -1,26 +1,14 @@
 
-# Corrigir status de pedidos por cartão
 
-## Problema
+# Simplificar Header — remover links de navegação
 
-Há uma inconsistência de status entre as edge functions:
+## Alteração
 
-- **`process-card-payment`** (linha 194): quando o pagamento por cartão é aprovado, define o status do pedido como `'completed'`
-- **`check-mercadopago-payment`** (linhas 95, 117): quando o PIX é aprovado, define como `'paid'`
-- **Frontend** (`useEventOrders.ts`): filtra pedidos por `'paid'`, `'pending'`, `'cancelled'`, `'refunded'`
+Remover os links "Eventos", "Categorias", "Como Funciona" e "Para Produtores" do Header, tanto no desktop quanto no menu mobile.
 
-Resultado: pedidos aprovados por cartão ficam com status `'completed'`, que não é reconhecido pelo frontend como "pago" — aparecem como "pendente" por exclusão.
+### Arquivo: `src/components/Header.tsx`
 
-## Correção
+1. Remover o array `navLinks` e toda a seção `<nav>` do desktop
+2. Remover o bloco que renderiza `navLinks` no menu mobile
+3. Manter: logo, busca, botões de ação (Meus Ingressos, Criar Evento, dropdown do usuário, login) e o menu mobile apenas com as opções do usuário
 
-### 1. `supabase/functions/process-card-payment/index.ts` (linha 194)
-- Alterar `status: 'completed'` para `status: 'paid'` — padronizando com o restante do sistema
-
-### 2. `src/hooks/useEventOrders.ts` (linhas 13, 60)
-- Adicionar `'completed'` como status válido na interface e nos filtros de `paidOrders`, para compatibilidade com pedidos já existentes no banco com esse status
-
-### 3. Correção de dados existentes (migração SQL)
-- Atualizar pedidos com status `'completed'` para `'paid'`:
-```sql
-UPDATE orders SET status = 'paid' WHERE status = 'completed';
-```
