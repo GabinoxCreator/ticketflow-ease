@@ -1,14 +1,20 @@
 
 
-# Simplificar Header — remover links de navegação
+# Remover menu hamburger mobile — manter apenas dropdown do usuário
 
-## Alteração
+## Problema
 
-Remover os links "Eventos", "Categorias", "Como Funciona" e "Para Produtores" do Header, tanto no desktop quanto no menu mobile.
+O menu hamburger (☰) no mobile duplica as opções que já existem no dropdown do avatar (GF). Há conflito e redundância.
 
-### Arquivo: `src/components/Header.tsx`
+## Correção
 
-1. Remover o array `navLinks` e toda a seção `<nav>` do desktop
-2. Remover o bloco que renderiza `navLinks` no menu mobile
-3. Manter: logo, busca, botões de ação (Meus Ingressos, Criar Evento, dropdown do usuário, login) e o menu mobile apenas com as opções do usuário
+### `src/components/Header.tsx`
+
+1. Remover o botão de menu hamburger (`Menu`/`X` icon button)
+2. Remover todo o bloco do mobile menu (`AnimatePresence` com `isMenuOpen`)
+3. Remover o state `isMenuOpen`
+4. Garantir que o dropdown do avatar (GF) fique sempre visível no mobile (remover `hidden` classes se houver)
+5. Mostrar o botão "Entrar" também no mobile (remover `hidden sm:flex`)
+
+O dropdown do usuário já contém: Meus Ingressos, Minha Conta, Painel do Produtor, Meus Eventos e Sair — tudo que o menu mobile tinha.
 
