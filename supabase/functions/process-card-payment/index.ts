@@ -191,7 +191,7 @@ serve(async (req) => {
       // Payment approved - update order and tickets
       await supabaseClient
         .from('orders')
-        .update({ status: 'completed', payment_method: `card:${mpPayment.id}` })
+        .update({ status: 'paid', payment_method: `card:${mpPayment.id}` })
         .eq('id', order.id);
 
       await supabaseClient
