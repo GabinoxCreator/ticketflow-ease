@@ -12,7 +12,7 @@ export interface Ticket {
   holder_email: string | null;
   holder_phone: string | null;
   ticket_code: string;
-  status: 'valid' | 'used' | 'cancelled';
+  status: 'pending' | 'valid' | 'used' | 'cancelled';
   validated_at: string | null;
   created_at: string;
   lot?: {

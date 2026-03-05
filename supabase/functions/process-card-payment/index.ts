@@ -128,7 +128,7 @@ serve(async (req) => {
         holder_email: customerEmail,
         holder_phone: customerPhone || null,
         user_id: userId,
-        status: 'valid',
+        status: 'pending',
       }))
     );
 
@@ -188,11 +188,16 @@ serve(async (req) => {
     logStep('MP payment response', { status: mpPayment.status, statusDetail: mpPayment.status_detail, id: mpPayment.id });
 
     if (mpPayment.status === 'approved') {
-      // Payment approved - update order
+      // Payment approved - update order and tickets
       await supabaseClient
         .from('orders')
         .update({ status: 'completed', payment_method: `card:${mpPayment.id}` })
         .eq('id', order.id);
+
+      await supabaseClient
+        .from('tickets')
+        .update({ status: 'valid' })
+        .eq('order_id', order.id);
 
       return new Response(
         JSON.stringify({ status: 'approved', orderId: order.id, paymentId: mpPayment.id }),
