@@ -20,6 +20,7 @@ export function OrderListItem({ order, onUpdateStatus }: OrderListItemProps) {
   const getStatusBadge = () => {
     switch (order.status) {
       case 'paid':
+      case 'completed':
         return <Badge className="bg-green-500 hover:bg-green-600">Pago</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>;

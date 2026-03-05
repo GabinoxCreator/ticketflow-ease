@@ -10,7 +10,7 @@ export interface Order {
   customer_email: string;
   customer_phone: string | null;
   total_amount: number;
-  status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+  status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded';
   payment_method: string | null;
   created_at: string;
   updated_at: string;
@@ -57,7 +57,7 @@ export function useEventOrders(eventId: string | undefined) {
     },
   });
 
-  const paidOrders = orders?.filter(o => o.status === 'paid') || [];
+  const paidOrders = orders?.filter(o => o.status === 'paid' || o.status === 'completed') || [];
   const pendingOrders = orders?.filter(o => o.status === 'pending') || [];
   const cancelledOrders = orders?.filter(o => o.status === 'cancelled' || o.status === 'refunded') || [];
 
