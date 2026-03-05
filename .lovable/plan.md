@@ -1,39 +1,32 @@
 
-# Corrigir: Ingressos Pendentes Contados como Vendidos
 
-## Problema Raiz
+# Corrigir Botão de Pagamento com Cartão
 
-Os tickets são criados com `status: 'valid'` nas edge functions de PIX e preferência, **antes** da confirmação do pagamento. O constraint do banco só permite `'valid'`, `'used'`, `'cancelled'` — não existe status `'pending'` para tickets. Então o filtro no `useEventStats` que filtra por `valid || used` não resolve nada, porque todos os tickets já nascem como `valid`.
+## Problema
 
-A edge function `check-mercadopago-payment` tenta atualizar tickets de `'pending'` para `'valid'`, mas como já são criados como `'valid'`, essa lógica é ineficaz.
+A variável `VITE_MERCADOPAGO_PUBLIC_KEY` não está no arquivo `.env` do projeto. Ela existe como secret do backend, mas variáveis `VITE_` precisam estar no `.env` para serem acessíveis no frontend via `import.meta.env`. Como resultado, `publicKey` é `undefined`, `mpReady` nunca vira `true`, e o botão fica permanentemente desabilitado.
 
 ## Solução
 
-### 1. Migração: Adicionar status `'pending'` ao constraint de tickets
+O `.env` é gerenciado automaticamente e não pode ser editado diretamente. A solução é **não depender do `.env`** para essa chave pública. Em vez disso, buscar a public key de uma forma que funcione:
 
-```sql
-ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check;
-ALTER TABLE tickets ADD CONSTRAINT tickets_status_check 
-  CHECK (status IN ('pending', 'valid', 'used', 'cancelled'));
-```
+**Opção 1 (recomendada)**: Hardcodar a public key do Mercado Pago diretamente no código, já que é uma chave **pública** (não é segredo). Chaves públicas do MP são feitas para serem expostas no frontend.
 
-E corrigir os dados existentes deste evento: tickets vinculados a orders com status `'pending'` devem ter status `'pending'`:
+**Opção 2**: Criar uma edge function que retorna a public key a partir dos secrets do backend.
 
-```sql
-UPDATE tickets SET status = 'pending' 
-WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending');
-```
+### Implementação (Opção 1)
 
-### 2. Edge Functions: Criar tickets como `'pending'`
+**`src/components/checkout/CheckoutStepCard.tsx`**:
+- Remover `const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY`
+- Substituir por uma constante ou buscar via edge function
+- Como não sei a public key exata, vou criar uma edge function simples `get-mercadopago-public-key` que retorna o valor do secret, e o `CheckoutStepCard` faz um fetch dessa key ao montar
 
-**`create-mercadopago-pix/index.ts`** e **`create-mercadopago-preference/index.ts`**: Alterar `status: 'valid'` para `status: 'pending'` na criação dos tickets.
+### Edge Function: `get-mercadopago-public-key`
+- Lê `VITE_MERCADOPAGO_PUBLIC_KEY` dos env vars do Deno
+- Retorna como JSON
 
-**`process-card-payment/index.ts`**: Criar tickets como `'pending'`, e após pagamento aprovado, atualizar para `'valid'`. No rollback (rejeição), já deleta — sem alteração necessária lá.
+### Alteração em `CheckoutStepCard.tsx`
+- No `useEffect` de inicialização, fazer fetch da public key via edge function
+- Após obter a key, inicializar o SDK do MercadoPago
+- O botão ficará habilitado assim que o SDK estiver pronto
 
-### 3. `useEventParticipants.ts`: Incluir `'pending'` na tipagem
-
-Adicionar `'pending'` ao type do status do Ticket.
-
-### Sem alteração necessária em:
-- `useEventStats.ts` — já filtra corretamente por `valid || used`
-- `check-mercadopago-payment` — já faz `UPDATE tickets SET status = 'valid' WHERE status = 'pending'`
