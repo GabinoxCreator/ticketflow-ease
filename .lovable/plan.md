@@ -1,32 +1,27 @@
 
 
-# Corrigir Botão de Pagamento com Cartão
+# Corrigir Página "Meus Ingressos" em Branco
 
 ## Problema
 
-A variável `VITE_MERCADOPAGO_PUBLIC_KEY` não está no arquivo `.env` do projeto. Ela existe como secret do backend, mas variáveis `VITE_` precisam estar no `.env` para serem acessíveis no frontend via `import.meta.env`. Como resultado, `publicKey` é `undefined`, `mpReady` nunca vira `true`, e o botão fica permanentemente desabilitado.
+Após adicionar o status `'pending'` aos tickets, o componente `TicketCardSimple` em `MeusIngressos.tsx` tenta acessar `statusConfig['pending']`, que não existe. Isso causa um crash: `Cannot read properties of undefined (reading 'icon')`.
 
 ## Solução
 
-O `.env` é gerenciado automaticamente e não pode ser editado diretamente. A solução é **não depender do `.env`** para essa chave pública. Em vez disso, buscar a public key de uma forma que funcione:
+Duas correções:
 
-**Opção 1 (recomendada)**: Hardcodar a public key do Mercado Pago diretamente no código, já que é uma chave **pública** (não é segredo). Chaves públicas do MP são feitas para serem expostas no frontend.
+### 1. `src/hooks/useUserTickets.ts`
+- Filtrar tickets `'pending'` para que não apareçam na lista (ingressos pendentes de pagamento não devem ser exibidos ao usuário)
+- Atualizar a interface `UserTicket` para incluir `'pending'` no tipo de status
 
-**Opção 2**: Criar uma edge function que retorna a public key a partir dos secrets do backend.
+### 2. `src/pages/MeusIngressos.tsx`
+- Adicionar `'pending'` ao `statusConfig` como medida de segurança, caso algum ticket pendente passe pelo filtro
 
-### Implementação (Opção 1)
-
-**`src/components/checkout/CheckoutStepCard.tsx`**:
-- Remover `const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY`
-- Substituir por uma constante ou buscar via edge function
-- Como não sei a public key exata, vou criar uma edge function simples `get-mercadopago-public-key` que retorna o valor do secret, e o `CheckoutStepCard` faz um fetch dessa key ao montar
-
-### Edge Function: `get-mercadopago-public-key`
-- Lê `VITE_MERCADOPAGO_PUBLIC_KEY` dos env vars do Deno
-- Retorna como JSON
-
-### Alteração em `CheckoutStepCard.tsx`
-- No `useEffect` de inicialização, fazer fetch da public key via edge function
-- Após obter a key, inicializar o SDK do MercadoPago
-- O botão ficará habilitado assim que o SDK estiver pronto
+### Correção de dados
+- O ticket `ccbf4216` foi criado como `'valid'` com order `'pending'` (antes do deploy da correção). Executar migração SQL para corrigir:
+```sql
+UPDATE tickets SET status = 'pending' 
+WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending')
+AND status = 'valid';
+```
 
