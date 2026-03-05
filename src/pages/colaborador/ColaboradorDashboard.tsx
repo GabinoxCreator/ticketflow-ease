@@ -18,7 +18,7 @@ export default function ColaboradorDashboard() {
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "d 'de' MMM", { locale: ptBR });
+      return format(new Date(dateStr + 'T12:00:00'), "d 'de' MMM", { locale: ptBR });
     } catch {
       return dateStr;
     }

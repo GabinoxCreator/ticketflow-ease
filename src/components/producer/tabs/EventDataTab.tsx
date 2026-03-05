@@ -18,7 +18,7 @@ export function EventDataTab({ event }: EventDataTabProps) {
     {
       icon: Calendar,
       label: 'Data',
-      value: format(new Date(event.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }),
+      value: format(new Date(event.date + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }),
     },
     {
       icon: Clock,

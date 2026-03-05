@@ -20,7 +20,7 @@ const categoryColorMap: Record<string, string> = {
 
 const EventCard = ({ event, index = 0 }: EventCardProps) => {
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(dateString + 'T12:00:00');
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: 'short',
@@ -76,7 +76,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
             {/* Date Overlay */}
             <div className="absolute bottom-3 left-3 bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                {new Date(event.date).toLocaleDateString('pt-BR', { weekday: 'short' })}
+                {new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' })}
               </p>
               <p className="font-display font-bold text-lg leading-tight text-foreground">
                 {formatDate(event.date)}
