@@ -1,15 +1,26 @@
 
-
-# Corrigir data no header do dashboard do produtor
+# Corrigir status de pedidos por cartão
 
 ## Problema
 
-O arquivo `src/components/producer/EventDashboardHeader.tsx` linha 18 ainda usa `new Date(event.date)` sem o sufixo `T12:00:00`, causando o mesmo bug de timezone que já foi corrigido nos outros arquivos.
+Há uma inconsistência de status entre as edge functions:
+
+- **`process-card-payment`** (linha 194): quando o pagamento por cartão é aprovado, define o status do pedido como `'completed'`
+- **`check-mercadopago-payment`** (linhas 95, 117): quando o PIX é aprovado, define como `'paid'`
+- **Frontend** (`useEventOrders.ts`): filtra pedidos por `'paid'`, `'pending'`, `'cancelled'`, `'refunded'`
+
+Resultado: pedidos aprovados por cartão ficam com status `'completed'`, que não é reconhecido pelo frontend como "pago" — aparecem como "pendente" por exclusão.
 
 ## Correção
 
-**`src/components/producer/EventDashboardHeader.tsx`** (linha 18):
-- Alterar `new Date(event.date)` para `new Date(event.date + 'T12:00:00')`
+### 1. `supabase/functions/process-card-payment/index.ts` (linha 194)
+- Alterar `status: 'completed'` para `status: 'paid'` — padronizando com o restante do sistema
 
-Este é o único arquivo restante com o bug. A página do evento (`EventDetails.tsx`) já foi corrigida na última edição.
+### 2. `src/hooks/useEventOrders.ts` (linhas 13, 60)
+- Adicionar `'completed'` como status válido na interface e nos filtros de `paidOrders`, para compatibilidade com pedidos já existentes no banco com esse status
 
+### 3. Correção de dados existentes (migração SQL)
+- Atualizar pedidos com status `'completed'` para `'paid'`:
+```sql
+UPDATE orders SET status = 'paid' WHERE status = 'completed';
+```
