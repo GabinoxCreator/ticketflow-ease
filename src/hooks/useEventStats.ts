@@ -9,21 +9,25 @@ export function useEventStats(eventId: string | undefined) {
   const { tickets, validTickets, usedTickets, cancelledTickets, isLoading: ticketsLoading } = useEventParticipants(eventId);
 
   const stats = useMemo(() => {
-    const conversionRate = totalQuantity > 0 ? ((soldQuantity / totalQuantity) * 100).toFixed(1) : '0';
+    // Count only paid tickets (valid or used)
+    const paidTickets = tickets?.filter(t => t.status === 'valid' || t.status === 'used') || [];
+    const paidTicketsCount = paidTickets.length;
+    const actualAvailable = totalQuantity - paidTicketsCount;
+    const conversionRate = totalQuantity > 0 ? ((paidTicketsCount / totalQuantity) * 100).toFixed(1) : '0';
 
-    // Group sales by lot
+    // Group sales by lot - only paid tickets
     const salesByLot = lots?.map(lot => {
-      const lotTickets = tickets?.filter(t => t.lot_id === lot.id) || [];
+      const lotTickets = paidTickets.filter(t => t.lot_id === lot.id);
       const lotRevenue = lotTickets.length * Number(lot.price);
-      const progress = lot.total_quantity > 0 ? (lot.sold_quantity / lot.total_quantity) * 100 : 0;
+      const progress = lot.total_quantity > 0 ? (lotTickets.length / lot.total_quantity) * 100 : 0;
       
       return {
         id: lot.id,
         name: lot.name,
         price: Number(lot.price),
         totalQuantity: lot.total_quantity,
-        soldQuantity: lot.sold_quantity,
-        availableQuantity: lot.total_quantity - lot.sold_quantity,
+        soldQuantity: lotTickets.length,
+        availableQuantity: lot.total_quantity - lotTickets.length,
         revenue: lotRevenue,
         progress,
         isActive: lot.is_active,
@@ -56,8 +60,8 @@ export function useEventStats(eventId: string | undefined) {
 
     return {
       totalRevenue,
-      totalTicketsSold: soldQuantity,
-      totalTicketsAvailable: availableQuantity,
+      totalTicketsSold: paidTicketsCount,
+      totalTicketsAvailable: actualAvailable,
       totalCapacity: totalQuantity,
       conversionRate: parseFloat(conversionRate),
       validTickets: validTickets?.length || 0,
