@@ -15,7 +15,7 @@ interface EventDashboardHeaderProps {
 export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: EventDashboardHeaderProps) {
   const navigate = useNavigate();
   
-  const eventDate = new Date(event.date);
+  const eventDate = new Date(event.date + 'T12:00:00');
   const daysUntil = differenceInDays(eventDate, new Date());
   const isEventPast = isPast(eventDate);
 
