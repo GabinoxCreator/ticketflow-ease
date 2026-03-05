@@ -20,12 +20,8 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, profile, isProdutor, signOut, isLoading } = useAuth();
 
-  const navLinks = [
-    { label: 'Eventos', href: '/' },
-    { label: 'Categorias', href: '#categorias' },
-    { label: 'Como Funciona', href: '#como-funciona' },
-    { label: 'Para Produtores', href: '/produtores' },
-  ];
+
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,18 +59,8 @@ const Header = () => {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className="text-muted-foreground hover:text-foreground transition-colors duration-200 text-sm font-medium"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+
+
 
           {/* Actions */}
           <div className="flex items-center gap-3">
@@ -212,17 +198,7 @@ const Header = () => {
             className="lg:hidden border-t border-border bg-background"
           >
             <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  className="py-3 px-4 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <div className="border-t border-border mt-2 pt-4 flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 {user ? (
                   <>
                     <div className="px-4 py-2 mb-2">
