@@ -138,7 +138,7 @@ serve(async (req) => {
         holder_email: customerEmail,
         holder_phone: customerPhone || null,
         user_id: userId,
-        status: 'valid',
+        status: 'pending',
       }))
     );
 
