@@ -1,27 +1,39 @@
 
+# Corrigir: Ingressos Pendentes Contados como Vendidos
 
-# Corrigir Contagem de Ingressos Vendidos (Apenas Pagos)
+## Problema Raiz
 
-## Problema
+Os tickets são criados com `status: 'valid'` nas edge functions de PIX e preferência, **antes** da confirmação do pagamento. O constraint do banco só permite `'valid'`, `'used'`, `'cancelled'` — não existe status `'pending'` para tickets. Então o filtro no `useEventStats` que filtra por `valid || used` não resolve nada, porque todos os tickets já nascem como `valid`.
 
-O `sold_quantity` nos lotes é incrementado no momento da criação do pedido (como reserva), antes da confirmação do pagamento. Isso faz com que pedidos pendentes apareçam como "vendidos" nos dashboards.
+A edge function `check-mercadopago-payment` tenta atualizar tickets de `'pending'` para `'valid'`, mas como já são criados como `'valid'`, essa lógica é ineficaz.
 
 ## Solução
 
-Alterar o `useEventStats` para calcular ingressos vendidos com base nos tickets com status `valid` ou `used` (que são os efetivamente pagos), em vez de usar o `sold_quantity` do lote.
+### 1. Migração: Adicionar status `'pending'` ao constraint de tickets
 
-**Arquivo: `src/hooks/useEventStats.ts`**
+```sql
+ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check;
+ALTER TABLE tickets ADD CONSTRAINT tickets_status_check 
+  CHECK (status IN ('pending', 'valid', 'used', 'cancelled'));
+```
 
-1. Calcular `soldQuantity` a partir dos tickets pagos (status `valid` ou `used`) em vez de `lot.sold_quantity`
-2. Recalcular `availableQuantity` como `totalQuantity - paidTicketsCount`
-3. Atualizar `salesByLot` para usar contagem de tickets pagos por lote em vez de `lot.sold_quantity`
-4. Recalcular receita por lote com base nos tickets pagos
+E corrigir os dados existentes deste evento: tickets vinculados a orders com status `'pending'` devem ter status `'pending'`:
 
-Mudanças específicas no `useMemo`:
-- `soldQuantity` = contagem de tickets com status `valid` ou `used`
-- `availableQuantity` = `totalQuantity - soldQuantity`
-- Em `salesByLot`, filtrar `lotTickets` para apenas status `valid` ou `used`
-- Usar `lotTickets.length` para `soldQuantity` do lote
+```sql
+UPDATE tickets SET status = 'pending' 
+WHERE order_id IN (SELECT id FROM orders WHERE status = 'pending');
+```
 
-Isso não altera o mecanismo de reserva (o `sold_quantity` no banco continua sendo usado para verificar disponibilidade nas edge functions), mas corrige a exibição no dashboard.
+### 2. Edge Functions: Criar tickets como `'pending'`
 
+**`create-mercadopago-pix/index.ts`** e **`create-mercadopago-preference/index.ts`**: Alterar `status: 'valid'` para `status: 'pending'` na criação dos tickets.
+
+**`process-card-payment/index.ts`**: Criar tickets como `'pending'`, e após pagamento aprovado, atualizar para `'valid'`. No rollback (rejeição), já deleta — sem alteração necessária lá.
+
+### 3. `useEventParticipants.ts`: Incluir `'pending'` na tipagem
+
+Adicionar `'pending'` ao type do status do Ticket.
+
+### Sem alteração necessária em:
+- `useEventStats.ts` — já filtra corretamente por `valid || used`
+- `check-mercadopago-payment` — já faz `UPDATE tickets SET status = 'valid' WHERE status = 'pending'`
