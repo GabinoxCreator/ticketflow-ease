@@ -9,7 +9,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import WhatsAppInput from '@/components/WhatsAppInput';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Mail, Lock, User, Ticket, PartyPopper, ArrowLeft, CreditCard } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Ticket, PartyPopper, ArrowLeft, CreditCard, Loader2 } from 'lucide-react';
+import { lovable } from '@/integrations/lovable/index';
 import { z } from 'zod';
 import { formatCPF, validateCPF } from '@/utils/cpfValidator';
 
