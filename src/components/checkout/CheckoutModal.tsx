@@ -61,20 +61,19 @@ export function CheckoutModal({
     expiresAt: Date;
   } | null>(null);
 
-  // Check if user is already authenticated - skip directly to payment
+  // When modal opens with logged-in user, go straight to payment
   useEffect(() => {
-    if (user && isOpen) {
-      // User is logged in, skip to payment with pre-filled data
+    if (isOpen && user) {
       setCustomerData({
-        cpf: '', // CPF will need to be entered if not available
+        cpf: '',
         name: profile?.nome_completo || user.user_metadata?.nome_completo || '',
         email: user.email || '',
         phone: profile?.whatsapp || '',
       });
       setStep('payment');
-    } else if (isOpen) {
-      // Not logged in, start with form
-      setStep('form');
+    } else if (isOpen && !user) {
+      // Should not happen since AuthModal gates this, but fallback
+      setStep('payment');
     }
   }, [user, isOpen, profile]);
 
@@ -162,26 +161,22 @@ export function CheckoutModal({
   };
 
   const handleRetry = () => {
-    setStep('form');
+    setStep('payment');
     setPixData(null);
     setOrderId(null);
   };
 
   const handleClose = () => {
-    // Reset to form only if not logged in
-    setStep(user ? 'payment' : 'form');
+    setStep('payment');
     setPixData(null);
     setOrderId(null);
     onClose();
   };
 
-  // For logged-in users on payment step, they can go back to form to edit
-  const canGoBack = (step === 'payment' && !user) || step === 'card';
+  const canGoBack = step === 'card';
 
   const handleBack = () => {
-    if (step === 'payment' && !user) {
-      setStep('form');
-    } else if (step === 'card') {
+    if (step === 'card') {
       setStep('payment');
     }
   };
