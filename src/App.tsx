@@ -31,6 +31,7 @@ import ColaboradorParticipantes from "./pages/colaborador/ColaboradorParticipant
 import ColaboradorConvidados from "./pages/colaborador/ColaboradorConvidados";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import TestePagamento from "./pages/TestePagamento";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ const App = () => (
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
                 <Route path="/teste-pagamento" element={<TestePagamento />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>

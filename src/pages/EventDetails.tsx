@@ -22,6 +22,8 @@ import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
 import { CheckoutModal } from '@/components/checkout/CheckoutModal';
+import { AuthModal } from '@/components/auth/AuthModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const getAnonymousId = () => {
@@ -52,8 +54,10 @@ const EventDetails = () => {
   const { lots, isLoading: lotsLoading } = useEventLots(id);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!id) return;
@@ -165,6 +169,15 @@ const EventDetails = () => {
       toast.error('Selecione pelo menos um ingresso');
       return;
     }
+    if (!user) {
+      setIsAuthModalOpen(true);
+    } else {
+      setIsCheckoutOpen(true);
+    }
+  };
+
+  const handleAuthenticated = () => {
+    setIsAuthModalOpen(false);
     setIsCheckoutOpen(true);
   };
 
@@ -460,6 +473,13 @@ const EventDetails = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthenticated={handleAuthenticated}
+        />
 
         {/* Checkout Modal */}
         <CheckoutModal
