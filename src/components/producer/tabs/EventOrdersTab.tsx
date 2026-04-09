@@ -85,7 +85,15 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
             className="pl-10"
           />
         </div>
-        <Button variant="outline">
+        <Button variant="outline" onClick={() => {
+          if (!orders || orders.length === 0) return;
+          const headers = ['Nome', 'Email', 'Telefone', 'Valor', 'Status', 'Método', 'Data'];
+          const rows = orders.map(o => [o.customer_name, o.customer_email, o.customer_phone || '', o.total_amount.toString(), o.status, o.payment_method || '', new Date(o.created_at).toLocaleDateString('pt-BR')]);
+          const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = 'pedidos.csv'; a.click(); URL.revokeObjectURL(url);
+        }>
           <Download className="h-4 w-4 mr-2" />
           Exportar
         </Button>
