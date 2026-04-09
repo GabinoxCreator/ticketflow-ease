@@ -66,13 +66,13 @@ serve(async (req) => {
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
     
     const { error: emailError } = await resend.emails.send({
-      from: "IngressosRP <contato@ingressosrp.com.br>",
+      from: "FestPag <contato@festpag.com.br>",
       to: [email],
-      subject: "Seu código de verificação - IngressosRP",
+      subject: "Seu código de verificação - FestPag",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #7c3aed; margin: 0;">IngressosRP</h1>
+            <h1 style="color: #7c3aed; margin: 0;">FestPag</h1>
           </div>
           
           <h2 style="color: #1f2937;">Olá, ${name}!</h2>
@@ -98,7 +98,7 @@ serve(async (req) => {
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
           
           <p style="color: #9ca3af; font-size: 12px; text-align: center;">
-            © ${new Date().getFullYear()} IngressosRP. Todos os direitos reservados.
+            © ${new Date().getFullYear()} FestPag. Todos os direitos reservados.
           </p>
         </div>
       `,
