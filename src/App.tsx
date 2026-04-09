@@ -37,6 +37,13 @@ import ProducerLogin from "./pages/ProducerLogin";
 import ProducerSignup from "./pages/ProducerSignup";
 import ProducerOrders from "./pages/ProducerOrders";
 import ProducerSettings from "./pages/ProducerSettings";
+import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminProdutores from "./pages/admin/AdminProdutores";
+import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
+import AdminRepasses from "./pages/admin/AdminRepasses";
+import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 
 const queryClient = new QueryClient();
 
