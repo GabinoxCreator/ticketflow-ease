@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Dashboard() {
   const navigate = useNavigate();
   const { events, activeEvents, isLoading, deleteEvent } = useEvents();
-  const { totalRevenue, totalTicketsSold, isLoading: statsLoading } = useProducerStats();
+  const { totalRevenue, totalTicketsSold, monthlySales, isLoading: statsLoading } = useProducerStats();
 
   const totalEvents = events?.length || 0;
   const publishedEvents = events?.filter(e => e.status === 'published').length || 0;
@@ -64,7 +64,7 @@ export default function Dashboard() {
         {/* Chart and Recent Events */}
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="min-w-0">
-            <SalesChart />
+            <SalesChart data={monthlySales} />
           </div>
 
           <Card className="min-w-0">

@@ -25,10 +25,16 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 
-const menuItems = [
+const mainMenuItems = [
   { title: 'Visão Geral', url: '/produtor/dashboard', icon: LayoutDashboard },
   { title: 'Meus Eventos', url: '/produtor/eventos', icon: CalendarDays },
   { title: 'Criar Evento', url: '/produtor/criar-evento', icon: Plus },
+];
+
+const managementItems = [
+  { title: 'Pedidos', url: '/produtor/pedidos', icon: ClipboardList },
+  { title: 'Financeiro', url: '/produtor/financeiro', icon: Wallet },
+  { title: 'Colaboradores', url: '/produtor/equipe', icon: Users },
 ];
 
 export function ProducerSidebar() {
@@ -41,6 +47,21 @@ export function ProducerSidebar() {
     if (path === '/produtor/dashboard') return location.pathname === '/produtor/dashboard';
     return location.pathname.startsWith(path);
   };
+
+  const renderMenuItems = (items: typeof mainMenuItems) => (
+    <SidebarMenu>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.title}>
+          <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+            <NavLink to={item.url}>
+              <item.icon className="w-4 h-4" />
+              <span>{item.title}</span>
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
@@ -57,66 +78,14 @@ export function ProducerSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <NavLink to={item.url}>
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Equipe</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive('/produtor/equipe')} tooltip="Colaboradores">
-                  <NavLink to="/produtor/equipe">
-                    <Users className="w-4 h-4" />
-                    <span>Colaboradores</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+            {renderMenuItems(mainMenuItems)}
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
           <SidebarGroupLabel>Gestão</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive('/produtor/pedidos')} tooltip="Pedidos">
-                  <NavLink to="/produtor/pedidos">
-                    <ClipboardList className="w-4 h-4" />
-                    <span>Pedidos</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Financeiro</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive('/produtor/financeiro')} tooltip="Financeiro">
-                  <NavLink to="/produtor/financeiro">
-                    <Wallet className="w-4 h-4" />
-                    <span>Financeiro</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+            {renderMenuItems(managementItems)}
           </SidebarGroupContent>
         </SidebarGroup>
 
