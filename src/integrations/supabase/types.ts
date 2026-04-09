@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       checkin_logs: {
         Row: {
           action: string
@@ -583,6 +613,92 @@ export type Database = {
           },
         ]
       }
+      payouts: {
+        Row: {
+          bank_account_snapshot: Json | null
+          created_at: string
+          created_by: string | null
+          gross_amount: number
+          id: string
+          net_amount: number
+          notes: string | null
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          platform_fee: number
+          producer_profile_id: string
+          receipt_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_snapshot?: Json | null
+          created_at?: string
+          created_by?: string | null
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          platform_fee?: number
+          producer_profile_id: string
+          receipt_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_snapshot?: Json | null
+          created_at?: string
+          created_by?: string | null
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          platform_fee?: number
+          producer_profile_id?: string
+          receipt_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       producer_bank_accounts: {
         Row: {
           account_holder_name: string
@@ -625,6 +741,44 @@ export type Database = {
         }
         Relationships: []
       }
+      producer_fee_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          fee_fixed: number
+          fee_percent: number
+          id: string
+          notes: string | null
+          producer_profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          fee_fixed?: number
+          fee_percent?: number
+          id?: string
+          notes?: string | null
+          producer_profile_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          fee_fixed?: number
+          fee_percent?: number
+          id?: string
+          notes?: string | null
+          producer_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_fee_overrides_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       producer_members: {
         Row: {
           created_at: string
@@ -666,8 +820,41 @@ export type Database = {
           },
         ]
       }
+      producer_notes: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          producer_profile_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          producer_profile_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          producer_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_notes_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       producer_profiles: {
         Row: {
+          admin_status: string
           brand_name: string
           created_at: string
           document: string | null
@@ -677,11 +864,13 @@ export type Database = {
           logo_url: string | null
           owner_user_id: string
           phone: string | null
+          platform_fee_percent: number
           slug: string | null
           status: string
           updated_at: string
         }
         Insert: {
+          admin_status?: string
           brand_name: string
           created_at?: string
           document?: string | null
@@ -691,11 +880,13 @@ export type Database = {
           logo_url?: string | null
           owner_user_id: string
           phone?: string | null
+          platform_fee_percent?: number
           slug?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
+          admin_status?: string
           brand_name?: string
           created_at?: string
           document?: string | null
@@ -705,6 +896,7 @@ export type Database = {
           logo_url?: string | null
           owner_user_id?: string
           phone?: string | null
+          platform_fee_percent?: number
           slug?: string | null
           status?: string
           updated_at?: string
