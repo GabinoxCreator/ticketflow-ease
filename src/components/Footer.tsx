@@ -1,27 +1,26 @@
 import { Link } from 'react-router-dom';
-import { Ticket, Instagram, Facebook, Twitter, Mail, Phone } from 'lucide-react';
+import { Ticket, Mail, Phone } from 'lucide-react';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
     plataforma: [
-    { label: 'Como Funciona', href: '#como-funciona' },
-    { label: 'Preços', href: '/precos' },
-    { label: 'Para Produtores', href: '/produtores' },
-    { label: 'Blog', href: '/blog' }],
-
+      { label: 'Para Produtores', href: '/area-do-produtor' },
+      { label: 'Preços', href: '/precos' },
+      { label: 'Blog', href: '/blog' },
+    ],
     suporte: [
-    { label: 'Central de Ajuda', href: '/ajuda' },
-    { label: 'Contato', href: '/contato' },
-    { label: 'FAQ', href: '/faq' },
-    { label: 'Termos de Uso', href: '/termos' }],
-
+      { label: 'Central de Ajuda', href: '/ajuda' },
+      { label: 'Contato', href: '/contato' },
+      { label: 'FAQ', href: '/faq' },
+      { label: 'Termos de Uso', href: '/termos' },
+    ],
     legal: [
-    { label: 'Política de Privacidade', href: '/privacidade' },
-    { label: 'Política de Reembolso', href: '/reembolso' },
-    { label: 'Termos de Serviço', href: '/termos-servico' }]
-
+      { label: 'Política de Privacidade', href: '/privacidade' },
+      { label: 'Política de Reembolso', href: '/reembolso' },
+      { label: 'Termos de Serviço', href: '/termos-servico' },
+    ],
   };
 
   return (
@@ -35,55 +34,44 @@ const Footer = () => {
                 <Ticket className="w-5 h-5 text-primary-foreground" />
               </div>
               <span className="font-display font-bold text-xl text-foreground">
-                Ingressos<span className="text-primary">RP</span>
+                Fest<span className="text-primary">Pag</span>
               </span>
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
-              A plataforma mais simples para comprar e vender ingressos em Rio Preto e região.
+              A plataforma completa para comprar e vender ingressos para eventos.
             </p>
-            
-
-
-
-
-
-
-
-
-
-
           </div>
 
           {/* Links */}
           <div>
             <h4 className="font-display font-semibold mb-4 text-foreground">Plataforma</h4>
             <ul className="space-y-3">
-              {footerLinks.plataforma.map((link) =>
-              <li key={link.href}>
+              {footerLinks.plataforma.map((link) => (
+                <li key={link.href}>
                   <Link
-                  to={link.href}
-                  className="text-muted-foreground text-sm hover:text-foreground transition-colors">
-
+                    to={link.href}
+                    className="text-muted-foreground text-sm hover:text-foreground transition-colors"
+                  >
                     {link.label}
                   </Link>
                 </li>
-              )}
+              ))}
             </ul>
           </div>
 
           <div>
             <h4 className="font-display font-semibold mb-4 text-foreground">Suporte</h4>
             <ul className="space-y-3">
-              {footerLinks.suporte.map((link) =>
-              <li key={link.href}>
+              {footerLinks.suporte.map((link) => (
+                <li key={link.href}>
                   <Link
-                  to={link.href}
-                  className="text-muted-foreground text-sm hover:text-foreground transition-colors">
-
+                    to={link.href}
+                    className="text-muted-foreground text-sm hover:text-foreground transition-colors"
+                  >
                     {link.label}
                   </Link>
                 </li>
-              )}
+              ))}
             </ul>
           </div>
 
@@ -92,18 +80,18 @@ const Footer = () => {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="mailto:contato@ingressosrp.com.br"
-                  className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors">
-
+                  href="mailto:contato@festpag.com.br"
+                  className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors"
+                >
                   <Mail className="w-4 h-4" />
-                  contato@ingressosrp.com.br
+                  contato@festpag.com.br
                 </a>
               </li>
               <li>
                 <a
                   href="tel:+5517999999999"
-                  className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors">
-
+                  className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors"
+                >
                   <Phone className="w-4 h-4" />
                   (17) 99999-9999
                 </a>
@@ -115,23 +103,23 @@ const Footer = () => {
         {/* Bottom */}
         <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-muted-foreground text-sm">
-            © {currentYear} IngressosRP. Todos os direitos reservados.
+            © {currentYear} FestPag. Todos os direitos reservados.
           </p>
           <div className="flex gap-6">
-            {footerLinks.legal.map((link) =>
-            <Link
-              key={link.href}
-              to={link.href}
-              className="text-muted-foreground text-sm hover:text-foreground transition-colors">
-
+            {footerLinks.legal.map((link) => (
+              <Link
+                key={link.href}
+                to={link.href}
+                className="text-muted-foreground text-sm hover:text-foreground transition-colors"
+              >
                 {link.label}
               </Link>
-            )}
+            ))}
           </div>
         </div>
       </div>
-    </footer>);
-
+    </footer>
+  );
 };
 
 export default Footer;

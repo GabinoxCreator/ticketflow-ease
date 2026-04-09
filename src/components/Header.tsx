@@ -19,9 +19,6 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, profile, isProdutor, signOut, isLoading } = useAuth();
 
-
-
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -54,12 +51,9 @@ const Header = () => {
               <Ticket className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="font-display font-bold text-xl hidden sm:block text-foreground">
-              Ingressos<span className="text-primary">RP</span>
+              Fest<span className="text-primary">Pag</span>
             </span>
           </Link>
-
-
-
 
           {/* Actions */}
           <div className="flex items-center gap-3">
@@ -77,7 +71,7 @@ const Header = () => {
               <>
                 {user ? (
                   <>
-                    {/* Meus Ingressos - sempre visível para logados */}
+                    {/* Meus Ingressos */}
                     <Button
                       variant="ghost"
                       className="hidden md:flex gap-2"
@@ -86,17 +80,6 @@ const Header = () => {
                       <Ticket className="w-4 h-4" />
                       <span className="text-sm">Meus Ingressos</span>
                     </Button>
-
-                    {/* Criar Evento - só para produtores */}
-                    {isProdutor && (
-                      <Button
-                        variant="gradient"
-                        className="hidden md:flex"
-                        onClick={() => navigate('/criar-evento')}
-                      >
-                        Criar Evento
-                      </Button>
-                    )}
 
                     {/* User Dropdown */}
                     <DropdownMenu>
@@ -121,11 +104,11 @@ const Header = () => {
                         
                         {isProdutor && (
                           <>
-                            <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                            <DropdownMenuItem onClick={() => navigate('/produtor/dashboard')}>
                               <LayoutDashboard className="mr-2 h-4 w-4" />
                               Painel do Produtor
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate('/meus-eventos')}>
+                            <DropdownMenuItem onClick={() => navigate('/produtor/eventos')}>
                               <Calendar className="mr-2 h-4 w-4" />
                               Meus Eventos
                             </DropdownMenuItem>
@@ -155,19 +138,19 @@ const Header = () => {
                     <Button
                       variant="outline"
                       className="flex gap-2"
-                      onClick={() => navigate('/auth')}
+                      onClick={() => navigate('/login')}
                     >
                       <User className="w-4 h-4" />
                       <span>Entrar</span>
                     </Button>
 
-                    {/* CTA - vai para cadastro como produtor */}
+                    {/* Área do Produtor */}
                     <Button
                       variant="gradient"
                       className="hidden md:flex"
-                      onClick={() => navigate('/auth?tipo=produtor&redirect=/criar-evento')}
+                      onClick={() => navigate('/area-do-produtor')}
                     >
-                      Criar Evento
+                      Área do Produtor
                     </Button>
                   </>
                 )}
