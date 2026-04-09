@@ -11,9 +11,10 @@ import { EventOrdersTab } from '@/components/producer/tabs/EventOrdersTab';
 import { EventParticipantsTab } from '@/components/producer/tabs/EventParticipantsTab';
 import { EventListsTab } from '@/components/producer/tabs/EventListsTab';
 import { useEvent } from '@/hooks/useEvents';
+import { EventCheckinTab } from '@/components/producer/tabs/EventCheckinTab';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +64,7 @@ export default function EventDashboard() {
     { value: 'lots', label: 'Lotes', icon: Ticket },
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
+    { value: 'checkin', label: 'Check-in', icon: ScanLine },
     { value: 'lists', label: 'Listas', icon: Gift },
   ];
 
@@ -79,7 +81,7 @@ export default function EventDashboard() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-6 w-full mb-6">
+        <TabsList className="grid grid-cols-7 w-full mb-6">
           {tabItems.map((tab) => (
             <TabsTrigger 
               key={tab.value} 
@@ -119,6 +121,10 @@ export default function EventDashboard() {
 
         <TabsContent value="participants">
           <EventParticipantsTab eventId={event.id} />
+        </TabsContent>
+
+        <TabsContent value="checkin">
+          <EventCheckinTab eventId={event.id} />
         </TabsContent>
 
         <TabsContent value="lists">
