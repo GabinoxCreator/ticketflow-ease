@@ -28,6 +28,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   userRole: AppRole | null;
+  producerProfileId: string | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (data: SignUpData) => Promise<{ error: Error | null }>;
@@ -50,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
+  const [producerProfileId, setProducerProfileId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -79,6 +81,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setUserRole(roleData.role as AppRole);
+
+      // Fetch producer_profile_id if producer
+      if (roleData.role === 'produtor' || roleData.role === 'admin') {
+        const { data: memberData } = await supabase
+          .from('producer_members')
+          .select('producer_profile_id')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+        
+        setProducerProfileId(memberData?.producer_profile_id || null);
+      } else {
+        setProducerProfileId(null);
+      }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
     }
@@ -158,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setProfile(null);
     setUserRole(null);
+    setProducerProfileId(null);
   };
 
   const value: AuthContextType = {
@@ -165,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     session,
     profile,
     userRole,
+    producerProfileId,
     isLoading,
     signIn,
     signUp,

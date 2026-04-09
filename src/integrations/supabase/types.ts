@@ -279,6 +279,7 @@ export type Database = {
           image_url: string | null
           is_hot: boolean | null
           producer_id: string
+          producer_profile_id: string | null
           short_description: string | null
           state: string
           status: string
@@ -300,6 +301,7 @@ export type Database = {
           image_url?: string | null
           is_hot?: boolean | null
           producer_id: string
+          producer_profile_id?: string | null
           short_description?: string | null
           state: string
           status?: string
@@ -321,6 +323,7 @@ export type Database = {
           image_url?: string | null
           is_hot?: boolean | null
           producer_id?: string
+          producer_profile_id?: string | null
           short_description?: string | null
           state?: string
           status?: string
@@ -335,6 +338,13 @@ export type Database = {
             columns: ["producer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "producer_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -513,6 +523,92 @@ export type Database = {
         }
         Relationships: []
       }
+      producer_members: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by: string | null
+          producer_profile_id: string
+          role: Database["public"]["Enums"]["producer_member_role"]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          producer_profile_id: string
+          role?: Database["public"]["Enums"]["producer_member_role"]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          producer_profile_id?: string
+          role?: Database["public"]["Enums"]["producer_member_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_members_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_profiles: {
+        Row: {
+          brand_name: string
+          created_at: string
+          document: string | null
+          email: string | null
+          id: string
+          legal_name: string | null
+          logo_url: string | null
+          owner_user_id: string
+          phone: string | null
+          slug: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_name: string
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          legal_name?: string | null
+          logo_url?: string | null
+          owner_user_id: string
+          phone?: string | null
+          slug?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_name?: string
+          created_at?: string
+          document?: string | null
+          email?: string | null
+          id?: string
+          legal_name?: string | null
+          logo_url?: string | null
+          owner_user_id?: string
+          phone?: string | null
+          slug?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       producer_stripe_accounts: {
         Row: {
           created_at: string
@@ -673,9 +769,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_producer_admin: {
+        Args: { _producer_profile_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_producer_member: {
+        Args: { _producer_profile_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "cliente" | "produtor" | "admin"
+      producer_member_role: "owner" | "admin" | "manager" | "checkin" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -804,6 +909,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["cliente", "produtor", "admin"],
+      producer_member_role: ["owner", "admin", "manager", "checkin", "viewer"],
     },
   },
 } as const

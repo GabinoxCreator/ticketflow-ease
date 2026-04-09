@@ -69,11 +69,21 @@ export function useEvents() {
     mutationFn: async (eventData: EventFormData) => {
       if (!user) throw new Error('Usuário não autenticado');
 
+      // Fetch producer_profile_id for dual-write
+      const { data: memberData } = await supabase
+        .from('producer_members')
+        .select('producer_profile_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+
       const { data, error } = await supabase
         .from('events')
         .insert({
           ...eventData,
           producer_id: user.id,
+          producer_profile_id: memberData?.producer_profile_id || null,
         })
         .select()
         .single();
