@@ -105,7 +105,7 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a'); a.href = url; a.download = 'participantes.csv'; a.click(); URL.revokeObjectURL(url);
-        }>
+        }}>
           <Download className="h-4 w-4 mr-2" />
           Exportar Lista
         </Button>
