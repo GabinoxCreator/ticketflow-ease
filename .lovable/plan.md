@@ -1,195 +1,171 @@
 
 
-# Fase 4 — Modelagem de Auth, Perfis, Equipe e Segurança
+# Fase 5 — Operação Avançada de Eventos
 
 ---
 
-## 1. Diagnóstico da Modelagem Atual
+## 1. Diagnóstico: QR Code e Check-in
 
-**Auth**: Supabase Auth + tabela `user_roles` com enum `app_role` (cliente/produtor/admin). O trigger `handle_new_user` cria profile + role no signup. O `AuthContext` lê role de `user_roles` e expõe `isProdutor`.
+**O que existe:**
+- `EventCheckinTab` no painel do produtor — busca por nome/email/código, botão de check-in que atualiza `tickets.status` para `used` e `validated_at` via client-side Supabase
+- `QRCodeScanner` para colaboradores — usa `html5-qrcode` para ler câmera, valida via edge function `collaborator-validate-ticket` (com sessão)
+- `qrcode.react` (`QRCodeSVG`) no lado do cliente — gera QR com `ticket_code` em `MeusIngressos` e `TicketCard`
+- `ticket_code` é um UUID gerado automaticamente (`gen_random_uuid()::text`)
 
-**Profiles**: Tabela `profiles` vinculada a `auth.users(id)` com nome, email, cpf, whatsapp, avatar.
-
-**Vínculo produtor-evento**: `events.producer_id` aponta diretamente para `auth.users.id` (o user_id do produtor). Não existe conceito de "organização".
-
-**Equipe**: Sistema de `collaborators` separado do auth — são usuários com login próprio (username/password com bcrypt), não têm conta Supabase Auth. Vinculados a eventos via `collaborator_events`.
-
-**Dados existentes**: 3 produtores, 2 clientes, 7 eventos (6 de um produtor, 1 de outro), 20 pedidos.
-
----
-
-## 2. Lógica Atual de Cliente vs Produtor
-
-- Determinada pela role na tabela `user_roles` (inserida no signup via trigger)
-- `AuthContext.isProdutor` = `role === 'produtor' || role === 'admin'`
-- `ProtectedRoute` verifica `requiredRole` contra `userRole`
-- Todas as queries do produtor filtram por `events.producer_id = user.id`
-- RLS policies usam `auth.uid()` e `events.producer_id = auth.uid()`
+**Gaps:**
+- O check-in do produtor (`EventCheckinTab`) **não tem QR Code reader** — só busca manual
+- O check-in do produtor faz update direto pelo client sem registrar operador
+- Não há `checkin_logs` — sem rastreabilidade de quem fez o check-in
+- Não há proteção contra race condition (dois cliques simultâneos)
+- O `ticket_code` é um UUID longo — funciona mas não é amigável para busca manual
 
 ---
 
-## 3. Proposta de Nova Modelagem
+## 2. Diagnóstico: Portaria
 
-### Estratégia Incremental
+**O que existe:** Nada. Não existe tabela `door_sales`, nem tela, nem hook. É funcionalidade 100% nova.
 
-Introduzir `producer_profiles` e `producer_members` sem remover `events.producer_id` imediatamente. Manter compatibilidade dual durante a transição.
+---
 
-### Novas Tabelas
+## 3. Diagnóstico: Relatórios/Exportações
 
-**`producer_profiles`** — organização produtora
+**O que existe:**
+- CSV de pedidos em `EventOrdersTab` (nome, email, telefone, valor, status, método, data)
+- CSV de participantes em `EventParticipantsTab` (nome, email, telefone, código, status, data)
+- Métricas no `EventOverviewTab` via `useEventStats` (receita, vendidos, disponíveis, conversão, vendas por lote, vendas por dia)
+- Ações rápidas "Exportar" e "Relatórios" no overview são **placeholders** (onClick vazio)
+
+**Gaps:**
+- Não há CSV de check-ins (filtrado por validados + data/hora de validação)
+- Não há CSV de listas de convidados
+- Não há filtros por período nas exportações
+- Métricas de portaria não existem (não há door_sales)
+
+---
+
+## 4. O que pode ser reaproveitado
+
+| Componente | Reuso |
+|---|---|
+| `useEventParticipants` | Base para check-in — já filtra por status |
+| `EventCheckinTab` | Evoluir para incluir QR reader |
+| `QRCodeScanner` (colaborador) | Extrair lógica de scanner como componente reutilizável |
+| `collaborator-validate-ticket` edge function | Referência de lógica — mas produtor usa Supabase Auth direto |
+| `useEventStats` | Estender para incluir métricas de portaria |
+| `useEventLots` | Base para seleção de lote na portaria |
+| `html5-qrcode` + `qrcode.react` | Já instalados |
+| CSV inline nas tabs | Extrair para util reutilizável |
+
+---
+
+## 5. Proposta de Tabelas
+
+### `door_sales` (nova)
 ```sql
-CREATE TABLE producer_profiles (
+CREATE TABLE door_sales (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  brand_name TEXT NOT NULL,
-  legal_name TEXT,
-  document TEXT,          -- CNPJ ou CPF
-  email TEXT,
-  phone TEXT,
-  slug TEXT UNIQUE,
-  logo_url TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  lot_id UUID NOT NULL REFERENCES event_lots(id),
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price NUMERIC NOT NULL,
+  total_amount NUMERIC NOT NULL,
+  payment_method TEXT NOT NULL DEFAULT 'dinheiro',
+  notes TEXT,
+  operator_id UUID NOT NULL,  -- auth.users.id do produtor/membro
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
+RLS: produtor do evento pode SELECT/INSERT. Membros da organização podem SELECT/INSERT.
 
-**`producer_members`** — membros da organização
+### `checkin_logs` (nova — opcional mas recomendada)
 ```sql
-CREATE TYPE producer_member_role AS ENUM ('owner', 'admin', 'manager', 'checkin', 'viewer');
-
-CREATE TABLE producer_members (
+CREATE TABLE checkin_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  producer_profile_id UUID NOT NULL REFERENCES producer_profiles(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role producer_member_role NOT NULL DEFAULT 'viewer',
-  status TEXT NOT NULL DEFAULT 'active',
-  invited_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(producer_profile_id, user_id)
+  ticket_id UUID NOT NULL REFERENCES tickets(id),
+  event_id UUID NOT NULL,
+  operator_id UUID,           -- auth.users.id ou null
+  collaborator_id UUID,       -- para colaboradores legados
+  action TEXT NOT NULL DEFAULT 'checkin', -- 'checkin' | 'undo'
+  source TEXT NOT NULL DEFAULT 'manual', -- 'manual' | 'qrcode' | 'api'
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
+RLS: produtor do evento pode SELECT/INSERT.
 
-**Alteração em `events`** — adicionar vínculo com organização
-```sql
-ALTER TABLE events ADD COLUMN producer_profile_id UUID REFERENCES producer_profiles(id);
-```
-
-**`event_staff`** — NÃO criar agora. Complexidade desnecessária. Os `producer_members` + `collaborators` existentes cobrem o cenário. Criar apenas quando houver necessidade real de permissão por evento.
+Essas tabelas são incrementais — não alteram nada existente.
 
 ---
 
-## 4. Migração de Dados Existentes
+## 6. Plano de Implementação
 
-Cenário: 2 produtores com eventos. Migração 100% automática.
+### Bloco 1 — Check-in com QR Code no painel do produtor
+- Extrair componente `QRScannerModal` reutilizável a partir da lógica de `QRCodeScanner.tsx`
+- Integrar no `EventCheckinTab` — botão "Escanear QR Code" que abre modal com câmera
+- Ao ler QR, buscar ticket pelo código e mostrar resultado com feedback visual
+- Adicionar proteção contra duplo-clique (disable button durante mutação)
+- **Arquivos**: novo `src/components/producer/QRScannerModal.tsx`, editar `EventCheckinTab.tsx`
 
-```sql
--- 1. Criar producer_profile para cada produtor existente
-INSERT INTO producer_profiles (owner_user_id, brand_name, email)
-SELECT p.id, p.nome_completo, p.email
-FROM profiles p
-JOIN user_roles ur ON ur.user_id = p.id
-WHERE ur.role = 'produtor';
+### Bloco 2 — Tabela `checkin_logs` + registro de operador
+- Migração SQL: criar `checkin_logs` com RLS
+- Atualizar `useEventParticipants.updateTicketStatus` para aceitar `operatorId` e `source`
+- Inserir log no `checkin_logs` ao validar/desfazer check-in
+- **Arquivos**: migração SQL, editar `useEventParticipants.ts`
 
--- 2. Criar producer_member (owner) para cada
-INSERT INTO producer_members (producer_profile_id, user_id, role)
-SELECT pp.id, pp.owner_user_id, 'owner'
-FROM producer_profiles pp;
+### Bloco 3 — Portaria (door_sales)
+- Migração SQL: criar `door_sales` com RLS
+- Novo hook `useDoorSales.ts`
+- Nova tab "Portaria" no `EventDashboard` — formulário rápido: lote, quantidade, pagamento, observações
+- Listagem de vendas de portaria com totais
+- Atualizar `sold_quantity` no lote após venda (via trigger ou no hook)
+- **Arquivos**: migração SQL, novo `src/hooks/useDoorSales.ts`, novo `src/components/producer/tabs/EventDoorSalesTab.tsx`, editar `EventDashboard.tsx`
 
--- 3. Vincular eventos existentes
-UPDATE events SET producer_profile_id = pp.id
-FROM producer_profiles pp
-WHERE events.producer_id = pp.owner_user_id;
-```
+### Bloco 4 — Exportações CSV avançadas
+- Extrair util `src/utils/csvExport.ts` com função genérica
+- CSV de check-ins (nome, email, código, lote, data/hora validação, operador)
+- CSV de listas de convidados (nome, status, data inscrição, data check-in)
+- Conectar ações rápidas "Exportar" e "Relatórios" no overview
+- **Arquivos**: novo `src/utils/csvExport.ts`, editar `EventOverviewTab.tsx`, `EventListsTab.tsx`
 
----
+### Bloco 5 — Métricas e relatórios
+- Estender `useEventStats` para incluir: vendas de portaria, check-ins realizados, taxa de ocupação
+- Adicionar cards de portaria no overview
+- **Arquivos**: editar `useEventStats.ts`, `EventOverviewTab.tsx`
 
-## 5. RLS Policies
-
-**producer_profiles**:
-- SELECT: `owner_user_id = auth.uid()` OR membro ativo via `producer_members`
-- INSERT: `owner_user_id = auth.uid()` AND `has_role(auth.uid(), 'produtor')`
-- UPDATE: owner ou membro admin
-- DELETE: apenas owner
-
-**producer_members**:
-- SELECT: membro da mesma organização
-- INSERT: owner ou admin da organização
-- UPDATE: owner ou admin da organização
-- DELETE: owner ou admin da organização
-
-**events** (ajuste):
-- Manter policies existentes (funcionam via `producer_id = auth.uid()`)
-- Adicionar policy para membros: `EXISTS (SELECT 1 FROM producer_members pm JOIN producer_profiles pp ON ... WHERE pm.user_id = auth.uid() AND pm.status = 'active')`
-- Usar security definer function para evitar recursão
+### Bloco 6 — Robustez operacional
+- Estados vazios e loading melhores em todas as tabs
+- Prevenção de ações duplicadas (desabilitar botões durante mutações)
+- Feedback visual com vibração e sons opcionais no check-in
+- Consistência de mensagens de erro/sucesso
+- **Arquivos**: ajustes pontuais em tabs existentes
 
 ---
 
-## 6. Guards e Redirects
-
-**Sem mudança estrutural nos guards.** O `ProtectedRoute` continua verificando `userRole` de `user_roles`. A role `produtor` continua válida.
-
-**Evolução futura**: O `AuthContext` pode expor `producerProfile` e `memberRole` para guards mais granulares. Mas na Fase 4 não é necessário mudar o guard — a role base é suficiente.
-
-**Ajuste no AuthContext**: Adicionar fetch de `producer_profiles` e `producer_members` para o produtor logado, expondo `producerProfileId`.
-
----
-
-## 7. Impacto em Hooks, Queries e Páginas
-
-| Componente | Impacto | Urgência |
-|---|---|---|
-| `useEvents` | Adicionar `producer_profile_id` no create. Manter `producer_id` por compatibilidade | Bloco 4 |
-| `useProducerStats` | Pode filtrar por `producer_profile_id` em vez de `user.id` | Bloco 4 |
-| `useEventOrders` | Sem mudança — filtra por `event_id` | Nenhum |
-| `useEventParticipants` | Sem mudança — filtra por `event_id` | Nenhum |
-| `useCollaborators` | Sem mudança imediata — usa `producer_id = auth.uid()` | Futuro |
-| `AuthContext` | Expor `producerProfileId` | Bloco 3 |
-| `Dashboard.tsx` | Pode mostrar brand_name | Bloco 4 |
-| `ProducerSettings.tsx` | Editar dados da organização | Bloco 4 |
-| `CriarEvento.tsx` | Enviar `producer_profile_id` junto com `producer_id` | Bloco 4 |
-
----
-
-## 8. Riscos
+## 7. Riscos
 
 | Risco | Mitigação |
 |---|---|
-| Queries existentes usam `producer_id = user.id` | Manter `producer_id` preenchido — dual-write |
-| RLS existente depende de `events.producer_id` | Não remover coluna — adicionar `producer_profile_id` em paralelo |
-| Login existente pode quebrar | Não alterar `user_roles` nem trigger — apenas adicionar novas tabelas |
-| Colaboradores atuais (sistema separado) | Não tocar — migrar para `producer_members` apenas em fase futura |
-| Complexidade excessiva no AuthContext | Fetch de producer_profile é lazy, só para produtores |
+| `sold_quantity` em `event_lots` pode ficar inconsistente com door_sales | Usar trigger SQL para incrementar, ou recalcular no hook |
+| QR scanner no desktop pode não ter câmera | Fallback automático para busca manual (já existe no design) |
+| `ticket_code` como UUID é longo para busca manual | Manter — busca por prefixo de 8 chars já funciona |
+| Área pública do cliente | Nenhum dos blocos altera fluxo de compra ou login |
+| Race condition em check-in | Usar `.eq('status', 'valid')` no UPDATE para garantir atomicidade |
 
 ---
 
-## 9. Plano em Blocos
+## 8. Arquivos Impactados (resumo)
 
-### Bloco 1 — Schema + Migração (SQL apenas)
-- Criar `producer_profiles` e `producer_members` com RLS
-- Criar helper function `is_producer_member(user_id, producer_profile_id)`
-- Adicionar `producer_profile_id` em `events`
-- Migrar dados existentes (backfill)
-- **0 arquivos de código alterados**
+**Novos:**
+- `src/components/producer/QRScannerModal.tsx`
+- `src/components/producer/tabs/EventDoorSalesTab.tsx`
+- `src/hooks/useDoorSales.ts`
+- `src/utils/csvExport.ts`
+- 2 migrações SQL (`checkin_logs`, `door_sales`)
 
-### Bloco 2 — Types auto-update + AuthContext
-- Aguardar types.ts atualizar automaticamente
-- Adicionar `producerProfileId` ao `AuthContext` (fetch de `producer_members` para produtores)
-- **1 arquivo**: `AuthContext.tsx`
-
-### Bloco 3 — Hooks do produtor
-- `useEvents`: dual-write `producer_id` + `producer_profile_id` no create
-- `useProducerStats`: usar `producer_profile_id` (com fallback)
-- **2-3 arquivos**: hooks
-
-### Bloco 4 — UI do produtor
-- `ProducerSettings.tsx`: editar dados da organização (brand_name, document, etc.)
-- `Dashboard.tsx`: mostrar nome da organização
-- **2 arquivos**: páginas
-
-### Bloco 5 — Validação e cleanup
-- Verificar RLS end-to-end
-- Testar login cliente, login produtor, compra, painel
-- Documentar o que fica para Fase 5 (migração de collaborators, event_staff, permissões granulares)
+**Editados:**
+- `src/components/producer/tabs/EventCheckinTab.tsx`
+- `src/hooks/useEventParticipants.ts`
+- `src/pages/EventDashboard.tsx` (nova tab Portaria)
+- `src/hooks/useEventStats.ts`
+- `src/components/producer/tabs/EventOverviewTab.tsx`
+- `src/components/producer/tabs/EventListsTab.tsx`
 
