@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Users, Plus, Pencil, Trash2, Power, PowerOff, Calendar } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { Button } from '@/components/ui/button';
@@ -280,6 +281,9 @@ export default function ColaboradoresManager() {
 
   return (
     <ProducerLayout>
+      <Helmet>
+        <title>Colaboradores | FestPag</title>
+      </Helmet>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
