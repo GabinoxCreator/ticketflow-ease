@@ -1,143 +1,68 @@
 
 
-# Fase 3 — Evolução do Painel do Produtor
+# Fase 3 — Consolidação do Painel do Produtor
+
+## Diagnóstico
+
+O painel do produtor já está **bastante completo** após as implementações anteriores. Todas as rotas, tabs, hooks e componentes principais existem e funcionam. O que falta é **consolidação, polimento e pequenos ajustes**.
+
+### O que já existe e funciona:
+- Dashboard com métricas reais (`useProducerStats`)
+- Listagem de eventos com tabs e busca
+- EventDashboard com 7 tabs (Overview, Dados, Lotes, Pedidos, Participantes, Check-in, Listas)
+- Pedidos globais (`/produtor/pedidos`)
+- Financeiro, Equipe, Configurações
+- Exportação CSV em pedidos e participantes
+- Sidebar com todos os itens de menu
+
+### Problemas encontrados:
+
+1. **SalesChart usa dados mock** — o componente tem `mockData` hardcoded como default; o Dashboard global passa esses mocks, enquanto o EventOverviewTab passa dados reais
+2. **Dashboard global não tem gráfico real** — passa `mockData` implicitamente (sem prop `data`)
+3. **ProducerLayout overflow** — `overflow-hidden` no main pode cortar conteúdo em scroll
+4. **Sidebar agrupa cada item em seu próprio SidebarGroup** — desnecessariamente verboso (Equipe, Gestão, Financeiro, Configurações cada um como grupo separado)
+5. **Breadcrumbs do EventDashboard** — não passam breadcrumbs customizados com nome do evento
+6. **Tabs do EventDashboard em grid-cols-7** — fica apertado no mobile, não responsivo
 
 ---
 
-## 1. Diagnóstico do Painel Atual
+## Plano de Implementação
 
-O painel existe e funciona com `ProducerLayout` + `ProducerSidebar`. Há 6 páginas de produtor ativas:
-- `Dashboard.tsx` — visão geral com stats mockados (totalSold=0, totalRevenue=0)
-- `DashboardEventos.tsx` — listagem com tabs (ativos/rascunhos/passados/todos)
-- `EventDashboard.tsx` — dashboard do evento com 6 tabs internas (overview, dados, lotes, pedidos, participantes, listas)
-- `CriarEvento.tsx` / `EditarEvento.tsx` — formulários de evento
-- `Financeiro.tsx` — dados bancários com PIN
-- `ColaboradoresManager.tsx` — gestão de colaboradores
+### BLOCO 1 — Layout e Sidebar
+- **ProducerSidebar.tsx**: Consolidar grupos do sidebar (agrupar Pedidos, Financeiro e Equipe sob "Gestão"; Configurações separado)
+- **ProducerLayout.tsx**: Trocar `overflow-hidden` por `overflow-auto` no main
 
-**Hooks existentes**: `useEvents`, `useEventLots`, `useEventOrders`, `useEventParticipants`, `useEventStats`, `useGuestLists`, `useCollaborators`, `useImageUpload`
+### BLOCO 2 — Dashboard
+- **Dashboard.tsx**: Passar dados reais de vendas mensais ao SalesChart (agregar de orders por mês) via novo hook ou inline query
+- **SalesChart.tsx**: Remover mockData default, exigir prop `data`
+- **useProducerStats.ts**: Adicionar dados de vendas mensais ao retorno
 
-**Componentes de tabs existentes**: `EventOverviewTab`, `EventDataTab`, `EventLotsTab`, `EventOrdersTab`, `EventParticipantsTab`, `EventListsTab`
+### BLOCO 3 — EventDashboard responsividade
+- **EventDashboard.tsx**: Tornar TabsList responsiva (scroll horizontal no mobile em vez de grid-cols-7), passar breadcrumbs com nome do evento ao ProducerLayout
 
----
+### BLOCO 4-8 — Já implementados
+Os blocos 4 a 8 do requisito (eventos/:id overview, lotes, participantes, checkin, listas) já estão implementados como tabs no EventDashboard. Nenhuma alteração necessária além do que está no Bloco 3.
 
-## 2. Componentes Reutilizáveis (já prontos)
-
-Tudo abaixo pode ser reaproveitado com ajustes mínimos:
-- `ProducerLayout` + `ProducerSidebar` — layout e navegação
-- `EventStatsCard`, `SalesChart`, `LotSummaryCard` — cards de métricas
-- `EventListItem`, `OrderListItem`, `ParticipantListItem` — itens de lista
-- `LotManager` — CRUD de lotes
-- `AddGuestListDialog`, `GuestListEntriesManager` — listas de convidados
-- `ImageUpload` — upload de imagem
-- `BankAccountCard`, `PinSetupCard`, `PinVerificationDialog` — financeiro
-- Todos os hooks de dados (`useEventLots`, `useEventOrders`, etc.)
+### BLOCO 9 — Padronização visual
+- **ProducerOrders.tsx**, **Financeiro.tsx**, **ColaboradoresManager.tsx**, **ProducerSettings.tsx**: Adicionar Helmet onde faltar, padronizar header (título + descrição)
+- **ColaboradoresManager.tsx**: Adicionar Helmet com título FestPag
 
 ---
 
-## 3. Problemas Encontrados — Rotas Legadas Não Migradas
+## Arquivos impactados
 
-Vários componentes internos ainda apontam para rotas antigas:
-
-| Arquivo | Rota legada | Deveria ser |
-|---|---|---|
-| `EventListItem.tsx` L41 | `/dashboard/evento/${id}` | `/produtor/eventos/${id}` |
-| `EventListItem.tsx` L105 | `/editar-evento/${id}` | `/produtor/editar-evento/${id}` |
-| `EventDashboardHeader.tsx` L43 | `/dashboard/eventos` | `/produtor/eventos` |
-| `EventDashboardHeader.tsx` L99 | `/editar-evento/${id}` | `/produtor/editar-evento/${id}` |
-| `EventDataTab.tsx` L135 | `/editar-evento/${id}` | `/produtor/editar-evento/${id}` |
-| `EventDashboard.tsx` L50 | `/dashboard/eventos` | `/produtor/eventos` |
-| `EventDashboard.tsx` L72 | Título "Ingressos" | "FestPag" |
-| `CriarEvento.tsx` L137,155,156,166 | `/dashboard/eventos`, `/dashboard` | `/produtor/eventos`, `/produtor/dashboard` |
-| `EditarEvento.tsx` L173,194 | `/dashboard/eventos` | `/produtor/eventos` |
-| `DashboardEventos.tsx` L70,113 | `/criar-evento` | `/produtor/criar-evento` |
-
----
-
-## 4. Estratégia de Navegação
-
-**Sidebar** — adicionar itens que faltam:
-- Pedidos (`/produtor/pedidos`) — visão global de pedidos de todos os eventos
-- Configurações (`/produtor/configuracoes`) — página de settings do produtor
-
-**Sub-rotas de evento** — manter como tabs internas no `EventDashboard` (já funciona assim), sem criar rotas separadas para `/eventos/:id/lotes`, `/eventos/:id/participantes`, etc. Isso é mais simples e já está implementado. As rotas do requisito (`/produtor/eventos/:id/lotes`, etc.) podem ser adicionadas no futuro se necessário, mas atualmente as tabs resolvem o problema.
-
----
-
-## 5. Proposta de Implementação — Fase 3 em Blocos
-
-### Fase 3A — Correção de Rotas Legadas + Branding Residual
-- Corrigir todas as 10+ referências de rotas antigas listadas acima
-- Corrigir título Helmet do `EventDashboard.tsx` ("Ingressos" → "FestPag")
-- Impacto: 6 arquivos, sem risco funcional
-
-### Fase 3B — Dashboard com Métricas Reais + Melhorias de UX
-- Conectar stats do `Dashboard.tsx` a dados reais (somar tickets vendidos e receita de todos os eventos do produtor, em vez de hardcoded 0)
-- Criar hook `useProducerStats` que agrega dados de `orders` e `tickets` de todos os eventos
-- Melhorar `SalesChart` para usar dados reais
-- Adicionar exportação CSV nos botões de "Exportar" (Pedidos e Participantes)
-
-### Fase 3C — Novos Módulos do Painel
-- **`/produtor/pedidos`** — página global de pedidos de todos os eventos (reutiliza `OrderListItem` + `useEventOrders` adaptado para multi-evento)
-- **`/produtor/configuracoes`** — página de configurações do produtor (dados do perfil, preferências)
-- Adicionar itens no `ProducerSidebar`
-- Adicionar check-in tab no `EventDashboard` — tab "Check-in" com busca por código/nome e botão de validar (reutiliza `useEventParticipants` + edge function `collaborator-validate-ticket`)
-- Adicionar tab "Portaria" no `EventDashboard` para vendas na portaria (se tabela `door_sales` existir — precisa verificar)
-
----
-
-## 6. Arquivos Impactados por Fase
-
-**3A** (6 arquivos):
-- `src/components/producer/EventListItem.tsx`
-- `src/components/producer/EventDashboardHeader.tsx`
-- `src/components/producer/tabs/EventDataTab.tsx`
-- `src/pages/EventDashboard.tsx`
-- `src/pages/CriarEvento.tsx`
-- `src/pages/EditarEvento.tsx`
-- `src/pages/DashboardEventos.tsx`
-
-**3B** (4 arquivos):
-- Novo: `src/hooks/useProducerStats.ts`
-- `src/pages/Dashboard.tsx`
-- `src/components/producer/SalesChart.tsx`
-- `src/components/producer/tabs/EventParticipantsTab.tsx` (exportação CSV)
-- `src/components/producer/tabs/EventOrdersTab.tsx` (exportação CSV)
-
-**3C** (5+ arquivos):
-- Novo: `src/pages/ProducerOrders.tsx`
-- Novo: `src/pages/ProducerSettings.tsx`
-- Novo: `src/components/producer/tabs/EventCheckinTab.tsx`
-- `src/components/producer/ProducerSidebar.tsx` (novos itens)
-- `src/components/producer/ProducerLayout.tsx` (novas rotas no breadcrumb)
-- `src/App.tsx` (novas rotas)
-
----
-
-## 7. Queries/Hooks/Tabelas Impactadas
-
-- **Sem mudança de schema** — todas as tabelas existentes (`events`, `event_lots`, `orders`, `tickets`, `guest_lists`, `guest_list_entries`) são suficientes
-- Novo hook: `useProducerStats` (SELECT agregado em `orders` + `tickets` filtrado por `events.producer_id`)
-- Adaptação: `useEventOrders` pode receber `eventId?: string` ou `all: boolean` para modo global
-- Tabela `door_sales` não existe no schema atual — a tab de portaria ficaria como placeholder ou precisaria de migração SQL
-
----
-
-## 8. Riscos Técnicos
-
-| Risco | Mitigação |
+| Arquivo | Alteração |
 |---|---|
-| Rotas legadas em componentes internos causam navegação quebrada | Fase 3A corrige todas antes de avançar |
-| Dashboard stats mockados dão impressão de sistema incompleto | Fase 3B conecta a dados reais |
-| Tabela `door_sales` não existe | Deixar como placeholder ou criar migração simples na Fase 3C |
-| RLS em `orders`/`tickets` não permite SELECT global do produtor sem `event_id` | Os hooks atuais já filtram por `event_id` via join com `events.producer_id` — funciona |
+| `src/components/producer/ProducerSidebar.tsx` | Consolidar grupos do menu |
+| `src/components/producer/ProducerLayout.tsx` | Fix overflow |
+| `src/pages/Dashboard.tsx` | Dados reais no gráfico |
+| `src/components/producer/SalesChart.tsx` | Remover mock default |
+| `src/hooks/useProducerStats.ts` | Adicionar vendas mensais |
+| `src/pages/EventDashboard.tsx` | Tabs responsivas + breadcrumbs |
+| `src/pages/ColaboradoresManager.tsx` | Adicionar Helmet |
 
----
-
-## 9. Ordem de Implementação Recomendada
-
-1. **Fase 3A primeiro** — correção de rotas e branding residual (risco zero, alto impacto)
-2. **Fase 3B segundo** — dashboard real + exportação CSV
-3. **Fase 3C terceiro** — novos módulos (pedidos globais, configurações, check-in)
-
-Devo implementar a Fase 3A imediatamente?
+## Riscos
+- Nenhum risco estrutural — são ajustes incrementais de polimento
+- Nenhuma alteração de banco de dados
+- Nenhum impacto na área pública do cliente
 
