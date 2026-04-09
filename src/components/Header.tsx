@@ -48,7 +48,7 @@ const Header = () => {
         <div className="flex items-center justify-between h-16 md:h-20 gap-4">
           {/* Logo */}
           <Link to="/" className="flex-shrink-0">
-            <img src={logoFestpag} alt="FestPag" className="h-14 md:h-16 w-auto" />
+            <img src={logoFestpag} alt="FestPag" className="h-[200px] md:h-[240px] w-auto" />
           </Link>
 
           {/* Search Bar - Desktop */}
