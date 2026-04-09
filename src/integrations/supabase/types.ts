@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      checkin_logs: {
+        Row: {
+          action: string
+          collaborator_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          operator_id: string | null
+          source: string
+          ticket_id: string
+        }
+        Insert: {
+          action?: string
+          collaborator_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          operator_id?: string | null
+          source?: string
+          ticket_id: string
+        }
+        Update: {
+          action?: string
+          collaborator_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          operator_id?: string | null
+          source?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborator_credentials: {
         Row: {
           collaborator_id: string
@@ -143,6 +191,60 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      door_sales: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          lot_id: string
+          notes: string | null
+          operator_id: string
+          payment_method: string
+          quantity: number
+          total_amount: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          lot_id: string
+          notes?: string | null
+          operator_id: string
+          payment_method?: string
+          quantity?: number
+          total_amount: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          lot_id?: string
+          notes?: string | null
+          operator_id?: string
+          payment_method?: string
+          quantity?: number
+          total_amount?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "door_sales_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "door_sales_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_lots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_verification_codes: {
         Row: {
