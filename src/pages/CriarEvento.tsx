@@ -152,8 +152,8 @@ export default function CriarEvento() {
   return (
     <ProducerLayout
       breadcrumbs={[
-        { label: 'Dashboard', href: '/dashboard' },
-        { label: 'Meus Eventos', href: '/dashboard/eventos' },
+        { label: 'Dashboard', href: '/produtor/dashboard' },
+        { label: 'Meus Eventos', href: '/produtor/eventos' },
         { label: 'Criar Evento' },
       ]}
     >
