@@ -214,7 +214,7 @@ export default function EditarEvento() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/dashboard/eventos')}
+              onClick={() => navigate('/produtor/eventos')}
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>
