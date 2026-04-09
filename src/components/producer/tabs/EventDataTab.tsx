@@ -132,7 +132,7 @@ export function EventDataTab({ event }: EventDataTabProps) {
       <Card className="md:col-span-2">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-3">
-            <Button onClick={() => navigate(`/editar-evento/${event.id}`)}>
+            <Button onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
               Editar Evento
             </Button>
             <Button variant="outline" onClick={() => window.open(`/evento/${event.id}`, '_blank')}>

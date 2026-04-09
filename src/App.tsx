@@ -35,6 +35,8 @@ import ResetPassword from "./pages/ResetPassword";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerLogin from "./pages/ProducerLogin";
 import ProducerSignup from "./pages/ProducerSignup";
+import ProducerOrders from "./pages/ProducerOrders";
+import ProducerSettings from "./pages/ProducerSettings";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +75,8 @@ const App = () => (
                 <Route path="/produtor/editar-evento/:id" element={<ProtectedRoute requiredRole="produtor"><EditarEvento /></ProtectedRoute>} />
                 <Route path="/produtor/financeiro" element={<ProtectedRoute requiredRole="produtor"><Financeiro /></ProtectedRoute>} />
                 <Route path="/produtor/equipe" element={<ProtectedRoute requiredRole="produtor"><ColaboradoresManager /></ProtectedRoute>} />
+                <Route path="/produtor/pedidos" element={<ProtectedRoute requiredRole="produtor"><ProducerOrders /></ProtectedRoute>} />
+                <Route path="/produtor/configuracoes" element={<ProtectedRoute requiredRole="produtor"><ProducerSettings /></ProtectedRoute>} />
 
                 {/* Legacy redirects */}
                 <Route path="/auth" element={<Navigate to="/login" replace />} />

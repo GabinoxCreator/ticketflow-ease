@@ -19,6 +19,8 @@ const routeTitles: Record<string, string> = {
   '/produtor/criar-evento': 'Criar Evento',
   '/produtor/financeiro': 'Financeiro',
   '/produtor/equipe': 'Equipe',
+  '/produtor/pedidos': 'Pedidos',
+  '/produtor/configuracoes': 'Configurações',
 };
 
 export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutProps) {

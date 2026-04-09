@@ -7,18 +7,16 @@ import { EventListItem } from '@/components/producer/EventListItem';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEvents } from '@/hooks/useEvents';
+import { useProducerStats } from '@/hooks/useProducerStats';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { events, activeEvents, isLoading, deleteEvent } = useEvents();
+  const { totalRevenue, totalTicketsSold, isLoading: statsLoading } = useProducerStats();
 
   const totalEvents = events?.length || 0;
   const publishedEvents = events?.filter(e => e.status === 'published').length || 0;
-
-  // Mock stats for now - in a real app these would come from the database
-  const totalSold = 0;
-  const totalRevenue = 0;
 
   return (
     <ProducerLayout>
@@ -47,15 +45,13 @@ export default function Dashboard() {
           />
           <EventStatsCard
             title="Ingressos Vendidos"
-            value={totalSold}
+            value={totalTicketsSold}
             icon={Ticket}
-            trend={{ value: 0, isPositive: true }}
           />
           <EventStatsCard
             title="Receita Total"
             value={`R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             icon={DollarSign}
-            trend={{ value: 0, isPositive: true }}
           />
           <EventStatsCard
             title="Taxa de Conversão"

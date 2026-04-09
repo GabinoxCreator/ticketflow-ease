@@ -97,7 +97,15 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
             className="pl-10"
           />
         </div>
-        <Button variant="outline">
+        <Button variant="outline" onClick={() => {
+          if (!tickets || tickets.length === 0) return;
+          const headers = ['Nome', 'Email', 'Telefone', 'Código', 'Status', 'Data'];
+          const rows = tickets.map(t => [t.holder_name, t.holder_email || '', t.holder_phone || '', t.ticket_code, t.status, new Date(t.created_at).toLocaleDateString('pt-BR')]);
+          const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); a.href = url; a.download = 'participantes.csv'; a.click(); URL.revokeObjectURL(url);
+        }>
           <Download className="h-4 w-4 mr-2" />
           Exportar Lista
         </Button>
