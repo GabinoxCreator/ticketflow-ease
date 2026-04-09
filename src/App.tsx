@@ -37,6 +37,13 @@ import ProducerLogin from "./pages/ProducerLogin";
 import ProducerSignup from "./pages/ProducerSignup";
 import ProducerOrders from "./pages/ProducerOrders";
 import ProducerSettings from "./pages/ProducerSettings";
+import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminProdutores from "./pages/admin/AdminProdutores";
+import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
+import AdminRepasses from "./pages/admin/AdminRepasses";
+import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +103,14 @@ const App = () => (
                 <Route path="/colaborador/evento/:id/participantes" element={<ColaboradorProtectedRoute><ColaboradorParticipantes /></ColaboradorProtectedRoute>} />
                 <Route path="/colaborador/evento/:id/convidados" element={<ColaboradorProtectedRoute><ColaboradorConvidados /></ColaboradorProtectedRoute>} />
                 
+                {/* Admin Routes */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
+                <Route path="/admin/produtores" element={<AdminProtectedRoute><AdminProdutores /></AdminProtectedRoute>} />
+                <Route path="/admin/produtores/:id" element={<AdminProtectedRoute><AdminProdutorDetalhe /></AdminProtectedRoute>} />
+                <Route path="/admin/repasses" element={<AdminProtectedRoute><AdminRepasses /></AdminProtectedRoute>} />
+                <Route path="/admin/configuracoes" element={<AdminProtectedRoute><AdminConfiguracoes /></AdminProtectedRoute>} />
+
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
                 <Route path="/teste-pagamento" element={<TestePagamento />} />
