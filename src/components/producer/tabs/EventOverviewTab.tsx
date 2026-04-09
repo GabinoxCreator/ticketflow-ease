@@ -75,10 +75,10 @@ export function EventOverviewTab({
   const quickActions = [
     { label: 'Pedidos', icon: ClipboardList, onClick: () => onTabChange('orders') },
     { label: 'Participantes', icon: Users, onClick: () => onTabChange('participants') },
-    { label: 'Exportar', icon: Download, onClick: () => {} },
-    { label: 'QR Code', icon: QrCode, onClick: () => {} },
+    { label: 'Check-in', icon: QrCode, onClick: () => onTabChange('checkin') },
+    { label: 'Portaria', icon: Download, onClick: () => onTabChange('doorsales') },
     { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventId}`, '_blank') },
-    { label: 'Relatórios', icon: BarChart3, onClick: () => {} },
+    { label: 'Listas', icon: BarChart3, onClick: () => onTabChange('lists') },
   ];
 
   // Transform salesByDay for the chart

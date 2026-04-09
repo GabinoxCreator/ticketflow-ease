@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Search, CheckCircle, XCircle, QrCode, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Search, CheckCircle, XCircle, QrCode, Loader2, AlertCircle, Download } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useEventParticipants, Ticket } from '@/hooks/useEventParticipants';
+import { QRScannerModal } from '@/components/producer/QRScannerModal';
+import { exportToCSV } from '@/utils/csvExport';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface EventCheckinTabProps {
   eventId: string;
@@ -14,11 +17,13 @@ interface EventCheckinTabProps {
 export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [validating, setValidating] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const { tickets, validTickets, usedTickets, isLoading, updateTicketStatus } = useEventParticipants(eventId);
 
-  const handleCheckin = async (ticket: Ticket) => {
+  const handleCheckin = async (ticket: Ticket, source: 'manual' | 'qrcode' = 'manual') => {
     if (ticket.status === 'used') {
       toast.error('Ingresso já validado!');
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       return;
     }
     if (ticket.status === 'cancelled') {
@@ -30,9 +35,22 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
     updateTicketStatus.mutate(
       { ticketId: ticket.id, status: 'used' },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           setValidating(null);
           toast.success(`Check-in realizado: ${ticket.holder_name}`);
+          if (navigator.vibrate) navigator.vibrate(200);
+
+          // Log checkin
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.from('checkin_logs').insert({
+              ticket_id: ticket.id,
+              event_id: eventId,
+              operator_id: user?.id || null,
+              action: 'checkin',
+              source,
+            });
+          } catch {}
         },
         onError: () => {
           setValidating(null);
@@ -40,6 +58,15 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
         },
       }
     );
+  };
+
+  const handleQRScan = (code: string) => {
+    const ticket = tickets?.find(t => t.ticket_code === code || t.ticket_code.startsWith(code));
+    if (ticket) {
+      handleCheckin(ticket, 'qrcode');
+    } else {
+      toast.error('Ingresso não encontrado para este evento');
+    }
   };
 
   const filteredTickets = tickets?.filter(t => {
@@ -55,6 +82,22 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
   const checkinRate = tickets && tickets.length > 0
     ? Math.round(((usedTickets?.length || 0) / tickets.length) * 100)
     : 0;
+
+  const handleExportCheckins = () => {
+    const validated = tickets?.filter(t => t.status === 'used') || [];
+    if (!validated.length) { toast.info('Nenhum check-in para exportar'); return; }
+    exportToCSV('checkins.csv',
+      ['Nome', 'Email', 'Telefone', 'Código', 'Lote', 'Validado em'],
+      validated.map(t => [
+        t.holder_name,
+        t.holder_email || '',
+        t.holder_phone || '',
+        t.ticket_code,
+        t.lot?.name || '',
+        t.validated_at ? new Date(t.validated_at).toLocaleString('pt-BR') : '',
+      ])
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -86,15 +129,25 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome, email ou código do ingresso..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="pl-10 text-lg h-12"
-        />
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, email ou código..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-10 text-lg h-12"
+          />
+        </div>
+        <Button size="lg" className="gap-2" onClick={() => setScannerOpen(true)}>
+          <QrCode className="h-5 w-5" />
+          Escanear QR
+        </Button>
+        <Button variant="outline" size="lg" className="gap-2" onClick={handleExportCheckins}>
+          <Download className="h-4 w-4" />
+          CSV
+        </Button>
       </div>
 
       {/* Results */}
@@ -114,7 +167,12 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{ticket.holder_name}</p>
                     <p className="text-sm text-muted-foreground truncate">{ticket.holder_email}</p>
-                    <p className="text-xs text-muted-foreground font-mono mt-1">{ticket.ticket_code}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground font-mono">{ticket.ticket_code.slice(0, 8)}</span>
+                      {ticket.lot?.name && (
+                        <Badge variant="outline" className="text-xs">{ticket.lot.name}</Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     {ticket.status === 'used' ? (
@@ -150,6 +208,12 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
           ))
         )}
       </div>
+
+      <QRScannerModal
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onScan={handleQRScan}
+      />
     </div>
   );
 }
