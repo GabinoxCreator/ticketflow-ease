@@ -1,182 +1,143 @@
 
 
-# Migração IngressosRP → FestPag — Diagnóstico e Plano
+# Fase 3 — Evolução do Painel do Produtor
 
 ---
 
-## 1. Diagnóstico da Arquitetura Atual
+## 1. Diagnóstico do Painel Atual
 
-**Autenticação**: Um único `AuthContext` com role (`cliente`/`produtor`/`admin`) via tabela `user_roles`. O cadastro público permite escolher "tipo de conta" (cliente ou produtor). O `ProtectedRoute` verifica role para rotas do produtor.
+O painel existe e funciona com `ProducerLayout` + `ProducerSidebar`. Há 6 páginas de produtor ativas:
+- `Dashboard.tsx` — visão geral com stats mockados (totalSold=0, totalRevenue=0)
+- `DashboardEventos.tsx` — listagem com tabs (ativos/rascunhos/passados/todos)
+- `EventDashboard.tsx` — dashboard do evento com 6 tabs internas (overview, dados, lotes, pedidos, participantes, listas)
+- `CriarEvento.tsx` / `EditarEvento.tsx` — formulários de evento
+- `Financeiro.tsx` — dados bancários com PIN
+- `ColaboradoresManager.tsx` — gestão de colaboradores
 
-**Rotas atuais**:
-- Públicas: `/`, `/evento/:id`, `/checkout`, `/auth`, `/reset-password`
-- Cliente autenticado: `/meus-ingressos`, `/minha-conta`
-- Produtor: `/dashboard`, `/dashboard/eventos`, `/dashboard/evento/:id`, `/criar-evento`, `/editar-evento/:id`, `/dashboard/financeiro`, `/dashboard/colaboradores`
-- Colaborador: `/colaborador/*`
+**Hooks existentes**: `useEvents`, `useEventLots`, `useEventOrders`, `useEventParticipants`, `useEventStats`, `useGuestLists`, `useCollaborators`, `useImageUpload`
 
-**Branding**: "IngressosRP" aparece em 11 arquivos. "IngressoFácil" aparece no sidebar e no login do colaborador.
-
-**Layout do produtor**: `ProducerLayout` + `ProducerSidebar` com sidebar navigation. Rotas sob `/dashboard/*`.
-
----
-
-## 2. Problemas Atuais
-
-- Cliente e produtor compartilham o mesmo fluxo de auth (`/auth`) com seletor "tipo de conta"
-- Botão "Criar Evento" aparece na navbar pública
-- Branding inconsistente (IngressosRP, IngressoFácil)
-- Produtor e cliente usam as mesmas rotas de auth
-- Não existe landing page para produtores
-- Rotas do produtor estão sob `/dashboard/*` em vez de `/produtor/*`
+**Componentes de tabs existentes**: `EventOverviewTab`, `EventDataTab`, `EventLotsTab`, `EventOrdersTab`, `EventParticipantsTab`, `EventListsTab`
 
 ---
 
-## 3. Estratégia de Separação Cliente vs Produtor
+## 2. Componentes Reutilizáveis (já prontos)
 
-**Princípio**: Mesmo sistema de auth (Supabase Auth), mas fluxos de UI completamente separados.
-
-- O cadastro público (`/login`) cria sempre com `tipo_conta: 'cliente'`
-- O cadastro do produtor (`/area-do-produtor/cadastro`) cria com `tipo_conta: 'produtor'`
-- `AuthContext` permanece inalterado — a role continua sendo lida de `user_roles`
-- Nenhuma mudança de banco de dados necessária na Fase 1/2
-
----
-
-## 4. Estratégia de Rotas (Fase 1+2)
-
-```text
-PÚBLICAS:
-  /                          → Home (Index)
-  /evento/:id                → Detalhes do evento
-  /checkout                  → Checkout
-  /login                     → Login/Cadastro do cliente
-  /reset-password            → Reset de senha
-  /meus-ingressos            → Ingressos do cliente (protegida)
-  /minha-conta               → Conta do cliente (protegida)
-  /area-do-produtor          → Landing page institucional do produtor
-  /area-do-produtor/login    → Login do produtor
-  /area-do-produtor/cadastro → Cadastro do produtor
-
-PRODUTOR (protegidas com role 'produtor'):
-  /produtor/dashboard        → Dashboard
-  /produtor/eventos          → Lista de eventos
-  /produtor/eventos/:id      → Dashboard do evento
-  /produtor/criar-evento     → Criar evento
-  /produtor/editar-evento/:id→ Editar evento
-  /produtor/financeiro       → Financeiro
-  /produtor/equipe           → Colaboradores
-
-LEGADO (redirect):
-  /auth → /login
-  /dashboard → /produtor/dashboard
-  /dashboard/* → /produtor/*
-```
+Tudo abaixo pode ser reaproveitado com ajustes mínimos:
+- `ProducerLayout` + `ProducerSidebar` — layout e navegação
+- `EventStatsCard`, `SalesChart`, `LotSummaryCard` — cards de métricas
+- `EventListItem`, `OrderListItem`, `ParticipantListItem` — itens de lista
+- `LotManager` — CRUD de lotes
+- `AddGuestListDialog`, `GuestListEntriesManager` — listas de convidados
+- `ImageUpload` — upload de imagem
+- `BankAccountCard`, `PinSetupCard`, `PinVerificationDialog` — financeiro
+- Todos os hooks de dados (`useEventLots`, `useEventOrders`, etc.)
 
 ---
 
-## 5. Estratégia de Componentes/Layouts
+## 3. Problemas Encontrados — Rotas Legadas Não Migradas
 
-- `Header.tsx`: Rebranding FestPag, trocar "Criar Evento" por "Área do Produtor", "Entrar" → `/login`
-- `Footer.tsx`: Rebranding FestPag
-- `ProducerSidebar.tsx`: Rebranding, atualizar rotas para `/produtor/*`
-- `ProducerLayout.tsx`: Atualizar breadcrumbs para novas rotas
-- **Nova página**: `AreaDoProdutor.tsx` — landing page institucional
-- **Nova página**: `ProducerLogin.tsx` — login exclusivo do produtor
-- **Nova página**: `ProducerSignup.tsx` — cadastro exclusivo do produtor (sempre `tipo_conta: 'produtor'`)
-- `Auth.tsx` → renomear para `ClientLogin.tsx`, remover seletor de tipo de conta
+Vários componentes internos ainda apontam para rotas antigas:
 
----
-
-## 6. Tabelas e Modelagem Impactadas (Fase 1+2)
-
-**Nenhuma alteração no banco de dados.** A tabela `user_roles` com enum `app_role` já suporta a separação. O trigger `handle_new_user` já lê `tipo_conta` do metadata. Basta cada fluxo de cadastro enviar o `tipo_conta` correto.
-
-Fases futuras (3+) criarão `producer_profiles`, `producer_members`, etc.
+| Arquivo | Rota legada | Deveria ser |
+|---|---|---|
+| `EventListItem.tsx` L41 | `/dashboard/evento/${id}` | `/produtor/eventos/${id}` |
+| `EventListItem.tsx` L105 | `/editar-evento/${id}` | `/produtor/editar-evento/${id}` |
+| `EventDashboardHeader.tsx` L43 | `/dashboard/eventos` | `/produtor/eventos` |
+| `EventDashboardHeader.tsx` L99 | `/editar-evento/${id}` | `/produtor/editar-evento/${id}` |
+| `EventDataTab.tsx` L135 | `/editar-evento/${id}` | `/produtor/editar-evento/${id}` |
+| `EventDashboard.tsx` L50 | `/dashboard/eventos` | `/produtor/eventos` |
+| `EventDashboard.tsx` L72 | Título "Ingressos" | "FestPag" |
+| `CriarEvento.tsx` L137,155,156,166 | `/dashboard/eventos`, `/dashboard` | `/produtor/eventos`, `/produtor/dashboard` |
+| `EditarEvento.tsx` L173,194 | `/dashboard/eventos` | `/produtor/eventos` |
+| `DashboardEventos.tsx` L70,113 | `/criar-evento` | `/produtor/criar-evento` |
 
 ---
 
-## 7. Lista de Arquivos Impactados
+## 4. Estratégia de Navegação
 
-**Fase 1 — Rebranding + Navbar:**
-| Arquivo | Ação |
-|---|---|
-| `index.html` | Rebranding meta tags |
-| `src/components/Header.tsx` | Rebranding + trocar botões |
-| `src/components/Footer.tsx` | Rebranding |
-| `src/components/TicketCard.tsx` | Rebranding |
-| `src/pages/Index.tsx` | Rebranding Helmet |
-| `src/pages/EventDetails.tsx` | Rebranding Helmet |
-| `src/pages/MeusIngressos.tsx` | Rebranding Helmet |
-| `src/pages/MinhaConta.tsx` | Rebranding Helmet |
-| `src/pages/Financeiro.tsx` | Rebranding Helmet |
-| `src/components/producer/ProducerSidebar.tsx` | Rebranding |
-| `src/pages/colaborador/ColaboradorLogin.tsx` | Rebranding |
-| `src/components/auth/AuthModal.tsx` | Rebranding (se houver) |
-| `supabase/functions/send-verification-code/index.ts` | Rebranding email |
-| **Novo**: `src/pages/AreaDoProdutor.tsx` | Landing page do produtor |
+**Sidebar** — adicionar itens que faltam:
+- Pedidos (`/produtor/pedidos`) — visão global de pedidos de todos os eventos
+- Configurações (`/produtor/configuracoes`) — página de settings do produtor
 
-**Fase 2 — Separação de Auth + Rotas:**
-| Arquivo | Ação |
-|---|---|
-| `src/App.tsx` | Novas rotas, redirects legados |
-| `src/pages/Auth.tsx` | Refatorar para login de cliente apenas (rota `/login`) |
-| **Novo**: `src/pages/ProducerLogin.tsx` | Login exclusivo do produtor |
-| **Novo**: `src/pages/ProducerSignup.tsx` | Cadastro exclusivo do produtor |
-| `src/components/ProtectedRoute.tsx` | Suportar redirect para `/login` ou `/area-do-produtor/login` |
-| `src/components/producer/ProducerLayout.tsx` | Atualizar rotas |
-| `src/components/producer/ProducerSidebar.tsx` | Atualizar rotas para `/produtor/*` |
-| `src/pages/Dashboard.tsx` | Mover para rota `/produtor/dashboard` |
-| `src/pages/DashboardEventos.tsx` | Mover para rota `/produtor/eventos` |
-| `src/pages/EventDashboard.tsx` | Mover para rota `/produtor/eventos/:id` |
-| `src/pages/CriarEvento.tsx` | Mover para `/produtor/criar-evento` |
-| `src/pages/EditarEvento.tsx` | Mover para `/produtor/editar-evento/:id` |
-| `src/pages/Financeiro.tsx` | Mover para `/produtor/financeiro` |
-| `src/pages/ColaboradoresManager.tsx` | Mover para `/produtor/equipe` |
+**Sub-rotas de evento** — manter como tabs internas no `EventDashboard` (já funciona assim), sem criar rotas separadas para `/eventos/:id/lotes`, `/eventos/:id/participantes`, etc. Isso é mais simples e já está implementado. As rotas do requisito (`/produtor/eventos/:id/lotes`, etc.) podem ser adicionadas no futuro se necessário, mas atualmente as tabs resolvem o problema.
 
 ---
 
-## 8. Plano em Fases
+## 5. Proposta de Implementação — Fase 3 em Blocos
 
-**Fase 1** (esta implementacao): Rebranding visual completo + landing page do produtor + ajuste da navbar
-**Fase 2** (esta implementacao): Separacao de auth + novas rotas + guards
-**Fase 3** (futura): Evolucao do painel do produtor
-**Fase 4** (futura): Modelagem de perfis, producer_profiles, RLS avancado
-**Fase 5** (futura): QR Code refinado, portaria, relatorios
+### Fase 3A — Correção de Rotas Legadas + Branding Residual
+- Corrigir todas as 10+ referências de rotas antigas listadas acima
+- Corrigir título Helmet do `EventDashboard.tsx` ("Ingressos" → "FestPag")
+- Impacto: 6 arquivos, sem risco funcional
+
+### Fase 3B — Dashboard com Métricas Reais + Melhorias de UX
+- Conectar stats do `Dashboard.tsx` a dados reais (somar tickets vendidos e receita de todos os eventos do produtor, em vez de hardcoded 0)
+- Criar hook `useProducerStats` que agrega dados de `orders` e `tickets` de todos os eventos
+- Melhorar `SalesChart` para usar dados reais
+- Adicionar exportação CSV nos botões de "Exportar" (Pedidos e Participantes)
+
+### Fase 3C — Novos Módulos do Painel
+- **`/produtor/pedidos`** — página global de pedidos de todos os eventos (reutiliza `OrderListItem` + `useEventOrders` adaptado para multi-evento)
+- **`/produtor/configuracoes`** — página de configurações do produtor (dados do perfil, preferências)
+- Adicionar itens no `ProducerSidebar`
+- Adicionar check-in tab no `EventDashboard` — tab "Check-in" com busca por código/nome e botão de validar (reutiliza `useEventParticipants` + edge function `collaborator-validate-ticket`)
+- Adicionar tab "Portaria" no `EventDashboard` para vendas na portaria (se tabela `door_sales` existir — precisa verificar)
 
 ---
 
-## 9. Riscos e Plano de Migração
+## 6. Arquivos Impactados por Fase
+
+**3A** (6 arquivos):
+- `src/components/producer/EventListItem.tsx`
+- `src/components/producer/EventDashboardHeader.tsx`
+- `src/components/producer/tabs/EventDataTab.tsx`
+- `src/pages/EventDashboard.tsx`
+- `src/pages/CriarEvento.tsx`
+- `src/pages/EditarEvento.tsx`
+- `src/pages/DashboardEventos.tsx`
+
+**3B** (4 arquivos):
+- Novo: `src/hooks/useProducerStats.ts`
+- `src/pages/Dashboard.tsx`
+- `src/components/producer/SalesChart.tsx`
+- `src/components/producer/tabs/EventParticipantsTab.tsx` (exportação CSV)
+- `src/components/producer/tabs/EventOrdersTab.tsx` (exportação CSV)
+
+**3C** (5+ arquivos):
+- Novo: `src/pages/ProducerOrders.tsx`
+- Novo: `src/pages/ProducerSettings.tsx`
+- Novo: `src/components/producer/tabs/EventCheckinTab.tsx`
+- `src/components/producer/ProducerSidebar.tsx` (novos itens)
+- `src/components/producer/ProducerLayout.tsx` (novas rotas no breadcrumb)
+- `src/App.tsx` (novas rotas)
+
+---
+
+## 7. Queries/Hooks/Tabelas Impactadas
+
+- **Sem mudança de schema** — todas as tabelas existentes (`events`, `event_lots`, `orders`, `tickets`, `guest_lists`, `guest_list_entries`) são suficientes
+- Novo hook: `useProducerStats` (SELECT agregado em `orders` + `tickets` filtrado por `events.producer_id`)
+- Adaptação: `useEventOrders` pode receber `eventId?: string` ou `all: boolean` para modo global
+- Tabela `door_sales` não existe no schema atual — a tab de portaria ficaria como placeholder ou precisaria de migração SQL
+
+---
+
+## 8. Riscos Técnicos
 
 | Risco | Mitigação |
 |---|---|
-| URLs antigas quebram (`/auth`, `/dashboard`) | Adicionar redirects no router |
-| Usuários existentes com role `produtor` | Continuam funcionando — a role na tabela `user_roles` não muda |
-| Links internos hardcoded no sidebar/breadcrumbs | Atualizar todos na Fase 2 |
-| AuthModal do checkout usa `signUp` com `tipo_conta` | Manter como `cliente` — já está assim |
-| Edge function de email ainda manda como IngressosRP | Atualizar na Fase 1 |
+| Rotas legadas em componentes internos causam navegação quebrada | Fase 3A corrige todas antes de avançar |
+| Dashboard stats mockados dão impressão de sistema incompleto | Fase 3B conecta a dados reais |
+| Tabela `door_sales` não existe | Deixar como placeholder ou criar migração simples na Fase 3C |
+| RLS em `orders`/`tickets` não permite SELECT global do produtor sem `event_id` | Os hooks atuais já filtram por `event_id` via join com `events.producer_id` — funciona |
 
 ---
 
-## 10. Implementação Proposta — Fase 1 + Fase 2
+## 9. Ordem de Implementação Recomendada
 
-### Fase 1 (Rebranding):
-1. Atualizar `index.html` — meta tags, title, OG para FestPag
-2. Atualizar `Header.tsx` — logo "FestPag", remover "Criar Evento", adicionar "Área do Produtor" linkando para `/area-do-produtor`
-3. Atualizar `Footer.tsx` — logo, textos, email
-4. Atualizar `TicketCard.tsx` — label no ticket
-5. Atualizar Helmet em `Index.tsx`, `EventDetails.tsx`, `MeusIngressos.tsx`, `MinhaConta.tsx`, `Financeiro.tsx`
-6. Atualizar `ProducerSidebar.tsx` — logo "FestPag"
-7. Atualizar `ColaboradorLogin.tsx` — logo
-8. Atualizar `send-verification-code/index.ts` — from/subject
-9. Criar `src/pages/AreaDoProdutor.tsx` — landing page institucional com CTA para login/cadastro
+1. **Fase 3A primeiro** — correção de rotas e branding residual (risco zero, alto impacto)
+2. **Fase 3B segundo** — dashboard real + exportação CSV
+3. **Fase 3C terceiro** — novos módulos (pedidos globais, configurações, check-in)
 
-### Fase 2 (Separação de Auth + Rotas):
-1. Refatorar `Auth.tsx` → login de cliente apenas (sem tipo de conta), rota `/login`
-2. Criar `ProducerLogin.tsx` — login exclusivo em `/area-do-produtor/login`
-3. Criar `ProducerSignup.tsx` — cadastro exclusivo em `/area-do-produtor/cadastro` (sempre `tipo_conta: 'produtor'`)
-4. Atualizar `App.tsx` — novas rotas (`/login`, `/area-do-produtor/*`, `/produtor/*`), redirects legados
-5. Atualizar `ProducerSidebar.tsx` — rotas `/produtor/*`
-6. Atualizar `ProducerLayout.tsx` — rotas e breadcrumbs
-7. Atualizar `ProtectedRoute.tsx` — redirect para `/login` (cliente) ou `/area-do-produtor/login` (produtor)
-8. Atualizar `Header.tsx` — "Entrar" aponta para `/login`, dropdown produtor aponta para `/produtor/dashboard`
+Devo implementar a Fase 3A imediatamente?
 
