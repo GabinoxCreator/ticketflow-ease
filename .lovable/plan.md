@@ -1,93 +1,44 @@
 
 
-# Redesign Visual — Tema Dark + Logo + Banner + Header Shotgun-style
+# Correção da Logo FestPag — Header, Login, Sidebar
 
-## Resumo
+## Problema
+1. Logo no Header está pequena demais (`h-8 md:h-10`)
+2. Login do cliente (`Auth.tsx`) usa ícone Ticket + texto em vez da logo real
+3. Login do produtor (`ProducerLogin.tsx`) usa ícone Ticket + texto em vez da logo real
+4. Login do colaborador (`ColaboradorLogin.tsx`) usa ícone Ticket + texto
+5. Sidebar do produtor (`ProducerSidebar.tsx`) usa ícone Ticket + texto em vez da logo real
 
-Transformar a homepage do FestPag em tema dark inspirado no layout Shotgun (imagem 1), com a logo real (imagem 3) como imagem importada, o banner promocional (imagem 2) como hero, e nova paleta baseada nas cores da logo (azul `#6366F1` / roxo-rosa `#EC4899` com gradiente entre elas).
+## Plano
 
----
+### 1. Copiar nova logo para o projeto
+- `user-uploads://1-2.png` → `src/assets/logo-festpag.png` (substituir a atual)
+- Esta logo tem fundo branco/transparente e o texto "festpag.digital" com gradiente azul-rosa
 
-## Alterações
+### 2. Header — aumentar logo
+- `src/components/Header.tsx`: mudar `h-8 md:h-10` para `h-10 md:h-12` na tag `<img>`
 
-### 1. Copiar assets para o projeto
-- `user-uploads://1.png` → `src/assets/logo-festpag.png` (logo)
-- `user-uploads://Gemini_Generated_Image_ujmy4hujmy4hujmy.png` → `src/assets/banner-home.png` (banner)
+### 3. Auth (login cliente) — usar logo real
+- `src/pages/Auth.tsx` linhas 169-177: substituir o bloco `<div>` com ícone Ticket + texto "FestPag" por `<img src={logoFestpag} alt="FestPag" className="h-12 w-auto mx-auto" />`
+- Adicionar import do `logoFestpag`
 
-### 2. Tema Dark — `src/index.css`
-Substituir as variáveis CSS `:root` por tema escuro:
-- `--background`: cinza muito escuro (~`220 15% 8%`)
-- `--foreground`: branco
-- `--card`: cinza escuro (~`220 15% 12%`)
-- `--primary`: azul-roxo (`250 85% 60%`) — cor dominante da logo
-- `--accent`: rosa-magenta (`330 85% 60%`) — segunda cor da logo
-- `--muted`, `--border`, `--input`: tons de cinza escuro
-- `--gradient-primary`: gradiente azul→rosa da logo
-- Remover referências a cores verdes brasileiras
+### 4. ProducerLogin — usar logo real
+- `src/pages/ProducerLogin.tsx` linhas 83-91: mesmo tratamento
 
-### 3. Header — `src/components/Header.tsx`
-Redesign inspirado no Shotgun:
-- Logo: substituir ícone Ticket + texto por `<img>` da logo-festpag.png
-- Barra de busca inline no centro (visível no desktop, não mais modal icon-only): input com placeholder "Procure um evento, artista, produtor ou cidade" com ícone Search
-- Lado direito: "Sou Produtor" com seta (link text + `ArrowUpRight` icon), e botão "Entrar / Cadastrar" com borda (outline)
-- Quando logado: manter dropdown de avatar atual
-- Mobile: busca colapsa, manter botões compactos
+### 5. ColaboradorLogin — usar logo real
+- `src/pages/colaborador/ColaboradorLogin.tsx` linhas com ícone Ticket: mesmo tratamento
 
-### 4. Homepage Banner — `src/pages/Index.tsx`
-- Adicionar seção hero abaixo do header com a imagem do banner
-- Banner dentro de container com `rounded-2xl`, margem lateral, e sombra/glow sutil (como se estivesse flutuando)
-- `object-cover` com altura controlada (~300-400px desktop)
-- Abaixo do banner, manter EventGrid com "Próximos Eventos"
-
-### 5. Footer — `src/components/Footer.tsx`
-- Substituir ícone Ticket + texto pela logo importada
-- Ajustar cores para tema dark
-
-### 6. Event Cards — `src/components/EventCard.tsx`
-- Atualizar cores de category badges para usar as novas variáveis
-- "Ver Ingressos" hover: usar gradiente azul→rosa
-
-### 7. Button variants — `src/components/ui/button.tsx`
-- `gradient` e `hero`: usar novo gradiente azul→rosa
-- `outline`: border claro sobre fundo dark
-
-### 8. Área do Produtor landing — `src/pages/AreaDoProdutor.tsx`
-- Substituir logo/ícone pela imagem da logo
-- Ajustar cores dos feature cards para tema dark
-
----
-
-## Paleta extraída da logo
-
-| Token | Valor | Uso |
-|---|---|---|
-| primary | `250 85% 60%` (azul-indigo) | Botões, links, destaques |
-| accent | `330 85% 60%` (rosa-magenta) | Segundo tom, badges, gradientes |
-| gradient | `from-[#6366F1] to-[#EC4899]` | CTAs, hover states, barra |
-| background | `220 15% 8%` | Fundo geral |
-| card | `220 15% 12%` | Cards, header |
-| muted | `220 10% 18%` | Borders, inputs |
-
----
+### 6. ProducerSidebar — usar logo real
+- `src/components/producer/ProducerSidebar.tsx` linhas 69-73: substituir o `<div>` com ícone Ticket por `<img src={logoFestpag} alt="FestPag" className="h-8 w-auto" />`
+- Quando collapsed, mostrar apenas a primeira parte da logo ou manter o ícone quadrado
 
 ## Arquivos impactados
-
-| Arquivo | Tipo |
+| Arquivo | Mudança |
 |---|---|
-| `src/assets/logo-festpag.png` | Novo (copy) |
-| `src/assets/banner-home.png` | Novo (copy) |
-| `src/index.css` | Tema dark completo |
-| `src/components/Header.tsx` | Redesign Shotgun-style |
-| `src/pages/Index.tsx` | Banner hero |
-| `src/components/Footer.tsx` | Logo image |
-| `src/components/ui/button.tsx` | Gradiente atualizado |
-| `src/components/EventCard.tsx` | Cores ajustadas |
-| `src/pages/AreaDoProdutor.tsx` | Logo + cores |
-
----
-
-## Riscos
-- Nenhuma alteração de banco ou auth
-- Painel do produtor (`/produtor/*`) usa sidebar própria — pode precisar de ajuste de sidebar colors para tema dark
-- Todas as páginas públicas serão afetadas pelo tema dark via CSS variables
+| `src/assets/logo-festpag.png` | Substituir pela nova imagem |
+| `src/components/Header.tsx` | Aumentar tamanho da logo |
+| `src/pages/Auth.tsx` | Trocar ícone por logo real |
+| `src/pages/ProducerLogin.tsx` | Trocar ícone por logo real |
+| `src/pages/colaborador/ColaboradorLogin.tsx` | Trocar ícone por logo real |
+| `src/components/producer/ProducerSidebar.tsx` | Trocar ícone por logo real |
 
