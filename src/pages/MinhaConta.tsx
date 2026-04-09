@@ -100,7 +100,7 @@ const MinhaConta = () => {
   return (
     <>
       <Helmet>
-        <title>Minha Conta | IngressosRP</title>
+        <title>Minha Conta | FestPag</title>
         <meta name="description" content="Gerencie seu perfil e configurações de conta." />
       </Helmet>
 

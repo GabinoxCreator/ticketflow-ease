@@ -177,7 +177,7 @@ const Auth: React.FC = () => {
                 <Ticket className="h-6 w-6 text-primary-foreground" />
               </div>
               <span className="text-2xl font-display font-bold text-foreground">
-                Ingressos<span className="text-primary">RP</span>
+                Fest<span className="text-primary">Pag</span>
               </span>
             </Link>
             <p className="text-muted-foreground mt-2">

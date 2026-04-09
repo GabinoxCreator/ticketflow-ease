@@ -276,7 +276,7 @@ const MeusIngressos = () => {
   return (
     <>
       <Helmet>
-        <title>Meus Ingressos | IngressosRP</title>
+        <title>Meus Ingressos | FestPag</title>
         <meta name="description" content="Visualize e gerencie seus ingressos para eventos." />
       </Helmet>
 

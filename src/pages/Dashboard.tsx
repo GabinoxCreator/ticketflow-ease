@@ -31,7 +31,7 @@ export default function Dashboard() {
               Acompanhe suas métricas e gerencie seus eventos
             </p>
           </div>
-          <Button onClick={() => navigate('/criar-evento')}>
+          <Button onClick={() => navigate('/produtor/criar-evento')}>
             <Plus className="w-4 h-4 mr-2" />
             Criar Evento
           </Button>
@@ -77,7 +77,7 @@ export default function Dashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/dashboard/eventos')}
+                onClick={() => navigate('/produtor/eventos')}
               >
                 Ver todos
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -96,7 +96,7 @@ export default function Dashboard() {
                   <p className="text-muted-foreground mb-4">
                     Você ainda não tem eventos ativos
                   </p>
-                  <Button onClick={() => navigate('/criar-evento')} variant="outline">
+                  <Button onClick={() => navigate('/produtor/criar-evento')} variant="outline">
                     <Plus className="w-4 h-4 mr-2" />
                     Criar Primeiro Evento
                   </Button>
@@ -126,7 +126,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4 flex-col gap-2"
-                onClick={() => navigate('/criar-evento')}
+                onClick={() => navigate('/produtor/criar-evento')}
               >
                 <Plus className="w-6 h-6" />
                 <span>Criar Evento</span>
@@ -134,7 +134,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4 flex-col gap-2"
-                onClick={() => navigate('/dashboard/eventos')}
+                onClick={() => navigate('/produtor/eventos')}
               >
                 <CalendarDays className="w-6 h-6" />
                 <span>Gerenciar Eventos</span>
@@ -142,7 +142,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4 flex-col gap-2"
-                onClick={() => navigate('/dashboard/relatorios')}
+                onClick={() => navigate('/produtor/eventos')}
               >
                 <TrendingUp className="w-6 h-6" />
                 <span>Ver Relatórios</span>
@@ -150,7 +150,7 @@ export default function Dashboard() {
               <Button
                 variant="outline"
                 className="h-auto py-4 flex-col gap-2"
-                onClick={() => navigate('/dashboard/conta')}
+                onClick={() => navigate('/produtor/financeiro')}
               >
                 <DollarSign className="w-6 h-6" />
                 <span>Configurar Pagamentos</span>

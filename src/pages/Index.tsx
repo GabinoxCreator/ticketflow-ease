@@ -58,10 +58,10 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>IngressosRP - Compre Ingressos para Eventos em Rio Preto</title>
+        <title>FestPag - Compre Ingressos para Eventos</title>
         <meta
           name="description"
-          content="A plataforma mais simples para comprar ingressos para festas, shows, festivais e teatro em Rio Preto. Receba seus ingressos direto no WhatsApp!"
+          content="A plataforma completa para comprar ingressos para festas, shows, festivais e eventos. Pagamento rápido e seguro!"
         />
       </Helmet>
 
