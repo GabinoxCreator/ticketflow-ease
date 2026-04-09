@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Ticket, LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff } from 'lucide-react';
+import logoFestpag from '@/assets/logo-festpag.png';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,10 +48,7 @@ export default function ColaboradorLogin() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center mx-auto mb-4">
-            <Ticket className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold">FestPag</h1>
+          <img src={logoFestpag} alt="FestPag" className="h-12 w-auto mx-auto mb-4" />
           <p className="text-muted-foreground">Área do Colaborador</p>
         </div>
 

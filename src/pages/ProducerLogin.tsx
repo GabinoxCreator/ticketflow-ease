@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Mail, Lock, Ticket, ArrowLeft, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Loader2 } from 'lucide-react';
+import logoFestpag from '@/assets/logo-festpag.png';
 import { lovable } from '@/integrations/lovable/index';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -81,13 +82,8 @@ export default function ProducerLogin() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Ticket className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <span className="text-2xl font-display font-bold text-foreground">
-                Fest<span className="text-primary">Pag</span>
-              </span>
+            <Link to="/">
+              <img src={logoFestpag} alt="FestPag" className="h-12 w-auto mx-auto" />
             </Link>
             <p className="text-muted-foreground mt-2">Área do Produtor</p>
           </div>
