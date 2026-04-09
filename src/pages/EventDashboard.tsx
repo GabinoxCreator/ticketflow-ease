@@ -68,8 +68,14 @@ export default function EventDashboard() {
     { value: 'lists', label: 'Listas', icon: Gift },
   ];
 
+  const breadcrumbs = [
+    { label: 'Dashboard', href: '/produtor/dashboard' },
+    { label: 'Meus Eventos', href: '/produtor/eventos' },
+    { label: event.title },
+  ];
+
   return (
-    <ProducerLayout>
+    <ProducerLayout breadcrumbs={breadcrumbs}>
       <Helmet>
         <title>{event.title} - Dashboard | FestPag</title>
       </Helmet>
@@ -81,14 +87,14 @@ export default function EventDashboard() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-7 w-full mb-6">
+        <TabsList className="flex w-full mb-6 overflow-x-auto">
           {tabItems.map((tab) => (
             <TabsTrigger 
               key={tab.value} 
               value={tab.value}
-              className="flex items-center gap-2 text-xs sm:text-sm"
+              className="flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap flex-shrink-0"
             >
-              <tab.icon className="h-5 w-5" />
+              <tab.icon className="h-4 w-4 sm:h-5 sm:w-5" />
               <span className="hidden sm:inline">{tab.label}</span>
             </TabsTrigger>
           ))}

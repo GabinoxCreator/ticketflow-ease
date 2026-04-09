@@ -57,7 +57,7 @@ export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutP
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <main className="flex-1 p-6 overflow-hidden">
+          <main className="flex-1 p-6 overflow-auto">
             {children}
           </main>
         </SidebarInset>
