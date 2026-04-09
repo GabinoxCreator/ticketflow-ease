@@ -40,7 +40,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
       <Button 
         variant="ghost" 
         size="sm" 
-        onClick={() => navigate('/dashboard/eventos')}
+        onClick={() => navigate('/produtor/eventos')}
         className="mb-4"
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
@@ -96,7 +96,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigate(`/editar-evento/${event.id}`)}>
+                <Button variant="outline" size="sm" onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Editar
                 </Button>

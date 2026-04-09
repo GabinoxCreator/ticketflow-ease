@@ -67,7 +67,7 @@ export default function DashboardEventos() {
         <div className="text-center py-12">
           <CalendarDays className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground mb-4">{emptyMessage}</p>
-          <Button onClick={() => navigate('/criar-evento')} variant="outline">
+          <Button onClick={() => navigate('/produtor/criar-evento')} variant="outline">
             <Plus className="w-4 h-4 mr-2" />
             Criar Evento
           </Button>
@@ -110,7 +110,7 @@ export default function DashboardEventos() {
               Gerencie todos os seus eventos em um só lugar
             </p>
           </div>
-          <Button onClick={() => navigate('/criar-evento')}>
+          <Button onClick={() => navigate('/produtor/criar-evento')}>
             <Plus className="w-4 h-4 mr-2" />
             Criar Evento
           </Button>

@@ -134,7 +134,7 @@ export default function CriarEvento() {
       status: data.status,
     }, {
       onSuccess: () => {
-        navigate('/dashboard/eventos');
+        navigate('/produtor/eventos');
       },
     });
   };
@@ -163,7 +163,7 @@ export default function CriarEvento() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/dashboard/eventos')}
+            onClick={() => navigate('/produtor/eventos')}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

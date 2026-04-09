@@ -170,7 +170,7 @@ export default function EditarEvento() {
     if (!id) return;
     deleteEvent.mutate(id, {
       onSuccess: () => {
-        navigate('/dashboard/eventos');
+        navigate('/produtor/eventos');
       },
     });
   };
@@ -191,7 +191,7 @@ export default function EditarEvento() {
       <ProducerLayout>
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold mb-4">Evento não encontrado</h2>
-          <Button onClick={() => navigate('/dashboard/eventos')}>
+          <Button onClick={() => navigate('/produtor/eventos')}>
             Voltar para Meus Eventos
           </Button>
         </div>

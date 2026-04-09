@@ -38,7 +38,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   return (
     <Card 
       className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-      onClick={() => navigate(`/dashboard/evento/${event.id}`)}
+      onClick={() => navigate(`/produtor/eventos/${event.id}`)}
     >
       <CardContent className="p-0">
         <div className="flex flex-col md:flex-row">
@@ -102,7 +102,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
                     <Eye className="w-4 h-4 mr-2" />
                     Visualizar
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate(`/editar-evento/${event.id}`)}>
+                  <DropdownMenuItem onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
                     <Edit className="w-4 h-4 mr-2" />
                     Editar
                   </DropdownMenuItem>

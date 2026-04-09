@@ -47,7 +47,7 @@ export default function EventDashboard() {
             O evento que você está procurando não existe ou você não tem permissão para acessá-lo.
           </p>
           <button 
-            onClick={() => navigate('/dashboard/eventos')}
+            onClick={() => navigate('/produtor/eventos')}
             className="text-primary hover:underline"
           >
             Voltar para Meus Eventos
@@ -69,7 +69,7 @@ export default function EventDashboard() {
   return (
     <ProducerLayout>
       <Helmet>
-        <title>{event.title} - Dashboard | Ingressos</title>
+        <title>{event.title} - Dashboard | FestPag</title>
       </Helmet>
 
       <EventDashboardHeader 
