@@ -4,14 +4,10 @@ import {
   CalendarDays, 
   Plus, 
   User, 
-  ChevronLeft,
   Ticket,
-  BarChart3,
   Wallet,
   Users
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -28,21 +24,9 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 
 const menuItems = [
-  {
-    title: 'Visão Geral',
-    url: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Meus Eventos',
-    url: '/dashboard/eventos',
-    icon: CalendarDays,
-  },
-  {
-    title: 'Criar Evento',
-    url: '/criar-evento',
-    icon: Plus,
-  },
+  { title: 'Visão Geral', url: '/produtor/dashboard', icon: LayoutDashboard },
+  { title: 'Meus Eventos', url: '/produtor/eventos', icon: CalendarDays },
+  { title: 'Criar Evento', url: '/produtor/criar-evento', icon: Plus },
 ];
 
 export function ProducerSidebar() {
@@ -52,9 +36,7 @@ export function ProducerSidebar() {
   const collapsed = state === 'collapsed';
 
   const isActive = (path: string) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard';
-    }
+    if (path === '/produtor/dashboard') return location.pathname === '/produtor/dashboard';
     return location.pathname.startsWith(path);
   };
 
@@ -65,9 +47,7 @@ export function ProducerSidebar() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
             <Ticket className="w-4 h-4 text-primary-foreground" />
           </div>
-          {!collapsed && (
-            <span className="font-bold text-lg">IngressoFácil</span>
-          )}
+          {!collapsed && <span className="font-bold text-lg">FestPag</span>}
         </NavLink>
       </SidebarHeader>
 
@@ -78,11 +58,7 @@ export function ProducerSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink to={item.url}>
                       <item.icon className="w-4 h-4" />
                       <span>{item.title}</span>
@@ -99,12 +75,8 @@ export function ProducerSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive('/dashboard/colaboradores')}
-                  tooltip="Colaboradores"
-                >
-                  <NavLink to="/dashboard/colaboradores">
+                <SidebarMenuButton asChild isActive={isActive('/produtor/equipe')} tooltip="Colaboradores">
+                  <NavLink to="/produtor/equipe">
                     <Users className="w-4 h-4" />
                     <span>Colaboradores</span>
                   </NavLink>
@@ -119,34 +91,10 @@ export function ProducerSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive('/dashboard/financeiro')}
-                  tooltip="Financeiro"
-                >
-                  <NavLink to="/dashboard/financeiro">
+                <SidebarMenuButton asChild isActive={isActive('/produtor/financeiro')} tooltip="Financeiro">
+                  <NavLink to="/produtor/financeiro">
                     <Wallet className="w-4 h-4" />
                     <span>Financeiro</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Relatórios</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive('/dashboard/relatorios')}
-                  tooltip="Relatórios"
-                >
-                  <NavLink to="/dashboard/relatorios">
-                    <BarChart3 className="w-4 h-4" />
-                    <span>Relatórios</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -159,7 +107,7 @@ export function ProducerSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Minha Conta">
-              <NavLink to="/dashboard/conta" className="flex items-center gap-2">
+              <NavLink to="/minha-conta" className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                   <User className="w-4 h-4" />
                 </div>
@@ -168,9 +116,7 @@ export function ProducerSidebar() {
                     <span className="text-sm font-medium truncate max-w-[120px]">
                       {profile?.nome_completo || 'Produtor'}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      Ver perfil
-                    </span>
+                    <span className="text-xs text-muted-foreground">Ver perfil</span>
                   </div>
                 )}
               </NavLink>

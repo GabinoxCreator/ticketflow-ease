@@ -35,7 +35,7 @@ export default function Financeiro() {
   return (
     <ProducerLayout>
       <Helmet>
-        <title>Financeiro | IngressoFácil</title>
+        <title>Financeiro | FestPag</title>
         <meta name="description" content="Gerencie seus dados bancários para recebimento" />
       </Helmet>
 

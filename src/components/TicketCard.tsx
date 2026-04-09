@@ -145,7 +145,7 @@ const TicketCard = ({ ticket, className = '' }: TicketCardProps) => {
           <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
             <Ticket className="w-4 h-4 text-white" />
           </div>
-          <span className="text-xs font-semibold text-gray-700 drop-shadow-md">IngressosRP</span>
+          <span className="text-xs font-semibold text-gray-700 drop-shadow-md">FestPag</span>
         </div>
       </div>
 
@@ -275,7 +275,7 @@ const TicketCard = ({ ticket, className = '' }: TicketCardProps) => {
             <div className="w-8 h-8 rounded-lg bg-primary/90 flex items-center justify-center">
               <Ticket className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="text-xs font-semibold text-foreground/80 drop-shadow-md">IngressosRP</span>
+            <span className="text-xs font-semibold text-foreground/80 drop-shadow-md">FestPag</span>
           </div>
         </div>
 

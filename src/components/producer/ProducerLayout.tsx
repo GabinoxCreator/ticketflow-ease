@@ -3,12 +3,7 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/s
 import { ProducerSidebar } from './ProducerSidebar';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Breadcrumb, 
-  BreadcrumbItem, 
-  BreadcrumbLink, 
-  BreadcrumbList, 
-  BreadcrumbPage, 
-  BreadcrumbSeparator 
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator 
 } from '@/components/ui/breadcrumb';
 import { useLocation } from 'react-router-dom';
 
@@ -19,23 +14,20 @@ interface ProducerLayoutProps {
 }
 
 const routeTitles: Record<string, string> = {
-  '/dashboard': 'Visão Geral',
-  '/dashboard/eventos': 'Meus Eventos',
-  '/criar-evento': 'Criar Evento',
-  '/dashboard/relatorios': 'Relatórios',
-  '/dashboard/conta': 'Minha Conta',
+  '/produtor/dashboard': 'Visão Geral',
+  '/produtor/eventos': 'Meus Eventos',
+  '/produtor/criar-evento': 'Criar Evento',
+  '/produtor/financeiro': 'Financeiro',
+  '/produtor/equipe': 'Equipe',
 };
 
 export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutProps) {
   const location = useLocation();
-  
   const pageTitle = title || routeTitles[location.pathname] || 'Dashboard';
-
   const defaultBreadcrumbs = [
-    { label: 'Dashboard', href: '/dashboard' },
+    { label: 'Dashboard', href: '/produtor/dashboard' },
     { label: pageTitle },
   ];
-
   const displayBreadcrumbs = breadcrumbs || defaultBreadcrumbs;
 
   return (
@@ -52,16 +44,12 @@ export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutP
                   <React.Fragment key={index}>
                     <BreadcrumbItem>
                       {crumb.href ? (
-                        <BreadcrumbLink href={crumb.href}>
-                          {crumb.label}
-                        </BreadcrumbLink>
+                        <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
                       ) : (
                         <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
                       )}
                     </BreadcrumbItem>
-                    {index < displayBreadcrumbs.length - 1 && (
-                      <BreadcrumbSeparator />
-                    )}
+                    {index < displayBreadcrumbs.length - 1 && <BreadcrumbSeparator />}
                   </React.Fragment>
                 ))}
               </BreadcrumbList>

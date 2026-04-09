@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ColaboradorAuthProvider } from "@/contexts/ColaboradorAuthContext";
@@ -32,6 +32,9 @@ import ColaboradorConvidados from "./pages/colaborador/ColaboradorConvidados";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import TestePagamento from "./pages/TestePagamento";
 import ResetPassword from "./pages/ResetPassword";
+import AreaDoProdutor from "./pages/AreaDoProdutor";
+import ProducerLogin from "./pages/ProducerLogin";
+import ProducerSignup from "./pages/ProducerSignup";
 
 const queryClient = new QueryClient();
 
@@ -45,20 +48,41 @@ const App = () => (
           <AuthProvider>
             <ColaboradorAuthProvider>
               <Routes>
+                {/* Public */}
                 <Route path="/" element={<Index />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
+                <Route path="/login" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+
+                {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/dashboard" element={<ProtectedRoute requiredRole="produtor"><Dashboard /></ProtectedRoute>} />
-                <Route path="/dashboard/eventos" element={<ProtectedRoute requiredRole="produtor"><DashboardEventos /></ProtectedRoute>} />
-                <Route path="/dashboard/evento/:id" element={<ProtectedRoute requiredRole="produtor"><EventDashboard /></ProtectedRoute>} />
-                <Route path="/criar-evento" element={<ProtectedRoute requiredRole="produtor"><CriarEvento /></ProtectedRoute>} />
-                <Route path="/editar-evento/:id" element={<ProtectedRoute requiredRole="produtor"><EditarEvento /></ProtectedRoute>} />
-                <Route path="/dashboard/financeiro" element={<ProtectedRoute requiredRole="produtor"><Financeiro /></ProtectedRoute>} />
-                <Route path="/dashboard/colaboradores" element={<ProtectedRoute requiredRole="produtor"><ColaboradoresManager /></ProtectedRoute>} />
+
+                {/* Producer Area (public) */}
+                <Route path="/area-do-produtor" element={<AreaDoProdutor />} />
+                <Route path="/area-do-produtor/login" element={<ProducerLogin />} />
+                <Route path="/area-do-produtor/cadastro" element={<ProducerSignup />} />
+
+                {/* Producer Dashboard (protected) */}
+                <Route path="/produtor/dashboard" element={<ProtectedRoute requiredRole="produtor"><Dashboard /></ProtectedRoute>} />
+                <Route path="/produtor/eventos" element={<ProtectedRoute requiredRole="produtor"><DashboardEventos /></ProtectedRoute>} />
+                <Route path="/produtor/eventos/:id" element={<ProtectedRoute requiredRole="produtor"><EventDashboard /></ProtectedRoute>} />
+                <Route path="/produtor/criar-evento" element={<ProtectedRoute requiredRole="produtor"><CriarEvento /></ProtectedRoute>} />
+                <Route path="/produtor/editar-evento/:id" element={<ProtectedRoute requiredRole="produtor"><EditarEvento /></ProtectedRoute>} />
+                <Route path="/produtor/financeiro" element={<ProtectedRoute requiredRole="produtor"><Financeiro /></ProtectedRoute>} />
+                <Route path="/produtor/equipe" element={<ProtectedRoute requiredRole="produtor"><ColaboradoresManager /></ProtectedRoute>} />
+
+                {/* Legacy redirects */}
+                <Route path="/auth" element={<Navigate to="/login" replace />} />
+                <Route path="/dashboard" element={<Navigate to="/produtor/dashboard" replace />} />
+                <Route path="/dashboard/eventos" element={<Navigate to="/produtor/eventos" replace />} />
+                <Route path="/dashboard/evento/:id" element={<Navigate to="/produtor/eventos/:id" replace />} />
+                <Route path="/criar-evento" element={<Navigate to="/produtor/criar-evento" replace />} />
+                <Route path="/editar-evento/:id" element={<Navigate to="/produtor/editar-evento/:id" replace />} />
+                <Route path="/dashboard/financeiro" element={<Navigate to="/produtor/financeiro" replace />} />
+                <Route path="/dashboard/colaboradores" element={<Navigate to="/produtor/equipe" replace />} />
                 
                 {/* Collaborator Routes */}
                 <Route path="/colaborador" element={<ColaboradorLogin />} />
@@ -71,7 +95,6 @@ const App = () => (
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
                 <Route path="/teste-pagamento" element={<TestePagamento />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>

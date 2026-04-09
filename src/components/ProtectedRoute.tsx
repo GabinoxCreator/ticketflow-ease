@@ -20,12 +20,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
   }
 
   if (!user) {
-    // Redireciona para auth mantendo o destino original
-    return <Navigate to={`/auth?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+    // Redirect to appropriate login based on required role
+    if (requiredRole === 'produtor') {
+      return <Navigate to={`/area-do-produtor/login`} replace />;
+    }
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
   if (requiredRole && userRole !== requiredRole && userRole !== 'admin') {
-    // Se não tem a role necessária, redireciona para home
     return <Navigate to="/" replace />;
   }
 

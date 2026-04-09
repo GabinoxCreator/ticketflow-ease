@@ -194,7 +194,7 @@ const EventDetails = () => {
   return (
     <>
       <Helmet>
-        <title>{event.title} - IngressosRP</title>
+        <title>{event.title} - FestPag</title>
         <meta name="description" content={event.short_description || event.description || ''} />
       </Helmet>
 

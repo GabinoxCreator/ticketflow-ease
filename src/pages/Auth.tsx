@@ -26,7 +26,7 @@ const signupSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
   confirmPassword: z.string(),
-  tipo_conta: z.enum(['cliente', 'produtor']),
+  tipo_conta: z.literal('cliente'),
   acceptTerms: z.boolean().refine(val => val === true, 'Você deve aceitar os termos'),
 }).refine(data => data.password === data.confirmPassword, {
   message: 'As senhas não coincidem',
@@ -54,18 +54,13 @@ const Auth: React.FC = () => {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [tipoConta, setTipoConta] = useState<'cliente' | 'produtor'>('cliente');
+  const [tipoConta] = useState<'cliente'>('cliente');
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/';
   const tipo = searchParams.get('tipo');
 
-  useEffect(() => {
-    if (tipo === 'produtor') {
-      setActiveTab('cadastrar');
-      setTipoConta('produtor');
-    }
-  }, [tipo]);
+  // Removed tipo_conta selector - this page is client-only now
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -177,7 +172,7 @@ const Auth: React.FC = () => {
                 <Ticket className="h-6 w-6 text-primary-foreground" />
               </div>
               <span className="text-2xl font-display font-bold text-foreground">
-                Ingressos<span className="text-primary">RP</span>
+                Fest<span className="text-primary">Pag</span>
               </span>
             </Link>
             <p className="text-muted-foreground mt-2">
@@ -456,45 +451,8 @@ const Auth: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <Label>Tipo de conta</Label>
-                      <RadioGroup
-                        value={tipoConta}
-                        onValueChange={(value) => setTipoConta(value as 'cliente' | 'produtor')}
-                        className="grid grid-cols-2 gap-3"
-                      >
-                        <Label
-                          htmlFor="cliente"
-                          className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            tipoConta === 'cliente'
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                        >
-                          <RadioGroupItem value="cliente" id="cliente" className="sr-only" />
-                          <Ticket className={`h-5 w-5 ${tipoConta === 'cliente' ? 'text-primary' : 'text-muted-foreground'}`} />
-                          <div>
-                            <p className="font-medium">Cliente</p>
-                            <p className="text-xs text-muted-foreground">Comprar ingressos</p>
-                          </div>
-                        </Label>
-                        <Label
-                          htmlFor="produtor"
-                          className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            tipoConta === 'produtor'
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                        >
-                          <RadioGroupItem value="produtor" id="produtor" className="sr-only" />
-                          <PartyPopper className={`h-5 w-5 ${tipoConta === 'produtor' ? 'text-primary' : 'text-muted-foreground'}`} />
-                          <div>
-                            <p className="font-medium">Produtor</p>
-                            <p className="text-xs text-muted-foreground">Criar eventos</p>
-                          </div>
-                        </Label>
-                      </RadioGroup>
-                    </div>
+
+
 
                     <div className="flex items-start gap-2">
                       <Checkbox
