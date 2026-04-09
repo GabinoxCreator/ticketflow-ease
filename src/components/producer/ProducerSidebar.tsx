@@ -6,7 +6,9 @@ import {
   User, 
   Ticket,
   Wallet,
-  Users
+  Users,
+  ClipboardList,
+  Settings
 } from 'lucide-react';
 import {
   Sidebar,
@@ -87,6 +89,22 @@ export function ProducerSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
+          <SidebarGroupLabel>Gestão</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive('/produtor/pedidos')} tooltip="Pedidos">
+                  <NavLink to="/produtor/pedidos">
+                    <ClipboardList className="w-4 h-4" />
+                    <span>Pedidos</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupLabel>Financeiro</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -95,6 +113,22 @@ export function ProducerSidebar() {
                   <NavLink to="/produtor/financeiro">
                     <Wallet className="w-4 h-4" />
                     <span>Financeiro</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Configurações</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive('/produtor/configuracoes')} tooltip="Configurações">
+                  <NavLink to="/produtor/configuracoes">
+                    <Settings className="w-4 h-4" />
+                    <span>Configurações</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
