@@ -28,6 +28,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   userRole: AppRole | null;
+  producerProfileId: string | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (data: SignUpData) => Promise<{ error: Error | null }>;
