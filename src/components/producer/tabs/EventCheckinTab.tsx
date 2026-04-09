@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useEventParticipants, Ticket } from '@/hooks/useEventParticipants';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface EventCheckinTabProps {
@@ -15,7 +14,7 @@ interface EventCheckinTabProps {
 export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [validating, setValidating] = useState<string | null>(null);
-  const { tickets, validTickets, usedTickets, isLoading, refetch } = useEventParticipants(eventId);
+  const { tickets, validTickets, usedTickets, isLoading, updateTicketStatus } = useEventParticipants(eventId);
 
   const handleCheckin = async (ticket: Ticket) => {
     if (ticket.status === 'used') {
@@ -28,18 +27,19 @@ export function EventCheckinTab({ eventId }: EventCheckinTabProps) {
     }
 
     setValidating(ticket.id);
-    const { error } = await supabase
-      .from('tickets')
-      .update({ status: 'used', validated_at: new Date().toISOString() })
-      .eq('id', ticket.id);
-
-    setValidating(null);
-    if (error) {
-      toast.error('Erro ao validar ingresso');
-    } else {
-      toast.success(`Check-in realizado: ${ticket.holder_name}`);
-      refetch();
-    }
+    updateTicketStatus.mutate(
+      { ticketId: ticket.id, status: 'used' },
+      {
+        onSuccess: () => {
+          setValidating(null);
+          toast.success(`Check-in realizado: ${ticket.holder_name}`);
+        },
+        onError: () => {
+          setValidating(null);
+          toast.error('Erro ao validar ingresso');
+        },
+      }
+    );
   };
 
   const filteredTickets = tickets?.filter(t => {
