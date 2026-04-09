@@ -4,12 +4,12 @@ import {
   CalendarDays, 
   Plus, 
   User, 
-  Ticket,
   Wallet,
   Users,
   ClipboardList,
   Settings
 } from 'lucide-react';
+import logoFestpag from '@/assets/logo-festpag.png';
 import {
   Sidebar,
   SidebarContent,
@@ -67,10 +67,7 @@ export function ProducerSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border/50">
       <SidebarHeader className="p-4">
         <NavLink to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-            <Ticket className="w-4 h-4 text-primary-foreground" />
-          </div>
-          {!collapsed && <span className="font-bold text-lg">FestPag</span>}
+          <img src={logoFestpag} alt="FestPag" className={collapsed ? "h-6 w-auto" : "h-8 w-auto"} />
         </NavLink>
       </SidebarHeader>
 
