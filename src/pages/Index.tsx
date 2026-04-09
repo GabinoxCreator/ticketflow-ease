@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
+import bannerHome from '@/assets/banner-home.png';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
@@ -68,6 +69,18 @@ const Index = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="pt-24">
+          {/* Hero Banner */}
+          <section className="container mx-auto px-4 mb-10">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
+              <img
+                src={bannerHome}
+                alt="FestPag - Os melhores eventos"
+                className="w-full h-[220px] sm:h-[300px] md:h-[380px] object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
+            </div>
+          </section>
+
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />

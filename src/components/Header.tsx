@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Ticket, User, LogOut, LayoutDashboard, Calendar, ChevronDown } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Calendar, ChevronDown, Ticket, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import logoFestpag from '@/assets/logo-festpag.png';
 
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -44,25 +45,34 @@ const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16 md:h-20">
+        <div className="flex items-center justify-between h-16 md:h-20 gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <Ticket className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-display font-bold text-xl hidden sm:block text-foreground">
-              Fest<span className="text-primary">Pag</span>
-            </span>
+          <Link to="/" className="flex-shrink-0">
+            <img src={logoFestpag} alt="FestPag" className="h-8 md:h-10 w-auto" />
           </Link>
 
+          {/* Search Bar - Desktop */}
+          <div className="hidden md:flex flex-1 max-w-xl mx-4">
+            <form onSubmit={handleSearch} className="w-full relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Procure um evento, artista, produtor ou cidade"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 pl-10 pr-4 bg-secondary border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
+              />
+            </form>
+          </div>
+
           {/* Actions */}
-          <div className="flex items-center gap-3">
-            {/* Search Button */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Search Button - Mobile */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsSearchOpen(true)}
-              className="text-muted-foreground hover:text-foreground"
+              className="md:hidden text-muted-foreground hover:text-foreground"
             >
               <Search className="w-5 h-5" />
             </Button>
@@ -134,34 +144,33 @@ const Header = () => {
                   </>
                 ) : (
                   <>
-                    {/* Login */}
+                    {/* Sou Produtor */}
+                    <button
+                      onClick={() => navigate('/area-do-produtor')}
+                      className="hidden md:flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Sou Produtor
+                      <ArrowUpRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Entrar / Cadastrar */}
                     <Button
                       variant="outline"
                       className="flex gap-2"
                       onClick={() => navigate('/login')}
                     >
                       <User className="w-4 h-4" />
-                      <span>Entrar</span>
-                    </Button>
-
-                    {/* Área do Produtor */}
-                    <Button
-                      variant="gradient"
-                      className="hidden md:flex"
-                      onClick={() => navigate('/area-do-produtor')}
-                    >
-                      Área do Produtor
+                      <span>Entrar / Cadastrar</span>
                     </Button>
                   </>
                 )}
               </>
             )}
-
           </div>
         </div>
       </div>
 
-      {/* Search Modal */}
+      {/* Search Modal - Mobile */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -182,7 +191,7 @@ const Header = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Buscar eventos, artistas, locais..."
+                  placeholder="Procure um evento, artista, produtor ou cidade"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full h-16 pl-14 pr-4 bg-card border border-border rounded-2xl text-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"

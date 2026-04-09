@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Clock, Flame } from 'lucide-react';
+import { MapPin, Clock, Flame } from 'lucide-react';
 import { EventData, categoryLabels } from '@/data/mockEvents';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -12,10 +12,10 @@ interface EventCardProps {
 
 const categoryColorMap: Record<string, string> = {
   festa: 'bg-primary text-primary-foreground',
-  show: 'bg-brasil-azul text-white',
-  teatro: 'bg-accent text-accent-foreground',
-  festival: 'bg-primary/80 text-primary-foreground',
-  balada: 'bg-[hsl(280,60%,50%)] text-white',
+  show: 'bg-category-show text-foreground',
+  teatro: 'bg-category-teatro text-foreground',
+  festival: 'bg-category-festival text-foreground',
+  balada: 'bg-accent text-accent-foreground',
 };
 
 const EventCard = ({ event, index = 0 }: EventCardProps) => {
@@ -33,8 +33,6 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
       currency: 'BRL',
     });
   };
-
-  
 
   return (
     <motion.div
@@ -109,7 +107,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
                   {formatPrice(event.minPrice)}
                 </p>
               </div>
-              <div className="px-4 py-2 bg-secondary rounded-lg text-sm font-medium text-secondary-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <div className="px-4 py-2 bg-secondary rounded-lg text-sm font-medium text-secondary-foreground group-hover:bg-gradient-to-r group-hover:from-[hsl(250,85%,60%)] group-hover:to-[hsl(330,85%,60%)] group-hover:text-primary-foreground transition-all">
                 Ver Ingressos
               </div>
             </div>

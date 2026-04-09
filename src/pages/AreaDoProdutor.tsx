@@ -1,10 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Ticket, BarChart3, QrCode, Users, CalendarDays, Shield, ArrowRight } from 'lucide-react';
+import { BarChart3, QrCode, Users, CalendarDays, Shield, ArrowRight, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import logoFestpag from '@/assets/logo-festpag.png';
 
 const features = [
   {
@@ -55,20 +56,23 @@ export default function AreaDoProdutor() {
         <main className="pt-20">
           {/* Hero */}
           <section className="relative overflow-hidden py-20 md:py-32">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-primary/5" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/5" />
             <div className="container mx-auto px-4 relative z-10">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="max-w-3xl mx-auto text-center"
               >
+                <div className="flex justify-center mb-6">
+                  <img src={logoFestpag} alt="FestPag" className="h-12 w-auto" />
+                </div>
                 <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-2 text-sm font-medium mb-6">
                   <Ticket className="w-4 h-4" />
                   Para Produtores de Eventos
                 </div>
                 <h1 className="font-display font-bold text-4xl md:text-5xl lg:text-6xl mb-6 text-foreground">
                   Venda ingressos e opere seus eventos com a{' '}
-                  <span className="text-primary">FestPag</span>
+                  <span className="gradient-text">FestPag</span>
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
                   Crie seu evento, configure lotes, acompanhe vendas e faça check-in com QR Code. 
@@ -97,7 +101,7 @@ export default function AreaDoProdutor() {
           </section>
 
           {/* Features */}
-          <section className="py-20 bg-muted/30">
+          <section className="py-20 bg-card/50">
             <div className="container mx-auto px-4">
               <div className="text-center mb-16">
                 <h2 className="font-display font-bold text-3xl md:text-4xl mb-4 text-foreground">

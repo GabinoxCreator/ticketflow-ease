@@ -11,65 +11,64 @@
 
 @layer base {
   :root {
-    --background: 60 20% 99%;
-    --foreground: 150 30% 10%;
+    --background: 220 15% 8%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 150 30% 10%;
+    --card: 220 15% 12%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 150 30% 10%;
+    --popover: 220 15% 12%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 145 63% 32%;
+    --primary: 250 85% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 60 20% 96%;
-    --secondary-foreground: 150 30% 15%;
+    --secondary: 220 15% 16%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 60 15% 94%;
-    --muted-foreground: 150 10% 45%;
+    --muted: 220 10% 18%;
+    --muted-foreground: 220 10% 55%;
 
-    --accent: 48 100% 50%;
-    --accent-foreground: 150 30% 10%;
+    --accent: 330 85% 60%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 60 10% 90%;
-    --input: 60 10% 90%;
-    --ring: 145 63% 32%;
+    --border: 220 10% 18%;
+    --input: 220 10% 18%;
+    --ring: 250 85% 60%;
 
     --radius: 0.75rem;
 
-    /* Custom tokens - Brazilian colors */
-    --verde-bandeira: 145 63% 32%;
-    --amarelo-ouro: 48 100% 50%;
-    --azul-brasil: 210 100% 35%;
+    /* Brand colors */
+    --brand-indigo: 250 85% 60%;
+    --brand-magenta: 330 85% 60%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(145 63% 32%) 0%, hsl(145 63% 42%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(48 100% 50%) 0%, hsl(38 100% 50%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(60 20% 99%) 0%, hsl(145 20% 97%) 100%);
-    --glow-primary: 0 0 60px hsl(145 63% 32% / 0.15);
-    --glow-accent: 0 0 40px hsl(48 100% 50% / 0.2);
+    --gradient-primary: linear-gradient(135deg, hsl(250 85% 60%) 0%, hsl(330 85% 60%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(330 85% 60%) 0%, hsl(280 80% 55%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(220 15% 8%) 0%, hsl(220 15% 10%) 100%);
+    --glow-primary: 0 0 60px hsl(250 85% 60% / 0.15);
+    --glow-accent: 0 0 40px hsl(330 85% 60% / 0.2);
 
     /* Category colors */
-    --category-festa: 145 63% 32%;
-    --category-show: 210 100% 35%;
-    --category-teatro: 48 100% 45%;
-    --category-festival: 145 50% 45%;
-    --category-balada: 280 60% 50%;
+    --category-festa: 250 85% 60%;
+    --category-show: 210 100% 55%;
+    --category-teatro: 45 100% 55%;
+    --category-festival: 170 70% 50%;
+    --category-balada: 330 85% 60%;
 
     --font-display: 'Sora', sans-serif;
     --font-body: 'Inter', sans-serif;
 
-    --sidebar-background: 60 20% 98%;
-    --sidebar-foreground: 150 30% 15%;
-    --sidebar-primary: 145 63% 32%;
+    --sidebar-background: 220 15% 10%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 250 85% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 60 15% 94%;
-    --sidebar-accent-foreground: 150 30% 15%;
-    --sidebar-border: 60 10% 90%;
-    --sidebar-ring: 145 63% 32%;
+    --sidebar-accent: 220 10% 18%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 10% 18%;
+    --sidebar-ring: 250 85% 60%;
   }
 }
 
@@ -140,8 +139,8 @@
   }
 
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px hsl(145 63% 32% / 0.2); }
-    50% { box-shadow: 0 0 40px hsl(145 63% 32% / 0.35); }
+    0%, 100% { box-shadow: 0 0 20px hsl(250 85% 60% / 0.2); }
+    50% { box-shadow: 0 0 40px hsl(250 85% 60% / 0.35); }
   }
 
   .animate-pulse-glow {

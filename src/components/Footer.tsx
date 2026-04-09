@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Ticket, Mail, Phone } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
+import logoFestpag from '@/assets/logo-festpag.png';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -24,18 +25,13 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-muted border-t border-border">
+    <footer className="bg-card border-t border-border">
       <div className="container px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <Ticket className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-display font-bold text-xl text-foreground">
-                Fest<span className="text-primary">Pag</span>
-              </span>
+            <Link to="/" className="inline-block mb-4">
+              <img src={logoFestpag} alt="FestPag" className="h-8 w-auto" />
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               A plataforma completa para comprar e vender ingressos para eventos.
