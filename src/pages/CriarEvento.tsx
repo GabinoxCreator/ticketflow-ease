@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2, Edit2, Flame, Users, Clock } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2, Edit2, Flame, Users, Clock, MapPin, ImageIcon } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { ImageUpload } from '@/components/producer/ImageUpload';
 import { TimeSelect } from '@/components/producer/TimeSelect';
@@ -636,87 +636,85 @@ export default function CriarEvento() {
         )}
 
         {currentStep === 4 && (
-          <Card>
-            <CardContent className="p-0 overflow-hidden">
-              {/* Banner */}
-              {imageUrl && (
-                <div className="relative h-48 w-full">
-                  <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-4 left-6 right-6">
-                    <h2 className="text-2xl font-bold text-white">{title || 'Sem título'}</h2>
-                  </div>
+          <article className="relative bg-card rounded-2xl overflow-hidden border border-border">
+            {/* Banner */}
+            <div className="relative aspect-[16/10] overflow-hidden">
+              {imageUrl ? (
+                <img src={imageUrl} alt={title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <ImageIcon className="w-16 h-16 text-muted-foreground/30" />
                 </div>
               )}
-              {!imageUrl && (
-                <div className="px-8 pt-8">
-                  <h2 className="text-2xl font-bold">{title || 'Sem título'}</h2>
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+
+              {/* Date overlay */}
+              {startDate && (
+                <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    {format(startDate, 'EEE', { locale: ptBR })}
+                  </p>
+                  <p className="font-display font-bold text-lg leading-tight text-foreground">
+                    {format(startDate, "dd MMM", { locale: ptBR })}
+                  </p>
                 </div>
               )}
 
-              <div className="p-8 space-y-6">
-                {/* Event details grid */}
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Início</p>
-                    <p className="text-sm font-semibold">
-                      {startDate ? format(startDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '-'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{startTime || '-'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Fim</p>
-                    <p className="text-sm font-semibold">
-                      {endDate ? format(endDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '-'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{endTime || '-'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Local</p>
-                    <p className="text-sm font-semibold">{venue || '-'}</p>
-                    <p className="text-sm text-muted-foreground">{city || '-'} - {state || '-'}</p>
-                  </div>
+              {/* Title overlay */}
+              <div className="absolute bottom-4 left-28 right-4">
+                <h2 className="font-display font-bold text-2xl text-foreground drop-shadow-lg">
+                  {title || 'Sem título'}
+                </h2>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5">
+              <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{venue || '-'} • {city || '-'}, {state || '-'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  <span>{startTime || '-'} – {endTime || '-'}</span>
                   {eventDuration && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Duração</p>
-                      <p className="text-sm font-semibold">{eventDuration}</p>
-                    </div>
+                    <span className="text-xs bg-secondary px-2 py-0.5 rounded-full ml-1">Duração do Evento: {eventDuration}</span>
                   )}
                 </div>
+              </div>
 
-                {description && (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Descrição</p>
-                    <p className="text-sm whitespace-pre-wrap">{description}</p>
-                  </div>
-                )}
+              {description && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-3">{description}</p>
+              )}
 
-                {lots.length > 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Ingressos ({lots.length})</p>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {lots.map((lot) => (
-                        <div key={lot.id} className="p-4 bg-muted rounded-lg border border-border space-y-1">
-                          <p className="text-sm font-bold">{lot.name}</p>
+              {lots.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Ingressos ({lots.length})</p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {lots.map((lot) => (
+                      <div key={lot.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl border border-border">
+                        <div>
+                          <p className="font-semibold text-sm">{lot.name}</p>
                           <p className="text-xs text-muted-foreground">{lot.sector_name} • {lot.total_quantity} ingressos</p>
-                          <p className="text-lg font-bold text-primary">{formatCurrency(lot.price)}</p>
                           {lot.group_ticket_enabled && (
                             <p className="text-xs text-muted-foreground">Grupo de {lot.group_ticket_quantity}</p>
                           )}
                         </div>
-                      ))}
-                    </div>
+                        <p className="font-display font-bold text-xl text-primary">{formatCurrency(lot.price)}</p>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      ⚠️ Nenhum ingresso criado. Você poderá adicioná-los depois.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              ) : (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    ⚠️ Nenhum ingresso criado. Você poderá adicioná-los depois.
+                  </p>
+                </div>
+              )}
+            </div>
+          </article>
         )}
 
         {/* Navigation Buttons - tight */}
