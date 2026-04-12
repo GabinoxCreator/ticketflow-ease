@@ -239,7 +239,7 @@ export default function CriarEvento() {
         { label: 'Criar Evento' },
       ]}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Compact Header + Stepper */}
         <div className="flex items-center gap-4 mb-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')} className="shrink-0">
@@ -271,23 +271,19 @@ export default function CriarEvento() {
         {/* Step 1: Basic Info - Compact */}
         {currentStep === 1 && (
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid gap-4 lg:grid-cols-[1fr,200px]">
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label>Título do Evento *</Label>
-                    <Input placeholder="Ex: Show de Rock na Praça" value={title} onChange={(e) => setTitle(e.target.value)} />
-                    {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Descrição</Label>
-                    <Textarea placeholder="Descreva todos os detalhes do seu evento..." rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Imagem</Label>
-                  <ImageUpload value={imageUrl} onChange={setImageUrl} />
-                </div>
+            <CardContent className="p-8 space-y-6">
+              <div className="space-y-2">
+                <Label>Título do Evento *</Label>
+                <Input placeholder="Ex: Show de Rock na Praça" value={title} onChange={(e) => setTitle(e.target.value)} />
+                {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Textarea placeholder="Descreva todos os detalhes do seu evento..." rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Imagem do Evento</Label>
+                <ImageUpload value={imageUrl} onChange={setImageUrl} />
               </div>
             </CardContent>
           </Card>
@@ -296,14 +292,14 @@ export default function CriarEvento() {
         {/* Step 2: Date and Location - Compact 2-col layout */}
         {currentStep === 2 && (
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1.5">
+            <CardContent className="p-8 space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
                   <Label>Data de Início *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal h-9 text-sm', !startDate && 'text-muted-foreground')}>
-                        <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !startDate && 'text-muted-foreground')}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
                         {startDate ? format(startDate, 'dd/MM/yyyy') : 'Selecione'}
                       </Button>
                     </PopoverTrigger>
@@ -314,18 +310,18 @@ export default function CriarEvento() {
                   {errors.startDate && <p className="text-xs text-destructive">{errors.startDate}</p>}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label>Horário de Início *</Label>
                   <TimeSelect value={startTime} onChange={setStartTime} placeholder="Selecione" />
                   {errors.startTime && <p className="text-xs text-destructive">{errors.startTime}</p>}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label>Data de Fim *</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal h-9 text-sm', !endDate && 'text-muted-foreground')}>
-                        <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !endDate && 'text-muted-foreground')}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
                         {endDate ? format(endDate, 'dd/MM/yyyy') : 'Selecione'}
                       </Button>
                     </PopoverTrigger>
@@ -336,7 +332,7 @@ export default function CriarEvento() {
                   {errors.endDate && <p className="text-xs text-destructive">{errors.endDate}</p>}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label>Horário de Fim *</Label>
                   <TimeSelect value={endTime} onChange={setEndTime} placeholder="Selecione" options={filteredEndTimeOptions} />
                   {errors.endTime && <p className="text-xs text-destructive">{errors.endTime}</p>}
@@ -344,27 +340,27 @@ export default function CriarEvento() {
               </div>
 
               {eventDuration && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-md w-fit">
-                  <Clock className="w-3.5 h-3.5" />
-                  Duração: <span className="font-medium text-foreground">{eventDuration}</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-4 py-2 rounded-md w-fit">
+                  <Clock className="w-4 h-4" />
+                  Duração do Evento: <span className="font-medium text-foreground">{eventDuration}</span>
                 </div>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1.5 lg:col-span-2">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2 lg:col-span-2">
                   <Label>Local / Estabelecimento *</Label>
-                  <Input placeholder="Ex: Arena Show" value={venue} onChange={(e) => setVenue(e.target.value)} className="h-9" />
+                  <Input placeholder="Ex: Arena Show" value={venue} onChange={(e) => setVenue(e.target.value)} />
                   {errors.venue && <p className="text-xs text-destructive">{errors.venue}</p>}
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label>Cidade *</Label>
-                  <Input placeholder="Ex: São Paulo" value={city} onChange={(e) => setCity(e.target.value)} className="h-9" />
+                  <Input placeholder="Ex: São Paulo" value={city} onChange={(e) => setCity(e.target.value)} />
                   {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label>Estado *</Label>
                   <Select value={state} onValueChange={setState}>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger>
                       <SelectValue placeholder="UF" />
                     </SelectTrigger>
                     <SelectContent>
@@ -377,9 +373,9 @@ export default function CriarEvento() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Endereço Completo</Label>
-                <Input placeholder="Rua, número, bairro..." value={address} onChange={(e) => setAddress(e.target.value)} className="h-9" />
+                <Input placeholder="Rua, número, bairro..." value={address} onChange={(e) => setAddress(e.target.value)} />
               </div>
             </CardContent>
           </Card>
@@ -398,7 +394,7 @@ export default function CriarEvento() {
 
             {lots.map((lot, index) => (
               <Card key={lot.id}>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-6 space-y-4">
                   {/* Sector Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -508,11 +504,11 @@ export default function CriarEvento() {
                           <PopoverTrigger asChild>
                             <Button variant="outline" className={cn('w-full justify-start text-left font-normal h-8 text-sm', !lot.start_date && 'text-muted-foreground')}>
                               <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                              {lot.start_date ? format(new Date(lot.start_date), 'dd/MM/yyyy') : 'Selecione'}
+                              {lot.start_date ? format(new Date(lot.start_date + 'T12:00:00'), 'dd/MM/yyyy') : 'Selecione'}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={lot.start_date ? new Date(lot.start_date) : undefined} onSelect={(d) => updateLot(lot.id, { start_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
+                            <Calendar mode="single" selected={lot.start_date ? new Date(lot.start_date + 'T12:00:00') : undefined} onSelect={(d) => updateLot(lot.id, { start_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -555,11 +551,11 @@ export default function CriarEvento() {
                         <PopoverTrigger asChild>
                           <Button variant="outline" className={cn('w-full justify-start text-left font-normal h-8 text-sm', !lot.end_date && 'text-muted-foreground')}>
                             <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                            {lot.end_date ? format(new Date(lot.end_date), 'dd/MM/yyyy') : 'Selecione (opcional)'}
+                            {lot.end_date ? format(new Date(lot.end_date + 'T12:00:00'), 'dd/MM/yyyy') : 'Selecione (opcional)'}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={lot.end_date ? new Date(lot.end_date) : undefined} onSelect={(d) => updateLot(lot.id, { end_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
+                          <Calendar mode="single" selected={lot.end_date ? new Date(lot.end_date + 'T12:00:00') : undefined} onSelect={(d) => updateLot(lot.id, { end_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
                         </PopoverContent>
                       </Popover>
                     </div>
@@ -639,77 +635,86 @@ export default function CriarEvento() {
           </div>
         )}
 
-        {/* Step 4: Review - Compact grid */}
         {currentStep === 4 && (
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid gap-4 lg:grid-cols-[160px,1fr]">
-                {imageUrl && (
-                  <img src={imageUrl} alt="Preview" className="w-40 h-28 object-cover rounded-lg" />
-                )}
-                <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Título</p>
-                    <p className="text-sm font-medium">{title || '-'}</p>
+            <CardContent className="p-0 overflow-hidden">
+              {/* Banner */}
+              {imageUrl && (
+                <div className="relative h-48 w-full">
+                  <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-4 left-6 right-6">
+                    <h2 className="text-2xl font-bold text-white">{title || 'Sem título'}</h2>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Início</p>
-                    <p className="text-sm font-medium">
-                      {startDate ? format(startDate, 'dd/MM/yyyy') : '-'} às {startTime || '-'}
+                </div>
+              )}
+              {!imageUrl && (
+                <div className="px-8 pt-8">
+                  <h2 className="text-2xl font-bold">{title || 'Sem título'}</h2>
+                </div>
+              )}
+
+              <div className="p-8 space-y-6">
+                {/* Event details grid */}
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Início</p>
+                    <p className="text-sm font-semibold">
+                      {startDate ? format(startDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '-'}
                     </p>
+                    <p className="text-sm text-muted-foreground">{startTime || '-'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Fim</p>
-                    <p className="text-sm font-medium">
-                      {endDate ? format(endDate, 'dd/MM/yyyy') : '-'} às {endTime || '-'}
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Fim</p>
+                    <p className="text-sm font-semibold">
+                      {endDate ? format(endDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '-'}
                     </p>
+                    <p className="text-sm text-muted-foreground">{endTime || '-'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Local</p>
-                    <p className="text-sm font-medium">{venue || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Cidade</p>
-                    <p className="text-sm font-medium">{city || '-'} - {state || '-'}</p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Local</p>
+                    <p className="text-sm font-semibold">{venue || '-'}</p>
+                    <p className="text-sm text-muted-foreground">{city || '-'} - {state || '-'}</p>
                   </div>
                   {eventDuration && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Duração</p>
-                      <p className="text-sm font-medium">{eventDuration}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Duração</p>
+                      <p className="text-sm font-semibold">{eventDuration}</p>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {description && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Descrição</p>
-                  <p className="text-sm whitespace-pre-wrap line-clamp-3">{description}</p>
-                </div>
-              )}
-
-              {lots.length > 0 ? (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground font-medium">Ingressos ({lots.length})</p>
-                  <div className="grid gap-1.5 sm:grid-cols-2">
-                    {lots.map((lot) => (
-                      <div key={lot.id} className="flex items-center justify-between p-2.5 bg-muted rounded-md text-sm">
-                        <div>
-                          <p className="font-medium">{lot.sector_name} — {lot.name}</p>
-                          <p className="text-xs text-muted-foreground">{lot.total_quantity} ingressos</p>
-                        </div>
-                        <p className="font-bold text-sm">{formatCurrency(lot.price)}</p>
-                      </div>
-                    ))}
+                {description && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Descrição</p>
+                    <p className="text-sm whitespace-pre-wrap">{description}</p>
                   </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-xs text-muted-foreground">
-                    ⚠️ Nenhum ingresso criado. Você poderá adicioná-los depois.
-                  </p>
-                </div>
-              )}
+                )}
+
+                {lots.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Ingressos ({lots.length})</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {lots.map((lot) => (
+                        <div key={lot.id} className="p-4 bg-muted rounded-lg border border-border space-y-1">
+                          <p className="text-sm font-bold">{lot.name}</p>
+                          <p className="text-xs text-muted-foreground">{lot.sector_name} • {lot.total_quantity} ingressos</p>
+                          <p className="text-lg font-bold text-primary">{formatCurrency(lot.price)}</p>
+                          {lot.group_ticket_enabled && (
+                            <p className="text-xs text-muted-foreground">Grupo de {lot.group_ticket_quantity}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      ⚠️ Nenhum ingresso criado. Você poderá adicioná-los depois.
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
