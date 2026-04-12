@@ -21,14 +21,15 @@ for (let h = 0; h < 24; h++) {
   }
 }
 
-export function TimeSelect({ value, onChange, placeholder = 'Horário', disabled }: TimeSelectProps) {
+export function TimeSelect({ value, onChange, placeholder = 'Horário', disabled, options }: TimeSelectProps) {
+  const items = options || timeOptions;
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="max-h-60">
-        {timeOptions.map((time) => (
+        {items.map((time) => (
           <SelectItem key={time} value={time}>
             {time}
           </SelectItem>
