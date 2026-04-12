@@ -239,7 +239,7 @@ export default function CriarEvento() {
         { label: 'Criar Evento' },
       ]}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Compact Header + Stepper */}
         <div className="flex items-center gap-4 mb-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')} className="shrink-0">
