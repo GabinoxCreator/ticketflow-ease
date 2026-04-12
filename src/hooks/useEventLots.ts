@@ -17,6 +17,11 @@ export interface EventLot {
   created_at: string;
   fake_scarcity_enabled: boolean | null;
   fake_scarcity_percentage: number | null;
+  sector_name: string;
+  group_ticket_enabled: boolean;
+  group_ticket_quantity: number;
+  sales_start_type: string;
+  starts_after_lot_id: string | null;
 }
 
 export interface LotFormData {
@@ -30,6 +35,11 @@ export interface LotFormData {
   is_active?: boolean;
   fake_scarcity_enabled?: boolean;
   fake_scarcity_percentage?: number;
+  sector_name?: string;
+  group_ticket_enabled?: boolean;
+  group_ticket_quantity?: number;
+  sales_start_type?: string;
+  starts_after_lot_id?: string | null;
 }
 
 export function useEventLots(eventId: string | undefined) {
