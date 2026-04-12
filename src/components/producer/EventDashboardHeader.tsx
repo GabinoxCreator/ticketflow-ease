@@ -14,6 +14,7 @@ interface EventDashboardHeaderProps {
 
 export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: EventDashboardHeaderProps) {
   const navigate = useNavigate();
+  const { updateEvent } = useEvents();
   
   const eventDate = new Date(event.date + 'T12:00:00');
   const daysUntil = differenceInDays(eventDate, new Date());
@@ -95,7 +96,19 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {event.status === 'draft' && (
+                  <Button size="sm" onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'published' } })}>
+                    <Globe className="h-4 w-4 mr-2" />
+                    Publicar Evento
+                  </Button>
+                )}
+                {event.status === 'published' && (
+                  <Button variant="outline" size="sm" onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'draft' } })}>
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Despublicar
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Editar
