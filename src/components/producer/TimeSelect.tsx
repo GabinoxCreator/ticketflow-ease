@@ -11,6 +11,7 @@ interface TimeSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  options?: string[];
 }
 
 const timeOptions: string[] = [];
