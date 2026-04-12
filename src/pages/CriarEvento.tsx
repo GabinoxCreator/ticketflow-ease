@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2, Edit2, Flame, Users, Clock } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2, Edit2, Flame, Users, Clock, MapPin, ImageIcon } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { ImageUpload } from '@/components/producer/ImageUpload';
 import { TimeSelect } from '@/components/producer/TimeSelect';
