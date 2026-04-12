@@ -1,205 +1,83 @@
 
 
-# Fase 6 — Backoffice Administrativo FestPag
+# Reestruturação do Fluxo de Criação de Evento
 
-## 1. Diagnóstico da Arquitetura Atual
+## Resumo
 
-**Auth**: O enum `app_role` já inclui `'admin'`. O `ProtectedRoute` já aceita `requiredRole='admin'` e concede acesso a rotas de produtor para admins (linha 30: `userRole !== 'admin'`). Porém, **não existe nenhuma rota, layout, ou página admin**.
+Reformular as 4 etapas de criação de evento, adicionar ingressos inline, remover campos desnecessários, e alinhar a edição de evento com a mesma estrutura. Remover barra de escassez do nível de evento (fica só no ingresso).
 
-**Tabelas existentes relevantes**:
-- `producer_profiles` — dados da organização do produtor
-- `producer_bank_accounts` — dados bancários (vinculados a `user_id`, não a `producer_profile_id`)
-- `producer_members` — membros da organização
-- `orders` — pedidos com `total_amount`
-- `tickets` — ingressos vendidos
-- `events` — eventos com `producer_id` e `producer_profile_id`
+## Mudanças nas Etapas
 
-**O que NÃO existe**:
-- Tabelas: `payouts`, `payout_items`, `producer_notes`, `audit_logs`, `platform_settings`
-- Páginas: nenhuma rota `/admin/*`
-- Layout: nenhum `AdminLayout` ou `AdminSidebar`
-- Guard: o `ProtectedRoute` funciona mas redireciona para login do cliente/produtor, não para `/admin/login`
+### Etapa 1 — Informações Básicas (simplificada)
+- **Remover**: campo Categoria, campo Descrição Curta
+- **Manter**: Título do Evento, Descrição Completa
+- **Mover para cá**: Upload de imagem (vem da antiga etapa 3)
+- **Mover para cá**: Switch "Em Alta"
 
-## 2. Proposta de Modelagem de Acesso Admin
+### Etapa 2 — Data e Local (melhorada)
+- **Data de início** + **Data de fim** do evento (dois datepickers separados)
+- **Horário de início** + **Horário de fim**: seletor customizado (Select) com intervalos de 15 minutos (00:00, 00:15, 00:30, 00:45... até 23:45)
+- **Local/Estabelecimento**: campo de texto manual
+- **Endereço**: campo de texto manual (cidade, estado, rua — tudo num campo só ou separados como hoje)
+- Manter campos cidade e estado separados por enquanto (sem Google Maps)
 
-- Reutilizar o role `'admin'` do enum `app_role` existente
-- Admins são criados por convite de admin existente (edge function `invite-admin`)
-- O primeiro admin será inserido manualmente via seed SQL
-- Criar `AdminProtectedRoute` dedicado que redireciona para `/admin/login`
-- Admin NÃO precisa de `producer_profile` — acesso é global
+### Etapa 3 — Ingressos (nova, substitui antiga etapa de Imagem)
+- Interface inline inspirada no print 5 do usuário
+- Cada ingresso/lote aparece como card expandido com:
+  - **Nome do setor** editável no cabeçalho (padrão "Ingresso", pode mudar para "Pista", "VIP", etc.)
+  - Nome do ingresso (ex: "1o Lote", "Antecipado")
+  - Descrição (opcional)
+  - Preco (R$)
+  - Quantidade disponível
+  - **Período de vendas**: 3 opções — "Agora", "Agendar" (mostra datepicker de início), "Após encerrar ingresso" (mostra select dos outros ingressos)
+  - **Data de fim** do ingresso (opcional, com botão "+ Adicionar horário de fim")
+  - **Ingresso em Grupo**: switch — se ativado, campo para quantidade de ingressos por compra
+  - **Escassez Fictícia**: switch + slider de porcentagem (movida do nível de evento para cá)
+- Botão "+ Adicionar Ingresso" para criar mais lotes
+- Permitir criar evento sem ingressos (opcional), mas mostrar aviso
 
-## 3. Proposta de Rotas
+### Etapa 4 — Revisão
+- Mostrar resumo de todas as informações
+- Mostrar ingressos criados com detalhes
+- Botões: "Salvar Rascunho" e "Publicar Evento"
 
-```text
-/admin/login           → Login admin (mesma auth, validação de role)
-/admin/dashboard       → Métricas globais da plataforma
-/admin/produtores      → Lista de produtores com filtros
-/admin/produtores/:id  → Detalhe do produtor (dados, eventos, financeiro, notas)
-/admin/eventos         → [futuro] Todos os eventos
-/admin/pedidos         → [futuro] Todos os pedidos
-/admin/repasses        → Lista de repasses pendentes/pagos
-/admin/financeiro      → [futuro] Visão financeira global
-/admin/configuracoes   → Taxas, convites de admin
-```
+## Migração de Banco de Dados
 
-## 4. Proposta de Tabelas e Relacionamentos
+1. Adicionar colunas `end_date` (date) e `end_time` (time) na tabela `events`
+2. Tornar `category` nullable com default `'Outros'` (para não quebrar registros existentes)
+3. Adicionar colunas `sector_name` (text, default 'Ingresso'), `group_ticket_enabled` (boolean, default false), `group_ticket_quantity` (integer, default 2), `sales_start_type` (text, default 'now'), `starts_after_lot_id` (uuid, nullable) na tabela `event_lots`
 
-### `platform_settings` — Configurações globais
-| Coluna | Tipo | Notas |
-|--------|------|-------|
-| id | uuid PK | |
-| key | text UNIQUE | ex: `default_platform_fee_percent` |
-| value | jsonb | ex: `{"percent": 10, "fixed": 0}` |
-| updated_by | uuid → auth.users | |
-| updated_at | timestamptz | |
+## Alterações na Edição de Evento (`EditarEvento.tsx`)
 
-### `producer_fee_overrides` — Taxa personalizada por produtor
-| Coluna | Tipo | Notas |
-|--------|------|-------|
-| id | uuid PK | |
-| producer_profile_id | uuid | |
-| fee_percent | numeric | ex: 8.5 |
-| fee_fixed | numeric | ex: 0 |
-| notes | text | motivo da negociação |
-| created_by | uuid | admin que criou |
-| created_at | timestamptz | |
+- Remover card "Barra de Escassez (Marketing)" do nível de evento
+- Remover campos `fake_scarcity_enabled`/`fake_scarcity_percentage` do form do evento
+- Remover campo Categoria e Descrição Curta
+- Adicionar campos end_date e end_time
+- Substituir input de horário manual por seletor de 15 em 15 minutos
+- A aba "Lotes" já existe e continua funcionando — atualizar o `LotManager` para incluir os novos campos
 
-### `payouts` — Repasses para produtores
-| Coluna | Tipo | Notas |
-|--------|------|-------|
-| id | uuid PK | |
-| producer_profile_id | uuid | |
-| period_start | date | |
-| period_end | date | |
-| gross_amount | numeric | bruto vendido |
-| platform_fee | numeric | taxa retida |
-| net_amount | numeric | valor líquido |
-| status | text | pending / approved / paid / blocked |
-| bank_account_snapshot | jsonb | cópia dos dados bancários no momento |
-| paid_at | timestamptz | |
-| receipt_url | text | comprovante |
-| notes | text | observações |
-| created_by | uuid | admin |
-| created_at / updated_at | timestamptz | |
+## Arquivos Impactados
 
-### `producer_notes` — Observações internas sobre produtores
-| Coluna | Tipo | Notas |
-|--------|------|-------|
-| id | uuid PK | |
-| producer_profile_id | uuid | |
-| author_id | uuid | admin que escreveu |
-| content | text | |
-| created_at | timestamptz | |
+| Arquivo | Mudança |
+|---|---|
+| Migração SQL | Novas colunas em `events` e `event_lots` |
+| `src/pages/CriarEvento.tsx` | Reescrita completa das 4 etapas |
+| `src/pages/EditarEvento.tsx` | Remover escassez do evento, remover categoria/desc curta, adicionar end_date/end_time, seletor horário |
+| `src/components/producer/LotManager.tsx` | Adicionar sector_name, grupo, período de vendas, escassez por lote |
+| `src/hooks/useEvents.ts` | Atualizar interfaces `Event` e `EventFormData` |
+| `src/hooks/useEventLots.ts` | Atualizar interfaces `EventLot` e `LotFormData` |
+| `src/components/producer/TimeSelect.tsx` | Novo componente de seletor de horário (15 em 15 min) |
 
-### `audit_logs` — Log de ações administrativas
-| Coluna | Tipo | Notas |
-|--------|------|-------|
-| id | uuid PK | |
-| actor_id | uuid | admin que executou |
-| action | text | ex: `producer.approved`, `payout.paid` |
-| target_type | text | ex: `producer_profile`, `payout` |
-| target_id | uuid | |
-| metadata | jsonb | detalhes extras |
-| created_at | timestamptz | |
+## Componente Novo: TimeSelect
 
-### Alteração em `producer_profiles`
-- Adicionar coluna `admin_status` (text, default `'active'`): `pending_review`, `active`, `suspended`, `blocked`
-- Adicionar coluna `platform_fee_percent` (numeric, default 10)
+Select com opções de 00:00 a 23:45, em intervalos de 15 minutos. Reutilizado em CriarEvento, EditarEvento e no período de vendas dos ingressos.
 
-### RLS — Todas as novas tabelas
-- SELECT/INSERT/UPDATE/DELETE: apenas `has_role(auth.uid(), 'admin')`
-- `audit_logs`: INSERT only (nunca editar/deletar)
+## Plano de Execução
 
-## 5. Proposta de Layout e Componentes
-
-```text
-src/components/admin/
-  AdminLayout.tsx        → SidebarProvider + AdminSidebar (reutiliza padrão ProducerLayout)
-  AdminSidebar.tsx       → Menu: Dashboard, Produtores, Repasses, Configurações
-  AdminProtectedRoute.tsx → Guard: user + role='admin' → redireciona /admin/login
-
-src/pages/admin/
-  AdminLogin.tsx
-  AdminDashboard.tsx
-  AdminProdutores.tsx
-  AdminProdutorDetalhe.tsx
-  AdminRepasses.tsx
-  AdminConfiguracoes.tsx
-
-src/hooks/
-  useAdminStats.ts
-  useAdminProdutores.ts
-  useAdminPayouts.ts
-  useAdminAuditLogs.ts
-```
-
-- Visual: mesmo tema dark, sidebar com cor de destaque diferente (vermelho/laranja) para distinguir visualmente do painel produtor
-
-## 6. Impacto em Auth, Guards e Roles
-
-- **AuthContext**: já suporta role `'admin'`, sem alteração
-- **ProtectedRoute**: sem alteração (continua funcionando para produtor)
-- **Novo**: `AdminProtectedRoute` que verifica `userRole === 'admin'` e redireciona para `/admin/login`
-- **App.tsx**: adicionar bloco de rotas `/admin/*`
-- **Login admin**: reutiliza `supabase.auth.signInWithPassword`, apenas valida role após login
-
-## 7. Impacto em Eventos, Pedidos e Produtor
-
-- **Zero impacto** no fluxo público do cliente
-- **Zero impacto** no painel do produtor
-- Admin lê tabelas existentes (`events`, `orders`, `tickets`, `producer_profiles`) via queries com RLS baseado no role admin
-- Necessário adicionar RLS policies de SELECT em `events`, `orders`, `tickets` para role admin (atualmente admin só acessa via bypass de produtor)
-
-## 8. Plano em Fases Pequenas
-
-### Bloco 1 — Infraestrutura (migração + auth)
-- Migração SQL: criar tabelas `platform_settings`, `producer_fee_overrides`, `payouts`, `producer_notes`, `audit_logs`
-- Migração SQL: adicionar `admin_status` e `platform_fee_percent` a `producer_profiles`
-- Migração SQL: RLS policies para todas as novas tabelas
-- Migração SQL: RLS policies de SELECT admin em `events`, `orders`, `tickets`, `producer_profiles`, `producer_bank_accounts`
-- Seed do primeiro admin (manual)
-- Criar `AdminProtectedRoute.tsx`
-
-### Bloco 2 — Layout e Login
-- `AdminLayout.tsx` + `AdminSidebar.tsx`
-- `AdminLogin.tsx` — login com validação de role
-- Registrar rotas no `App.tsx`
-
-### Bloco 3 — Dashboard Admin
-- `AdminDashboard.tsx` — cards: total produtores, total eventos, total vendido, repasses pendentes
-- `useAdminStats.ts` — queries globais
-
-### Bloco 4 — Gestão de Produtores
-- `AdminProdutores.tsx` — listagem com filtros (status, busca)
-- `AdminProdutorDetalhe.tsx` — dados, eventos, pedidos, conta bancária, notas, ações (aprovar/suspender/bloquear)
-- `useAdminProdutores.ts`
-- Registro de `audit_logs` nas ações
-
-### Bloco 5 — Repasses
-- `AdminRepasses.tsx` — criar, revisar, aprovar, marcar como pago
-- `useAdminPayouts.ts`
-- Cálculo semi-automático de valores por período
-
-### Bloco 6 — Configurações + Convite
-- `AdminConfiguracoes.tsx` — taxa padrão, convite de admin
-- Edge function `invite-admin` — cria conta com role admin
-
-## 9. Riscos Técnicos
-
-- **RLS admin**: as tabelas existentes (`events`, `orders`, `tickets`) não têm policy para admin. Precisamos adicionar sem quebrar as existentes — políticas permissivas se somam com OR, sem risco.
-- **Primeiro admin**: precisa ser inserido manualmente no banco (seed). Sem isso, ninguém acessa o painel.
-- **producer_bank_accounts** está vinculada a `user_id` e não a `producer_profile_id` — o admin precisará fazer join via `producer_members` para encontrar a conta bancária do produtor.
-- **Types auto-gerados**: após cada migração, o `types.ts` será regenerado automaticamente.
-
-## 10. Primeira Fase de Implementação
-
-A primeira fase cobre os **Blocos 1 a 4**:
-- Tabelas + RLS + seed admin
-- Layout admin + login admin
-- Dashboard com métricas globais
-- Listagem e detalhe de produtores com ações e notas
-
-**Arquivos novos**: ~12 arquivos
-**Arquivos editados**: `App.tsx` (rotas), 1 migração SQL
-**Zero arquivos existentes quebrados**
+1. Migração SQL (novas colunas)
+2. Criar componente `TimeSelect`
+3. Reescrever `CriarEvento.tsx` com as 4 novas etapas
+4. Atualizar `LotManager.tsx` com novos campos inline
+5. Atualizar `EditarEvento.tsx` (remover escassez, alinhar campos)
+6. Atualizar hooks (`useEvents.ts`, `useEventLots.ts`)
 
