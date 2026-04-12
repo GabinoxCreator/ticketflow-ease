@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit, Trash2, Flame } from 'lucide-react';
+import { Plus, Edit, Edit2, Trash2, Flame, Users, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EventLot, LotFormData } from '@/hooks/useEventLots';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +40,10 @@ const emptyLot: LotFormData = {
   is_active: true,
   fake_scarcity_enabled: false,
   fake_scarcity_percentage: 50,
+  sector_name: 'Ingresso',
+  group_ticket_enabled: false,
+  group_ticket_quantity: 2,
+  sales_start_type: 'now',
 };
 
 export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotManagerProps) {
@@ -54,6 +65,11 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         is_active: lot.is_active,
         fake_scarcity_enabled: lot.fake_scarcity_enabled || false,
         fake_scarcity_percentage: lot.fake_scarcity_percentage || 50,
+        sector_name: lot.sector_name || 'Ingresso',
+        group_ticket_enabled: lot.group_ticket_enabled || false,
+        group_ticket_quantity: lot.group_ticket_quantity || 2,
+        sales_start_type: lot.sales_start_type || 'now',
+        starts_after_lot_id: lot.starts_after_lot_id || null,
       });
     } else {
       setEditingLot(null);
@@ -71,12 +87,8 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
     setIsDialogOpen(false);
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   return (
     <div className="space-y-4">
@@ -107,26 +119,15 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
+                    <p className="text-xs text-muted-foreground font-medium">{lot.sector_name}</p>
                     <CardTitle className="text-base">{lot.name}</CardTitle>
-                    {!lot.is_active && (
-                      <span className="text-xs text-muted-foreground">Inativo</span>
-                    )}
+                    {!lot.is_active && <span className="text-xs text-muted-foreground">Inativo</span>}
                   </div>
                   <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleOpenDialog(lot)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(lot)}>
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => onDelete(lot.id)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(lot.id)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -135,27 +136,28 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">
-                      {formatCurrency(lot.price)}
-                    </span>
+                    <span className="text-2xl font-bold">{formatCurrency(lot.price)}</span>
                     {lot.original_price && lot.original_price > lot.price && (
-                      <span className="text-sm text-muted-foreground line-through">
-                        {formatCurrency(lot.original_price)}
-                      </span>
+                      <span className="text-sm text-muted-foreground line-through">{formatCurrency(lot.original_price)}</span>
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{lot.sold_quantity}</span>
-                    {' / '}
-                    {lot.total_quantity} vendidos
+                    <span className="font-medium text-foreground">{lot.sold_quantity}</span> / {lot.total_quantity} vendidos
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all"
-                      style={{
-                        width: `${Math.min((lot.sold_quantity / lot.total_quantity) * 100, 100)}%`,
-                      }}
-                    />
+                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((lot.sold_quantity / lot.total_quantity) * 100, 100)}%` }} />
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {lot.group_ticket_enabled && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="w-3 h-3" /> Grupo ({lot.group_ticket_quantity})
+                      </span>
+                    )}
+                    {lot.fake_scarcity_enabled && (
+                      <span className="inline-flex items-center gap-1 text-xs text-orange-500">
+                        <Flame className="w-3 h-3" /> Escassez
+                      </span>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -165,99 +167,125 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingLot ? 'Editar Lote' : 'Novo Lote'}
-            </DialogTitle>
+            <DialogTitle>{editingLot ? 'Editar Lote' : 'Novo Lote'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Sector Name */}
             <div className="space-y-2">
-              <Label htmlFor="lot-name">Nome do Lote *</Label>
+              <Label>Nome do Setor</Label>
               <Input
-                id="lot-name"
+                placeholder="Ex: Ingresso, Pista, VIP"
+                value={formData.sector_name || ''}
+                onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
+              />
+            </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label>Nome do Lote *</Label>
+              <Input
                 placeholder="Ex: 1º Lote"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
 
+            {/* Price & Original Price */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="lot-price">Preço *</Label>
-                <Input
-                  id="lot-price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                />
+                <Label>Preço (R$) *</Label>
+                <Input type="number" step="0.01" min="0" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lot-original-price">Preço Original</Label>
-                <Input
-                  id="lot-original-price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                  value={formData.original_price || ''}
-                  onChange={(e) => setFormData({ ...formData, original_price: parseFloat(e.target.value) || undefined })}
-                />
+                <Label>Preço Original</Label>
+                <Input type="number" step="0.01" min="0" value={formData.original_price || ''} onChange={(e) => setFormData({ ...formData, original_price: parseFloat(e.target.value) || undefined })} />
               </div>
             </div>
 
+            {/* Quantity */}
             <div className="space-y-2">
-              <Label htmlFor="lot-quantity">Quantidade *</Label>
-              <Input
-                id="lot-quantity"
-                type="number"
-                min="1"
-                placeholder="100"
-                value={formData.total_quantity}
-                onChange={(e) => setFormData({ ...formData, total_quantity: parseInt(e.target.value) || 1 })}
-              />
+              <Label>Quantidade *</Label>
+              <Input type="number" min="1" value={formData.total_quantity} onChange={(e) => setFormData({ ...formData, total_quantity: parseInt(e.target.value) || 1 })} />
             </div>
 
+            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="lot-description">Descrição</Label>
-              <Textarea
-                id="lot-description"
-                placeholder="Descrição do lote (opcional)"
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
+              <Label>Descrição</Label>
+              <Textarea placeholder="Descrição do lote (opcional)" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
             </div>
 
+            {/* Active */}
             <div className="flex items-center justify-between">
-              <Label htmlFor="lot-active">Lote Ativo</Label>
-              <Switch
-                id="lot-active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
+              <Label>Lote Ativo</Label>
+              <Switch checked={formData.is_active} onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })} />
             </div>
 
-            {/* Fake Scarcity Section */}
-            <div className="border-t pt-4 mt-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-orange-500" />
-                <span className="font-medium text-sm">Escassez Fictícia</span>
-              </div>
+            {/* Sales Start Type */}
+            <div className="border-t pt-4 space-y-3">
+              <Label className="font-medium">Período de Vendas</Label>
+              <Select value={formData.sales_start_type || 'now'} onValueChange={(v) => setFormData({ ...formData, sales_start_type: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="now">Publicar agora</SelectItem>
+                  <SelectItem value="scheduled">Agendar início</SelectItem>
+                  <SelectItem value="after_lot">Após encerrar outro lote</SelectItem>
+                </SelectContent>
+              </Select>
 
+              {formData.sales_start_type === 'scheduled' && (
+                <div className="space-y-2">
+                  <Label>Data de início</Label>
+                  <Input type="datetime-local" value={formData.start_date || ''} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} />
+                </div>
+              )}
+
+              {formData.sales_start_type === 'after_lot' && lots.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Iniciar após encerrar</Label>
+                  <Select value={formData.starts_after_lot_id || ''} onValueChange={(v) => setFormData({ ...formData, starts_after_lot_id: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o lote" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lots.filter((l) => l.id !== editingLot?.id).map((l) => (
+                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Group Ticket */}
+            <div className="border-t pt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <Label htmlFor="fake-scarcity" className="text-sm">
-                  Mostrar barra de urgência
-                </Label>
-                <Switch
-                  id="fake-scarcity"
-                  checked={formData.fake_scarcity_enabled}
-                  onCheckedChange={(checked) => setFormData({ ...formData, fake_scarcity_enabled: checked })}
-                />
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <Label className="font-medium text-sm">Ingresso em Grupo</Label>
+                </div>
+                <Switch checked={formData.group_ticket_enabled} onCheckedChange={(v) => setFormData({ ...formData, group_ticket_enabled: v })} />
               </div>
+              {formData.group_ticket_enabled && (
+                <div className="space-y-2 pl-6">
+                  <Label>Ingressos por compra</Label>
+                  <Input type="number" min="2" max="10" value={formData.group_ticket_quantity || 2} onChange={(e) => setFormData({ ...formData, group_ticket_quantity: parseInt(e.target.value) || 2 })} />
+                </div>
+              )}
+            </div>
 
+            {/* Fake Scarcity */}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <Label className="font-medium text-sm">Escassez Fictícia</Label>
+                </div>
+                <Switch checked={formData.fake_scarcity_enabled} onCheckedChange={(v) => setFormData({ ...formData, fake_scarcity_enabled: v })} />
+              </div>
               {formData.fake_scarcity_enabled && (
                 <>
                   <div className="space-y-2">
@@ -265,16 +293,8 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                       <Label>Porcentagem exibida</Label>
                       <span className="font-medium">{formData.fake_scarcity_percentage}%</span>
                     </div>
-                    <Slider
-                      value={[formData.fake_scarcity_percentage || 50]}
-                      onValueChange={([value]) => setFormData({ ...formData, fake_scarcity_percentage: value })}
-                      min={10}
-                      max={95}
-                      step={5}
-                      className="w-full"
-                    />
+                    <Slider value={[formData.fake_scarcity_percentage || 50]} onValueChange={([v]) => setFormData({ ...formData, fake_scarcity_percentage: v })} min={10} max={95} step={5} />
                   </div>
-
                   <div className="p-3 bg-secondary/50 rounded-lg space-y-2">
                     <p className="text-xs text-muted-foreground">Preview:</p>
                     <div className="flex items-center gap-2 text-sm">
@@ -288,9 +308,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={!formData.name || formData.price <= 0}>
               {editingLot ? 'Salvar' : 'Criar Lote'}
             </Button>
