@@ -1,43 +1,24 @@
 
 
-# Revisão (Etapa 4) — Layout estilo Card de Evento
+# Ajustes: Cor do Select, Redirecionamento e Botão Publicar/Despublicar
 
-## Objetivo
-Redesenhar a etapa de revisão para parecer com o card de listagem de eventos (`EventCard.tsx`), com banner enquadrado, informações sobrepostas e visual compacto.
+## 1. Cor rosa no SelectItem → cor primária
+O `SelectItem` em `src/components/ui/select.tsx` (linha 108) usa `focus:bg-accent` que aponta para `--accent: 330 85% 60%` (rosa). Trocar para `focus:bg-primary focus:text-primary-foreground` para usar a cor principal do projeto (roxo).
 
-## Mudanças no Step 4 (`CriarEvento.tsx`, linhas 638-719)
+## 2. Redirecionar para página do evento após criar
+Em `src/pages/CriarEvento.tsx` (linha 231), o `navigate('/produtor/eventos')` será trocado para `navigate(`/produtor/eventos/${eventResult.id}`)` para ir direto ao dashboard do evento criado.
 
-### Novo layout inspirado no EventCard:
-- **Banner**: `aspect-[16/10]` com `object-cover`, gradiente `from-card via-transparent to-transparent` de baixo para cima
-- **Data overlay**: Caixa posicionada no canto inferior esquerdo do banner (dia da semana + data formatada), igual ao EventCard
-- **Título**: Sobreposto no banner, canto inferior esquerdo (acima do overlay de data), ou logo abaixo do banner em fonte grande
-- **Conteúdo abaixo do banner**: padding `p-6`, com ícones de `MapPin` e `Clock` para local/horário, igual ao EventCard
-- **Ingressos**: Cards com preço em destaque (`text-primary font-bold text-xl`), setor e quantidade em texto menor
-- **Sem imagem**: Mostrar placeholder com fundo `bg-muted` e ícone
+## 3. Botão Publicar/Despublicar no dashboard do evento
+Em `src/components/producer/EventDashboardHeader.tsx`, adicionar um botão condicional:
+- Se `event.status === 'draft'` → botão "Publicar Evento" (muda status para `published`)
+- Se `event.status === 'published'` → botão "Despublicar" (muda status para `draft`)
+- Usar `updateEvent` do hook `useEvents` para persistir a mudança e invalidar queries
 
-### Estrutura visual:
-```text
-┌──────────────────────────────────────┐
-│  Banner 16:10 aspect ratio           │
-│  ┌─────────┐                         │
-│  │ Dia/Data │          Título grande  │
-│  └─────────┘                         │
-├──────────────────────────────────────┤
-│ 📍 Local • Cidade    🕐 18:00-23:00 │
-│ Duração: 5h                          │
-│                                      │
-│ Descrição do evento...               │
-│                                      │
-│ INGRESSOS (1)                        │
-│ ┌──────────┐ ┌──────────┐           │
-│ │ 1º Lote  │ │ 2º Lote  │           │
-│ │ R$ 20,00 │ │ R$ 30,00 │           │
-│ └──────────┘ └──────────┘           │
-└──────────────────────────────────────┘
-```
+## Arquivos impactados
 
-## Arquivo impactado
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/CriarEvento.tsx` | Reescrever bloco `currentStep === 4` (linhas 638-719) |
+| `src/components/ui/select.tsx` | `focus:bg-accent` → `focus:bg-primary focus:text-primary-foreground` no SelectItem |
+| `src/pages/CriarEvento.tsx` | Redirect para `/produtor/eventos/${eventResult.id}` |
+| `src/components/producer/EventDashboardHeader.tsx` | Botão publicar/despublicar com chamada ao updateEvent |
 
