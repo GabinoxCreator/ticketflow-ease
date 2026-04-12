@@ -1,40 +1,43 @@
 
 
-# Ajustes de UX na Criação de Evento
+# Revisão (Etapa 4) — Layout estilo Card de Evento
 
-## Mudanças
+## Objetivo
+Redesenhar a etapa de revisão para parecer com o card de listagem de eventos (`EventCard.tsx`), com banner enquadrado, informações sobrepostas e visual compacto.
 
-### 1. Etapa 1 — Imagem abaixo da descrição
-- Mudar layout de `grid-cols-[1fr,200px]` (imagem ao lado) para layout vertical: Título → Descrição → Imagem (abaixo, largura total, altura controlada ~h-48)
+## Mudanças no Step 4 (`CriarEvento.tsx`, linhas 638-719)
 
-### 2. Expandir container e preencher espaço
-- Trocar `max-w-4xl` por `max-w-6xl` para usar mais a tela
-- Aumentar padding interno dos cards de `p-5` para `p-6` ou `p-8`
-- Aumentar espaçamento entre campos (`gap-4` → `gap-6`)
-- Garantir que cada etapa preencha visualmente a área sem scroll
+### Novo layout inspirado no EventCard:
+- **Banner**: `aspect-[16/10]` com `object-cover`, gradiente `from-card via-transparent to-transparent` de baixo para cima
+- **Data overlay**: Caixa posicionada no canto inferior esquerdo do banner (dia da semana + data formatada), igual ao EventCard
+- **Título**: Sobreposto no banner, canto inferior esquerdo (acima do overlay de data), ou logo abaixo do banner em fonte grande
+- **Conteúdo abaixo do banner**: padding `p-6`, com ícones de `MapPin` e `Clock` para local/horário, igual ao EventCard
+- **Ingressos**: Cards com preço em destaque (`text-primary font-bold text-xl`), setor e quantidade em texto menor
+- **Sem imagem**: Mostrar placeholder com fundo `bg-muted` e ícone
 
-### 3. Etapa 2 — "Duração do Evento"
-- Mudar texto de "Duração:" para "Duração do Evento:"
+### Estrutura visual:
+```text
+┌──────────────────────────────────────┐
+│  Banner 16:10 aspect ratio           │
+│  ┌─────────┐                         │
+│  │ Dia/Data │          Título grande  │
+│  └─────────┘                         │
+├──────────────────────────────────────┤
+│ 📍 Local • Cidade    🕐 18:00-23:00 │
+│ Duração: 5h                          │
+│                                      │
+│ Descrição do evento...               │
+│                                      │
+│ INGRESSOS (1)                        │
+│ ┌──────────┐ ┌──────────┐           │
+│ │ 1º Lote  │ │ 2º Lote  │           │
+│ │ R$ 20,00 │ │ R$ 30,00 │           │
+│ └──────────┘ └──────────┘           │
+└──────────────────────────────────────┘
+```
 
-### 4. Bug de data (off-by-one no Calendar)
-- O problema é timezone: `format(d, 'yyyy-MM-dd')` usa data local, mas `new Date('2026-04-13')` interpreta como UTC, causando shift de 1 dia
-- Corrigir armazenando o objeto `Date` diretamente nos lots (como já é feito no step 2) ou usando `format(d, 'yyyy-MM-dd')` com parse correto via `new Date(lot.start_date + 'T00:00:00')`
-
-### 5. Cor rosa no calendário (focus ring)
-- Na `calendar.tsx`, o `[&:has([aria-selected])]:bg-accent` no `cell` é que gera o rosa
-- Trocar `bg-accent` → `bg-primary/20` e `bg-accent/50` → `bg-primary/10` no cell class
-
-### 6. Etapa 4 — Revisão expandida
-- Banner/imagem no topo com largura total (h-48, rounded, object-cover)
-- Título grande sobre ou abaixo da imagem
-- Dados do evento em grid mais espaçado (3 colunas)
-- Ingressos em cards mais visuais (não apenas linhas compactas)
-- Simular visual de "página de vendas" com hierarquia clara
-
-## Arquivos Impactados
-
+## Arquivo impactado
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/CriarEvento.tsx` | Layout, bug de data, expansão, revisão visual |
-| `src/components/ui/calendar.tsx` | Cor do cell selected background (rosa → primary) |
+| `src/pages/CriarEvento.tsx` | Reescrever bloco `currentStep === 4` (linhas 638-719) |
 
