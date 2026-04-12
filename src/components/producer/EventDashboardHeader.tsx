@@ -1,8 +1,8 @@
-import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock, Globe, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { Event } from '@/hooks/useEvents';
+import { Event, useEvents } from '@/hooks/useEvents';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
