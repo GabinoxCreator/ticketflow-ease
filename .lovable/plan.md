@@ -1,55 +1,40 @@
 
 
-# Melhorias de UX no Fluxo de Criação de Evento
+# Ajustes de UX na Criação de Evento
 
-## Resumo
+## Mudanças
 
-Ajustes de layout, interação e lógica de validação nas 4 etapas de criação de evento para que cada etapa caiba em uma tela sem scroll, com controles mais intuitivos.
+### 1. Etapa 1 — Imagem abaixo da descrição
+- Mudar layout de `grid-cols-[1fr,200px]` (imagem ao lado) para layout vertical: Título → Descrição → Imagem (abaixo, largura total, altura controlada ~h-48)
 
-## Mudanças por Etapa
+### 2. Expandir container e preencher espaço
+- Trocar `max-w-4xl` por `max-w-6xl` para usar mais a tela
+- Aumentar padding interno dos cards de `p-5` para `p-6` ou `p-8`
+- Aumentar espaçamento entre campos (`gap-4` → `gap-6`)
+- Garantir que cada etapa preencha visualmente a área sem scroll
 
-### Etapa 1 — Informações Básicas
-- **Remover** o switch "Destacar como Em Alta" (todos eventos aparecem na Home por padrão)
-- **Layout compacto**: Header (Voltar + título) e stepper numa faixa superior condensada, campos lado a lado quando possível, imagem menor para caber sem scroll
-- Mover o título "Criar Novo Evento" e "Voltar" para uma linha horizontal compacta no topo
+### 3. Etapa 2 — "Duração do Evento"
+- Mudar texto de "Duração:" para "Duração do Evento:"
 
-### Etapa 2 — Data e Local
-- **Data de Fim obrigatória** (não mais opcional), com validação
-- **Bloquear horários de fim** anteriores ao horário de início quando a data de fim = data de início
-- **Meia-noite (00:00)** é tratada como início do dia (00:00 até 11:59), não como fim
-- **Mostrar duração** do evento após selecionar fim (ex: "Duração: 6 horas")
-- **Layout horizontal/compacto**: campos em 2 colunas, local/cidade/estado/endereço lado a lado para evitar scroll
-- **Cor do calendário**: trocar `day_today` de `bg-accent` (rosa) para uma cor neutra (ex: `ring-1 ring-primary text-foreground`) para o dia atual ficar sutil e não confundir com seleção
+### 4. Bug de data (off-by-one no Calendar)
+- O problema é timezone: `format(d, 'yyyy-MM-dd')` usa data local, mas `new Date('2026-04-13')` interpreta como UTC, causando shift de 1 dia
+- Corrigir armazenando o objeto `Date` diretamente nos lots (como já é feito no step 2) ou usando `format(d, 'yyyy-MM-dd')` com parse correto via `new Date(lot.start_date + 'T00:00:00')`
 
-### Etapa 3 — Ingressos
-- **Nome do setor**: renomear padrão de "Ingresso" para "Ingressos", exibir label "Setor atual: Ingressos" com botão de edição visível e claro
-- **Período de Vendas**: trocar Select por **botões toggle** (Publicar agora | Agendar | Após encerrar) — último só aparece a partir do 2o ingresso
-- **"Após encerrar ingresso"**: mostrar cards clicáveis dos outros ingressos ao invés de select dropdown
-- **Data de fim de vendas**: marcar como "(opcional)", usar Popover+Calendar + TimeSelect ao invés de `input type=datetime-local`; validar que data > data início de vendas/hoje
-- **Ingresso em Grupo**: substituir input numérico por **botões de 2 a 8** selecionáveis
-- **Escassez Fictícia**: unificar slider e preview em uma **única barra interativa** (arrastar a barra já é o preview)
-- **Layout compacto** para caber sem scroll
+### 5. Cor rosa no calendário (focus ring)
+- Na `calendar.tsx`, o `[&:has([aria-selected])]:bg-accent` no `cell` é que gera o rosa
+- Trocar `bg-accent` → `bg-primary/20` e `bg-accent/50` → `bg-primary/10` no cell class
 
-### Etapa 4 — Revisão
-- **Layout em grid compacto**: imagem menor (h-32), dados em 3-4 colunas, ingressos em lista condensada, botões visíveis sem scroll
-
-### Layout Global (todas as etapas)
-- Container `max-w-4xl` ao invés de `max-w-3xl` para mais espaço horizontal
-- Stepper integrado no topo junto com o título, economizando espaço vertical
-- Botões de navegação (Anterior/Próximo) fixos na parte inferior do card ou logo abaixo sem margin grande
-- Reduzir `mb-8` entre seções para `mb-4`
-
-## Lógica de Negócio
-- Todos os eventos aparecem na Home (remover campo `is_hot` do form, setar `true` por padrão no submit)
-- End date/time obrigatórios na validação da etapa 2
-- Filtrar timeOptions do horário de fim baseado na data selecionada vs data de início
+### 6. Etapa 4 — Revisão expandida
+- Banner/imagem no topo com largura total (h-48, rounded, object-cover)
+- Título grande sobre ou abaixo da imagem
+- Dados do evento em grid mais espaçado (3 colunas)
+- Ingressos em cards mais visuais (não apenas linhas compactas)
+- Simular visual de "página de vendas" com hierarquia clara
 
 ## Arquivos Impactados
 
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/CriarEvento.tsx` | Reescrita de layout, lógica de validação, novos controles |
-| `src/components/ui/calendar.tsx` | Ajustar cor do `day_today` |
-
-Nenhuma migração SQL necessária. Nenhum hook alterado.
+| `src/pages/CriarEvento.tsx` | Layout, bug de data, expansão, revisão visual |
+| `src/components/ui/calendar.tsx` | Cor do cell selected background (rosa → primary) |
 
