@@ -228,7 +228,7 @@ export default function CriarEvento() {
       }
     }
 
-    navigate('/produtor/eventos');
+    navigate(eventResult?.id ? `/produtor/eventos/${eventResult.id}` : '/produtor/eventos');
   };
 
   return (
