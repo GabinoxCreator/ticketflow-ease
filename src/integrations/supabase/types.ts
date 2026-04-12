@@ -346,13 +346,18 @@ export type Database = {
           event_id: string
           fake_scarcity_enabled: boolean | null
           fake_scarcity_percentage: number | null
+          group_ticket_enabled: boolean
+          group_ticket_quantity: number
           id: string
           is_active: boolean | null
           name: string
           original_price: number | null
           price: number
+          sales_start_type: string
+          sector_name: string
           sold_quantity: number
           start_date: string | null
+          starts_after_lot_id: string | null
           total_quantity: number
         }
         Insert: {
@@ -362,13 +367,18 @@ export type Database = {
           event_id: string
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
+          group_ticket_enabled?: boolean
+          group_ticket_quantity?: number
           id?: string
           is_active?: boolean | null
           name: string
           original_price?: number | null
           price: number
+          sales_start_type?: string
+          sector_name?: string
           sold_quantity?: number
           start_date?: string | null
+          starts_after_lot_id?: string | null
           total_quantity: number
         }
         Update: {
@@ -378,13 +388,18 @@ export type Database = {
           event_id?: string
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
+          group_ticket_enabled?: boolean
+          group_ticket_quantity?: number
           id?: string
           is_active?: boolean | null
           name?: string
           original_price?: number | null
           price?: number
+          sales_start_type?: string
+          sector_name?: string
           sold_quantity?: number
           start_date?: string | null
+          starts_after_lot_id?: string | null
           total_quantity?: number
         }
         Relationships: [
@@ -395,16 +410,25 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_lots_starts_after_lot_id_fkey"
+            columns: ["starts_after_lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_lots"
+            referencedColumns: ["id"]
+          },
         ]
       }
       events: {
         Row: {
           address: string | null
-          category: string
+          category: string | null
           city: string
           created_at: string
           date: string
           description: string | null
+          end_date: string | null
+          end_time: string | null
           fake_scarcity_enabled: boolean | null
           fake_scarcity_percentage: number | null
           id: string
@@ -422,11 +446,13 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          category: string
+          category?: string | null
           city: string
           created_at?: string
           date: string
           description?: string | null
+          end_date?: string | null
+          end_time?: string | null
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
           id?: string
@@ -444,11 +470,13 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          category?: string
+          category?: string | null
           city?: string
           created_at?: string
           date?: string
           description?: string | null
+          end_date?: string | null
+          end_time?: string | null
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
           id?: string
