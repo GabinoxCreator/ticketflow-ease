@@ -635,77 +635,86 @@ export default function CriarEvento() {
           </div>
         )}
 
-        {/* Step 4: Review - Compact grid */}
         {currentStep === 4 && (
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid gap-4 lg:grid-cols-[160px,1fr]">
-                {imageUrl && (
-                  <img src={imageUrl} alt="Preview" className="w-40 h-28 object-cover rounded-lg" />
-                )}
-                <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Título</p>
-                    <p className="text-sm font-medium">{title || '-'}</p>
+            <CardContent className="p-0 overflow-hidden">
+              {/* Banner */}
+              {imageUrl && (
+                <div className="relative h-48 w-full">
+                  <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-4 left-6 right-6">
+                    <h2 className="text-2xl font-bold text-white">{title || 'Sem título'}</h2>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Início</p>
-                    <p className="text-sm font-medium">
-                      {startDate ? format(startDate, 'dd/MM/yyyy') : '-'} às {startTime || '-'}
+                </div>
+              )}
+              {!imageUrl && (
+                <div className="px-8 pt-8">
+                  <h2 className="text-2xl font-bold">{title || 'Sem título'}</h2>
+                </div>
+              )}
+
+              <div className="p-8 space-y-6">
+                {/* Event details grid */}
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Início</p>
+                    <p className="text-sm font-semibold">
+                      {startDate ? format(startDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '-'}
                     </p>
+                    <p className="text-sm text-muted-foreground">{startTime || '-'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Fim</p>
-                    <p className="text-sm font-medium">
-                      {endDate ? format(endDate, 'dd/MM/yyyy') : '-'} às {endTime || '-'}
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Fim</p>
+                    <p className="text-sm font-semibold">
+                      {endDate ? format(endDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : '-'}
                     </p>
+                    <p className="text-sm text-muted-foreground">{endTime || '-'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Local</p>
-                    <p className="text-sm font-medium">{venue || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Cidade</p>
-                    <p className="text-sm font-medium">{city || '-'} - {state || '-'}</p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Local</p>
+                    <p className="text-sm font-semibold">{venue || '-'}</p>
+                    <p className="text-sm text-muted-foreground">{city || '-'} - {state || '-'}</p>
                   </div>
                   {eventDuration && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Duração</p>
-                      <p className="text-sm font-medium">{eventDuration}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Duração</p>
+                      <p className="text-sm font-semibold">{eventDuration}</p>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {description && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Descrição</p>
-                  <p className="text-sm whitespace-pre-wrap line-clamp-3">{description}</p>
-                </div>
-              )}
-
-              {lots.length > 0 ? (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground font-medium">Ingressos ({lots.length})</p>
-                  <div className="grid gap-1.5 sm:grid-cols-2">
-                    {lots.map((lot) => (
-                      <div key={lot.id} className="flex items-center justify-between p-2.5 bg-muted rounded-md text-sm">
-                        <div>
-                          <p className="font-medium">{lot.sector_name} — {lot.name}</p>
-                          <p className="text-xs text-muted-foreground">{lot.total_quantity} ingressos</p>
-                        </div>
-                        <p className="font-bold text-sm">{formatCurrency(lot.price)}</p>
-                      </div>
-                    ))}
+                {description && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Descrição</p>
+                    <p className="text-sm whitespace-pre-wrap">{description}</p>
                   </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-xs text-muted-foreground">
-                    ⚠️ Nenhum ingresso criado. Você poderá adicioná-los depois.
-                  </p>
-                </div>
-              )}
+                )}
+
+                {lots.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Ingressos ({lots.length})</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {lots.map((lot) => (
+                        <div key={lot.id} className="p-4 bg-muted rounded-lg border border-border space-y-1">
+                          <p className="text-sm font-bold">{lot.name}</p>
+                          <p className="text-xs text-muted-foreground">{lot.sector_name} • {lot.total_quantity} ingressos</p>
+                          <p className="text-lg font-bold text-primary">{formatCurrency(lot.price)}</p>
+                          {lot.group_ticket_enabled && (
+                            <p className="text-xs text-muted-foreground">Grupo de {lot.group_ticket_quantity}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      ⚠️ Nenhum ingresso criado. Você poderá adicioná-los depois.
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
