@@ -394,7 +394,7 @@ export default function CriarEvento() {
 
             {lots.map((lot, index) => (
               <Card key={lot.id}>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-6 space-y-4">
                   {/* Sector Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -504,11 +504,11 @@ export default function CriarEvento() {
                           <PopoverTrigger asChild>
                             <Button variant="outline" className={cn('w-full justify-start text-left font-normal h-8 text-sm', !lot.start_date && 'text-muted-foreground')}>
                               <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                              {lot.start_date ? format(new Date(lot.start_date), 'dd/MM/yyyy') : 'Selecione'}
+                              {lot.start_date ? format(new Date(lot.start_date + 'T12:00:00'), 'dd/MM/yyyy') : 'Selecione'}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={lot.start_date ? new Date(lot.start_date) : undefined} onSelect={(d) => updateLot(lot.id, { start_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
+                            <Calendar mode="single" selected={lot.start_date ? new Date(lot.start_date + 'T12:00:00') : undefined} onSelect={(d) => updateLot(lot.id, { start_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
                           </PopoverContent>
                         </Popover>
                       </div>
@@ -551,11 +551,11 @@ export default function CriarEvento() {
                         <PopoverTrigger asChild>
                           <Button variant="outline" className={cn('w-full justify-start text-left font-normal h-8 text-sm', !lot.end_date && 'text-muted-foreground')}>
                             <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                            {lot.end_date ? format(new Date(lot.end_date), 'dd/MM/yyyy') : 'Selecione (opcional)'}
+                            {lot.end_date ? format(new Date(lot.end_date + 'T12:00:00'), 'dd/MM/yyyy') : 'Selecione (opcional)'}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={lot.end_date ? new Date(lot.end_date) : undefined} onSelect={(d) => updateLot(lot.id, { end_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
+                          <Calendar mode="single" selected={lot.end_date ? new Date(lot.end_date + 'T12:00:00') : undefined} onSelect={(d) => updateLot(lot.id, { end_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} initialFocus className="p-3 pointer-events-auto" />
                         </PopoverContent>
                       </Popover>
                     </div>
