@@ -36,7 +36,7 @@ const states = [
 ];
 
 const steps = [
-  { id: 1, title: 'Básico' },
+  { id: 1, title: 'Dados do Evento' },
   { id: 2, title: 'Data e Local' },
   { id: 3, title: 'Ingressos' },
   { id: 4, title: 'Revisão' },
