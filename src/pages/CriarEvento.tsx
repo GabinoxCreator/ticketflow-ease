@@ -453,11 +453,11 @@ export default function CriarEvento() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Preço (R$) *</Label>
-                      <Input type="number" step="0.01" min="0" value={lot.price} onChange={(e) => updateLot(lot.id, { price: parseFloat(e.target.value) || 0 })} className="h-8 text-sm" />
+                      <Input type="number" step="0.01" min="0" value={lot.price === 0 ? '' : lot.price} onChange={(e) => updateLot(lot.id, { price: e.target.value === '' ? 0 : parseFloat(e.target.value) })} onBlur={(e) => { if (e.target.value === '') updateLot(lot.id, { price: 0 }); }} className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Quantidade *</Label>
-                      <Input type="number" min="1" value={lot.total_quantity} onChange={(e) => updateLot(lot.id, { total_quantity: parseInt(e.target.value) || 1 })} className="h-8 text-sm" />
+                      <Input type="number" min="1" value={lot.total_quantity === 0 ? '' : lot.total_quantity} onChange={(e) => updateLot(lot.id, { total_quantity: e.target.value === '' ? 0 : parseInt(e.target.value) })} onBlur={(e) => { if (e.target.value === '' || parseInt(e.target.value) < 1) updateLot(lot.id, { total_quantity: 1 }); }} className="h-8 text-sm" />
                     </div>
                   </div>
 
