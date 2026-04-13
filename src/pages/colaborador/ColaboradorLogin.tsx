@@ -32,7 +32,7 @@ export default function ColaboradorLogin() {
     const result = await login(username, password);
 
     if (result.success) {
-      navigate('/colaborador/dashboard');
+      navigate('/colaborador/eventos');
     } else {
       setError(result.error || 'Erro ao fazer login');
     }
