@@ -730,35 +730,40 @@ export default function CriarEvento() {
         )}
 
         {/* Navigation Buttons - tight */}
-        <div className="flex justify-between mt-4">
-          <Button type="button" variant="outline" size="sm" onClick={prevStep} disabled={currentStep === 1}>
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Anterior
-          </Button>
-
-          {currentStep < 4 ? (
+        {currentStep < 4 ? (
+          <div className="flex justify-between mt-4">
+            <Button type="button" variant="outline" size="sm" onClick={prevStep} disabled={currentStep === 1}>
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Anterior
+            </Button>
             <Button type="button" size="sm" onClick={nextStep}>
               Próximo
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
-          ) : (
-            <div className="flex gap-2">
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 mt-4">
+            <div className="flex justify-between">
+              <Button type="button" variant="outline" size="sm" onClick={prevStep}>
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Anterior
+              </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => handleSubmit('draft')} disabled={createEvent.isPending}>
                 Salvar Rascunho
               </Button>
-              <Button type="button" size="sm" onClick={() => handleSubmit('published')} disabled={createEvent.isPending}>
-                {createEvent.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    Publicando...
-                  </>
-                ) : (
-                  'Publicar Evento'
-                )}
-              </Button>
             </div>
-          )}
-        </div>
+            <Button type="button" size="sm" className="w-full" onClick={() => handleSubmit('published')} disabled={createEvent.isPending}>
+              {createEvent.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  Publicando...
+                </>
+              ) : (
+                'Publicar Evento'
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </ProducerLayout>
   );
