@@ -1,173 +1,118 @@
 
 
-# Reestruturação da Área do Colaborador — Mobile-First Check-in
+# Reestruturação Completa da Área do Colaborador — 6 Blocos
 
-## 1. Diagnóstico da Área Atual
+## Resumo
+Substituir as 4 páginas separadas (menu, scanner, participantes, convidados) por uma única tela operacional com bottom nav fixa (QR Code | Listas), scanner contínuo fullscreen, e busca manual integrada.
 
-A área do colaborador já existe com:
-- **Login** (`/colaborador`) — funcional, com sessão via edge function + bcrypt
-- **Dashboard** (`/colaborador/dashboard`) — lista eventos do colaborador
-- **Menu do Evento** (`/colaborador/evento/:id`) — 3 opções: QR Code, Participantes, Convidados
-- **Scanner QR** (`/colaborador/evento/:id/scanner`) — lê QR, mas para o scanner após cada leitura e exige confirmação manual ("Validar Ingresso")
-- **Participantes** (`/colaborador/evento/:id/participantes`) — lista todos os ingressos vendidos
-- **Convidados** (`/colaborador/evento/:id/convidados`) — mistura cortesias + listas de convidados
+## Bloco 1: Tela de Eventos (já implementada)
+`ColaboradorEventos.tsx` já existe com abas Próximos/Passados e botão "Fazer Check-in". Nenhuma alteração necessária.
 
-**Problemas principais:**
-- Scanner para após cada leitura (não é contínuo)
-- Exige ação extra "Validar Ingresso" após escanear (2 steps em vez de 1)
-- Navegação por páginas separadas em vez de abas dentro da tela operacional
-- Sem bottom nav fixa
-- Sem indicadores de check-in/pendentes na tela operacional
-- Mistura de participantes pagos e convidados de lista em telas separadas sem clareza
+## Bloco 2: Tela Operacional + Bottom Nav
 
-## 2. O Que Já Existe e Pode Ser Reaproveitado
+**Criar arquivos:**
+- `src/components/colaborador/ColaboradorBottomNav.tsx` — bottom nav fixa com 2 abas (QR Code, Listas) usando ícones `QrCode` e `List`
+- `src/pages/colaborador/ColaboradorEvento.tsx` — substitui `ColaboradorEventoMenu.tsx`. Header com nome do evento, data/hora, botão voltar, e 3 indicadores (check-ins, pendentes, total). Renderiza `ColaboradorQRTab` ou `ColaboradorListasTab` conforme aba ativa
 
-| Componente | Status |
-|---|---|
-| `ColaboradorAuthContext` (login, sessão, logout) | 100% reaproveitável |
-| `ColaboradorProtectedRoute` | 100% reaproveitável |
-| `ColaboradorLogin` | 95% — apenas ajuste visual menor |
-| `collaborator-login` edge function | 100% reaproveitável |
-| `collaborator-validate-ticket` edge function | 95% — mudar para validação automática (action=validate direto) |
-| `collaborator-validate-guest-entry` edge function | 100% reaproveitável |
-| `checkin_logs` table | Existe mas não está sendo usada pelo colaborador — integrar |
-| `collaborator_events` table + RLS | 100% reaproveitável |
-| `collaborator_sessions` table | 100% reaproveitável |
-| html5-qrcode library | 100% reaproveitável |
-| Tickets query com event_lots join | Reaproveitável |
-| Guest lists query | Reaproveitável |
+**Atualizar:**
+- `src/App.tsx` — rota `/colaborador/evento/:id` aponta para `ColaboradorEvento` em vez de `ColaboradorEventoMenu`. Remover rotas separadas de scanner, participantes e convidados. Manter redirects para compatibilidade
 
-## 3. Proposta de Nova Arquitetura de Rotas
+## Bloco 3: Scanner QR Fullscreen Contínuo
 
-```text
-/colaborador                          → Login
-/colaborador/eventos                  → Lista de eventos (substitui /dashboard)
-/colaborador/evento/:id               → Tela operacional com bottom nav (QR Code | Listas)
-```
+**Criar arquivos:**
+- `src/components/colaborador/ColaboradorQRTab.tsx` — aba principal com botão grande "Escanear QR Code" + área de busca manual (Bloco 4)
+- `src/components/colaborador/ColaboradorQRScanner.tsx` — modal fullscreen com scanner contínuo:
+  - Câmera abre imediatamente
+  - Ao ler QR, chama `collaborator-validate-ticket` com `action: 'validate'` direto (sem etapa de check/confirm)
+  - Overlay de resultado por 3s (verde/amarelo/vermelho) sem parar o scanner
+  - Debounce de 5s por código (Map com timestamps)
+  - Vibração no feedback
+  - Botão X para fechar
+  - Reaproveita html5-qrcode já instalado
 
-Remover rotas separadas de scanner, participantes e convidados. Tudo fica dentro da tela operacional via abas.
+## Bloco 4: Busca Manual
 
-## 4. Proposta de Páginas e Componentes
+Implementado dentro de `ColaboradorQRTab.tsx`:
+- Campo de busca por código, nome, email ou telefone
+- Chama edge function `collaborator-validate-ticket` com `action: 'check'` para buscar
+- Resultados em cards com botão "Check-in" que chama `action: 'validate'`
+- Para busca por nome/email/telefone, criar nova edge function `collaborator-search-tickets` que faz query textual nos campos holder_name, holder_email, holder_phone
 
-### Páginas (3 no total)
-1. `ColaboradorLogin.tsx` — manter (ajuste mínimo)
-2. `ColaboradorEventos.tsx` — **NOVA** (substitui ColaboradorDashboard)
-3. `ColaboradorEvento.tsx` — **NOVA** (substitui ColaboradorEventoMenu + scanner + participantes + convidados)
+**Criar:**
+- `supabase/functions/collaborator-search-tickets/index.ts` — busca por nome/email/telefone com validação de sessão, retorna lista de tickets
 
-### Componentes novos (dentro de `src/components/colaborador/`)
-1. `ColaboradorProtectedRoute.tsx` — manter
-2. `ColaboradorBottomNav.tsx` — bottom nav fixa (QR Code | Listas)
-3. `ColaboradorQRTab.tsx` — aba QR com scanner fullscreen + busca manual
-4. `ColaboradorListasTab.tsx` — aba Listas com cards de listas
-5. `ColaboradorListaDetalhe.tsx` — detalhe de uma lista com participantes
-6. `ColaboradorQRScanner.tsx` — scanner fullscreen contínuo com feedback overlay
-7. `ColaboradorTicketResult.tsx` — overlay de resultado do scan (válido/usado/inválido)
+## Bloco 5: Aba Listas
 
-## 5. Proposta de Fluxo da Aba QR Code
+**Criar arquivos:**
+- `src/components/colaborador/ColaboradorListasTab.tsx` — cards das listas do evento com nome, pendentes, check-ins. Ao clicar, abre detalhe
+- `src/components/colaborador/ColaboradorListaDetalhe.tsx` — título, contadores, busca por nome, lista de participantes com botão "Entrada" que chama `collaborator-validate-guest-entry`
 
-```text
-Aba QR Code
-├── Botão grande "Escanear QR Code" (abre fullscreen)
-├── Busca manual (código, nome, email, telefone)
-└── Resultados de busca com botão "Check-in"
+Dados: busca listas via nova edge function ou reaproveita a query direta ao supabase que `ColaboradorConvidados` já faz (guest_lists + guest_list_entries por event_id)
 
-Fullscreen Scanner:
-├── Câmera abre imediatamente
-├── QR lido → validate automático (sem confirmação)
-├── Overlay de resultado (2-3s):
-│   ├── ✅ Verde: "Check-in realizado" + nome + lote
-│   ├── ⚠️ Amarelo: "Já utilizado" + nome + horário
-│   ├── ❌ Vermelho: "Inválido/Cancelado/Outro evento"
-│   └── Vibração + som
-├── Scanner continua ativo (não para)
-├── Botão X para fechar → volta à aba QR
-└── Debounce: ignora mesmo QR por 5s
-```
+## Bloco 6: Logs de Check-in + Ajustes
 
-## 6. Proposta de Fluxo da Aba Listas
+**Atualizar edge functions:**
+- `collaborator-validate-ticket/index.ts` — após validar ticket, inserir em `checkin_logs` com `collaborator_id`, `source` (recebido do frontend: `scanner_qr` ou `busca_manual`), `action: 'checkin'`
+- `collaborator-validate-guest-entry/index.ts` — após check-in de convidado, inserir em `checkin_logs` com `collaborator_id`, `source: 'lista'`
 
-```text
-Aba Listas
-├── Cards das listas do evento:
-│   ├── Nome da lista
-│   ├── Pendentes: X
-│   ├── Check-ins: Y
-│   └── Clique → abre detalhe
-└── Detalhe da Lista:
-    ├── Título + contadores
-    ├── Busca por nome
-    ├── Lista de participantes com status
-    └── Botão "Entrada" para check-in imediato
-```
+**Adicionar parâmetro `source`** nas chamadas do frontend para as edge functions.
 
-## 7. Impacto em Dados, Hooks, Queries e Tabelas
+## Arquivos Impactados
 
-### Tabelas — sem alteração de schema
-- `tickets`, `event_lots`, `guest_lists`, `guest_list_entries` — já suficientes
-- `checkin_logs` — já existe, precisa ser populado pelo edge function na validação
-
-### Edge Functions
-- `collaborator-validate-ticket` — adicionar inserção em `checkin_logs` com `source` (scanner_qr | busca_manual) e `collaborator_id`
-- `collaborator-validate-guest-entry` — adicionar inserção em `checkin_logs` com `source` (lista) e `collaborator_id`
-
-### Hooks — não há hooks dedicados ao colaborador hoje; queries são feitas diretamente nos componentes. Manter essa abordagem simples.
-
-## 8. Plano de Implementação em Blocos
-
-### Bloco 1: Tela de Eventos do Colaborador
-- Criar `ColaboradorEventos.tsx` com abas Próximos/Passados
-- Cards com imagem, nome, data, hora, status, botão "Fazer Check-in"
-- Atualizar rota no App.tsx
-
-### Bloco 2: Tela Operacional com Bottom Nav
-- Criar `ColaboradorEvento.tsx` com header (nome, data, indicadores)
-- Bottom nav fixa com 2 abas: QR Code e Listas
-- Componentes `ColaboradorBottomNav`, `ColaboradorQRTab`, `ColaboradorListasTab`
-- Remover rotas antigas (scanner, participantes, convidados)
-
-### Bloco 3: Fullscreen Scanner QR Contínuo
-- Criar `ColaboradorQRScanner.tsx` — fullscreen, câmera imediata
-- Validação automática ao scan (action=validate direto)
-- Overlay de resultado sem parar scanner
-- Debounce de 5s por código
-- Vibração no feedback
-
-### Bloco 4: Busca Manual
-- Na aba QR, campo de busca por código/nome/email/telefone
-- Resultados com botão "Check-in" direto
-- Usa edge function existente
-
-### Bloco 5: Aba Listas e Detalhe
-- Cards de listas com contadores
-- Tela de detalhe com busca e botão "Entrada"
-- Usa edge function `collaborator-validate-guest-entry`
-
-### Bloco 6: Logs de Check-in e Ajustes
-- Atualizar edge functions para inserir em `checkin_logs` com `collaborator_id` e `source`
-- Ajustes visuais finais e feedback
-
-## 9. Riscos Técnicos
-
-1. **Scanner contínuo**: html5-qrcode para e reinicia por design; precisaremos de debounce em vez de stop/restart
-2. **RLS em tickets**: colaborador não é autenticado via Supabase Auth — queries diretas ao banco precisam passar pela edge function (já é assim)
-3. **Checkin_logs RLS**: insert policy atual exige ser producer — precisará de ajuste para permitir insert via service_role na edge function (já usa service_role, sem problema)
-
-## 10. Proposta Exata da Primeira Versão (Bloco 1)
-
-Criar `src/pages/colaborador/ColaboradorEventos.tsx`:
-- Header com nome do colaborador e botão logout
-- Abas "Próximos" e "Passados" (filtro por `event.date >= hoje`)
-- Cards de evento com: imagem, título, data formatada, hora, badge de status, botão "Fazer Check-in"
-- Clique no botão navega para `/colaborador/evento/:id`
-
-Atualizar `src/App.tsx`:
-- Trocar rota `/colaborador/dashboard` para `/colaborador/eventos`
-- Atualizar redirect no login
-
-### Arquivos impactados no Bloco 1
 | Arquivo | Ação |
 |---|---|
-| `src/pages/colaborador/ColaboradorEventos.tsx` | Criar |
-| `src/App.tsx` | Atualizar rota |
-| `src/pages/colaborador/ColaboradorLogin.tsx` | Redirect para `/colaborador/eventos` |
+| `src/pages/colaborador/ColaboradorEvento.tsx` | Criar (substitui ColaboradorEventoMenu) |
+| `src/components/colaborador/ColaboradorBottomNav.tsx` | Criar |
+| `src/components/colaborador/ColaboradorQRTab.tsx` | Criar |
+| `src/components/colaborador/ColaboradorQRScanner.tsx` | Criar |
+| `src/components/colaborador/ColaboradorListasTab.tsx` | Criar |
+| `src/components/colaborador/ColaboradorListaDetalhe.tsx` | Criar |
+| `supabase/functions/collaborator-search-tickets/index.ts` | Criar |
+| `supabase/functions/collaborator-validate-ticket/index.ts` | Atualizar (add checkin_logs + source) |
+| `supabase/functions/collaborator-validate-guest-entry/index.ts` | Atualizar (add checkin_logs + source) |
+| `src/App.tsx` | Atualizar rotas |
+
+## Arquivos que NÃO serão alterados
+- Painel do produtor (sem impacto)
+- Admin (sem impacto)
+- Fluxo público de compra (sem impacto)
+- `ColaboradorAuthContext` (100% reaproveitado)
+- `ColaboradorProtectedRoute` (100% reaproveitado)
+- `ColaboradorLogin` (sem alteração)
+- `ColaboradorEventos` (sem alteração)
+
+## Riscos Técnicos
+1. html5-qrcode pode precisar de stop/restart para "contínuo" — usaremos debounce em vez de parar
+2. Busca textual por nome/email requer nova edge function (não dá pelo client sem auth supabase)
+3. `checkin_logs.ticket_id` é NOT NULL — para guest_list_entries precisaremos de um valor ou alterar para nullable via migration
+
+## Detalhes Técnicos
+
+### Bottom Nav
+```tsx
+<div className="fixed bottom-0 left-0 right-0 bg-card border-t z-20">
+  <div className="max-w-lg mx-auto flex">
+    <button onClick={() => setTab('qr')} className="flex-1 py-3 ...">
+      <QrCode /> QR Code
+    </button>
+    <button onClick={() => setTab('listas')} className="flex-1 py-3 ...">
+      <List /> Listas
+    </button>
+  </div>
+</div>
+```
+
+### Scanner Contínuo (debounce)
+```tsx
+const recentScans = useRef(new Map<string, number>());
+const onScan = (code: string) => {
+  const now = Date.now();
+  if (recentScans.current.get(code) && now - recentScans.current.get(code)! < 5000) return;
+  recentScans.current.set(code, now);
+  validateTicket(code); // action=validate direto
+};
+```
+
+### Migration necessária
+`checkin_logs.ticket_id` precisa ser nullable para suportar check-ins de guest_list_entries (que não têm ticket_id). Adicionar coluna `guest_entry_id uuid` nullable.
 
