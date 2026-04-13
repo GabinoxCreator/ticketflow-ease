@@ -66,7 +66,7 @@ serve(async (req) => {
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
     
     const { error: emailError } = await resend.emails.send({
-      from: "FestPag <contato@festpag.com.br>",
+      from: "IngressosRP <contato@ingressosrp.com.br>",
       to: [email],
       subject: "Seu código de verificação - FestPag",
       html: `
