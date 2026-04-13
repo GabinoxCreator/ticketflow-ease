@@ -38,28 +38,53 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
 
   return (
     <div className="mb-6">
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => navigate('/produtor/eventos')}
-        className="mb-4"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Voltar para Eventos
-      </Button>
+      {/* Top action bar: Voltar + Botões */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate('/produtor/eventos')}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar para Eventos
+        </Button>
+
+        <div className="flex gap-2 flex-wrap">
+          {event.status === 'draft' && (
+            <Button size="sm" onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'published' } })}>
+              <Globe className="h-4 w-4 mr-2" />
+              Publicar Evento
+            </Button>
+          )}
+          {event.status === 'published' && (
+            <Button variant="outline" size="sm" onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'draft' } })}>
+              <EyeOff className="h-4 w-4 mr-2" />
+              Despublicar
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Editar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/evento/${event.id}`, '_blank')}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Ver Página
+          </Button>
+        </div>
+      </div>
 
       <div className="bg-card rounded-xl border overflow-hidden">
         <div className="flex flex-col md:flex-row">
           {/* Event Image */}
-          <div className="w-full md:w-48 h-32 md:h-auto flex-shrink-0">
+          <div className="w-full h-48 md:w-72 md:h-auto flex-shrink-0 bg-black/5">
             {event.image_url ? (
               <img 
                 src={event.image_url} 
                 alt={event.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             ) : (
-              <div className="w-full h-full bg-muted flex items-center justify-center">
+              <div className="w-full h-full bg-muted flex items-center justify-center min-h-[12rem]">
                 <Calendar className="h-8 w-8 text-muted-foreground" />
               </div>
             )}
@@ -67,56 +92,29 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
 
           {/* Event Info */}
           <div className="flex-1 p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  {getStatusBadge()}
-                  {event.is_hot && (
-                    <Badge variant="outline" className="text-orange-500 border-orange-500">
-                      🔥 Em Alta
-                    </Badge>
-                  )}
-                </div>
-                
-                <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
-                
-                <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    {format(eventDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    {event.time}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {event.venue}, {event.city}
-                  </div>
-                </div>
+            <div className="flex items-center gap-2 mb-2">
+              {getStatusBadge()}
+              {event.is_hot && (
+                <Badge variant="outline" className="text-orange-500 border-orange-500">
+                  🔥 Em Alta
+                </Badge>
+              )}
+            </div>
+            
+            <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
+            
+            <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-4 w-4" />
+                {format(eventDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </div>
-
-              <div className="flex gap-2 flex-wrap">
-                {event.status === 'draft' && (
-                  <Button size="sm" onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'published' } })}>
-                    <Globe className="h-4 w-4 mr-2" />
-                    Publicar Evento
-                  </Button>
-                )}
-                {event.status === 'published' && (
-                  <Button variant="outline" size="sm" onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'draft' } })}>
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Despublicar
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => window.open(`/evento/${event.id}`, '_blank')}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Ver Página
-                </Button>
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                {event.time}
+              </div>
+              <div className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {event.venue}, {event.city}
               </div>
             </div>
 
