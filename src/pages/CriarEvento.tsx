@@ -401,22 +401,32 @@ export default function CriarEvento() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {editingSectorId === lot.id ? (
-                        <Input
-                          value={editingSectorName}
-                          onChange={(e) => setEditingSectorName(e.target.value)}
-                          onBlur={() => {
-                            updateLot(lot.id, { sector_name: editingSectorName || 'Ingressos' });
-                            setEditingSectorId(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editingSectorName}
+                            onChange={(e) => setEditingSectorName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                updateLot(lot.id, { sector_name: editingSectorName || 'Ingressos' });
+                                setEditingSectorId(null);
+                              }
+                            }}
+                            className="h-7 w-44 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-primary hover:text-primary/80"
+                            onClick={() => {
                               updateLot(lot.id, { sector_name: editingSectorName || 'Ingressos' });
                               setEditingSectorId(null);
-                            }
-                          }}
-                          className="h-7 w-44 text-sm"
-                          autoFocus
-                        />
+                            }}
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                        </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">Setor:</span>
