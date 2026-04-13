@@ -50,30 +50,33 @@ export type Database = {
           collaborator_id: string | null
           created_at: string
           event_id: string
+          guest_entry_id: string | null
           id: string
           operator_id: string | null
           source: string
-          ticket_id: string
+          ticket_id: string | null
         }
         Insert: {
           action?: string
           collaborator_id?: string | null
           created_at?: string
           event_id: string
+          guest_entry_id?: string | null
           id?: string
           operator_id?: string | null
           source?: string
-          ticket_id: string
+          ticket_id?: string | null
         }
         Update: {
           action?: string
           collaborator_id?: string | null
           created_at?: string
           event_id?: string
+          guest_entry_id?: string | null
           id?: string
           operator_id?: string | null
           source?: string
-          ticket_id?: string
+          ticket_id?: string | null
         }
         Relationships: [
           {
@@ -81,6 +84,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_logs_guest_entry_id_fkey"
+            columns: ["guest_entry_id"]
+            isOneToOne: false
+            referencedRelation: "guest_list_entries"
             referencedColumns: ["id"]
           },
           {

@@ -25,10 +25,7 @@ import MinhaConta from "./pages/MinhaConta";
 import ColaboradoresManager from "./pages/ColaboradoresManager";
 import ColaboradorLogin from "./pages/colaborador/ColaboradorLogin";
 import ColaboradorEventos from "./pages/colaborador/ColaboradorEventos";
-import ColaboradorEventoMenu from "./pages/colaborador/ColaboradorEventoMenu";
-import QRCodeScanner from "./pages/colaborador/QRCodeScanner";
-import ColaboradorParticipantes from "./pages/colaborador/ColaboradorParticipantes";
-import ColaboradorConvidados from "./pages/colaborador/ColaboradorConvidados";
+import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import TestePagamento from "./pages/TestePagamento";
 import ResetPassword from "./pages/ResetPassword";
@@ -99,10 +96,10 @@ const App = () => (
                 <Route path="/colaborador" element={<ColaboradorLogin />} />
                 <Route path="/colaborador/eventos" element={<ColaboradorProtectedRoute><ColaboradorEventos /></ColaboradorProtectedRoute>} />
                 <Route path="/colaborador/dashboard" element={<Navigate to="/colaborador/eventos" replace />} />
-                <Route path="/colaborador/evento/:id" element={<ColaboradorProtectedRoute><ColaboradorEventoMenu /></ColaboradorProtectedRoute>} />
-                <Route path="/colaborador/evento/:id/scanner" element={<ColaboradorProtectedRoute><QRCodeScanner /></ColaboradorProtectedRoute>} />
-                <Route path="/colaborador/evento/:id/participantes" element={<ColaboradorProtectedRoute><ColaboradorParticipantes /></ColaboradorProtectedRoute>} />
-                <Route path="/colaborador/evento/:id/convidados" element={<ColaboradorProtectedRoute><ColaboradorConvidados /></ColaboradorProtectedRoute>} />
+                <Route path="/colaborador/evento/:id" element={<ColaboradorProtectedRoute><ColaboradorEvento /></ColaboradorProtectedRoute>} />
+                <Route path="/colaborador/evento/:id/scanner" element={<Navigate to="/colaborador/evento/:id" replace />} />
+                <Route path="/colaborador/evento/:id/participantes" element={<Navigate to="/colaborador/evento/:id" replace />} />
+                <Route path="/colaborador/evento/:id/convidados" element={<Navigate to="/colaborador/evento/:id" replace />} />
                 
                 {/* Admin Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />

@@ -56,7 +56,7 @@ serve(async (req) => {
   }
 
   try {
-    const { ticket_code, event_id, collaborator_id, session_token, action } = await req.json();
+    const { ticket_code, event_id, collaborator_id, session_token, action, source } = await req.json();
     
     console.log('Ticket validation request:', { ticket_code, event_id, collaborator_id, action });
 
@@ -231,6 +231,17 @@ serve(async (req) => {
       }
 
       console.log('Ticket validated successfully:', ticket.ticket_code);
+
+      // Log check-in
+      await supabase
+        .from('checkin_logs')
+        .insert({
+          ticket_id: ticket.id,
+          event_id: event_id,
+          collaborator_id: collaborator_id,
+          source: source || 'manual',
+          action: 'checkin',
+        });
 
       return new Response(
         JSON.stringify({
