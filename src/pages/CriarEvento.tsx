@@ -241,12 +241,14 @@ export default function CriarEvento() {
     >
       <div className="max-w-6xl mx-auto">
         {/* Compact Header + Stepper */}
-        <div className="flex items-center gap-4 mb-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')} className="shrink-0">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <h1 className="text-xl font-bold whitespace-nowrap">Criar Novo Evento</h1>
-          <div className="flex items-center gap-1 ml-auto">
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')} className="shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <h1 className="text-xl font-bold whitespace-nowrap">Criar Novo Evento</h1>
+          </div>
+          <div className="flex items-center justify-center gap-1 md:justify-end">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div
