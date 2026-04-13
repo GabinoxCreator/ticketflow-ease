@@ -56,7 +56,7 @@ serve(async (req) => {
   }
 
   try {
-    const { entry_id, event_id, collaborator_id, session_token } = await req.json();
+    const { entry_id, event_id, collaborator_id, session_token, source } = await req.json();
     
     console.log('Guest entry validation request:', { entry_id, event_id, collaborator_id });
 
@@ -161,6 +161,17 @@ serve(async (req) => {
     }
 
     console.log('Guest entry checked in successfully:', entry.name);
+
+    // Log check-in
+    await supabase
+      .from('checkin_logs')
+      .insert({
+        guest_entry_id: entry.id,
+        event_id: event_id,
+        collaborator_id: collaborator_id,
+        source: source || 'lista',
+        action: 'checkin',
+      });
 
     return new Response(
       JSON.stringify({
