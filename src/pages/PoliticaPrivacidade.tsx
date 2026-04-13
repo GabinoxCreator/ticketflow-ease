@@ -15,7 +15,7 @@ export default function PoliticaPrivacidade() {
         <main className="pt-24 pb-16">
           <div className="container mx-auto px-4 max-w-3xl">
             <h1 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-2">
-              Política de Privacidade — FestPag
+              Política de Privacidade
             </h1>
             <p className="text-muted-foreground text-sm mb-10">Última atualização: 13 de abril de 2026</p>
 
