@@ -76,12 +76,12 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
       <div className="bg-card rounded-xl border overflow-hidden">
         <div className="flex flex-col md:flex-row">
           {/* Event Image */}
-          <div className="w-full h-48 md:w-72 md:h-auto flex-shrink-0 bg-black/5">
+          <div className="w-full h-52 md:w-80 md:h-auto flex-shrink-0">
             {event.image_url ? (
               <img 
                 src={event.image_url} 
                 alt={event.title}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover rounded-t-xl md:rounded-t-none md:rounded-l-xl"
               />
             ) : (
               <div className="w-full h-full bg-muted flex items-center justify-center min-h-[12rem]">
