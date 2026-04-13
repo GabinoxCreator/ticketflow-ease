@@ -1,25 +1,41 @@
 
 
-# Barra de Progresso visível no mobile
+# Fix: Inputs de Preço e Quantidade não permitem limpar o valor
 
 ## Problema
-No mobile (390px), os indicadores de etapas (1, 2, 3, 4) ficam na mesma linha do título "Criar Novo Evento" com `ml-auto`, e o espaço não é suficiente para exibi-los.
+Os campos de Preço e Quantidade usam `parseFloat(value) || 0` e `parseInt(value) || 1`, o que impede o usuário de apagar o valor atual para digitar um novo — o campo volta instantaneamente para 0 ou 1.
 
 ## Solução
-Quebrar o header em duas linhas no mobile:
-- **Linha 1**: Botão voltar + "Criar Novo Evento" (como já está)
-- **Linha 2**: Stepper com os 4 passos centralizado abaixo do título
+Usar estado intermediário como string para permitir o campo ficar vazio temporariamente, convertendo para número apenas no `onBlur`. Na prática, a forma mais simples é:
 
-### Mudança em `src/pages/CriarEvento.tsx` (linhas 244-268)
-Trocar o layout de `flex items-center gap-4` (tudo em uma linha) para um layout que empilha no mobile:
-- Wrap o título e botão voltar em uma div flex
-- Mover o stepper para uma div separada abaixo, visível sempre (remover `ml-auto`, usar `flex justify-center`)
-- No desktop (`md:`), manter na mesma linha com `md:flex-row md:items-center`
+- Mudar `value={lot.price}` para permitir string vazia
+- No `onChange`, aceitar o valor como string (incluindo vazio)
+- No `onBlur`, aplicar o fallback (0 para preço, 1 para quantidade)
 
-O stepper em si não muda — apenas a posição no layout.
+### Mudança em `src/pages/CriarEvento.tsx` (linhas 456 e 460):
+
+**Preço** (linha 456):
+```tsx
+<Input type="number" step="0.01" min="0"
+  value={lot.price === 0 ? '' : lot.price}
+  onChange={(e) => updateLot(lot.id, { price: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+  onBlur={(e) => { if (e.target.value === '') updateLot(lot.id, { price: 0 }); }}
+  className="h-8 text-sm" />
+```
+
+**Quantidade** (linha 460):
+```tsx
+<Input type="number" min="1"
+  value={lot.total_quantity === 0 ? '' : lot.total_quantity}
+  onChange={(e) => updateLot(lot.id, { total_quantity: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+  onBlur={(e) => { if (e.target.value === '' || parseInt(e.target.value) < 1) updateLot(lot.id, { total_quantity: 1 }); }}
+  className="h-8 text-sm" />
+```
+
+Mesma correção deve ser aplicada em qualquer outro input numérico no mesmo arquivo que use o padrão `|| 0` ou `|| 1`.
 
 ## Arquivo impactado
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/CriarEvento.tsx` | Reestruturar header para empilhar título e stepper no mobile |
+| `src/pages/CriarEvento.tsx` | Permitir campos numéricos ficarem vazios durante edição |
 
