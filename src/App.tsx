@@ -62,6 +62,7 @@ const App = () => (
                 <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                 <Route path="/login" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/privacidade" element={<PoliticaPrivacidade />} />
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
