@@ -20,7 +20,7 @@ export default function ColaboradorLogin() {
 
   // Redirect if already authenticated
   if (isAuthenticated) {
-    navigate('/colaborador/dashboard', { replace: true });
+    navigate('/colaborador/eventos', { replace: true });
     return null;
   }
 
