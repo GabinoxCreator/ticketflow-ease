@@ -24,7 +24,7 @@ import MeusIngressos from "./pages/MeusIngressos";
 import MinhaConta from "./pages/MinhaConta";
 import ColaboradoresManager from "./pages/ColaboradoresManager";
 import ColaboradorLogin from "./pages/colaborador/ColaboradorLogin";
-import ColaboradorDashboard from "./pages/colaborador/ColaboradorDashboard";
+import ColaboradorEventos from "./pages/colaborador/ColaboradorEventos";
 import ColaboradorEventoMenu from "./pages/colaborador/ColaboradorEventoMenu";
 import QRCodeScanner from "./pages/colaborador/QRCodeScanner";
 import ColaboradorParticipantes from "./pages/colaborador/ColaboradorParticipantes";
@@ -97,7 +97,8 @@ const App = () => (
                 
                 {/* Collaborator Routes */}
                 <Route path="/colaborador" element={<ColaboradorLogin />} />
-                <Route path="/colaborador/dashboard" element={<ColaboradorProtectedRoute><ColaboradorDashboard /></ColaboradorProtectedRoute>} />
+                <Route path="/colaborador/eventos" element={<ColaboradorProtectedRoute><ColaboradorEventos /></ColaboradorProtectedRoute>} />
+                <Route path="/colaborador/dashboard" element={<Navigate to="/colaborador/eventos" replace />} />
                 <Route path="/colaborador/evento/:id" element={<ColaboradorProtectedRoute><ColaboradorEventoMenu /></ColaboradorProtectedRoute>} />
                 <Route path="/colaborador/evento/:id/scanner" element={<ColaboradorProtectedRoute><QRCodeScanner /></ColaboradorProtectedRoute>} />
                 <Route path="/colaborador/evento/:id/participantes" element={<ColaboradorProtectedRoute><ColaboradorParticipantes /></ColaboradorProtectedRoute>} />
