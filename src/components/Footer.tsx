@@ -20,7 +20,7 @@ const Footer = () => {
     legal: [
       { label: 'Política de Privacidade', href: '/privacidade' },
       { label: 'Política de Reembolso', href: '/reembolso' },
-      { label: 'Termos de Serviço', href: '/termos-servico' },
+      { label: 'Termos de Uso', href: '/termos' },
     ],
   };
 
