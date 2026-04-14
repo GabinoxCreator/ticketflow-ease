@@ -30,6 +30,7 @@ import GuestListPublicForm from "./pages/GuestListPublicForm";
 import TestePagamento from "./pages/TestePagamento";
 import ResetPassword from "./pages/ResetPassword";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import TermosDeUso from "./pages/TermosDeUso";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerLogin from "./pages/ProducerLogin";
 import ProducerSignup from "./pages/ProducerSignup";
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="/login" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
+                <Route path="/termos" element={<TermosDeUso />} />
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
