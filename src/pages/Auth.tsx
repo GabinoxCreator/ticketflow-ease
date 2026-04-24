@@ -5,63 +5,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
-import WhatsAppInput from '@/components/WhatsAppInput';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, CreditCard, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Loader2 } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 import { lovable } from '@/integrations/lovable/index';
 import { z } from 'zod';
-import { formatCPF, validateCPF } from '@/utils/cpfValidator';
+import AuroraBackground from '@/components/auth/AuroraBackground';
+import SignupWizard from '@/components/auth/SignupWizard';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
 });
 
-const signupSchema = z.object({
-  nome_completo: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
-  cpf: z.string().refine((val) => validateCPF(val), 'CPF inválido'),
-  whatsapp: z.string().min(14, 'WhatsApp inválido').max(15, 'WhatsApp inválido'),
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  confirmPassword: z.string(),
-  tipo_conta: z.literal('cliente'),
-  acceptTerms: z.boolean().refine(val => val === true, 'Você deve aceitar os termos'),
-}).refine(data => data.password === data.confirmPassword, {
-  message: 'As senhas não coincidem',
-  path: ['confirmPassword'],
-});
-
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp, user, isLoading } = useAuth();
-  
+  const { signIn, user, isLoading } = useAuth();
+
   const [activeTab, setActiveTab] = useState<'login' | 'cadastrar'>('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Login form state
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
-  // Signup form state
-  const [nomeCompleto, setNomeCompleto] = useState('');
-  const [cpf, setCpf] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [tipoConta] = useState<'cliente'>('cliente');
-  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/';
-  const tipo = searchParams.get('tipo');
-
-  // Removed tipo_conta selector - this page is client-only now
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -71,7 +40,6 @@ const Auth: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
       loginSchema.parse({ email: loginEmail, password: loginPassword });
     } catch (error) {
@@ -80,11 +48,9 @@ const Auth: React.FC = () => {
         return;
       }
     }
-    
     setIsSubmitting(true);
     const { error } = await signIn(loginEmail, loginPassword);
     setIsSubmitting(false);
-    
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
         toast.error('Email ou senha incorretos');
@@ -97,399 +63,226 @@ const Auth: React.FC = () => {
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      signupSchema.parse({
-        nome_completo: nomeCompleto,
-        cpf,
-        whatsapp,
-        email: signupEmail,
-        password: signupPassword,
-        confirmPassword,
-        tipo_conta: tipoConta,
-        acceptTerms,
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-        return;
-      }
-    }
-    
-    setIsSubmitting(true);
-    const { error } = await signUp({
-      email: signupEmail,
-      password: signupPassword,
-      nome_completo: nomeCompleto,
-      cpf,
-      whatsapp,
-      tipo_conta: tipoConta,
-    });
-    setIsSubmitting(false);
-    
-    if (error) {
-      if (error.message.includes('already registered')) {
-        toast.error('Este email já está cadastrado');
-      } else {
-        toast.error('Erro ao criar conta. Tente novamente.');
-      }
-    } else {
-      toast.success('Conta criada com sucesso!');
-      navigate(redirect);
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-secondary/20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background via-background to-primary/5">
+    <div className="min-h-screen flex flex-col relative">
+      <AuroraBackground />
+
       {/* Header */}
-      <header className="p-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+      <header className="p-4 z-10">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
           <ArrowLeft className="h-5 w-5" />
           <span>Voltar</span>
         </Link>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-start justify-center p-4 pt-2">
+      <main className="flex-1 flex items-start justify-center p-4 pt-2 z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md"
         >
           {/* Logo */}
-           <div className="text-center mb-6">
+          <div className="text-center mb-6">
             <Link to="/">
               <img src={logoFestpag} alt="FestPag" className="h-[6.3rem] w-auto mx-auto" />
             </Link>
             <p className="text-muted-foreground mt-1">
-              {activeTab === 'login' ? '​Faça seu login e bora curtir' : 'Crie sua conta'}
+              {activeTab === 'login' ? 'Faça seu login e bora curtir' : 'Crie sua conta em poucos passos'}
             </p>
           </div>
 
-          {/* Card */}
-          <div className="bg-card rounded-2xl shadow-lg border border-border overflow-hidden">
-            {/* Tabs */}
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => setActiveTab('login')}
-                className={`flex-1 py-4 text-center font-medium transition-colors relative ${
-                  activeTab === 'login'
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Entrar
-                {activeTab === 'login' && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                  />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('cadastrar')}
-                className={`flex-1 py-4 text-center font-medium transition-colors relative ${
-                  activeTab === 'cadastrar'
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Cadastrar
-                {activeTab === 'cadastrar' && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                  />
-                )}
-              </button>
-            </div>
+          {/* Premium glass card */}
+          <div className="relative">
+            {/* Glow */}
+            <div
+              className="absolute inset-0 rounded-3xl opacity-60 blur-2xl -z-10"
+              style={{
+                background:
+                  'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(330 85% 60% / 0.3))',
+              }}
+            />
 
-            {/* Forms */}
-            <div className="p-6">
-              <AnimatePresence mode="wait">
-                {activeTab === 'login' ? (
-                  <motion.form
-                    key="login"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    onSubmit={handleLogin}
-                    className="space-y-4"
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="login-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="login-email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={loginEmail}
-                          onChange={(e) => setLoginEmail(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="login-password">Senha</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="login-password"
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="••••••••"
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          className="pl-10 pr-10"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      size="lg"
-                      disabled={isSubmitting}
+            <div className="backdrop-blur-2xl bg-card/60 rounded-3xl shadow-2xl border border-border/50 overflow-hidden">
+              {/* Tabs pílula */}
+              <div className="p-2">
+                <div className="relative flex bg-muted/50 rounded-2xl p-1">
+                  {(['login', 'cadastrar'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`relative flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors z-10 ${
+                        activeTab === tab ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
-                      {isSubmitting ? 'Entrando...' : 'Entrar'}
-                    </Button>
+                      {activeTab === tab && (
+                        <motion.div
+                          layoutId="activePillTab"
+                          className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(250,85%,60%)] to-[hsl(330,85%,60%)] shadow-lg"
+                          style={{ boxShadow: '0 4px 20px hsl(var(--primary) / 0.4)' }}
+                          transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                        />
+                      )}
+                      <span className="relative z-10">
+                        {tab === 'login' ? 'Entrar' : 'Cadastrar'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                    <div className="relative my-4">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-border" />
+              <div className="p-6 pt-2">
+                <AnimatePresence mode="wait">
+                  {activeTab === 'login' ? (
+                    <motion.form
+                      key="login"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      onSubmit={handleLogin}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-2">
+                        <Label htmlFor="login-email">Email</Label>
+                        <div className="relative group">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="login-email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            className="pl-10 h-12 bg-background/50"
+                            required
+                          />
+                        </div>
                       </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-card px-2 text-muted-foreground">ou</span>
-                      </div>
-                    </div>
 
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full gap-2"
-                        size="lg"
-                        onClick={async () => {
-                          const { error } = await lovable.auth.signInWithOAuth("google", {
-                            redirect_uri: window.location.origin,
-                          });
-                          if (error) toast.error('Erro ao entrar com Google');
-                        }}
-                      >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24">
-                          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-                          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                        </svg>
-                        Entrar com Google
-                      </Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="login-password">Senha</Label>
+                        <div className="relative group">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="login-password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            className="pl-10 pr-10 h-12 bg-background/50"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                      </div>
 
                       <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full gap-2"
+                        type="submit"
+                        variant="hero"
+                        className="w-full"
                         size="lg"
-                        onClick={async () => {
-                          const { error } = await lovable.auth.signInWithOAuth("apple", {
-                            redirect_uri: window.location.origin,
-                          });
-                          if (error) toast.error('Erro ao entrar com Apple');
-                        }}
+                        disabled={isSubmitting}
                       >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                        </svg>
-                        Entrar com Apple
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Entrando...
+                          </>
+                        ) : (
+                          'Entrar'
+                        )}
                       </Button>
-                    </div>
 
-                    <p className="text-center text-sm text-muted-foreground">
-                      Não tem conta?{' '}
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('cadastrar')}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        Cadastre-se
-                      </button>
-                    </p>
-                  </motion.form>
-                ) : (
-                  <motion.form
-                    key="cadastrar"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    onSubmit={handleSignup}
-                    className="space-y-4"
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="nome">Nome completo</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="nome"
-                          type="text"
-                          placeholder="João da Silva"
-                          value={nomeCompleto}
-                          onChange={(e) => setNomeCompleto(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
+                      <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-border/60" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-card/80 backdrop-blur px-2 text-muted-foreground">ou continue com</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="cpf">CPF</Label>
-                      <div className="relative">
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="cpf"
-                          type="text"
-                          placeholder="000.000.000-00"
-                          value={cpf}
-                          onChange={(e) => setCpf(formatCPF(e.target.value))}
-                          className="pl-10"
-                          maxLength={14}
-                          required
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          type="button"
+                          variant="glass"
+                          className="w-full gap-2 h-12"
+                          onClick={async () => {
+                            const { error } = await lovable.auth.signInWithOAuth('google', {
+                              redirect_uri: window.location.origin,
+                            });
+                            if (error) toast.error('Erro ao entrar com Google');
+                          }}
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                          </svg>
+                          Google
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="glass"
+                          className="w-full gap-2 h-12"
+                          onClick={async () => {
+                            const { error } = await lovable.auth.signInWithOAuth('apple', {
+                              redirect_uri: window.location.origin,
+                            });
+                            if (error) toast.error('Erro ao entrar com Apple');
+                          }}
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                          </svg>
+                          Apple
+                        </Button>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="whatsapp">WhatsApp</Label>
-                      <WhatsAppInput
-                        value={whatsapp}
-                        onChange={setWhatsapp}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={signupEmail}
-                          onChange={(e) => setSignupEmail(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Senha</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="signup-password"
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Mínimo 6 caracteres"
-                          value={signupPassword}
-                          onChange={(e) => setSignupPassword(e.target.value)}
-                          className="pl-10 pr-10"
-                          required
-                        />
+                      <p className="text-center text-sm text-muted-foreground pt-2">
+                        Não tem conta?{' '}
                         <button
                           type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          onClick={() => setActiveTab('cadastrar')}
+                          className="text-primary hover:underline font-medium"
                         >
-                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          Cadastre-se
                         </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirmar senha</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="confirm-password"
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          placeholder="Confirme sua senha"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="pl-10 pr-10"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                      </div>
-                    </div>
-
-
-
-
-                    <div className="flex items-start gap-2">
-                      <Checkbox
-                        id="terms"
-                        checked={acceptTerms}
-                        onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
-                      />
-                      <Label htmlFor="terms" className="text-sm text-muted-foreground leading-tight cursor-pointer">
-                        Aceito os{' '}
-                        <a href="/termos" className="text-primary hover:underline">
-                          termos de uso
-                        </a>{' '}
-                        e{' '}
-                        <a href="/privacidade" className="text-primary hover:underline">
-                          política de privacidade
-                        </a>
-                      </Label>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      size="lg"
-                      disabled={isSubmitting}
+                      </p>
+                    </motion.form>
+                  ) : (
+                    <motion.div
+                      key="cadastrar"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
                     >
-                      {isSubmitting ? 'Criando conta...' : 'Criar minha conta'}
-                    </Button>
-
-                    <p className="text-center text-sm text-muted-foreground">
-                      Já tem conta?{' '}
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('login')}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        Entrar
-                      </button>
-                    </p>
-                  </motion.form>
-                )}
-              </AnimatePresence>
+                      <SignupWizard
+                        redirect={redirect}
+                        onSwitchToLogin={() => setActiveTab('login')}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </motion.div>
