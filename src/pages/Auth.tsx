@@ -169,7 +169,7 @@ const Auth: React.FC = () => {
           {/* Logo */}
            <div className="text-center mb-6">
             <Link to="/">
-              <img src={logoFestpag} alt="FestPag" className="h-28 w-auto mx-auto" />
+              <img src={logoFestpag} alt="FestPag" className="h-[6.3rem] w-auto mx-auto" />
             </Link>
             <p className="text-muted-foreground mt-1">
               {activeTab === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}
