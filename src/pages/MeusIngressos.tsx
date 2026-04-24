@@ -5,8 +5,7 @@ import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Downloa
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { generateTicketPDF } from '@/utils/ticketPdf';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -17,45 +16,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket } from '@/hooks/useUserTickets';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const ticketRef = useRef<HTMLDivElement>(null);
-  
+
   const handleDownloadPDF = async () => {
-    if (!ticketRef.current) return;
-    
     setIsDownloading(true);
     try {
-      const canvas = await html2canvas(ticketRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`ingresso-${ticket.ticket_code.slice(0, 8)}.pdf`);
+      await generateTicketPDF(ticket);
+      toast.success('Ingresso baixado com sucesso!');
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast.error('Não foi possível gerar o PDF. Tente novamente.');
     } finally {
       setIsDownloading(false);
     }
   };
-  
+
   const statusConfig = {
     pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: Clock },
     valid: { label: 'Válido', color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: CheckCircle2 },
@@ -255,34 +236,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
         </Card>
       </motion.div>
 
-      {/* Hidden ticket for PDF generation */}
-      <div className="fixed -left-[9999px]">
-        <div ref={ticketRef} className="bg-white p-8 w-[400px]">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">{ticket.event.title}</h2>
-            <p className="text-gray-600">{ticket.lot.name}</p>
-          </div>
-          <div className="flex justify-center mb-6">
-            <QRCodeSVG
-              value={ticket.ticket_code}
-              size={200}
-              level="H"
-              includeMargin={false}
-            />
-          </div>
-          <div className="text-center mb-4">
-            <p className="font-mono text-lg font-bold text-gray-900">
-              {ticket.ticket_code.slice(0, 8).toUpperCase()}
-            </p>
-            <p className="text-gray-600">{ticket.holder_name}</p>
-          </div>
-          <div className="border-t pt-4 space-y-2 text-sm text-gray-700">
-            <p><strong>Data:</strong> {formatDate(ticket.event.date)} às {formatTime(ticket.event.time)}</p>
-            <p><strong>Local:</strong> {ticket.event.venue}</p>
-            <p><strong>Cidade:</strong> {ticket.event.city}/{ticket.event.state}</p>
-          </div>
-        </div>
-      </div>
+
 
       {/* Modal de Ingresso — visual premium estilo "ticket digital" */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
