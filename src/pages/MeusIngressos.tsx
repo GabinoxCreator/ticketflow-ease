@@ -541,7 +541,7 @@ const MeusIngressos = () => {
               ) : (
                 <EmptyState
                   title="Nenhum ingresso encontrado"
-                  description="Você ainda não tem ingressos para eventos futuros. Explore nossos eventos e garanta o seu!"
+                  description="Você ainda não tem ingressos para eventos futuros. "
                 />
               )}
             </TabsContent>
