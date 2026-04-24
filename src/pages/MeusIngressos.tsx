@@ -5,8 +5,7 @@ import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Downloa
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { generateTicketPDF } from '@/utils/ticketPdf';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
