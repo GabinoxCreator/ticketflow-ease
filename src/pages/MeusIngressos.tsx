@@ -154,56 +154,82 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 bg-card">
+        <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
+          {/* Faixa lateral colorida por status */}
+          <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+            ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
+            ticket.status === 'used' ? 'bg-muted-foreground/40' :
+            ticket.status === 'cancelled' ? 'bg-destructive' :
+            'bg-yellow-500'
+          }`} />
           <CardContent className="p-0">
-            {/* Event Image — proporção padrão dos banners de evento (16/10) */}
+            {/* Event Image */}
             <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
               <img
                 src={ticket.event.image_url || '/placeholder.svg'}
                 alt={ticket.event.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
               <Badge
                 variant="outline"
-                className={`absolute top-3 right-3 ${status.color} backdrop-blur-sm bg-background/80`}
+                className={`absolute top-3 right-3 ${status.color} backdrop-blur-md bg-background/70 shadow-lg`}
               >
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {status.label}
               </Badge>
-            </div>
 
-            {/* Ticket Info */}
-            <div className="p-4 sm:p-5">
-              <div className="mb-3">
+              {/* Título sobreposto na imagem */}
+              <div className="absolute bottom-0 left-0 right-0 p-4">
                 <h3
-                  className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1"
+                  className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
                   onClick={() => navigate(`/evento/${ticket.event.id}`)}
                 >
                   {ticket.event.title}
                 </h3>
-                <p className="text-sm text-muted-foreground">{ticket.lot.name}</p>
+                <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot.name}</p>
+              </div>
+            </div>
+
+            {/* Ticket Info */}
+            <div className="p-4 sm:p-5">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>Data</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{formatDate(ticket.event.date)}</p>
+                </div>
+                <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    <Clock className="w-3 h-3" />
+                    <span>Horário</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{formatTime(ticket.event.time)}</p>
+                </div>
+                <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>Local</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground truncate">{ticket.event.venue} — {ticket.event.city}/{ticket.event.state}</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-4">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{formatDate(ticket.event.date)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{formatTime(ticket.event.time)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 col-span-2">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span className="truncate">{ticket.event.venue} - {ticket.event.city}/{ticket.event.state}</span>
-                </div>
+              {/* Perfuração estilo ticket */}
+              <div className="relative my-4">
+                <div className="absolute -left-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
+                <div className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
+                <div className="border-t border-dashed border-border/60" />
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-border/50 gap-2 flex-wrap">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <QrCode className="w-4 h-4 text-muted-foreground" />
-                  <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <QrCode className="w-4 h-4 text-primary" />
+                  </div>
+                  <code className="text-xs font-mono font-semibold text-foreground bg-muted/60 px-2 py-1 rounded border border-border/40">
                     {ticket.ticket_code.slice(0, 8).toUpperCase()}
                   </code>
                 </div>
