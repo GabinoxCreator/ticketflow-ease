@@ -1,50 +1,88 @@
 
 
-# Ajustar card de ingresso para usar proporção padrão de banner
+# PDF do Ingresso — versão completa e didática
 
 ## Resumo
-Os cards na página `/meus-ingressos` mostram a imagem com barras laterais sobrando porque o banner está em layout horizontal com `object-contain`. Vou refatorar para layout **vertical** (banner em cima, info embaixo), usando a **mesma proporção dos banners de evento do site (`aspect-[16/10]`)**, com `object-cover` para preencher sem barras.
+O PDF atual é minimalista e gerado por screenshot (`html2canvas`), com qualidade ruim e poucas informações. Vou refazer o PDF gerando-o **nativamente via `jsPDF`** (texto vetorial, alta qualidade, peso menor), com layout de **ingresso digital completo**, todas as informações relevantes, branding FestPag e nome de arquivo amigável.
 
-## Mudanças
-
-### `src/pages/MeusIngressos.tsx` — `TicketCardSimple`
-
-**Layout atual (problema):**
-- Mobile: imagem em cima `h-32` com `object-contain` → barras laterais
-- Desktop: imagem na lateral esquerda `sm:w-56` com `object-contain` → barras laterais e imagem pequena
-
-**Novo layout (uniforme mobile + desktop):**
-- Banner full-width no topo do card com `aspect-[16/10]` (mesma proporção do `EventCard` da home)
-- `object-cover` para preencher todo o espaço sem barras laterais (imagens fora da proporção são levemente cortadas, sempre mantendo a área central visível)
-- Fallback `bg-muted/40` para quando a imagem não carregar
-- Gradiente sutil na base do banner para transição suave para o conteúdo
-- Badge de status (Válido/Utilizado/Cancelado) sobreposto no canto superior direito do banner com `backdrop-blur`
-- Bloco de informações (título, lote, data, hora, local, código QR e botões PDF/Usar Ingresso) em coluna abaixo do banner
+## Como vai ficar o PDF
 
 ```text
-┌────────────────────────────────────┐
-│                                    │
-│       BANNER 16:10 (cover)    [✓]  │  ← badge sobreposto
-│                                    │
-├────────────────────────────────────┤
-│  Samba do Brasileiro               │
-│  Primeiro Lote                     │
-│  📅 11 abr   🕐 18:00              │
-│  📍 Made in Brazil Bar - Rio Preto │
-│  ──────────────────────────────    │
-│  🔲 51B63BFE   [PDF] [Usar]        │
-└────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  ░░░ HEADER colorido (gradiente FestPag) ░░░        │
+│   FESTPAG                              INGRESSO     │
+│   Plataforma de eventos              DIGITAL ✓Válido│
+├─────────────────────────────────────────────────────┤
+│   SAMBA DO BRASILEIRO                               │
+│   2º Lote                                           │
+│                                                     │
+│   ┌─────────────┐   📅 Data e Horário               │
+│   │             │   sexta, 18 de abril de 2026      │
+│   │   QR CODE   │   18:00                           │
+│   │             │                                   │
+│   └─────────────┘   📍 Local                        │
+│   3241BBC3         Made in Brazil Bar               │
+│   Código          Rio Preto/SP                      │
+│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │
+│   👤 DADOS DO PORTADOR                              │
+│   Nome / E-mail / Telefone                          │
+│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │
+│   💳 INFORMAÇÕES DA COMPRA                          │
+│   Lote · Valor pago · Data da compra                │
+│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │
+│   ℹ️  COMO USAR SEU INGRESSO                         │
+│   1. Apresente o QR Code na entrada                 │
+│   2. Tenha documento com foto                       │
+│   3. Pessoal e intransferível                       │
+│   4. Chegue com antecedência                        │
+│   ⚠️ Não compartilhe a imagem · 1 entrada por code  │
+├─────────────────────────────────────────────────────┤
+│  Gerado por FestPag · ingressosrp.com.br · 24/04    │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Detalhes
-- Aplica-se a todas as três abas (Próximos, Anteriores, Cancelados) automaticamente, pois o componente `TicketCardSimple` é compartilhado
-- Badge de status migra do header da info para sobreposto no banner (libera espaço e fica mais visível)
-- Skeletons (`TicketSkeleton`) também ajustados para o novo formato vertical
-- Modal premium do "Usar Ingresso" permanece igual ao já implementado
+Estados visuais por status: header fica **verde** (Válido), **vermelho** (Utilizado, com selo "UTILIZADO" sobre o QR) ou **cinza** (Cancelado, com selo "CANCELADO").
+
+## Mudanças técnicas
+
+### 1. `src/hooks/useUserTickets.ts`
+- Adicionar campos ao select: `unit_price` (se existir na tabela `tickets`) — uso `lot.price` como fallback.
+- Atualizar a interface `UserTicket`.
+
+### 2. `src/pages/MeusIngressos.tsx` — `handleDownloadPDF`
+
+Trocar a abordagem `html2canvas` (screenshot) por **geração nativa em jsPDF**:
+- Página A4, margens 15mm
+- Header com retângulo colorido (cor por status), logo "FESTPAG" + badge "INGRESSO DIGITAL"
+- Título do evento grande, lote como subtítulo
+- QR Code: gerar com a lib `qrcode` (data URL PNG nítido, escaneável) e `pdf.addImage()`
+- Blocos de informação separados por linhas tracejadas estilo ticket
+- Seções: Data/Local, Portador, Compra, Como usar, Importante
+- Footer com créditos FestPag e timestamp de emissão
+
+### 3. Nome do arquivo
+**Atual:** `ingresso-3241bbc3.pdf`
+**Novo:** `Ingresso-FestPag-{evento-slug}-{CODIGO}.pdf`
+Ex.: `Ingresso-FestPag-Samba-do-Brasileiro-3241BBC3.pdf`
+
+Slugify: minúsculas, espaços → hífens, remove acentos, limita 40 chars.
+
+### 4. Limpeza
+- Remover o `<div ref={ticketRef}>` oculto (não é mais necessário)
+- Remover dependência de `html2canvas` se não for usada em outro lugar
+
+### 5. Dependências
+- `qrcode` + `@types/qrcode` (novo, ~50kb, leve)
+- `jspdf` (já instalado)
+
+## QA obrigatório
+Após implementar, vou gerar um PDF de exemplo via script Node, converter páginas em imagem com `pdftoppm` e inspecionar visualmente: sem texto sobreposto, QR escaneável, margens corretas, branding consistente. Vou listar problemas e fixes antes de entregar.
 
 ## Arquivos impactados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/MeusIngressos.tsx` | Refatorar `TicketCardSimple` e `TicketSkeleton` para layout vertical com banner em `aspect-[16/10]` `object-cover` |
+| `src/hooks/useUserTickets.ts` | Adicionar `unit_price` no select e na interface |
+| `src/pages/MeusIngressos.tsx` | Reescrever `handleDownloadPDF` com jsPDF nativo + nome amigável; remover div oculto |
+| `package.json` | Instalar `qrcode` e `@types/qrcode`; remover `html2canvas` se não usado |
 
