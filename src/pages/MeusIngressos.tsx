@@ -425,23 +425,18 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
 const TicketSkeleton = () => (
   <Card className="overflow-hidden">
     <CardContent className="p-0">
-      <div className="flex flex-col sm:flex-row">
-        <Skeleton className="w-full sm:w-40 h-32" />
-        <div className="flex-1 p-4 sm:p-5 space-y-3">
-          <div className="flex justify-between">
-            <div className="space-y-2">
-              <Skeleton className="h-5 w-48" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-            <Skeleton className="h-6 w-20" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-4 w-44 col-span-2" />
-          </div>
-          <Skeleton className="h-8 w-full" />
+      <Skeleton className="w-full aspect-[16/10]" />
+      <div className="p-4 sm:p-5 space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-4 w-24" />
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-44 col-span-2" />
+        </div>
+        <Skeleton className="h-8 w-full" />
       </div>
     </CardContent>
   </Card>
