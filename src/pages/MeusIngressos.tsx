@@ -453,49 +453,92 @@ const MeusIngressos = () => {
 
       <main className="min-h-screen bg-background pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-3xl">
-          {/* Header */}
+          {/* Hero Header Premium */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
             className="mb-8"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-primary bg-primary">
-                <Ticket className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-                Meus Ingressos
-              </h1>
-            </div>
-            <p className="text-muted-foreground">
-              {" "}
-            </p>
+            <Card className="relative overflow-hidden border-border/50 bg-gradient-to-br from-primary/15 via-card to-accent/10 backdrop-blur-xl">
+              {/* Glow decorativo */}
+              <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-accent/15 blur-3xl pointer-events-none" />
+
+              <CardContent className="relative p-6 sm:p-8">
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow shrink-0">
+                    <Ticket className="w-7 h-7 sm:w-8 sm:h-8 text-primary-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-1">
+                      Meus Ingressos
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      Gerencie seus ingressos e acesse seus QR codes
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Próximos</div>
+                    <div className="text-2xl sm:text-3xl font-display font-bold text-primary">
+                      {isLoading ? '—' : upcomingTickets.length}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/50 bg-muted/30 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Anteriores</div>
+                    <div className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+                      {isLoading ? '—' : pastTickets.length}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Cancelados</div>
+                    <div className="text-2xl sm:text-3xl font-display font-bold text-destructive">
+                      {isLoading ? '—' : cancelledTickets.length}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
 
           {/* Tabs */}
           <Tabs defaultValue="upcoming" className="w-full">
-            <TabsList className="w-full sm:w-auto mb-6 bg-muted/50">
-              <TabsTrigger value="upcoming" className="flex-1 sm:flex-none gap-2">
+            <TabsList className="w-full mb-6 bg-card/60 backdrop-blur-xl border border-border/50 p-1 h-auto">
+              <TabsTrigger
+                value="upcoming"
+                className="flex-1 gap-2 data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/20 data-[state=active]:to-accent/15 data-[state=active]:text-primary data-[state=active]:shadow-sm py-2"
+              >
                 <Ticket className="w-4 h-4" />
-                Próximos
+                <span className="hidden xs:inline">Próximos</span>
+                <span className="xs:hidden">Novos</span>
                 {upcomingTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 bg-primary/10 text-primary">
+                  <Badge variant="secondary" className="ml-1 bg-primary/15 text-primary border-0">
                     {upcomingTickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="past" className="flex-1 sm:flex-none gap-2">
+              <TabsTrigger
+                value="past"
+                className="flex-1 gap-2 data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-sm py-2"
+              >
                 Anteriores
                 {pastTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">
+                  <Badge variant="secondary" className="ml-1 border-0">
                     {pastTickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="cancelled" className="flex-1 sm:flex-none gap-2">
+              <TabsTrigger
+                value="cancelled"
+                className="flex-1 gap-2 data-[state=active]:bg-destructive/10 data-[state=active]:text-destructive data-[state=active]:shadow-sm py-2"
+              >
                 Cancelados
                 {cancelledTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">
+                  <Badge variant="secondary" className="ml-1 bg-destructive/15 text-destructive border-0">
                     {cancelledTickets.length}
                   </Badge>
                 )}
