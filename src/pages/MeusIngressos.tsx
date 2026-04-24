@@ -154,56 +154,82 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 bg-card">
+        <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
+          {/* Faixa lateral colorida por status */}
+          <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+            ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
+            ticket.status === 'used' ? 'bg-muted-foreground/40' :
+            ticket.status === 'cancelled' ? 'bg-destructive' :
+            'bg-yellow-500'
+          }`} />
           <CardContent className="p-0">
-            {/* Event Image — proporção padrão dos banners de evento (16/10) */}
+            {/* Event Image */}
             <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
               <img
                 src={ticket.event.image_url || '/placeholder.svg'}
                 alt={ticket.event.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
               <Badge
                 variant="outline"
-                className={`absolute top-3 right-3 ${status.color} backdrop-blur-sm bg-background/80`}
+                className={`absolute top-3 right-3 ${status.color} backdrop-blur-md bg-background/70 shadow-lg`}
               >
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {status.label}
               </Badge>
-            </div>
 
-            {/* Ticket Info */}
-            <div className="p-4 sm:p-5">
-              <div className="mb-3">
+              {/* Título sobreposto na imagem */}
+              <div className="absolute bottom-0 left-0 right-0 p-4">
                 <h3
-                  className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1"
+                  className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
                   onClick={() => navigate(`/evento/${ticket.event.id}`)}
                 >
                   {ticket.event.title}
                 </h3>
-                <p className="text-sm text-muted-foreground">{ticket.lot.name}</p>
+                <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot.name}</p>
+              </div>
+            </div>
+
+            {/* Ticket Info */}
+            <div className="p-4 sm:p-5">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>Data</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{formatDate(ticket.event.date)}</p>
+                </div>
+                <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    <Clock className="w-3 h-3" />
+                    <span>Horário</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{formatTime(ticket.event.time)}</p>
+                </div>
+                <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>Local</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground truncate">{ticket.event.venue} — {ticket.event.city}/{ticket.event.state}</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-4">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{formatDate(ticket.event.date)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{formatTime(ticket.event.time)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 col-span-2">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span className="truncate">{ticket.event.venue} - {ticket.event.city}/{ticket.event.state}</span>
-                </div>
+              {/* Perfuração estilo ticket */}
+              <div className="relative my-4">
+                <div className="absolute -left-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
+                <div className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
+                <div className="border-t border-dashed border-border/60" />
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-border/50 gap-2 flex-wrap">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <QrCode className="w-4 h-4 text-muted-foreground" />
-                  <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <QrCode className="w-4 h-4 text-primary" />
+                  </div>
+                  <code className="text-xs font-mono font-semibold text-foreground bg-muted/60 px-2 py-1 rounded border border-border/40">
                     {ticket.ticket_code.slice(0, 8).toUpperCase()}
                   </code>
                 </div>
@@ -427,49 +453,92 @@ const MeusIngressos = () => {
 
       <main className="min-h-screen bg-background pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-3xl">
-          {/* Header */}
+          {/* Hero Header Premium */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
             className="mb-8"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-primary bg-primary">
-                <Ticket className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-                Meus Ingressos
-              </h1>
-            </div>
-            <p className="text-muted-foreground">
-              {" "}
-            </p>
+            <Card className="relative overflow-hidden border-border/50 bg-gradient-to-br from-primary/15 via-card to-accent/10 backdrop-blur-xl">
+              {/* Glow decorativo */}
+              <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-accent/15 blur-3xl pointer-events-none" />
+
+              <CardContent className="relative p-6 sm:p-8">
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow shrink-0">
+                    <Ticket className="w-7 h-7 sm:w-8 sm:h-8 text-primary-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground mb-1">
+                      Meus Ingressos
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      Gerencie seus ingressos e acesse seus QR codes
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Próximos</div>
+                    <div className="text-2xl sm:text-3xl font-display font-bold text-primary">
+                      {isLoading ? '—' : upcomingTickets.length}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/50 bg-muted/30 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Anteriores</div>
+                    <div className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+                      {isLoading ? '—' : pastTickets.length}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 backdrop-blur-sm p-3 sm:p-4">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Cancelados</div>
+                    <div className="text-2xl sm:text-3xl font-display font-bold text-destructive">
+                      {isLoading ? '—' : cancelledTickets.length}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
 
           {/* Tabs */}
           <Tabs defaultValue="upcoming" className="w-full">
-            <TabsList className="w-full sm:w-auto mb-6 bg-muted/50">
-              <TabsTrigger value="upcoming" className="flex-1 sm:flex-none gap-2">
+            <TabsList className="w-full mb-6 bg-card/60 backdrop-blur-xl border border-border/50 p-1 h-auto">
+              <TabsTrigger
+                value="upcoming"
+                className="flex-1 gap-2 data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/20 data-[state=active]:to-accent/15 data-[state=active]:text-primary data-[state=active]:shadow-sm py-2"
+              >
                 <Ticket className="w-4 h-4" />
-                Próximos
+                <span className="hidden xs:inline">Próximos</span>
+                <span className="xs:hidden">Novos</span>
                 {upcomingTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 bg-primary/10 text-primary">
+                  <Badge variant="secondary" className="ml-1 bg-primary/15 text-primary border-0">
                     {upcomingTickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="past" className="flex-1 sm:flex-none gap-2">
+              <TabsTrigger
+                value="past"
+                className="flex-1 gap-2 data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-sm py-2"
+              >
                 Anteriores
                 {pastTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">
+                  <Badge variant="secondary" className="ml-1 border-0">
                     {pastTickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="cancelled" className="flex-1 sm:flex-none gap-2">
+              <TabsTrigger
+                value="cancelled"
+                className="flex-1 gap-2 data-[state=active]:bg-destructive/10 data-[state=active]:text-destructive data-[state=active]:shadow-sm py-2"
+              >
                 Cancelados
                 {cancelledTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">
+                  <Badge variant="secondary" className="ml-1 bg-destructive/15 text-destructive border-0">
                     {cancelledTickets.length}
                   </Badge>
                 )}
