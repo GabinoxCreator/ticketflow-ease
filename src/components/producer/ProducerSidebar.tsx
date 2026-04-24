@@ -102,12 +102,12 @@ export function ProducerSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
-      <SidebarHeader className="border-b border-border/40 py-5">
+      <SidebarHeader className="border-b border-border/40 py-6">
         <NavLink
           to="/"
           className={cn(
             'flex items-center justify-center w-full',
-            collapsed ? 'h-9' : 'h-14',
+            collapsed ? 'h-12' : 'h-20',
           )}
         >
           <img
@@ -116,8 +116,8 @@ export function ProducerSidebar() {
             className={cn(
               'w-auto object-contain transition-all duration-200',
               collapsed
-                ? 'h-8'
-                : 'h-12 drop-shadow-[0_0_8px_hsl(var(--primary)/0.15)]',
+                ? 'h-12'
+                : 'h-20 drop-shadow-[0_0_8px_hsl(var(--primary)/0.15)]',
             )}
           />
         </NavLink>
