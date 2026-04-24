@@ -494,7 +494,7 @@ const MeusIngressos = () => {
               </h1>
             </div>
             <p className="text-muted-foreground">
-              Gerencie seus ingressos e acompanhe seus eventos
+              {" "}
             </p>
           </motion.div>
 
