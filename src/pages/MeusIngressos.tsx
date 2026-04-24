@@ -236,34 +236,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
         </Card>
       </motion.div>
 
-      {/* Hidden ticket for PDF generation */}
-      <div className="fixed -left-[9999px]">
-        <div ref={ticketRef} className="bg-white p-8 w-[400px]">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">{ticket.event.title}</h2>
-            <p className="text-gray-600">{ticket.lot.name}</p>
-          </div>
-          <div className="flex justify-center mb-6">
-            <QRCodeSVG
-              value={ticket.ticket_code}
-              size={200}
-              level="H"
-              includeMargin={false}
-            />
-          </div>
-          <div className="text-center mb-4">
-            <p className="font-mono text-lg font-bold text-gray-900">
-              {ticket.ticket_code.slice(0, 8).toUpperCase()}
-            </p>
-            <p className="text-gray-600">{ticket.holder_name}</p>
-          </div>
-          <div className="border-t pt-4 space-y-2 text-sm text-gray-700">
-            <p><strong>Data:</strong> {formatDate(ticket.event.date)} às {formatTime(ticket.event.time)}</p>
-            <p><strong>Local:</strong> {ticket.event.venue}</p>
-            <p><strong>Cidade:</strong> {ticket.event.city}/{ticket.event.state}</p>
-          </div>
-        </div>
-      </div>
+
 
       {/* Modal de Ingresso — visual premium estilo "ticket digital" */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
