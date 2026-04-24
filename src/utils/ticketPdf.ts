@@ -84,6 +84,7 @@ export async function generateTicketPDF(ticket: UserTicket): Promise<void> {
   const lineGray = [209, 213, 219] as [number, number, number]; // gray-300
 
   /* ============================ HEADER =========================== */
+  pdf.setCharSpace(0); // garante char spacing zero (evita rendering com espaços extras)
   const headerH = 32;
   pdf.setFillColor(...colors.primary);
   pdf.rect(0, 0, pageW, headerH, 'F');
