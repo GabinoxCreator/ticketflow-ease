@@ -1,90 +1,50 @@
 
 
-# Melhorias na página "Meus Ingressos"
+# Ajustar card de ingresso para usar proporção padrão de banner
 
 ## Resumo
-Dois ajustes na página `/meus-ingressos`:
-1. **Banner do card**: aumentar a largura lateralmente para mostrar a imagem completa do evento, mantendo a altura.
-2. **Modal de abertura do ingresso**: redesenhar com visual premium estilo "ticket digital", aplicado nas três abas (Próximos, Anteriores, Cancelados), com **estado visual claro** indicando se está válido, utilizado ou cancelado.
+Os cards na página `/meus-ingressos` mostram a imagem com barras laterais sobrando porque o banner está em layout horizontal com `object-contain`. Vou refatorar para layout **vertical** (banner em cima, info embaixo), usando a **mesma proporção dos banners de evento do site (`aspect-[16/10]`)**, com `object-cover` para preencher sem barras.
 
 ## Mudanças
 
-### 1. Banner do card — `TicketCardSimple`
+### `src/pages/MeusIngressos.tsx` — `TicketCardSimple`
 
-**Atual:** `sm:w-40` + `object-cover` → imagem cortada e quadradinha.
+**Layout atual (problema):**
+- Mobile: imagem em cima `h-32` com `object-contain` → barras laterais
+- Desktop: imagem na lateral esquerda `sm:w-56` com `object-contain` → barras laterais e imagem pequena
 
-**Novo:**
-- Largura lateral no desktop: `sm:w-40` → `sm:w-56` (224px)
-- `object-cover` → `object-contain` com fundo `bg-muted/40` para mostrar a imagem completa
-- Altura mantida (mobile `h-32`, desktop preenche o card)
-- Restante do card (info, botões, código) intacto
-
-### 2. Botão para abrir o ingresso em todas as abas
-
-Hoje o botão só aparece quando `status === 'valid'`. Mudança:
-- **Próximos (valid)** → botão **"Usar Ingresso"** (verde/gradient) + "PDF"
-- **Anteriores (used)** → botão **"Ver Ingresso"** (cinza)
-- **Cancelados (cancelled)** → botão **"Ver Detalhes"** (cinza com borda destrutiva)
-
-Todos abrem o **mesmo modal**, que se adapta ao status.
-
-### 3. Redesign do Modal — com estado visual por status
+**Novo layout (uniforme mobile + desktop):**
+- Banner full-width no topo do card com `aspect-[16/10]` (mesma proporção do `EventCard` da home)
+- `object-cover` para preencher todo o espaço sem barras laterais (imagens fora da proporção são levemente cortadas, sempre mantendo a área central visível)
+- Fallback `bg-muted/40` para quando a imagem não carregar
+- Gradiente sutil na base do banner para transição suave para o conteúdo
+- Badge de status (Válido/Utilizado/Cancelado) sobreposto no canto superior direito do banner com `backdrop-blur`
+- Bloco de informações (título, lote, data, hora, local, código QR e botões PDF/Usar Ingresso) em coluna abaixo do banner
 
 ```text
 ┌────────────────────────────────────┐
-│  ░░░ banner do evento (blur) ░░░   │  ← hero: banner desfocado
-│         [ícone do status]          │     muda de cor por status
-│         SEU INGRESSO               │
+│                                    │
+│       BANNER 16:10 (cover)    [✓]  │  ← badge sobreposto
+│                                    │
 ├────────────────────────────────────┤
-│  ╭──────────────────────────────╮  │
-│  │   ▓▓▓ QR CODE 220px ▓▓▓      │  │  ← card branco
-│  │   [overlay se used/cancel]   │  │
-│  │   CÓDIGO: 51B63BFE           │  │
-│  │   Nome do titular            │  │
-│  ╰──────────────────────────────╯  │
-│  ◐ - - - - - - - - - - - - - - ◑  │  ← perfuração estilo ticket
-│   📅 11 de abril  🕐 18:00          │
-│   📍 Made in Brazil Bar             │
-│   🎫 Primeiro Lote                  │
-│                                    │
-│  ┌──────────────────────────────┐  │
-│  │ ✓ INGRESSO VÁLIDO            │  │  ← banner de status na base
-│  └──────────────────────────────┘  │     (cor muda por estado)
-│                                    │
-│   [Baixar PDF]  [Compartilhar]     │
+│  Samba do Brasileiro               │
+│  Primeiro Lote                     │
+│  📅 11 abr   🕐 18:00              │
+│  📍 Made in Brazil Bar - Rio Preto │
+│  ──────────────────────────────    │
+│  🔲 51B63BFE   [PDF] [Usar]        │
 └────────────────────────────────────┘
 ```
 
-#### Estados visuais (essência do pedido)
-
-| Status | Cor dominante | Ícone hero | Overlay no QR | Banner de status |
-|---|---|---|---|---|
-| **valid** (Próximos) | Verde (`from-green-500 to-emerald-600`) | `CheckCircle2` | nenhum (QR limpo, escaneável) | "✓ INGRESSO VÁLIDO — Apresente na entrada" |
-| **used** (Anteriores) | Vermelho/escuro (`from-red-600 to-rose-700`) | `XCircle` | Selo diagonal grande **"UTILIZADO"** semi-transparente sobre o QR + QR esmaecido (`opacity-40 grayscale`) | "✕ INGRESSO JÁ UTILIZADO — Validado em [data]" |
-| **cancelled** | Vermelho/cinza (`from-zinc-700 to-red-900`) | `Ban` | Selo diagonal **"CANCELADO"** + QR esmaecido | "⊘ INGRESSO CANCELADO" |
-
-Detalhes:
-- O **hero do modal** muda totalmente de cor conforme o status — fica imediatamente óbvio o estado ao abrir
-- O **banner do evento desfocado** continua de fundo do hero, mas o gradiente colorido por cima reflete o status
-- **Selo diagonal** sobre o QR usa `rotate(-15deg)`, fonte bold grande, com borda dupla — visual de carimbo
-- QR de ingressos `used`/`cancelled` recebe `opacity-40 grayscale` (não-funcional visualmente, evita confusão na portaria)
-- **Animação**: entrada com fade + slide-up; selo de status entra com pequeno zoom (`framer-motion`)
-- **Ações**:
-  - `valid`: "Baixar PDF" + "Compartilhar" (Web Share API com fallback de copiar)
-  - `used`/`cancelled`: apenas "Baixar PDF" (registro/comprovante)
-- Acessibilidade: `Dialog` shadcn já entrega ARIA + ESC
-
-### 4. Detalhes técnicos
-
-- Arquivo único alterado: `src/pages/MeusIngressos.tsx`
-- Sem novas dependências (`qrcode.react`, `framer-motion`, `html2canvas`, `jspdf`, `lucide-react` já existem)
-- "Perfuração" do ticket: dois `div` absolutos `rounded-full bg-background` nas laterais + `border-dashed` horizontal
-- Mapa de status centralizado em uma constante (cores, ícones, labels, copy do banner) para manter consistência
-- Sem mudanças em `useUserTickets`, schema ou banco
+### Detalhes
+- Aplica-se a todas as três abas (Próximos, Anteriores, Cancelados) automaticamente, pois o componente `TicketCardSimple` é compartilhado
+- Badge de status migra do header da info para sobreposto no banner (libera espaço e fica mais visível)
+- Skeletons (`TicketSkeleton`) também ajustados para o novo formato vertical
+- Modal premium do "Usar Ingresso" permanece igual ao já implementado
 
 ## Arquivos impactados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/MeusIngressos.tsx` | Banner mais largo + botão em todas as abas + modal redesenhado com estados visuais por status |
+| `src/pages/MeusIngressos.tsx` | Refatorar `TicketCardSimple` e `TicketSkeleton` para layout vertical com banner em `aspect-[16/10]` `object-cover` |
 
