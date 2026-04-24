@@ -97,51 +97,127 @@ const Header = () => {
                     {/* User Dropdown */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="flex items-center gap-2 px-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                              {profile?.nome_completo ? getInitials(profile.nome_completo) : 'U'}
-                            </AvatarFallback>
-                          </Avatar>
+                        <Button variant="ghost" className="flex items-center gap-2 px-2 group">
+                          <div className="relative">
+                            <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-primary to-pink-500 opacity-80 blur-[1px]" />
+                            <Avatar className="h-9 w-9 relative ring-2 ring-background">
+                              <AvatarFallback className="bg-gradient-to-br from-primary to-pink-500 text-primary-foreground text-xs font-semibold">
+                                {profile?.nome_completo ? getInitials(profile.nome_completo) : 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
                           <span className="hidden md:block text-sm font-medium max-w-[100px] truncate">
                             {profile?.nome_completo?.split(' ')[0] || 'Usuário'}
                           </span>
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <div className="px-3 py-2 border-b border-border">
-                          <p className="font-medium text-sm">{profile?.nome_completo}</p>
-                          <p className="text-xs text-muted-foreground">{profile?.email}</p>
+                      <DropdownMenuContent
+                        align="end"
+                        sideOffset={12}
+                        className="w-[calc(100vw-2rem)] max-w-[320px] sm:w-72 p-0 overflow-hidden border-border/50 shadow-2xl shadow-primary/10 bg-popover/95 backdrop-blur-xl"
+                      >
+                        {/* Header com gradiente e dados do usuário */}
+                        <div className="relative px-4 pt-4 pb-3 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent border-b border-border/50">
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.18),_transparent_60%)] pointer-events-none" />
+                          <div className="relative flex items-start gap-3">
+                            <div className="relative flex-shrink-0">
+                              <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-primary to-pink-500 opacity-90 blur-[2px]" />
+                              <Avatar className="h-12 w-12 relative ring-2 ring-background">
+                                <AvatarFallback className="bg-gradient-to-br from-primary to-pink-500 text-primary-foreground text-sm font-bold">
+                                  {profile?.nome_completo ? getInitials(profile.nome_completo) : 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                            </div>
+                            <div className="min-w-0 flex-1 pt-0.5">
+                              <p className="font-semibold text-sm leading-tight truncate">
+                                {profile?.nome_completo || 'Usuário'}
+                              </p>
+                              <p
+                                className="text-xs text-muted-foreground truncate mt-0.5"
+                                title={profile?.email}
+                              >
+                                {profile?.email}
+                              </p>
+                              <Badge
+                                variant="secondary"
+                                className="mt-2 h-5 px-2 text-[10px] font-medium bg-primary/15 text-primary hover:bg-primary/20 border-0 gap-1"
+                              >
+                                <Sparkles className="h-2.5 w-2.5" />
+                                {isProdutor ? 'Produtor' : 'Cliente'}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
-                        
+
+                        {/* Seção: Painel (apenas produtor) */}
                         {isProdutor && (
-                          <>
-                            <DropdownMenuItem onClick={() => navigate('/produtor/dashboard')}>
-                              <LayoutDashboard className="mr-2 h-4 w-4" />
-                              Painel do Produtor
+                          <DropdownMenuGroup className="p-2">
+                            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1.5">
+                              Painel
+                            </DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => navigate('/produtor/dashboard')}
+                              className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
+                            >
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
+                                <LayoutDashboard className="h-4 w-4 text-foreground/80" />
+                              </div>
+                              <span className="flex-1 text-sm font-medium">Painel do Produtor</span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate('/produtor/eventos')}>
-                              <Calendar className="mr-2 h-4 w-4" />
-                              Meus Eventos
+                            <DropdownMenuItem
+                              onClick={() => navigate('/produtor/eventos')}
+                              className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
+                            >
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
+                                <Calendar className="h-4 w-4 text-foreground/80" />
+                              </div>
+                              <span className="flex-1 text-sm font-medium">Meus Eventos</span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                          </>
+                          </DropdownMenuGroup>
                         )}
-                        
-                        <DropdownMenuItem onClick={() => navigate('/meus-ingressos')}>
-                          <Ticket className="mr-2 h-4 w-4" />
-                          Meus Ingressos
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate('/minha-conta')}>
-                          <User className="mr-2 h-4 w-4" />
-                          Minha Conta
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                          <LogOut className="mr-2 h-4 w-4" />
-                          Sair
-                        </DropdownMenuItem>
+
+                        {isProdutor && <DropdownMenuSeparator className="my-0" />}
+
+                        {/* Seção: Conta */}
+                        <DropdownMenuGroup className="p-2">
+                          <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1.5">
+                            Conta
+                          </DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onClick={() => navigate('/meus-ingressos')}
+                            className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
+                          >
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
+                              <Ticket className="h-4 w-4 text-foreground/80" />
+                            </div>
+                            <span className="flex-1 text-sm font-medium">Meus Ingressos</span>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => navigate('/minha-conta')}
+                            className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
+                          >
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
+                              <User className="h-4 w-4 text-foreground/80" />
+                            </div>
+                            <span className="flex-1 text-sm font-medium">Minha Conta</span>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+
+                        {/* Botão Sair destacado */}
+                        <div className="p-2 pt-0">
+                          <button
+                            onClick={handleSignOut}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 hover:border-destructive/30 text-sm font-medium transition-colors"
+                          >
+                            <LogOut className="h-4 w-4" />
+                            Sair da conta
+                          </button>
+                        </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </>
