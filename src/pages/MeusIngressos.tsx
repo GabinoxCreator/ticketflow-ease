@@ -175,115 +175,82 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
       >
         <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-border/50 bg-card">
           <CardContent className="p-0">
-            <div className="flex flex-col sm:flex-row">
-              {/* Event Image — banner completo, mais largo */}
-              <div className="relative w-full sm:w-56 h-32 sm:h-auto shrink-0 bg-muted/40">
-                <img
-                  src={ticket.event.image_url || '/placeholder.svg'}
-                  alt={ticket.event.title}
-                  className="w-full h-full object-contain"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent sm:hidden" />
+            {/* Event Image — proporção padrão dos banners de evento (16/10) */}
+            <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
+              <img
+                src={ticket.event.image_url || '/placeholder.svg'}
+                alt={ticket.event.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+              <Badge
+                variant="outline"
+                className={`absolute top-3 right-3 ${status.color} backdrop-blur-sm bg-background/80`}
+              >
+                <StatusIcon className="w-3 h-3 mr-1" />
+                {status.label}
+              </Badge>
+            </div>
+
+            {/* Ticket Info */}
+            <div className="p-4 sm:p-5">
+              <div className="mb-3">
+                <h3
+                  className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1"
+                  onClick={() => navigate(`/evento/${ticket.event.id}`)}
+                >
+                  {ticket.event.title}
+                </h3>
+                <p className="text-sm text-muted-foreground">{ticket.lot.name}</p>
               </div>
 
-              {/* Ticket Info */}
-              <div className="flex-1 p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <h3 
-                      className="font-semibold text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1"
-                      onClick={() => navigate(`/evento/${ticket.event.id}`)}
-                    >
-                      {ticket.event.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{ticket.lot.name}</p>
-                  </div>
-                  <Badge variant="outline" className={status.color}>
-                    <StatusIcon className="w-3 h-3 mr-1" />
-                    {status.label}
-                  </Badge>
+              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-4">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{formatDate(ticket.event.date)}</span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-4">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{formatDate(ticket.event.date)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{formatTime(ticket.event.time)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 col-span-2">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span className="truncate">{ticket.event.venue} - {ticket.event.city}/{ticket.event.state}</span>
-                  </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{formatTime(ticket.event.time)}</span>
                 </div>
+                <div className="flex items-center gap-1.5 col-span-2">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span className="truncate">{ticket.event.venue} - {ticket.event.city}/{ticket.event.state}</span>
+                </div>
+              </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-border/50 gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <QrCode className="w-4 h-4 text-muted-foreground" />
-                    <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
-                      {ticket.ticket_code.slice(0, 8).toUpperCase()}
-                    </code>
-                  </div>
-                  <div className="flex gap-2">
-                    {ticket.status === 'valid' && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="gap-1.5" 
-                        onClick={handleDownloadPDF}
-                        disabled={isDownloading}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        {isDownloading ? 'Gerando...' : 'PDF'}
-                      </Button>
-                    )}
+              <div className="flex items-center justify-between pt-3 border-t border-border/50 gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <QrCode className="w-4 h-4 text-muted-foreground" />
+                  <code className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+                    {ticket.ticket_code.slice(0, 8).toUpperCase()}
+                  </code>
+                </div>
+                <div className="flex gap-2">
+                  {ticket.status === 'valid' && (
                     <Button
                       size="sm"
-                      variant={modal.ctaVariant}
-                      className={`gap-1.5 ${modal.cardBtnClass}`}
-                      onClick={() => setShowQR(true)}
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={handleDownloadPDF}
+                      disabled={isDownloading}
                     >
-                      <CtaIcon className="w-3.5 h-3.5" />
-                      {modal.ctaLabel}
+                      <Download className="w-3.5 h-3.5" />
+                      {isDownloading ? 'Gerando...' : 'PDF'}
                     </Button>
-                  </div>
+                  )}
+                  <Button
+                    size="sm"
+                    variant={modal.ctaVariant}
+                    className={`gap-1.5 ${modal.cardBtnClass}`}
+                    onClick={() => setShowQR(true)}
+                  >
+                    <CtaIcon className="w-3.5 h-3.5" />
+                    {modal.ctaLabel}
+                  </Button>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Hidden ticket for PDF generation */}
-      <div className="fixed -left-[9999px]">
-        <div ref={ticketRef} className="bg-white p-8 w-[400px]">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">{ticket.event.title}</h2>
-            <p className="text-gray-600">{ticket.lot.name}</p>
-          </div>
-          <div className="flex justify-center mb-6">
-            <QRCodeSVG
-              value={ticket.ticket_code}
-              size={200}
-              level="H"
-              includeMargin={false}
-            />
-          </div>
-          <div className="text-center mb-4">
-            <p className="font-mono text-lg font-bold text-gray-900">
-              {ticket.ticket_code.slice(0, 8).toUpperCase()}
-            </p>
-            <p className="text-gray-600">{ticket.holder_name}</p>
-          </div>
-          <div className="border-t pt-4 space-y-2 text-sm text-gray-700">
-            <p><strong>Data:</strong> {formatDate(ticket.event.date)} às {formatTime(ticket.event.time)}</p>
-            <p><strong>Local:</strong> {ticket.event.venue}</p>
-            <p><strong>Cidade:</strong> {ticket.event.city}/{ticket.event.state}</p>
-          </div>
-        </div>
-      </div>
 
       {/* Modal de Ingresso — visual premium estilo "ticket digital" */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
