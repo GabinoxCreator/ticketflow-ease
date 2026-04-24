@@ -23,38 +23,20 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const ticketRef = useRef<HTMLDivElement>(null);
-  
+
   const handleDownloadPDF = async () => {
-    if (!ticketRef.current) return;
-    
     setIsDownloading(true);
     try {
-      const canvas = await html2canvas(ticketRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`ingresso-${ticket.ticket_code.slice(0, 8)}.pdf`);
+      await generateTicketPDF(ticket);
+      toast.success('Ingresso baixado com sucesso!');
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast.error('Não foi possível gerar o PDF. Tente novamente.');
     } finally {
       setIsDownloading(false);
     }
   };
-  
+
   const statusConfig = {
     pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: Clock },
     valid: { label: 'Válido', color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: CheckCircle2 },
