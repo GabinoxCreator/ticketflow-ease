@@ -102,14 +102,22 @@ export function ProducerSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
-      <SidebarHeader className="border-b border-border/40 py-6">
-        <NavLink to="/" className="flex items-center justify-center w-full">
+      <SidebarHeader className="border-b border-border/40 py-7">
+        <NavLink
+          to="/"
+          className={cn(
+            'flex items-center justify-center w-full overflow-hidden',
+            collapsed ? 'h-9' : 'h-16',
+          )}
+        >
           <img
             src={logoFestpag}
             alt="FestPag"
             className={cn(
-              'w-auto transition-all duration-200',
-              collapsed ? 'h-7' : 'h-12',
+              'w-auto object-contain transition-all duration-200',
+              collapsed
+                ? 'h-9 scale-110'
+                : 'h-16 scale-125 drop-shadow-[0_0_12px_hsl(var(--primary)/0.25)]',
             )}
           />
         </NavLink>
