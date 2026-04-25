@@ -32,8 +32,7 @@ import ResetPassword from "./pages/ResetPassword";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosDeUso from "./pages/TermosDeUso";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
-import ProducerLogin from "./pages/ProducerLogin";
-import ProducerSignup from "./pages/ProducerSignup";
+import ProducerAuth from "./pages/ProducerAuth";
 import ProducerOrders from "./pages/ProducerOrders";
 import ProducerSettings from "./pages/ProducerSettings";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
@@ -72,8 +71,8 @@ const App = () => (
 
                 {/* Producer Area (public) */}
                 <Route path="/area-do-produtor" element={<AreaDoProdutor />} />
-                <Route path="/area-do-produtor/login" element={<ProducerLogin />} />
-                <Route path="/area-do-produtor/cadastro" element={<ProducerSignup />} />
+                <Route path="/area-do-produtor/login" element={<ProducerAuth />} />
+                <Route path="/area-do-produtor/cadastro" element={<ProducerAuth />} />
 
                 {/* Producer Dashboard (protected) */}
                 <Route path="/produtor/dashboard" element={<ProtectedRoute requiredRole="produtor"><Dashboard /></ProtectedRoute>} />
