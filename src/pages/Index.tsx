@@ -73,25 +73,37 @@ const Index = () => {
           {/* Hero Banner */}
           <HomeHeroBanner />
 
-          {isLoading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <section id="eventos" className="scroll-mt-24 py-12">
+            <div className="container px-4">
+              <div className="text-center mb-10">
+                <h2 className="font-display font-bold text-3xl md:text-4xl mb-3">
+                  Próximos <span className="gradient-text">Eventos</span>
+                </h2>
+                <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+                  Não perca os melhores eventos da região
+                </p>
+              </div>
+
+              {isLoading ? (
+                <div className="flex justify-center items-center py-16">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : events.length === 0 ? (
+                <div className="text-center py-16 rounded-3xl border border-border/40 bg-card/30 backdrop-blur-sm">
+                  <p className="text-muted-foreground text-base md:text-lg">
+                    Nenhum evento disponível no momento.
+                  </p>
+                  <p className="text-muted-foreground/70 text-sm mt-2">
+                    Volte em breve — novidades chegam por aqui toda semana.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <EventGrid events={events} />
+                </div>
+              )}
             </div>
-          ) : events.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-muted-foreground text-lg">
-                Nenhum evento disponível no momento.
-              </p>
-            </div>
-          ) : (
-            <div id="eventos" className="scroll-mt-24">
-              <EventGrid
-                events={events}
-                title="Próximos Eventos"
-                subtitle="Não perca os melhores eventos da região"
-              />
-            </div>
-          )}
+          </section>
 
           {/* Seção de soluções para produtores */}
           <ProducerSolutionsSection variant="home" />
