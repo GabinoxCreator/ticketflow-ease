@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { ArrowLeft, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface SignupData {
   cpf: string;
@@ -21,16 +18,6 @@ interface StepConfirmProps {
 }
 
 const StepConfirm: React.FC<StepConfirmProps> = ({ data, submitting, onBack, onSubmit }) => {
-  const [acceptTerms, setAcceptTerms] = useState(false);
-
-  const handleSubmit = () => {
-    if (!acceptTerms) {
-      toast.error('Aceite os termos para continuar');
-      return;
-    }
-    onSubmit();
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -63,26 +50,6 @@ const StepConfirm: React.FC<StepConfirmProps> = ({ data, submitting, onBack, onS
         <Row label="WhatsApp" value={data.whatsapp} />
       </div>
 
-      <div className="flex items-start gap-2.5">
-        <Checkbox
-          id="terms"
-          checked={acceptTerms}
-          onCheckedChange={(c) => setAcceptTerms(c as boolean)}
-          className="mt-0.5"
-        />
-        <Label htmlFor="terms" className="text-sm text-muted-foreground leading-snug cursor-pointer">
-          Aceito os{' '}
-          <a href="/termos" target="_blank" className="text-primary hover:underline">
-            termos de uso
-          </a>{' '}
-          e a{' '}
-          <a href="/privacidade" target="_blank" className="text-primary hover:underline">
-            política de privacidade
-          </a>
-          .
-        </Label>
-      </div>
-
       <div className="flex gap-2">
         <Button
           type="button"
@@ -96,8 +63,8 @@ const StepConfirm: React.FC<StepConfirmProps> = ({ data, submitting, onBack, onS
         </Button>
         <Button
           type="button"
-          onClick={handleSubmit}
-          disabled={submitting || !acceptTerms}
+          onClick={onSubmit}
+          disabled={submitting}
           variant="hero"
           size="lg"
           className="flex-1"
@@ -112,6 +79,18 @@ const StepConfirm: React.FC<StepConfirmProps> = ({ data, submitting, onBack, onS
           )}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground text-center leading-relaxed">
+        Ao clicar em <span className="font-medium text-foreground">Criar minha conta</span>, você concorda com nossos{' '}
+        <a href="/termos" target="_blank" className="text-primary hover:underline">
+          termos de uso
+        </a>{' '}
+        e{' '}
+        <a href="/privacidade" target="_blank" className="text-primary hover:underline">
+          política de privacidade
+        </a>
+        .
+      </p>
     </motion.div>
   );
 };
