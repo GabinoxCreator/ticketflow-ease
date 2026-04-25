@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/caveat": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/sora": "^5.2.8",
     "@hookform/resolvers": "^3.10.0",

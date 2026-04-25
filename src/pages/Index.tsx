@@ -7,7 +7,7 @@ import ProducerSolutionsSection from '@/components/home/ProducerSolutionsSection
 import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
-import bannerHome from '@/assets/banner-home.png';
+import HomeHeroBanner from '@/components/home/HomeHeroBanner';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
@@ -71,16 +71,7 @@ const Index = () => {
         <Header />
         <main className="pt-24">
           {/* Hero Banner */}
-          <section className="container mx-auto px-4 mb-10">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
-              <img
-                src={bannerHome}
-                alt="FestPag - Os melhores eventos"
-                className="w-full h-[220px] sm:h-[300px] md:h-[380px] object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
-            </div>
-          </section>
+          <HomeHeroBanner />
 
           {isLoading ? (
             <div className="flex justify-center items-center py-20">
@@ -93,11 +84,13 @@ const Index = () => {
               </p>
             </div>
           ) : (
-            <EventGrid
-              events={events}
-              title="Próximos Eventos"
-              subtitle="Não perca os melhores eventos da região"
-            />
+            <div id="eventos" className="scroll-mt-24">
+              <EventGrid
+                events={events}
+                title="Próximos Eventos"
+                subtitle="Não perca os melhores eventos da região"
+              />
+            </div>
           )}
 
           {/* Seção de soluções para produtores */}
