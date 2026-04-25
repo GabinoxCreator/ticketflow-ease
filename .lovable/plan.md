@@ -1,59 +1,38 @@
-## Novo Hero Banner — Estilo "Somos a rede de pagamentos e serviços focados em grandes eventos"
 
-Substituir o banner atual da home (imagem `bannerHome` com gradiente simples) por um hero **split-layout** construído inteiramente em código, fiel à referência mas adaptado ao tema dark do FestPag (Indigo/Magenta sobre `bg-background`, em vez do bege da referência — para manter consistência visual com o resto do app).
+## Ajustes solicitados
 
-### 1. Layout (2 colunas no desktop, empilhado no mobile)
+### 1. Hero da Home — eliminar a "faixa preta" acima do banner
+**Arquivo:** `src/pages/Index.tsx`
+- O `<main>` hoje usa `pt-24`, criando o espaço vazio entre o header fixo e o banner.
+- Trocar para `pt-20` (altura exata do header) e mover qualquer respiro interno para dentro do próprio `HomeHeroBanner`, fazendo o glow/decoração do hero começar imediatamente abaixo do menu.
 
-**Coluna esquerda** — colagem de 3 "polaroids":
-- Card central em destaque (rotação 0°, sombra forte, z-index maior) com selo circular "FestPag!" branco e legenda manuscrita "Pagou!" no rodapé.
-- Card à esquerda levemente rotacionado (-8°) atrás, mostrando imagem de festival/fogos.
-- Card à direita rotacionado (+6°) atrás, mostrando imagem de público em show.
-- Imagens via Unsplash (eventos/festivais) ou geradas — usaremos URLs Unsplash já validadas no projeto para não criar assets novos.
+**Arquivo:** `src/components/home/HomeHeroBanner.tsx`
+- Reduzir o `py-10 md:py-16 lg:py-20` do container do hero para `pt-6 md:pt-10` + `pb-10 md:pb-16`, garantindo que o conteúdo (incluindo o glow de fundo) inicie colado ao header.
+- Estender os blobs de glow (`-top-20`) para que pintem também a faixa imediatamente abaixo do header e não fiquem "cortados".
 
-**Coluna direita** — bloco textual:
-- Headline em `font-display` (Sora) extra-bold, uppercase, tracking apertado:
-  - "SOMOS A REDE DE" (foreground)
-  - "**PAGAMENTOS** E SERVIÇOS" (PAGAMENTOS em gradient Indigo→Magenta)
-  - "FOCADOS EM *GRANDES EVENTOS*" (GRANDES EVENTOS em fonte script/itálica accent verde-lima `text-lime-400` para citar a referência sem perder identidade)
-- Linha de social proof: ⭐ 4.9 + "+10 mil avaliações do App"
-- Dois CTAs em pill outline (estilo da referência):
-  - "Explorar festivais" → scroll suave para `#eventos` (a `EventGrid` já existente)
-  - "Vender na FestPag" → `/area-do-produtor/cadastro`
-- Globo decorativo Indigo no canto inferior direito (`<Globe>` lucide com baixa opacidade), igual ao usado em `ProducerSolutionsSection`.
+### 2. Hero — remover bloco de avaliações
+**Arquivo:** `src/components/home/HomeHeroBanner.tsx`
+- Remover por completo a div com "4.9 ⭐ +10 mil avaliações do App" (linhas do bloco `Social proof`).
+- Remover também o import `Star` que ficará órfão.
 
-### 2. Implementação técnica
+### 3. Remover os 2 cards "perdidos" abaixo do botão "Vender na FestPag"
+Na imagem 2, os retângulos vazios visíveis abaixo dos CTAs são os 2 últimos polaroids do hero (esquerda e direita) que ficam "soltos" no mobile porque o card central tem altura maior. No mobile, a coluna de polaroids fica alta demais e deixa duas "molduras" vazias sobrando.
 
-**Arquivo novo**: `src/components/home/HomeHeroBanner.tsx`
-- Componente self-contained, sem props.
-- Uso de `framer-motion` para entrada staggered das polaroids e do texto.
-- Imagens das polaroids via `<img>` com `object-cover` dentro de wrappers `rounded-2xl bg-card p-3 shadow-2xl` (efeito polaroid com padding branco/card).
-- Tipografia responsiva: `text-4xl md:text-5xl lg:text-6xl xl:text-7xl`.
-- Container: `container mx-auto px-4 py-12 md:py-20 grid lg:grid-cols-2 gap-12 items-center`.
+**Arquivo:** `src/components/home/HomeHeroBanner.tsx`
+- No mobile (`<lg`), exibir **apenas o polaroid central em destaque** (o do "FestPag! / Pagou!"), ocultando os dois polaroids laterais com `hidden lg:block`.
+- Reduzir a altura da coluna de polaroids no mobile (`h-[380px]` → `h-[280px] sm:h-[340px]`) e centralizar o polaroid central, eliminando o espaço vazio.
+- Manter o layout completo (3 polaroids) inalterado em desktop.
 
-**Arquivo modificado**: `src/pages/Index.tsx`
-- Remover o bloco `<section>` atual com `bannerHome` e o `import bannerHome`.
-- Substituir por `<HomeHeroBanner />` logo após `<main className="pt-24">`.
-- Adicionar `id="eventos"` no wrapper do `<EventGrid>` para o CTA "Explorar festivais" funcionar.
+### 4. Seção "Soluções Integradas" — simplificar header
+**Arquivo:** `src/components/home/ProducerSolutionsSection.tsx`
+- Remover o `<h2>` "Soluções Integradas para Eventos".
+- Remover o `<p>` de descrição "Da venda online ao check-in na portaria…".
+- Manter apenas o badge pill "Para produtores e organizadores" (com o ícone Sparkles), reduzindo o `mb-10 md:mb-14` para `mb-8 md:mb-10` para o bento grid começar logo abaixo.
+- Variante `'page'` (usada em `AreaDoProdutor.tsx`) **continua igual** (mantém título e subtítulo) — só a variante `'home'` recebe o tratamento minimalista.
 
-### 3. Detalhes de fidelidade vs. adaptação
-
-| Referência | Nossa versão |
-|---|---|
-| Fundo bege claro | `bg-background` dark (consistência com app) |
-| "PAGAMENTOS" roxo + "GRANDES EVENTOS" verde manuscrito | Mantém: Indigo-gradient + lime script italic |
-| 3 polaroids colagem | ✅ Mantido idêntico |
-| Selo "FestPag!" + "Pagou!" manuscrito | ✅ Mantido (texto, não imagem) |
-| 4.9 ⭐ + avaliações | ✅ Mantido |
-| 2 botões pill | ✅ Mantido (cores adaptadas ao dark) |
-| Globo roxo decorativo | ✅ Mantido |
-
-### Arquivos
-
-**Criar:**
+### Arquivos a modificar
+- `src/pages/Index.tsx`
 - `src/components/home/HomeHeroBanner.tsx`
+- `src/components/home/ProducerSolutionsSection.tsx`
 
-**Modificar:**
-- `src/pages/Index.tsx` (remover banner atual + import, adicionar `<HomeHeroBanner />` e `id="eventos"`)
-
-**Não tocar:**
-- Asset `src/assets/banner-home.png` continua no repo mas deixa de ser importado (pode ser removido depois manualmente).
+Nenhum arquivo será criado ou deletado. Sem mudanças de banco, rotas ou edge functions.
