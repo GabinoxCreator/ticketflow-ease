@@ -5,7 +5,6 @@ import StepCPF from './signup-steps/StepCPF';
 import StepEmail from './signup-steps/StepEmail';
 import StepWhatsApp from './signup-steps/StepWhatsApp';
 import StepPassword from './signup-steps/StepPassword';
-import StepConfirm from './signup-steps/StepConfirm';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -58,8 +57,8 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
     <div className="space-y-6">
       <StepIndicator
         currentStep={step}
-        totalSteps={5}
-        labels={['CPF', 'Email', 'WhatsApp', 'Senha', 'Confirmar']}
+        totalSteps={4}
+        labels={['CPF', 'Email', 'WhatsApp', 'Senha']}
       />
 
       <AnimatePresence mode="wait">
@@ -103,18 +102,10 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
             key="step4"
             password={password}
             confirmPassword={confirmPassword}
+            submitting={submitting}
             onPasswordChange={setPassword}
             onConfirmPasswordChange={setConfirmPassword}
             onBack={() => setStep(3)}
-            onNext={() => setStep(5)}
-          />
-        )}
-        {step === 5 && (
-          <StepConfirm
-            key="step5"
-            data={{ cpf, nomeCompleto, email, whatsapp }}
-            submitting={submitting}
-            onBack={() => setStep(4)}
             onSubmit={handleSubmit}
           />
         )}
