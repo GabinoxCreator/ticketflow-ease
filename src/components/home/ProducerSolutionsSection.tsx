@@ -64,18 +64,25 @@ const ProducerSolutionsSection = ({ variant = 'home' }: ProducerSolutionsSection
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-10 md:mb-14"
+          className={cn(
+            'text-center',
+            variant === 'home' ? 'mb-8 md:mb-10' : 'mb-10 md:mb-14',
+          )}
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-4 border border-primary/20">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-xs font-semibold border border-primary/20">
             <Sparkles className="w-3.5 h-3.5" />
             {variant === 'home' ? 'Para produtores e organizadores' : 'A plataforma completa'}
           </div>
-          <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl mb-3 text-foreground">
-            Soluções Integradas para Eventos
-          </h2>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-            Da venda online ao check-in na portaria — tudo o que você precisa em um só lugar.
-          </p>
+          {variant === 'page' && (
+            <>
+              <h2 className="font-display font-bold text-3xl md:text-4xl lg:text-5xl mt-4 mb-3 text-foreground">
+                Soluções Integradas para Eventos
+              </h2>
+              <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+                Da venda online ao check-in na portaria — tudo o que você precisa em um só lugar.
+              </p>
+            </>
+          )}
         </motion.div>
 
         {/* Bento Grid */}
