@@ -52,7 +52,7 @@ const Polaroid = ({
         <div className="absolute bottom-2 left-3">
           <span
             className="text-2xl md:text-3xl text-primary-foreground"
-            style={{ fontFamily: '"Caveat", "Brush Script MT", cursive' }}
+            style={{ fontFamily: 'Caveat, cursive' }}
           >
             {caption}
           </span>
@@ -120,7 +120,7 @@ const HomeHeroBanner = () => {
             focados em{' '}
             <span
               className="text-[hsl(85,80%,60%)] italic font-bold"
-              style={{ fontFamily: '"Caveat", "Brush Script MT", cursive' }}
+              style={{ fontFamily: 'Caveat, cursive' }}
             >
               grandes eventos
             </span>
