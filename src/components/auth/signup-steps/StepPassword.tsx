@@ -4,26 +4,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Lock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
-import WhatsAppInput from '@/components/WhatsAppInput';
 import PasswordStrength, { getPasswordScore } from '@/components/auth/PasswordStrength';
 import { toast } from 'sonner';
 
-interface StepCredentialsProps {
-  whatsapp: string;
+interface StepPasswordProps {
   password: string;
   confirmPassword: string;
-  onWhatsappChange: (v: string) => void;
   onPasswordChange: (v: string) => void;
   onConfirmPasswordChange: (v: string) => void;
   onBack: () => void;
   onNext: () => void;
 }
 
-const StepCredentials: React.FC<StepCredentialsProps> = ({
-  whatsapp,
+const StepPassword: React.FC<StepPasswordProps> = ({
   password,
   confirmPassword,
-  onWhatsappChange,
   onPasswordChange,
   onConfirmPasswordChange,
   onBack,
@@ -33,10 +28,6 @@ const StepCredentials: React.FC<StepCredentialsProps> = ({
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleNext = () => {
-    if (whatsapp.replace(/\D/g, '').length < 10) {
-      toast.error('Informe um WhatsApp válido');
-      return;
-    }
     if (password.length < 6) {
       toast.error('Senha deve ter pelo menos 6 caracteres');
       return;
@@ -60,15 +51,10 @@ const StepCredentials: React.FC<StepCredentialsProps> = ({
       className="space-y-5"
     >
       <div className="text-center space-y-1">
-        <h3 className="text-lg font-semibold">Quase lá!</h3>
+        <h3 className="text-lg font-semibold">Crie sua senha</h3>
         <p className="text-sm text-muted-foreground">
-          Cadastre seu WhatsApp e crie uma senha
+          Use uma senha forte para proteger sua conta
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="whatsapp">WhatsApp</Label>
-        <WhatsAppInput value={whatsapp} onChange={onWhatsappChange} />
       </div>
 
       <div className="space-y-2">
@@ -82,6 +68,7 @@ const StepCredentials: React.FC<StepCredentialsProps> = ({
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
             className="pl-10 pr-10"
+            autoFocus
           />
           <button
             type="button"
@@ -129,4 +116,4 @@ const StepCredentials: React.FC<StepCredentialsProps> = ({
   );
 };
 
-export default StepCredentials;
+export default StepPassword;

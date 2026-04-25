@@ -1,88 +1,114 @@
 
+# 🛠️ Refinos no fluxo de Login + Cadastro
 
-# PDF do Ingresso — versão completa e didática
+## 1. OTP (etapa de código por email) — visibilidade e espaçamento
 
-## Resumo
-O PDF atual é minimalista e gerado por screenshot (`html2canvas`), com qualidade ruim e poucas informações. Vou refazer o PDF gerando-o **nativamente via `jsPDF`** (texto vetorial, alta qualidade, peso menor), com layout de **ingresso digital completo**, todas as informações relevantes, branding FestPag e nome de arquivo amigável.
+**Problema:** Os 6 slots do código estão quase invisíveis (borda muito apagada) e colados.
 
-## Como vai ficar o PDF
+**Mudanças em `src/components/auth/signup-steps/StepEmail.tsx`:**
+- Trocar o agrupamento atual `<InputOTPGroup>` único (slots colados) por **6 slots individuais com `gap-2`** entre eles, cada um com cantos arredondados próprios.
+- Cada slot vai usar uma classe customizada premium:
+  - Tamanho maior: `h-14 w-12` (era `h-10 w-10`)
+  - Borda visível: `border-2 border-border/60` (clara no dark)
+  - Background do slot: `bg-background/40`
+  - Estado ativo com glow: `ring-2 ring-primary` + `border-primary` + `shadow-[0_0_20px_hsl(var(--primary)/0.3)]`
+  - Estado preenchido: `border-primary/50 bg-primary/5`
+  - Texto maior: `text-xl font-semibold`
+- Centralizar o grupo e dar `autoFocus` no primeiro slot ao entrar na fase OTP.
 
-```text
-┌─────────────────────────────────────────────────────┐
-│  ░░░ HEADER colorido (gradiente FestPag) ░░░        │
-│   FESTPAG                              INGRESSO     │
-│   Plataforma de eventos              DIGITAL ✓Válido│
-├─────────────────────────────────────────────────────┤
-│   SAMBA DO BRASILEIRO                               │
-│   2º Lote                                           │
-│                                                     │
-│   ┌─────────────┐   📅 Data e Horário               │
-│   │             │   sexta, 18 de abril de 2026      │
-│   │   QR CODE   │   18:00                           │
-│   │             │                                   │
-│   └─────────────┘   📍 Local                        │
-│   3241BBC3         Made in Brazil Bar               │
-│   Código          Rio Preto/SP                      │
-│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │
-│   👤 DADOS DO PORTADOR                              │
-│   Nome / E-mail / Telefone                          │
-│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │
-│   💳 INFORMAÇÕES DA COMPRA                          │
-│   Lote · Valor pago · Data da compra                │
-│ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ │
-│   ℹ️  COMO USAR SEU INGRESSO                         │
-│   1. Apresente o QR Code na entrada                 │
-│   2. Tenha documento com foto                       │
-│   3. Pessoal e intransferível                       │
-│   4. Chegue com antecedência                        │
-│   ⚠️ Não compartilhe a imagem · 1 entrada por code  │
-├─────────────────────────────────────────────────────┤
-│  Gerado por FestPag · ingressosrp.com.br · 24/04    │
-└─────────────────────────────────────────────────────┘
-```
+Resultado: 6 quadrados nítidos, espaçados, fáceis de ver e digitar.
 
-Estados visuais por status: header fica **verde** (Válido), **vermelho** (Utilizado, com selo "UTILIZADO" sobre o QR) ou **cinza** (Cancelado, com selo "CANCELADO").
+## 2. Separar a etapa 3 em duas etapas (WhatsApp / Senha)
 
-## Mudanças técnicas
+**Hoje:** Etapa 3 = WhatsApp + Senha + Confirmar senha juntos. Total 4 etapas.
+**Novo:** 5 etapas no wizard:
+1. CPF + Nome
+2. Email + verificação OTP
+3. **WhatsApp** (sozinho)
+4. **Senha + Confirmar senha** (sozinho, com força da senha)
+5. Confirmar dados + criar conta
 
-### 1. `src/hooks/useUserTickets.ts`
-- Adicionar campos ao select: `unit_price` (se existir na tabela `tickets`) — uso `lot.price` como fallback.
-- Atualizar a interface `UserTicket`.
+**Mudanças:**
 
-### 2. `src/pages/MeusIngressos.tsx` — `handleDownloadPDF`
+### `src/components/auth/signup-steps/StepCredentials.tsx` → reaproveitar como **`StepWhatsApp.tsx`** (criar novo)
+- Apenas o campo WhatsApp + título "Como podemos te chamar no zap?"
+- Validação: mínimo 10 dígitos
+- Botões Voltar / Continuar
 
-Trocar a abordagem `html2canvas` (screenshot) por **geração nativa em jsPDF**:
-- Página A4, margens 15mm
-- Header com retângulo colorido (cor por status), logo "FESTPAG" + badge "INGRESSO DIGITAL"
-- Título do evento grande, lote como subtítulo
-- QR Code: gerar com a lib `qrcode` (data URL PNG nítido, escaneável) e `pdf.addImage()`
-- Blocos de informação separados por linhas tracejadas estilo ticket
-- Seções: Data/Local, Portador, Compra, Como usar, Importante
-- Footer com créditos FestPag e timestamp de emissão
+### Criar `src/components/auth/signup-steps/StepPassword.tsx`
+- Campos Senha + Confirmar senha + medidor de força
+- Toggles de mostrar/ocultar
+- Validações: ≥6 caracteres, score ≥2, senhas iguais
+- Botões Voltar / Continuar
 
-### 3. Nome do arquivo
-**Atual:** `ingresso-3241bbc3.pdf`
-**Novo:** `Ingresso-FestPag-{evento-slug}-{CODIGO}.pdf`
-Ex.: `Ingresso-FestPag-Samba-do-Brasileiro-3241BBC3.pdf`
+### `src/components/auth/SignupWizard.tsx`
+- Atualizar `totalSteps` de 4 → **5**
+- Atualizar labels do `StepIndicator`: `['CPF', 'Email', 'WhatsApp', 'Senha', 'Confirmar']`
+- Adicionar etapa 4 (senha) entre as atuais 3 e 4, renumerando o `step` final para 5
+- Passar handlers separados (sem trocar a forma como o state acumulado funciona)
 
-Slugify: minúsculas, espaços → hífens, remove acentos, limita 40 chars.
+### `src/components/auth/StepIndicator.tsx`
+- Já é genérico (`totalSteps` + `labels`), só precisa receber 5. Verificar se o layout cabe bem no card — se necessário, reduzir o gap entre dots no mobile (responsivo: `gap-1` no mobile, `gap-2` no md+).
 
-### 4. Limpeza
-- Remover o `<div ref={ticketRef}>` oculto (não é mais necessário)
-- Remover dependência de `html2canvas` se não for usada em outro lugar
+### Remover
+- `StepCredentials.tsx` (substituído pelos dois novos)
 
-### 5. Dependências
-- `qrcode` + `@types/qrcode` (novo, ~50kb, leve)
-- `jspdf` (já instalado)
+## 3. Etapa de confirmação — termos pré-aceitos
 
-## QA obrigatório
-Após implementar, vou gerar um PDF de exemplo via script Node, converter páginas em imagem com `pdftoppm` e inspecionar visualmente: sem texto sobreposto, QR escaneável, margens corretas, branding consistente. Vou listar problemas e fixes antes de entregar.
+**Mudanças em `src/components/auth/signup-steps/StepConfirm.tsx`:**
+- Remover o `<Checkbox>` e o estado `acceptTerms`.
+- Substituir por uma **nota legal abaixo dos dados** com texto:
+  > "Ao clicar em **Criar minha conta**, você concorda com nossos [termos de uso](/termos) e [política de privacidade](/privacidade)."
+- Estilo: `text-xs text-muted-foreground text-center` com os links em `text-primary hover:underline`.
+- O botão "Criar minha conta" fica sempre habilitado (sem o `!acceptTerms`).
+- Manter ícone Sparkles e card de resumo.
+
+## 4. Tela "Entrar" — esqueci a senha + CTA cadastrar mais visível
+
+**Mudanças em `src/pages/Auth.tsx` (formulário de login):**
+
+### a) Link "Esqueci minha senha"
+- Adicionar abaixo do campo de senha, alinhado à direita:
+  ```
+  <button type="button" onClick={...} className="text-sm text-primary hover:underline">
+    Esqueci minha senha
+  </button>
+  ```
+- Ao clicar, abrir um pequeno **modal/dialog** com input de email e botão "Enviar link de recuperação"
+- Ação: chamar `supabase.auth.resetPasswordForEmail(email, { redirectTo: \`${window.location.origin}/reset-password\` })`
+- Já existe a página `src/pages/ResetPassword.tsx` (vista no estrutura do projeto), então o fluxo já está pronto end-to-end.
+- Toast de sucesso: "Email de recuperação enviado!"
+
+### b) CTA "Cadastre-se" maior
+- Trocar o atual texto pequeno `"Não tem conta? Cadastre-se"` no rodapé do formulário de login por um **botão secundário destacado**:
+  - Layout: `<div>` com separador "ou" + um `<Button variant="outline">` largura total com texto "**Criar uma conta grátis**" e ícone `UserPlus` à esquerda
+  - Borda animada com gradient sutil (igual aos botões sociais glass) pra dar destaque sem competir com o botão "Entrar"
+  - Tamanho: `h-12` (mesmo dos sociais)
+  - Ao clicar, faz `setActiveTab('cadastrar')` (já existe)
+- Posição: logo após o bloco de "ou continue com" (Google/Apple), antes de qualquer texto pequeno residual
+
+## 5. Sobre o botão de "Aprovar plano" não aparecer
+
+**Causa identificada:** Nas últimas vezes, apresentei o plano como texto/markdown direto na conversa em vez de usar a ferramenta `plan--create`. O botão de aprovação só aparece quando o plano é entregue via essa ferramenta.
+
+**Correção aplicada agora:** Estou enviando este plano através da ferramenta correta. A partir de agora, sempre que estiver no modo Plano, vou usar `plan--create` — assim o botão "Aprovar e implementar" aparece automaticamente pra você no painel.
+
+---
 
 ## Arquivos impactados
 
 | Arquivo | Ação |
 |---|---|
-| `src/hooks/useUserTickets.ts` | Adicionar `unit_price` no select e na interface |
-| `src/pages/MeusIngressos.tsx` | Reescrever `handleDownloadPDF` com jsPDF nativo + nome amigável; remover div oculto |
-| `package.json` | Instalar `qrcode` e `@types/qrcode`; remover `html2canvas` se não usado |
+| `src/components/auth/signup-steps/StepEmail.tsx` | Refazer slots OTP grandes, espaçados, com ring/glow |
+| `src/components/auth/signup-steps/StepWhatsApp.tsx` | **Criar** (etapa 3 isolada) |
+| `src/components/auth/signup-steps/StepPassword.tsx` | **Criar** (etapa 4 isolada) |
+| `src/components/auth/signup-steps/StepCredentials.tsx` | **Excluir** (substituído) |
+| `src/components/auth/signup-steps/StepConfirm.tsx` | Remover checkbox; adicionar nota legal abaixo dos dados |
+| `src/components/auth/SignupWizard.tsx` | 5 etapas, novos labels, roteamento atualizado |
+| `src/components/auth/StepIndicator.tsx` | Pequeno ajuste responsivo de gap pra caber 5 dots |
+| `src/pages/Auth.tsx` | Adicionar "Esqueci senha" + dialog de reset; trocar link "Cadastre-se" por botão grande destacado |
 
+## Sem mudanças
+
+- Banco de dados, edge functions, RLS, AuthContext — nada disso muda.
+- Página `/reset-password` já existe e continua funcionando.

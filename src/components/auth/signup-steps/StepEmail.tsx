@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { OTPInput, OTPInputContext } from 'input-otp';
 import { Mail, ArrowRight, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { cn } from '@/lib/utils';
 
 interface StepEmailProps {
   email: string;
@@ -22,27 +23,62 @@ interface StepEmailProps {
 
 const emailSchema = z.string().email('Email inválido');
 
+/* Slot premium customizado para o OTP */
+const PremiumSlot: React.FC<{ index: number }> = ({ index }) => {
+  const ctx = React.useContext(OTPInputContext);
+  const { char, hasFakeCaret, isActive } = ctx.slots[index];
+  const filled = !!char;
+
+  return (
+    <div
+      className={cn(
+        'relative flex h-14 w-12 items-center justify-center rounded-xl border-2 text-xl font-semibold transition-all duration-200',
+        'bg-background/40 text-foreground',
+        !filled && !isActive && 'border-border/60',
+        filled && !isActive && 'border-primary/50 bg-primary/5',
+        isActive &&
+          'border-primary ring-2 ring-primary/40 shadow-[0_0_20px_hsl(var(--primary)/0.35)] scale-105',
+      )}
+    >
+      {char}
+      {hasFakeCaret && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-6 w-0.5 bg-primary animate-pulse rounded-full" />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const StepEmail: React.FC<StepEmailProps> = ({
   email,
   nomeCompleto,
   cpf,
-  emailVerified,
   onEmailChange,
   onVerified,
   onBack,
   onNext,
 }) => {
-  const [phase, setPhase] = useState<'email' | 'otp'>(emailVerified ? 'email' : 'email');
+  const [phase, setPhase] = useState<'email' | 'otp'>('email');
   const [code, setCode] = useState('');
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const otpContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setTimeout(() => setCooldown(cooldown - 1), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
+
+  // autoFocus do OTP ao entrar na fase
+  useEffect(() => {
+    if (phase === 'otp') {
+      const input = otpContainerRef.current?.querySelector('input');
+      input?.focus();
+    }
+  }, [phase]);
 
   const sendCode = async () => {
     const parsed = emailSchema.safeParse(email);
@@ -140,17 +176,20 @@ const StepEmail: React.FC<StepEmailProps> = ({
         </>
       ) : (
         <>
-          <div className="flex justify-center">
-            <InputOTP maxLength={6} value={code} onChange={setCode}>
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
+          <div ref={otpContainerRef} className="flex justify-center py-2">
+            <OTPInput
+              maxLength={6}
+              value={code}
+              onChange={setCode}
+              containerClassName="flex items-center gap-2 has-[:disabled]:opacity-50"
+              render={({ slots }) => (
+                <div className="flex items-center gap-2">
+                  {slots.map((_, idx) => (
+                    <PremiumSlot key={idx} index={idx} />
+                  ))}
+                </div>
+              )}
+            />
           </div>
 
           <div className="text-center text-sm">
