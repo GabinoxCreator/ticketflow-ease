@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
-import EventGrid from '@/components/EventGrid';
+import EventCard from '@/components/EventCard';
 import Footer from '@/components/Footer';
 import ProducerSolutionsSection from '@/components/home/ProducerSolutionsSection';
 import { usePublicEvents } from '@/hooks/useEvents';
@@ -99,7 +99,9 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <EventGrid events={events} />
+                  {events.map((event, index) => (
+                    <EventCard key={event.id} event={event} index={index} />
+                  ))}
                 </div>
               )}
             </div>
