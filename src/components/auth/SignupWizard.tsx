@@ -3,7 +3,8 @@ import { AnimatePresence } from 'framer-motion';
 import StepIndicator from './StepIndicator';
 import StepCPF from './signup-steps/StepCPF';
 import StepEmail from './signup-steps/StepEmail';
-import StepCredentials from './signup-steps/StepCredentials';
+import StepWhatsApp from './signup-steps/StepWhatsApp';
+import StepPassword from './signup-steps/StepPassword';
 import StepConfirm from './signup-steps/StepConfirm';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -57,8 +58,8 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
     <div className="space-y-6">
       <StepIndicator
         currentStep={step}
-        totalSteps={4}
-        labels={['CPF', 'Email', 'Senha', 'Confirmar']}
+        totalSteps={5}
+        labels={['CPF', 'Email', 'WhatsApp', 'Senha', 'Confirmar']}
       />
 
       <AnimatePresence mode="wait">
@@ -89,24 +90,31 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
           />
         )}
         {step === 3 && (
-          <StepCredentials
+          <StepWhatsApp
             key="step3"
             whatsapp={whatsapp}
-            password={password}
-            confirmPassword={confirmPassword}
             onWhatsappChange={setWhatsapp}
-            onPasswordChange={setPassword}
-            onConfirmPasswordChange={setConfirmPassword}
             onBack={() => setStep(2)}
             onNext={() => setStep(4)}
           />
         )}
         {step === 4 && (
-          <StepConfirm
+          <StepPassword
             key="step4"
+            password={password}
+            confirmPassword={confirmPassword}
+            onPasswordChange={setPassword}
+            onConfirmPasswordChange={setConfirmPassword}
+            onBack={() => setStep(3)}
+            onNext={() => setStep(5)}
+          />
+        )}
+        {step === 5 && (
+          <StepConfirm
+            key="step5"
             data={{ cpf, nomeCompleto, email, whatsapp }}
             submitting={submitting}
-            onBack={() => setStep(3)}
+            onBack={() => setStep(4)}
             onSubmit={handleSubmit}
           />
         )}

@@ -11,7 +11,7 @@ interface StepIndicatorProps {
 const StepIndicator: React.FC<StepIndicatorProps> = ({ currentStep, totalSteps, labels }) => {
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-1 sm:gap-2">
         {Array.from({ length: totalSteps }).map((_, idx) => {
           const stepNum = idx + 1;
           const isCompleted = stepNum < currentStep;
