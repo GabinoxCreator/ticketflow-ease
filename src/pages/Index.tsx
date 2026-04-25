@@ -69,7 +69,7 @@ const Index = () => {
 
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="pt-24">
+        <main className="pt-20">
           {/* Hero Banner */}
           <HomeHeroBanner />
 
