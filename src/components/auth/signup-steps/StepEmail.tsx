@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { OTPInput, OTPInputContext } from 'input-otp';
+import { OTPInput } from 'input-otp';
 import { Mail, ArrowRight, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -24,11 +24,13 @@ interface StepEmailProps {
 const emailSchema = z.string().email('Email inválido');
 
 /* Slot premium customizado para o OTP */
-const PremiumSlot: React.FC<{ index: number }> = ({ index }) => {
-  const ctx = React.useContext(OTPInputContext);
-  const { char, hasFakeCaret, isActive } = ctx.slots[index];
+interface PremiumSlotProps {
+  char: string | null;
+  hasFakeCaret: boolean;
+  isActive: boolean;
+}
+const PremiumSlot: React.FC<PremiumSlotProps> = ({ char, hasFakeCaret, isActive }) => {
   const filled = !!char;
-
   return (
     <div
       className={cn(
@@ -184,8 +186,8 @@ const StepEmail: React.FC<StepEmailProps> = ({
               containerClassName="flex items-center gap-2 has-[:disabled]:opacity-50"
               render={({ slots }) => (
                 <div className="flex items-center gap-2">
-                  {slots.map((_, idx) => (
-                    <PremiumSlot key={idx} index={idx} />
+                  {slots.map((slot, idx) => (
+                    <PremiumSlot key={idx} {...slot} />
                   ))}
                 </div>
               )}
