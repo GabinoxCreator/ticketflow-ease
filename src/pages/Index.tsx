@@ -7,7 +7,7 @@ import ProducerSolutionsSection from '@/components/home/ProducerSolutionsSection
 import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
-import bannerHome from '@/assets/banner-home.png';
+import HomeHeroBanner from '@/components/home/HomeHeroBanner';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
