@@ -5,10 +5,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Loader2, UserPlus, Sparkles } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import AuroraBackground from '@/components/auth/AuroraBackground';
 import SignupWizard from '@/components/auth/SignupWizard';
@@ -29,6 +37,11 @@ const Auth: React.FC = () => {
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+
+  // Esqueci a senha
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/';
 
@@ -60,6 +73,26 @@ const Auth: React.FC = () => {
     } else {
       toast.success('Login realizado com sucesso!');
       navigate(redirect);
+    }
+  };
+
+  const handleSendReset = async () => {
+    const parsed = z.string().email('Email inválido').safeParse(forgotEmail);
+    if (!parsed.success) {
+      toast.error(parsed.error.errors[0].message);
+      return;
+    }
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setSendingReset(false);
+    if (error) {
+      toast.error('Erro ao enviar email. Tente novamente.');
+    } else {
+      toast.success('Email de recuperação enviado!');
+      setForgotOpen(false);
+      setForgotEmail('');
     }
   };
 
@@ -170,7 +203,19 @@ const Auth: React.FC = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="login-password">Senha</Label>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="login-password">Senha</Label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForgotEmail(loginEmail);
+                              setForgotOpen(true);
+                            }}
+                            className="text-xs text-primary hover:underline font-medium"
+                          >
+                            Esqueci minha senha
+                          </button>
+                        </div>
                         <div className="relative group">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <Input
@@ -257,16 +302,20 @@ const Auth: React.FC = () => {
                         </Button>
                       </div>
 
-                      <p className="text-center text-sm text-muted-foreground pt-2">
-                        Não tem conta?{' '}
-                        <button
+                      {/* CTA Cadastrar destacado */}
+                      <div className="relative pt-4 mt-2">
+                        <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-[hsl(330,85%,60%)]/30 blur-md opacity-50" />
+                        <Button
                           type="button"
+                          variant="outline"
+                          className="relative w-full h-12 gap-2 border-2 border-primary/40 hover:border-primary/70 hover:bg-primary/5 backdrop-blur-sm group"
                           onClick={() => setActiveTab('cadastrar')}
-                          className="text-primary hover:underline font-medium"
                         >
-                          Cadastre-se
-                        </button>
-                      </p>
+                          <Sparkles className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                          <span className="font-semibold">Criar uma conta grátis</span>
+                          <UserPlus className="h-4 w-4 text-primary" />
+                        </Button>
+                      </div>
                     </motion.form>
                   ) : (
                     <motion.div
@@ -287,6 +336,55 @@ const Auth: React.FC = () => {
           </div>
         </motion.div>
       </main>
+
+      {/* Dialog: Esqueci a senha */}
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Recuperar senha
+            </DialogTitle>
+            <DialogDescription>
+              Digite seu email e enviaremos um link para redefinir sua senha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className="pl-10 h-12"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="hero"
+              className="w-full"
+              size="lg"
+              onClick={handleSendReset}
+              disabled={sendingReset}
+            >
+              {sendingReset ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                'Enviar link de recuperação'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
