@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import EventGrid from '@/components/EventGrid';
 import Footer from '@/components/Footer';
+import ProducerSolutionsSection from '@/components/home/ProducerSolutionsSection';
 import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
@@ -98,6 +99,9 @@ const Index = () => {
               subtitle="Não perca os melhores eventos da região"
             />
           )}
+
+          {/* Seção de soluções para produtores */}
+          <ProducerSolutionsSection variant="home" />
         </main>
         <Footer />
       </div>
