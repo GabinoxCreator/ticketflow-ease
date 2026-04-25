@@ -3,31 +3,33 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Lock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 import PasswordStrength, { getPasswordScore } from '@/components/auth/PasswordStrength';
 import { toast } from 'sonner';
 
 interface StepPasswordProps {
   password: string;
   confirmPassword: string;
+  submitting: boolean;
   onPasswordChange: (v: string) => void;
   onConfirmPasswordChange: (v: string) => void;
   onBack: () => void;
-  onNext: () => void;
+  onSubmit: () => void;
 }
 
 const StepPassword: React.FC<StepPasswordProps> = ({
   password,
   confirmPassword,
+  submitting,
   onPasswordChange,
   onConfirmPasswordChange,
   onBack,
-  onNext,
+  onSubmit,
 }) => {
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleNext = () => {
+  const handleSubmit = () => {
     if (password.length < 6) {
       toast.error('Senha deve ter pelo menos 6 caracteres');
       return;
@@ -40,7 +42,7 @@ const StepPassword: React.FC<StepPasswordProps> = ({
       toast.error('As senhas não coincidem');
       return;
     }
-    onNext();
+    onSubmit();
   };
 
   return (
@@ -104,14 +106,46 @@ const StepPassword: React.FC<StepPasswordProps> = ({
       </div>
 
       <div className="flex gap-2">
-        <Button type="button" variant="outline" onClick={onBack} size="lg" className="flex-shrink-0">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          size="lg"
+          className="flex-shrink-0"
+          disabled={submitting}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <Button type="button" onClick={handleNext} variant="hero" size="lg" className="flex-1">
-          Continuar
-          <ArrowRight className="h-4 w-4" />
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          variant="hero"
+          size="lg"
+          className="flex-1"
+          disabled={submitting}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Criando conta...
+            </>
+          ) : (
+            'Criar minha conta'
+          )}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground text-center leading-relaxed">
+        Ao clicar em <span className="font-medium text-foreground">Criar minha conta</span>, você concorda com nossos{' '}
+        <a href="/termos" target="_blank" className="text-primary hover:underline">
+          termos de uso
+        </a>{' '}
+        e{' '}
+        <a href="/privacidade" target="_blank" className="text-primary hover:underline">
+          política de privacidade
+        </a>
+        .
+      </p>
     </motion.div>
   );
 };
