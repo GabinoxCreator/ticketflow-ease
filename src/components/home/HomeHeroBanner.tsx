@@ -70,8 +70,8 @@ const HomeHeroBanner = () => {
       <div className="pointer-events-none absolute top-10 -right-20 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
 
       <div className="container mx-auto px-4 pt-6 md:pt-10 pb-10 md:pb-16 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center relative">
-        {/* Coluna esquerda: colagem de polaroids */}
-        <div className="relative h-[280px] sm:h-[340px] lg:h-[520px] order-2 lg:order-1">
+        {/* Coluna esquerda: colagem de polaroids — apenas desktop */}
+        <div className="relative hidden lg:block lg:h-[520px] order-2 lg:order-1">
           {/* Polaroid esquerda (festival/fogos) — só desktop */}
           <Polaroid
             src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&q=80"
