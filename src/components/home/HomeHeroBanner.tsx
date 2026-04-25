@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Star, Instagram, ArrowRight, Globe } from 'lucide-react';
+import { Instagram, ArrowRight, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -65,34 +65,34 @@ const Polaroid = ({
 const HomeHeroBanner = () => {
   return (
     <section className="relative overflow-hidden">
-      {/* Glow decorativo de fundo */}
-      <div className="pointer-events-none absolute -top-20 -left-20 w-96 h-96 rounded-full bg-primary/15 blur-3xl" />
-      <div className="pointer-events-none absolute top-20 -right-20 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
+      {/* Glow decorativo de fundo — começa colado ao header */}
+      <div className="pointer-events-none absolute -top-10 -left-20 w-96 h-96 rounded-full bg-primary/15 blur-3xl" />
+      <div className="pointer-events-none absolute top-10 -right-20 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
 
-      <div className="container mx-auto px-4 py-10 md:py-16 lg:py-20 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center relative">
+      <div className="container mx-auto px-4 pt-6 md:pt-10 pb-10 md:pb-16 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center relative">
         {/* Coluna esquerda: colagem de polaroids */}
-        <div className="relative h-[380px] sm:h-[460px] lg:h-[520px] order-2 lg:order-1">
-          {/* Polaroid esquerda (festival/fogos) */}
+        <div className="relative h-[280px] sm:h-[340px] lg:h-[520px] order-2 lg:order-1">
+          {/* Polaroid esquerda (festival/fogos) — só desktop */}
           <Polaroid
             src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&q=80"
             alt="Festival com fogos"
             rotate="-rotate-[10deg]"
             z="z-10"
-            className="left-2 sm:left-6 top-10 w-[42%] h-[70%]"
+            className="hidden lg:block left-2 sm:left-6 top-10 w-[42%] h-[70%]"
             delay={0.1}
           />
 
-          {/* Polaroid direita (público em show) */}
+          {/* Polaroid direita (público em show) — só desktop */}
           <Polaroid
             src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&q=80"
             alt="Público em show"
             rotate="rotate-[8deg]"
             z="z-10"
-            className="right-2 sm:right-6 top-6 w-[42%] h-[70%]"
+            className="hidden lg:block right-2 sm:right-6 top-6 w-[42%] h-[70%]"
             delay={0.2}
           />
 
-          {/* Polaroid central em destaque */}
+          {/* Polaroid central em destaque — visível em todos os tamanhos */}
           <Polaroid
             src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&q=85"
             alt="Pagamento em evento"
@@ -100,7 +100,7 @@ const HomeHeroBanner = () => {
             z="z-20"
             badge
             caption="Pagou!"
-            className="left-1/2 -translate-x-1/2 top-0 w-[55%] sm:w-[52%] h-[95%]"
+            className="left-1/2 -translate-x-1/2 top-0 w-[70%] sm:w-[60%] lg:w-[55%] h-[95%]"
             delay={0.35}
           />
         </div>
@@ -125,15 +125,6 @@ const HomeHeroBanner = () => {
               grandes eventos
             </span>
           </h1>
-
-          {/* Social proof */}
-          <div className="flex items-center gap-2 mt-6">
-            <span className="font-display font-bold text-foreground text-lg">4.9</span>
-            <Star className="w-5 h-5 fill-[hsl(45,100%,55%)] text-[hsl(45,100%,55%)]" />
-            <span className="text-muted-foreground text-sm md:text-base">
-              +10 mil avaliações do App
-            </span>
-          </div>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 mt-8">
