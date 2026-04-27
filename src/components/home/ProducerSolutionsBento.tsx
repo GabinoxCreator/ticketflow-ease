@@ -72,11 +72,7 @@ const ProducerSolutionsBento = () => {
           viewport={{ once: true }}
           className="text-center mb-12 md:mb-16"
         >
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-xs font-semibold border border-primary/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            Nossas Soluções
-          </div>
-          <h2 className="font-display font-extrabold uppercase text-3xl md:text-4xl lg:text-5xl mt-5 text-foreground leading-tight">
+          <h2 className="font-display font-extrabold uppercase text-3xl md:text-4xl lg:text-5xl text-foreground leading-tight">
             Tudo que você precisa para
             <br />
             <span className="gradient-text">vender, operar e crescer</span>
