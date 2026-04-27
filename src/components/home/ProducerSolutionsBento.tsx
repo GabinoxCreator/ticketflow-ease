@@ -32,26 +32,29 @@ interface Solution {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
+  /** Tailwind classes for the icon tile: gradient background + colored shadow */
+  iconClass: string;
 }
 
+// Each solution gets its own "app icon" color (full static class strings so Tailwind keeps them).
 const solutions: Solution[] = [
-  { icon: CalendarPlus, title: 'Cadastro de Eventos', description: 'Crie seu evento em minutos com um wizard simples e completo.' },
-  { icon: Layers, title: 'Gestão de Lotes', description: 'Configure múltiplos lotes, preços e estoque com total flexibilidade.' },
-  { icon: Smartphone, title: 'Site Exclusivo', description: 'Página de venda própria, otimizada para mobile e alta conversão.' },
-  { icon: UserCheck, title: 'Eventos para Convidados', description: 'Eventos privados com acesso controlado por lista.' },
-  { icon: Gift, title: 'Eventos Gratuitos', description: 'Distribua ingressos sem custo com a mesma estrutura premium.' },
-  { icon: Lock, title: 'Pré-venda Restrita', description: 'Libere lotes exclusivos com senha ou link privado.' },
-  { icon: IdCard, title: 'Ingresso Nominal', description: 'Ingressos vinculados ao CPF, com mais segurança e controle.' },
-  { icon: Tag, title: 'Cupom de Desconto', description: 'Crie cupons promocionais com regras personalizadas.' },
-  { icon: ShieldCheck, title: 'Validação de Ingressos', description: 'Antifraude integrado com verificação em tempo real.' },
-  { icon: LayoutDashboard, title: 'Dashboard', description: 'Métricas de vendas, receita e conversão em um só painel.' },
-  { icon: TrendingUp, title: 'Controle de Vendas', description: 'Acompanhe o desempenho de cada lote e canal de venda.' },
-  { icon: Ticket, title: 'Ingresso Digital', description: 'Entrega instantânea por e-mail e PDF com QR Code.' },
-  { icon: Briefcase, title: 'Área do Produtor', description: 'Painel completo para gerenciar todos os seus eventos.' },
-  { icon: Users, title: 'Gestão de Produtores', description: 'Vincule múltiplos produtores e organize sua operação.' },
-  { icon: UserCog, title: 'Área do Colaborador', description: 'Interface mobile dedicada para sua equipe na portaria.' },
-  { icon: QrCode, title: 'Check-in com QR Code', description: 'Validação rápida e segura na entrada do evento.' },
-  { icon: ClipboardList, title: 'Listas de Convidados', description: 'Crie listas VIP com link público para inscrição.' },
+  { icon: CalendarPlus, title: 'Cadastro de Eventos', description: 'Crie seu evento em minutos com um wizard simples e completo.', iconClass: 'bg-gradient-to-br from-violet-500 to-purple-600 shadow-purple-500/40' },
+  { icon: Layers, title: 'Gestão de Lotes', description: 'Configure múltiplos lotes, preços e estoque com total flexibilidade.', iconClass: 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-500/40' },
+  { icon: Smartphone, title: 'Site Exclusivo', description: 'Página de venda própria, otimizada para mobile e alta conversão.', iconClass: 'bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-indigo-500/40' },
+  { icon: UserCheck, title: 'Eventos para Convidados', description: 'Eventos privados com acesso controlado por lista.', iconClass: 'bg-gradient-to-br from-cyan-400 to-sky-500 shadow-cyan-500/40' },
+  { icon: Gift, title: 'Eventos Gratuitos', description: 'Distribua ingressos sem custo com a mesma estrutura premium.', iconClass: 'bg-gradient-to-br from-pink-500 to-rose-500 shadow-pink-500/40' },
+  { icon: Lock, title: 'Pré-venda Restrita', description: 'Libere lotes exclusivos com senha ou link privado.', iconClass: 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/40' },
+  { icon: IdCard, title: 'Ingresso Nominal', description: 'Ingressos vinculados ao CPF, com mais segurança e controle.', iconClass: 'bg-gradient-to-br from-emerald-500 to-green-600 shadow-emerald-500/40' },
+  { icon: Tag, title: 'Cupom de Desconto', description: 'Crie cupons promocionais com regras personalizadas.', iconClass: 'bg-gradient-to-br from-orange-500 to-red-500 shadow-orange-500/40' },
+  { icon: ShieldCheck, title: 'Validação de Ingressos', description: 'Antifraude integrado com verificação em tempo real.', iconClass: 'bg-gradient-to-br from-lime-400 to-green-500 shadow-lime-500/40' },
+  { icon: LayoutDashboard, title: 'Dashboard', description: 'Métricas de vendas, receita e conversão em um só painel.', iconClass: 'bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-fuchsia-500/40' },
+  { icon: TrendingUp, title: 'Controle de Vendas', description: 'Acompanhe o desempenho de cada lote e canal de venda.', iconClass: 'bg-gradient-to-br from-sky-400 to-blue-500 shadow-sky-500/40' },
+  { icon: Ticket, title: 'Ingresso Digital', description: 'Entrega instantânea por e-mail e PDF com QR Code.', iconClass: 'bg-gradient-to-br from-teal-400 to-cyan-500 shadow-teal-500/40' },
+  { icon: Briefcase, title: 'Área do Produtor', description: 'Painel completo para gerenciar todos os seus eventos.', iconClass: 'bg-gradient-to-br from-fuchsia-500 to-pink-600 shadow-fuchsia-500/40' },
+  { icon: Users, title: 'Gestão de Produtores', description: 'Vincule múltiplos produtores e organize sua operação.', iconClass: 'bg-gradient-to-br from-rose-500 to-pink-600 shadow-rose-500/40' },
+  { icon: UserCog, title: 'Área do Colaborador', description: 'Interface mobile dedicada para sua equipe na portaria.', iconClass: 'bg-gradient-to-br from-orange-500 to-red-600 shadow-orange-500/40' },
+  { icon: QrCode, title: 'Check-in com QR Code', description: 'Validação rápida e segura na entrada do evento.', iconClass: 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-500/40' },
+  { icon: ClipboardList, title: 'Listas de Convidados', description: 'Crie listas VIP com link público para inscrição.', iconClass: 'bg-gradient-to-br from-yellow-400 to-amber-500 shadow-yellow-500/40' },
 ];
 
 const ProducerSolutionsBento = () => {
