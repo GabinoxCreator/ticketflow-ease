@@ -1,109 +1,52 @@
-## Reformulação Premium — Página "Sou Produtor"
+## Objetivo
 
-Vamos transformar a página `/area-do-produtor` em uma experiência mais premium, focada em comunicar com força a proposta de valor para produtores e exibir o catálogo completo de soluções da FestPag.
+Deixar a grade de soluções da página "Sou Produtor" mais premium e legível, no estilo da segunda imagem de referência (ícones coloridos sólidos, cada card com sua identidade), e garantir que **toda a descrição apareça** sem cortes.
 
----
+## O que muda visualmente
 
-### 1. Novo Hero (substitui o atual com logo + tag)
+1. **Ícones coloridos por card** (substitui o tom roxo único atual):
+   Cada uma das 17 soluções recebe uma cor sólida com um leve gradiente, no estilo "app icon" (quadrado arredondado, com sombra colorida sutil):
 
-Remover:
-- Imagem da logo FestPag no topo
-- Badge "Para Produtores de Eventos"
+   - Cadastro de Eventos → roxo
+   - Gestão de Lotes → azul
+   - Site Exclusivo → indigo
+   - Eventos para Convidados → ciano-claro
+   - Eventos Gratuitos → rosa
+   - Pré-venda Restrita → âmbar
+   - Ingresso Nominal → verde-esmeralda
+   - Cupom de Desconto → laranja
+   - Validação de Ingressos → verde-lima
+   - Dashboard → roxo-violeta
+   - Controle de Vendas → azul-céu
+   - Ingresso Digital → teal
+   - Área do Produtor → fúcsia
+   - Gestão de Produtores → rosa-quente
+   - Área do Colaborador → laranja-vermelho
+   - Check-in com QR Code → vermelho
+   - Listas de Convidados → amarelo
 
-Adicionar uma headline no mesmo estilo da home — uppercase, extrabold, com palavras destacadas em gradient e na fonte manuscrita Caveat — mas com mensagem voltada ao produtor:
+   O ícone perde o fundo translúcido fraco e ganha um fundo **sólido colorido** com leve gradiente e sombra na mesma cor (efeito "app icon" da segunda imagem).
 
-> **VENDA, GERENCIE E FAÇA A SUA**  
-> **FESTA ACONTECER COM A**  
-> *plataforma completa* (Caveat verde)  
-> **PARA PRODUTORES**
+2. **Descrição completa, sem cortes**:
+   - Remove o `line-clamp-2` que estava cortando o texto.
+   - Aumenta a altura mínima das linhas do bento (de `auto-rows-[180px]` para algo como `auto-rows-[210px]` no desktop) para acomodar 3–4 linhas de descrição confortavelmente.
+   - Aumenta levemente o tamanho da fonte da descrição (`text-xs md:text-sm`) e melhora a entrelinha.
 
-Subtítulo curto reforçando: "Cadastre eventos, controle vendas em tempo real, valide ingressos no QR Code e opere a portaria — tudo em um só lugar."
+3. **Mantém o layout bento atual** (card hero 2x2 + cards 1x1 ao redor) — só refina padding e espaçamento para o texto respirar.
 
-CTAs mantidos:
-- **Começar agora** (variant hero) → `/area-do-produtor/cadastro`
-- **Já tenho conta** (outline) → `/area-do-produtor/login`
+4. **Acessibilidade / hover**:
+   - Mantém a animação de hover (elevar + glow), mas o glow agora pega a cor do próprio card.
 
-Preserva o mesmo glow radial + gradiente de fundo já existente.
+## Arquivos afetados
 
----
+- **`src/components/home/ProducerSolutionsBento.tsx`** — única alteração:
+  - Adicionar uma propriedade `color` em cada item de `solutions` (classes Tailwind para gradiente do ícone + sombra).
+  - Trocar o bloco do ícone para usar essa cor (`bg-gradient-to-br ${color} shadow-lg shadow-${color}/30`).
+  - Remover `line-clamp-2` da descrição.
+  - Ajustar `auto-rows` da grade e tipografia da descrição.
 
-### 2. Nova seção "Nossas Soluções" — Bento Grid Premium
+Sem novos componentes, sem novas dependências, sem alterações em outras páginas.
 
-Substitui a atual seção `ProducerSolutionsSection variant="page"` (que é compartilhada com a home) por uma seção **dedicada e exclusiva** da página do produtor, exibindo as 17 soluções solicitadas.
+## Por que não tornar o card clicável
 
-Estrutura visual (Bento Grid premium, asymmetric):
-
-```text
-┌────────────────────────────┬──────────────┬──────────────┐
-│                            │              │              │
-│   CARD HERO (2x2)          │  Cadastro de │  Gestão de   │
-│   "A plataforma            │  Eventos     │  Lotes       │
-│    completa para           │              │              │
-│    produzir e vender"      ├──────────────┼──────────────┤
-│   + métricas / stats       │  Site        │  Eventos     │
-│   + CTA principal          │  Exclusivo   │  Convidados  │
-│                            │              │              │
-└────────────────────────────┴──────────────┴──────────────┘
-┌──────────────┬──────────────┬──────────────┬──────────────┐
-│ Eventos      │ Pré-venda    │ Ingresso     │ Cupom de     │
-│ Gratuitos    │ Restrita     │ Nominal      │ Desconto     │
-├──────────────┼──────────────┼──────────────┼──────────────┤
-│ Validação    │ Dashboard    │ Controle     │ Ingresso     │
-│ de Ingressos │              │ de Vendas    │ Digital      │
-├──────────────┼──────────────┼──────────────┼──────────────┤
-│ Área do      │ Gestão de    │ Área do      │ Check-in com │
-│ Produtor     │ Produtores   │ Colaborador  │ QR Code      │
-├──────────────┴──────────────┴──────────────┼──────────────┤
-│  Listas de Convidados (card destaque 3-col)│   (vazio)    │
-└────────────────────────────────────────────┴──────────────┘
-```
-
-Cada card pequeno terá:
-- Ícone com fundo gradient (primary→accent) num quadrado arredondado
-- Título em uppercase, font-display
-- Descrição curta de 1 linha
-- Hover: borda primary, glow sutil, ícone com leve scale
-
-Card hero (top-left, 2x2):
-- Fundo gradient escuro com glow + globo decorativo (mesmo estilo do bento atual)
-- Headline forte
-- 3 mini-stats inline (ex.: "Pix instantâneo", "Taxa transparente", "Suporte dedicado")
-- CTA "Começar agora"
-
-Mapeamento de ícones (lucide-react):
-| Solução | Ícone |
-|---|---|
-| Cadastro de Eventos | `CalendarPlus` |
-| Gestão de Lotes | `Layers` |
-| Site Exclusivo (mobile) | `Smartphone` |
-| Eventos para Convidados | `UserCheck` |
-| Eventos Gratuitos | `Gift` |
-| Pré-venda Restrita | `Lock` |
-| Ingresso Nominal | `IdCard` |
-| Cupom de Desconto | `Tag` |
-| Validação de Ingressos | `ShieldCheck` |
-| Dashboard | `LayoutDashboard` |
-| Controle de Vendas | `TrendingUp` |
-| Ingresso Digital | `Ticket` |
-| Área do Produtor | `Briefcase` |
-| Gestão de Produtores | `Users` |
-| Área do Colaborador | `UserCog` |
-| Check-in com QR Code | `QrCode` |
-| Listas de Convidados | `ClipboardList` |
-
----
-
-### 3. Manutenção das demais seções
-
-- **Como funciona (3 passos)**: mantida como está — já está alinhada visualmente.
-- **CTA final**: mantido — funciona bem como fechamento.
-- **Recursos (bento de 6 features)**: **removido** — vira redundante com a nova seção de 17 soluções.
-
----
-
-### Arquivos a modificar/criar
-
-- `src/components/home/ProducerSolutionsBento.tsx` *(novo)* — bento grid das 17 soluções, exclusivo da página do produtor.
-- `src/pages/AreaDoProdutor.tsx` — refatorar hero (sem logo/badge, nova headline estilo home) e substituir a seção antiga de soluções pelo novo bento. Remover seção "Recursos" (6 features).
-
-Nenhum impacto em rotas, dados ou outras telas. A `ProducerSolutionsSection` original continua intacta para uso na home.
+O card clicável que abre um modal/popover seria útil se as descrições fossem longas (parágrafos). Como cada descrição tem 1 frase curta, é mais limpo e mais premium **simplesmente mostrar tudo** — alinhado com o padrão da referência. Se você preferir clicável, é só dizer e ajusto.
