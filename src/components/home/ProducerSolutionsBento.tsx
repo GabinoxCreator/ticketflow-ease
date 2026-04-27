@@ -87,7 +87,7 @@ const ProducerSolutionsBento = () => {
         </motion.div>
 
         {/* Bento Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 auto-rows-[160px] md:auto-rows-[180px] gap-3 md:gap-4 max-w-7xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 auto-rows-[200px] md:auto-rows-[220px] gap-3 md:gap-4 max-w-7xl mx-auto">
           {/* CARD HERO — 2x2 (mobile: full width) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
