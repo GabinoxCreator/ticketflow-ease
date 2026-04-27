@@ -49,12 +49,19 @@ export default function AreaDoProdutor() {
 
         <main className="pt-20">
           {/* HERO — estilo home, voltado ao produtor */}
-          <section className="relative overflow-hidden py-16 md:py-24">
+          <section className="relative overflow-hidden pt-16 md:pt-24 pb-32 md:pb-44">
             {/* Glow radial decorativo */}
             <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-accent/10" />
             <div className="pointer-events-none absolute -top-10 -left-20 w-96 h-96 rounded-full bg-primary/15 blur-3xl" />
             <div className="pointer-events-none absolute top-10 -right-20 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
             <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-64 rounded-full bg-primary/10 blur-3xl" />
+
+            {/* Fade-out suave para o background na transição com a próxima seção */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background z-[5]" />
+
+            {/* Linha luminosa decorativa na borda */}
+            <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent z-[6]" />
+            <div className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 w-[40%] h-8 rounded-full bg-primary/30 blur-2xl z-[6]" />
 
             <div className="container mx-auto px-4 relative z-10">
               <motion.div

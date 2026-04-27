@@ -1,52 +1,40 @@
 ## Objetivo
 
-Deixar a grade de soluções da página "Sou Produtor" mais premium e legível, no estilo da segunda imagem de referência (ícones coloridos sólidos, cada card com sua identidade), e garantir que **toda a descrição apareça** sem cortes.
+Resolver o "corte feio" entre o hero gradiente (roxo/magenta) e a seção "Tudo que você precisa…" na página `/area-do-produtor`, criando uma transição premium e fluida entre as áreas.
 
-## O que muda visualmente
+## Diagnóstico
 
-1. **Ícones coloridos por card** (substitui o tom roxo único atual):
-   Cada uma das 17 soluções recebe uma cor sólida com um leve gradiente, no estilo "app icon" (quadrado arredondado, com sombra colorida sutil):
+Hoje o hero termina abruptamente — o gradiente roxo/magenta corta direto no preto chapado da próxima seção. Visualmente parece "duas páginas coladas", sem hierarquia.
 
-   - Cadastro de Eventos → roxo
-   - Gestão de Lotes → azul
-   - Site Exclusivo → indigo
-   - Eventos para Convidados → ciano-claro
-   - Eventos Gratuitos → rosa
-   - Pré-venda Restrita → âmbar
-   - Ingresso Nominal → verde-esmeralda
-   - Cupom de Desconto → laranja
-   - Validação de Ingressos → verde-lima
-   - Dashboard → roxo-violeta
-   - Controle de Vendas → azul-céu
-   - Ingresso Digital → teal
-   - Área do Produtor → fúcsia
-   - Gestão de Produtores → rosa-quente
-   - Área do Colaborador → laranja-vermelho
-   - Check-in com QR Code → vermelho
-   - Listas de Convidados → amarelo
+## Solução de design (sutil, premium, sem mudar o conteúdo)
 
-   O ícone perde o fundo translúcido fraco e ganha um fundo **sólido colorido** com leve gradiente e sombra na mesma cor (efeito "app icon" da segunda imagem).
+1. **Fade-out gradiente do hero**
+   Adicionar uma camada absoluta na base do hero (`bg-gradient-to-b from-transparent to-background`, altura ~160px) para o gradiente roxo/magenta morrer suavemente no `background` em vez de cortar.
 
-2. **Descrição completa, sem cortes**:
-   - Remove o `line-clamp-2` que estava cortando o texto.
-   - Aumenta a altura mínima das linhas do bento (de `auto-rows-[180px]` para algo como `auto-rows-[210px]` no desktop) para acomodar 3–4 linhas de descrição confortavelmente.
-   - Aumenta levemente o tamanho da fonte da descrição (`text-xs md:text-sm`) e melhora a entrelinha.
+2. **Linha luminosa divisória ("light beam")**
+   Inserir na borda inferior do hero uma linha horizontal fina com gradiente (`from-transparent via-primary/60 to-transparent`, ~60% de largura, centralizada) + um halo difuso (`blur-2xl` com `bg-primary/30`) logo abaixo. Resultado: um filete de luz premium estilo Apple/Linear separando as seções.
 
-3. **Mantém o layout bento atual** (card hero 2x2 + cards 1x1 ao redor) — só refina padding e espaçamento para o texto respirar.
+3. **Respiro generoso**
+   Trocar `py-16 md:py-24` do hero para `pt-16 md:pt-24` + `pb-32 md:pb-44`, dando espaço para o fade-out + light beam respirarem sem encostar nos botões.
 
-4. **Acessibilidade / hover**:
-   - Mantém a animação de hover (elevar + glow), mas o glow agora pega a cor do próprio card.
+4. **Continuidade de glow**
+   A seção `ProducerSolutionsBento` já tem glows roxo/rosa nos cantos — com o fade-out alinhado, o olho percebe continuidade visual em vez de quebra.
+
+## ASCII (antes / depois)
+
+```text
+ANTES                          DEPOIS
+┌──────────────────┐          ┌──────────────────┐
+│  HERO GRADIENTE  │          │  HERO GRADIENTE  │
+│  [Botões]        │          │  [Botões]        │
+│                  │          │     ⋮ fade ⋮     │
+├──────────────────┤  ← corte │  ──── ✨ ────    │ ← light beam
+│ TUDO QUE VOCÊ…   │          │ TUDO QUE VOCÊ…   │
+└──────────────────┘          └──────────────────┘
+```
 
 ## Arquivos afetados
 
-- **`src/components/home/ProducerSolutionsBento.tsx`** — única alteração:
-  - Adicionar uma propriedade `color` em cada item de `solutions` (classes Tailwind para gradiente do ícone + sombra).
-  - Trocar o bloco do ícone para usar essa cor (`bg-gradient-to-br ${color} shadow-lg shadow-${color}/30`).
-  - Remover `line-clamp-2` da descrição.
-  - Ajustar `auto-rows` da grade e tipografia da descrição.
+- **`src/pages/AreaDoProdutor.tsx`** — apenas a `<section>` do hero (alteração de padding + 3 elementos decorativos novos `pointer-events-none` na borda inferior). Sem mexer em conteúdo, botões ou tipografia. Sem novas dependências.
 
-Sem novos componentes, sem novas dependências, sem alterações em outras páginas.
-
-## Por que não tornar o card clicável
-
-O card clicável que abre um modal/popover seria útil se as descrições fossem longas (parágrafos). Como cada descrição tem 1 frase curta, é mais limpo e mais premium **simplesmente mostrar tudo** — alinhado com o padrão da referência. Se você preferir clicável, é só dizer e ajusto.
+Nada mais é tocado — o bento, o "Como funciona" e o CTA final continuam idênticos.
