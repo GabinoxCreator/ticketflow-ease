@@ -77,12 +77,7 @@ export default function AreaDoProdutor() {
                   acontecer com a <span className="gradient-text">FestPag</span>
                 </h1>
 
-                <p className="text-base md:text-lg text-muted-foreground mt-8 mb-10 max-w-2xl mx-auto">
-                  Cadastre eventos, controle vendas em tempo real, valide ingressos no QR Code e
-                  opere a portaria — tudo em um só lugar, com a fluidez que o seu evento merece.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-12 md:mt-14">
                   <Button
                     variant="hero"
                     size="xl"
