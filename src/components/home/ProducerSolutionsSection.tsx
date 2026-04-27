@@ -134,21 +134,26 @@ const ProducerSolutionsSection = ({ variant = 'home' }: ProducerSolutionsSection
               </p>
             </div>
 
-            <div className="relative flex flex-col sm:flex-row gap-3 mt-8">
+            <div className="relative flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 mt-8">
               <Button
                 asChild
                 variant="hero"
                 size="lg"
-                className="gap-2 shadow-xl shadow-primary/30"
+                className="gap-2 shadow-xl shadow-primary/30 w-full sm:w-auto"
               >
                 <Link to="/area-do-produtor/cadastro">
                   Abra sua conta!
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </Button>
-              <Button asChild variant="ghost" size="lg" className="text-muted-foreground hover:text-foreground gap-2 group">
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="gap-2 group border-primary/30 hover:border-primary/60 hover:bg-primary/5 w-full sm:w-auto"
+              >
                 <a href="mailto:contato@ingressosrp.com.br">
-                  Falar com nosso time de vendas
+                  Falar com vendas
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </a>
               </Button>
