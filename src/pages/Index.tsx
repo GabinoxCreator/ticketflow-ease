@@ -91,10 +91,10 @@ const Index = () => {
               ) : events.length === 0 ? (
                 <div className="text-center py-16 rounded-3xl border border-border/40 bg-card/30 backdrop-blur-sm">
                   <p className="text-muted-foreground text-base md:text-lg">
-                    Nenhum evento disponível no momento.
+                    ​
                   </p>
                   <p className="text-muted-foreground/70 text-sm mt-2">
-                    Volte em breve — novidades chegam por aqui toda semana.
+                    ​
                   </p>
                 </div>
               ) : (
