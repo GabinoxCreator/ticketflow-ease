@@ -170,8 +170,13 @@ const ProducerSolutionsBento = () => {
               <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-primary/5 to-accent/5" />
 
               <div className="relative">
-                <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 group-hover:scale-110 transition-transform">
-                  <solution.icon className="w-5 h-5 text-primary" />
+                <div
+                  className={cn(
+                    'inline-flex items-center justify-center w-11 h-11 md:w-12 md:h-12 rounded-2xl shadow-lg group-hover:scale-110 transition-transform',
+                    solution.iconClass,
+                  )}
+                >
+                  <solution.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
               </div>
 
@@ -179,7 +184,7 @@ const ProducerSolutionsBento = () => {
                 <h4 className="font-display font-bold text-sm md:text-[15px] uppercase tracking-wide text-foreground leading-tight mb-1.5">
                   {solution.title}
                 </h4>
-                <p className="text-[11px] md:text-xs text-muted-foreground leading-snug line-clamp-2">
+                <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
                   {solution.description}
                 </p>
               </div>
