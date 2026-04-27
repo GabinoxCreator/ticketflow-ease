@@ -76,14 +76,11 @@ const ProducerSolutionsBento = () => {
             <Sparkles className="w-3.5 h-3.5" />
             Nossas Soluções
           </div>
-          <h2 className="font-display font-extrabold uppercase text-3xl md:text-4xl lg:text-5xl mt-4 mb-4 text-foreground leading-tight">
+          <h2 className="font-display font-extrabold uppercase text-3xl md:text-4xl lg:text-5xl mt-5 text-foreground leading-tight">
             Tudo que você precisa para
             <br />
             <span className="gradient-text">vender, operar e crescer</span>
           </h2>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-            Uma plataforma completa, da venda online ao check-in na portaria — com a fluidez e o cuidado que o seu evento merece.
-          </p>
         </motion.div>
 
         {/* Bento Grid */}
