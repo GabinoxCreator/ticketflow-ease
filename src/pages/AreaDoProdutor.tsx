@@ -1,35 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import {
-  ArrowRight,
-  Sparkles,
-  UserPlus,
-  Settings2,
-  TrendingUp,
-} from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProducerSolutionsBento from '@/components/home/ProducerSolutionsBento';
-
-const steps = [
-  {
-    icon: UserPlus,
-    title: 'Crie sua conta',
-    description: 'Cadastro rápido e gratuito em poucos minutos.',
-  },
-  {
-    icon: Settings2,
-    title: 'Configure seu evento',
-    description: 'Defina lotes, setores, preços e personalize tudo.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Comece a vender',
-    description: 'Acompanhe vendas em tempo real e opere com tranquilidade.',
-  },
-];
 
 export default function AreaDoProdutor() {
   const navigate = useNavigate();
@@ -109,58 +85,6 @@ export default function AreaDoProdutor() {
 
           {/* Bento Grid Premium com as 17 soluções */}
           <ProducerSolutionsBento />
-
-          {/* COMO FUNCIONA */}
-          <section className="py-20">
-            <div className="container mx-auto px-4">
-              <div className="text-center mb-14">
-                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-4 border border-primary/20">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Comece em 3 passos
-                </div>
-                <h2 className="font-display font-bold text-3xl md:text-4xl mb-3 text-foreground">
-                  Simples, rápido e premium
-                </h2>
-                <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                  Em poucos minutos seu evento está vendendo.
-                </p>
-              </div>
-
-              <div className="relative max-w-5xl mx-auto">
-                {/* Linha conectora desktop */}
-                <div className="hidden md:block absolute top-10 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 relative">
-                  {steps.map((step, i) => (
-                    <motion.div
-                      key={step.title}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.1 }}
-                      className="text-center relative"
-                    >
-                      <div className="relative inline-flex">
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-accent blur-md opacity-60" />
-                        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-xl shadow-primary/30 mb-5">
-                          <step.icon className="w-9 h-9 text-primary-foreground" />
-                        </div>
-                      </div>
-                      <div className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">
-                        Passo {i + 1}
-                      </div>
-                      <h3 className="font-display font-bold text-xl mb-2 text-foreground">
-                        {step.title}
-                      </h3>
-                      <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                        {step.description}
-                      </p>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
 
           {/* CTA final */}
           <section className="py-20">
