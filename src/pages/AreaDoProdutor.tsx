@@ -1,35 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import {
-  ArrowRight,
-  Sparkles,
-  UserPlus,
-  Settings2,
-  TrendingUp,
-} from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProducerSolutionsBento from '@/components/home/ProducerSolutionsBento';
-
-const steps = [
-  {
-    icon: UserPlus,
-    title: 'Crie sua conta',
-    description: 'Cadastro rápido e gratuito em poucos minutos.',
-  },
-  {
-    icon: Settings2,
-    title: 'Configure seu evento',
-    description: 'Defina lotes, setores, preços e personalize tudo.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Comece a vender',
-    description: 'Acompanhe vendas em tempo real e opere com tranquilidade.',
-  },
-];
 
 export default function AreaDoProdutor() {
   const navigate = useNavigate();
