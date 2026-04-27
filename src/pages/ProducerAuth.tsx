@@ -118,11 +118,11 @@ export default function ProducerAuth() {
             className="w-full max-w-md"
           >
             {/* Logo + chip */}
-            <div className="text-center mb-6">
+            <div className="flex flex-col items-center gap-3 mb-6">
               <Link to="/" className="inline-block">
-                <img src={logoFestpag} alt="FestPag" className="h-14 w-auto mx-auto" />
+                <img src={logoFestpag} alt="FestPag" className="h-12 w-auto" />
               </Link>
-              <div className="inline-flex items-center gap-1.5 mt-3 bg-card/40 backdrop-blur border border-primary/30 text-primary rounded-full px-3 py-1 text-[11px] font-semibold">
+              <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/30 text-primary rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur">
                 <Sparkles className="w-3 h-3" />
                 Área do Produtor
               </div>
