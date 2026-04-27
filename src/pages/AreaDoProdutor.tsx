@@ -2,13 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import {
-  BarChart3,
-  QrCode,
-  Users,
-  CalendarDays,
-  Shield,
   ArrowRight,
-  Ticket,
   Sparkles,
   UserPlus,
   Settings2,
@@ -17,43 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import logoFestpag from '@/assets/logo-festpag.png';
-import ProducerSolutionsSection from '@/components/home/ProducerSolutionsSection';
-import { cn } from '@/lib/utils';
-
-const features = [
-  {
-    icon: CalendarDays,
-    title: 'Crie seus eventos',
-    description: 'Configure lotes, setores, preços e comece a vender em minutos.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Vendas em tempo real',
-    description: 'Dashboard completo com métricas de vendas, receita e conversão.',
-    featured: true,
-  },
-  {
-    icon: QrCode,
-    title: 'Check-in com QR Code',
-    description: 'Valide ingressos na portaria com leitura rápida de QR Code.',
-  },
-  {
-    icon: Users,
-    title: 'Equipe e colaboradores',
-    description: 'Adicione comissários, porteiros e gerentes com permissões granulares.',
-  },
-  {
-    icon: Shield,
-    title: 'Segurança e confiança',
-    description: 'Pagamento seguro via Pix e cartão. Controle total dos seus dados.',
-  },
-  {
-    icon: Ticket,
-    title: 'Listas de convidados',
-    description: 'Crie listas VIP com links públicos para inscrição de convidados.',
-  },
-];
+import ProducerSolutionsBento from '@/components/home/ProducerSolutionsBento';
 
 const steps = [
   {
@@ -90,47 +48,46 @@ export default function AreaDoProdutor() {
         <Header />
 
         <main className="pt-20">
-          {/* HERO */}
-          <section className="relative overflow-hidden py-20 md:py-28">
+          {/* HERO — estilo home, voltado ao produtor */}
+          <section className="relative overflow-hidden py-16 md:py-24">
             {/* Glow radial decorativo */}
             <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-accent/10" />
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/15 blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-accent/15 blur-[120px] pointer-events-none" />
+            <div className="pointer-events-none absolute -top-10 -left-20 w-96 h-96 rounded-full bg-primary/15 blur-3xl" />
+            <div className="pointer-events-none absolute top-10 -right-20 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
+            <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-64 rounded-full bg-primary/10 blur-3xl" />
 
             <div className="container mx-auto px-4 relative z-10">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-3xl mx-auto text-center"
+                transition={{ duration: 0.6 }}
+                className="max-w-4xl mx-auto text-center"
               >
-                <div className="flex justify-center mb-6">
-                  <img src={logoFestpag} alt="FestPag" className="h-16 md:h-20 w-auto" />
-                </div>
-
-                <div className="inline-flex items-center gap-2 bg-card/60 backdrop-blur border border-primary/30 text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-6 shadow-lg shadow-primary/10">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Para Produtores de Eventos
-                </div>
-
-                <h1 className="font-display font-extrabold text-4xl md:text-5xl lg:text-6xl mb-6 text-foreground leading-tight">
-                  Venda ingressos e opere seus eventos com a{' '}
-                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                    FestPag
+                <h1 className="font-display font-extrabold uppercase leading-[0.95] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-foreground">
+                  Venda, gerencie e
+                  <br />
+                  faça a sua{' '}
+                  <span
+                    className="text-[hsl(85,80%,60%)] italic font-bold"
+                    style={{ fontFamily: 'Caveat, cursive' }}
+                  >
+                    festa
                   </span>
+                  <br />
+                  acontecer com a <span className="gradient-text">FestPag</span>
                 </h1>
 
-                <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-                  Crie seu evento, configure lotes, acompanhe vendas e faça check-in com QR Code.
-                  Uma plataforma completa para produtores, casas de show, festas e eventos
-                  corporativos.
+                <p className="text-base md:text-lg text-muted-foreground mt-8 mb-10 max-w-2xl mx-auto">
+                  Cadastre eventos, controle vendas em tempo real, valide ingressos no QR Code e
+                  opere a portaria — tudo em um só lugar, com a fluidez que o seu evento merece.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                   <Button
                     variant="hero"
                     size="xl"
                     onClick={() => navigate('/area-do-produtor/cadastro')}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                   >
                     Começar agora
                     <ArrowRight className="w-5 h-5" />
@@ -139,7 +96,7 @@ export default function AreaDoProdutor() {
                     variant="outline"
                     size="xl"
                     onClick={() => navigate('/area-do-produtor/login')}
-                    className="border-primary/30 hover:border-primary/60 hover:bg-primary/5"
+                    className="border-primary/30 hover:border-primary/60 hover:bg-primary/5 w-full sm:w-auto"
                   >
                     Já tenho conta
                   </Button>
@@ -148,59 +105,8 @@ export default function AreaDoProdutor() {
             </div>
           </section>
 
-          {/* Bento de soluções */}
-          <ProducerSolutionsSection variant="page" />
-
-          {/* FEATURES — bento sofisticado */}
-          <section className="py-20 bg-card/30">
-            <div className="container mx-auto px-4">
-              <div className="text-center mb-14">
-                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-xs font-semibold mb-4 border border-primary/20">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Recursos
-                </div>
-                <h2 className="font-display font-bold text-3xl md:text-4xl mb-3 text-foreground">
-                  Tudo que você precisa para operar seus eventos
-                </h2>
-                <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Do planejamento à portaria, a FestPag cuida de toda a operação para você.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
-                {features.map((feature, i) => (
-                  <motion.div
-                    key={feature.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.08 }}
-                    className={cn(
-                      'group relative overflow-hidden rounded-2xl p-6',
-                      'bg-card/60 backdrop-blur-sm border border-border/50',
-                      'hover:border-primary/40 transition-all duration-300',
-                      feature.featured &&
-                        'md:col-span-2 lg:col-span-1 lg:row-span-1 bg-gradient-to-br from-primary/10 via-card/60 to-accent/10 border-primary/30',
-                    )}
-                  >
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br from-primary/5 to-accent/5 pointer-events-none" />
-
-                    <div className="relative">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 mb-4">
-                        <feature.icon className="w-6 h-6 text-primary" />
-                      </div>
-                      <h3 className="font-display font-semibold text-lg mb-2 text-foreground">
-                        {feature.title}
-                      </h3>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
-                        {feature.description}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </section>
+          {/* Bento Grid Premium com as 17 soluções */}
+          <ProducerSolutionsBento />
 
           {/* COMO FUNCIONA */}
           <section className="py-20">
