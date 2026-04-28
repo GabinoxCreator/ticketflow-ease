@@ -36,6 +36,8 @@ export function useEventParticipants(eventId: string | undefined) {
           lot:event_lots(name, price)
         `)
         .eq('event_id', eventId)
+        // Apenas tickets de quem efetivamente comprou (exclui pending)
+        .in('status', ['valid', 'used', 'cancelled'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
