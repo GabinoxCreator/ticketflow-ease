@@ -59,7 +59,6 @@ function EmptyState({
 }
 
 export default function DashboardEventos() {
-  const navigate = useNavigate();
   const { events, activeEvents, pastEvents, draftEvents, isLoading, deleteEvent } = useEvents();
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
