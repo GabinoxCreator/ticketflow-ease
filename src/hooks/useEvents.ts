@@ -26,6 +26,12 @@ export interface Event {
   fake_scarcity_percentage: number | null;
   created_at: string;
   updated_at: string;
+  event_lots?: Array<{
+    id: string;
+    price: number;
+    total_quantity: number;
+    sold_quantity: number;
+  }>;
 }
 
 export interface EventFormData {
@@ -59,7 +65,10 @@ export function useEvents() {
       
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          event_lots ( id, price, total_quantity, sold_quantity )
+        `)
         .eq('producer_id', user.id)
         .order('created_at', { ascending: false });
 
