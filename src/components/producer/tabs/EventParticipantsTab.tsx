@@ -112,22 +112,21 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
 
       {/* Participants Tabs — scrollable horizontally on mobile */}
       <Tabs defaultValue="all">
-        <div className="-mx-1 overflow-x-auto scrollbar-none">
-          <TabsList className="flex w-max min-w-full gap-1 p-1 bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
-            <TabsTrigger value="all" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Todos <Badge variant="secondary" className="ml-2 bg-background/50">{tickets?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="valid" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Não Validados <Badge variant="secondary" className="ml-2 bg-background/50">{validTickets?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="used" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Validados <Badge variant="secondary" className="ml-2 bg-background/50">{usedTickets?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="cancelled" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Cancelados <Badge variant="secondary" className="ml-2 bg-background/50">{cancelledTickets?.length || 0}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="grid grid-cols-4 sm:flex w-full gap-1 p-1 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
+          <TabsTrigger value="all" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Todos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{tickets?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="valid" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm text-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            <span className="leading-tight">Não<br className="sm:hidden"/> Validados</span>
+            <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{validTickets?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="used" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Validados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{usedTickets?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Cancelados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{cancelledTickets?.length || 0}</Badge>
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="all" className="mt-4 space-y-3">
           {filterTickets(tickets || []).length === 0
