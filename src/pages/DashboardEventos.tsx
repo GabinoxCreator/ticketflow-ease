@@ -75,7 +75,6 @@ export default function DashboardEventos() {
     eventList: typeof events,
     emptyTitle: string,
     emptyMessage: string,
-    showCreateCta = true,
   ) => {
     if (isLoading) {
       return (
@@ -88,13 +87,7 @@ export default function DashboardEventos() {
     }
 
     if (!eventList || eventList.length === 0) {
-      return (
-        <EmptyState
-          title={emptyTitle}
-          message={emptyMessage}
-          onAction={showCreateCta ? () => navigate('/produtor/criar-evento') : undefined}
-        />
-      );
+      return <EmptyState title={emptyTitle} message={emptyMessage} />;
     }
 
     return (
