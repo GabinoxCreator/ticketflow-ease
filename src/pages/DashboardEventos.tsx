@@ -180,7 +180,6 @@ export default function DashboardEventos() {
               pastEvents,
               'Nenhum evento passado por aqui',
               'Seus eventos finalizados aparecerão aqui após a data ter passado.',
-              false,
             )}
           </TabsContent>
 
