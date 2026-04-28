@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Download } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Search, Download, ClipboardList, CheckCircle2, Clock, XCircle, DollarSign, Megaphone } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +10,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventOrdersTabProps {
   eventId: string;
+}
+
+function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`relative rounded-2xl border border-primary/10 bg-card/40 backdrop-blur-xl overflow-hidden ${className}`}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      {children}
+    </div>
+  );
 }
 
 export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
@@ -24,14 +32,14 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
   const filterOrders = (orderList: Order[]) => {
     if (!searchQuery) return orderList;
     const query = searchQuery.toLowerCase();
-    return orderList.filter(order => 
+    return orderList.filter(order =>
       order.customer_name.toLowerCase().includes(query) ||
       order.customer_email.toLowerCase().includes(query) ||
       order.customer_phone?.toLowerCase().includes(query)
     );
   };
 
-  const formatCurrency = (value: number) => 
+  const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   if (isLoading) {
@@ -44,136 +52,127 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
     );
   }
 
+  const stats = [
+    { label: 'Total de Pedidos', value: orders?.length || 0, icon: ClipboardList, iconBg: 'bg-primary/15', iconColor: 'text-primary' },
+    { label: 'Pagos', value: paidOrders?.length || 0, icon: CheckCircle2, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
+    { label: 'Pendentes', value: pendingOrders?.length || 0, icon: Clock, iconBg: 'bg-amber-500/15', iconColor: 'text-amber-400' },
+    { label: 'Receita', value: formatCurrency(totalRevenue), icon: DollarSign, iconBg: 'bg-gradient-to-br from-primary/20 to-pink-500/20', iconColor: 'text-primary', gradient: true },
+  ];
+
+  const renderEmpty = (msg: string) => (
+    <GlassCard>
+      <div className="py-12 text-center text-sm text-muted-foreground">{msg}</div>
+    </GlassCard>
+  );
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold">{orders?.length || 0}</p>
-            <p className="text-xs text-muted-foreground">Total de Pedidos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-green-500">{paidOrders?.length || 0}</p>
-            <p className="text-xs text-muted-foreground">Pagos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-yellow-500">{pendingOrders?.length || 0}</p>
-            <p className="text-xs text-muted-foreground">Pendentes</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-2xl font-bold text-primary">{formatCurrency(totalRevenue)}</p>
-            <p className="text-xs text-muted-foreground">Receita</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        {stats.map((s) => (
+          <GlassCard key={s.label}>
+            <div className="p-4 flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${s.iconBg}`}>
+                <s.icon className={`h-5 w-5 ${s.iconColor}`} />
+              </div>
+              <div className="min-w-0">
+                <p className={`text-xl md:text-2xl font-bold truncate ${s.gradient ? 'bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent' : ''}`}>
+                  {s.value}
+                </p>
+                <p className="text-[11px] md:text-xs text-muted-foreground">{s.label}</p>
+              </div>
+            </div>
+          </GlassCard>
+        ))}
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      {/* Search and Export */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome, email ou telefone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11 rounded-xl bg-background/50 border-border/60"
           />
         </div>
-        <Button variant="outline" onClick={() => {
-          if (!orders || orders.length === 0) return;
-          const headers = ['Nome', 'Email', 'Telefone', 'Valor', 'Status', 'Método', 'Data'];
-          const rows = orders.map(o => [o.customer_name, o.customer_email, o.customer_phone || '', o.total_amount.toString(), o.status, o.payment_method || '', new Date(o.created_at).toLocaleDateString('pt-BR')]);
-          const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a'); a.href = url; a.download = 'pedidos.csv'; a.click(); URL.revokeObjectURL(url);
-        }}>
+        <Button
+          variant="outline"
+          className="h-11 rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
+          onClick={() => {
+            if (!orders || orders.length === 0) return;
+            const headers = ['Nome', 'Email', 'Telefone', 'Valor', 'Status', 'Método', 'Data'];
+            const rows = orders.map(o => [o.customer_name, o.customer_email, o.customer_phone || '', o.total_amount.toString(), o.status, o.payment_method || '', new Date(o.created_at).toLocaleDateString('pt-BR')]);
+            const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'pedidos.csv'; a.click(); URL.revokeObjectURL(url);
+          }}
+        >
           <Download className="h-4 w-4 mr-2" />
           Exportar
         </Button>
       </div>
 
-      {/* Orders Tabs */}
+      {/* Orders Tabs — scrollable horizontally on mobile */}
       <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">
-            Todos
-            <Badge variant="secondary" className="ml-2">{orders?.length || 0}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="paid">
-            Pagos
-            <Badge variant="secondary" className="ml-2">{paidOrders?.length || 0}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            Pendentes
-            <Badge variant="secondary" className="ml-2">{pendingOrders?.length || 0}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="cancelled">
-            Cancelados
-            <Badge variant="secondary" className="ml-2">{cancelledOrders?.length || 0}</Badge>
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto scrollbar-none">
+          <TabsList className="flex w-max min-w-full gap-1 p-1 bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
+            <TabsTrigger value="all" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+              Todos <Badge variant="secondary" className="ml-2 bg-background/50">{orders?.length || 0}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="paid" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+              Pagos <Badge variant="secondary" className="ml-2 bg-background/50">{paidOrders?.length || 0}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+              Pendentes <Badge variant="secondary" className="ml-2 bg-background/50">{pendingOrders?.length || 0}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="cancelled" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+              Cancelados <Badge variant="secondary" className="ml-2 bg-background/50">{cancelledOrders?.length || 0}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="all" className="mt-4 space-y-3">
-          {filterOrders(orders || []).length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                {searchQuery ? 'Nenhum pedido encontrado com esses termos.' : 'Nenhum pedido registrado.'}
-              </CardContent>
-            </Card>
-          ) : (
-            filterOrders(orders || []).map((order) => (
-              <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
-            ))
-          )}
+          {filterOrders(orders || []).length === 0
+            ? renderEmpty(searchQuery ? 'Nenhum pedido encontrado com esses termos.' : 'Nenhum pedido registrado.')
+            : filterOrders(orders || []).map((order) => (
+                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+              ))}
         </TabsContent>
 
         <TabsContent value="paid" className="mt-4 space-y-3">
-          {filterOrders(paidOrders || []).length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Nenhum pedido pago.
-              </CardContent>
-            </Card>
-          ) : (
-            filterOrders(paidOrders || []).map((order) => (
-              <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
-            ))
-          )}
+          {filterOrders(paidOrders || []).length === 0
+            ? renderEmpty('Nenhum pedido pago.')
+            : filterOrders(paidOrders || []).map((order) => (
+                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+              ))}
         </TabsContent>
 
         <TabsContent value="pending" className="mt-4 space-y-3">
-          {filterOrders(pendingOrders || []).length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Nenhum pedido pendente.
-              </CardContent>
-            </Card>
-          ) : (
-            filterOrders(pendingOrders || []).map((order) => (
-              <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
-            ))
-          )}
+          {/* Dica de remarketing */}
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/15 flex-shrink-0">
+              <Megaphone className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="text-xs sm:text-sm text-amber-100/90">
+              <strong className="text-amber-300">Oportunidade de remarketing:</strong> estes clientes iniciaram a compra mas não concluíram o pagamento. Use os contatos abaixo para retomar a venda.
+            </div>
+          </div>
+          {filterOrders(pendingOrders || []).length === 0
+            ? renderEmpty('Nenhum pedido pendente.')
+            : filterOrders(pendingOrders || []).map((order) => (
+                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+              ))}
         </TabsContent>
 
         <TabsContent value="cancelled" className="mt-4 space-y-3">
-          {filterOrders(cancelledOrders || []).length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Nenhum pedido cancelado ou reembolsado.
-              </CardContent>
-            </Card>
-          ) : (
-            filterOrders(cancelledOrders || []).map((order) => (
-              <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
-            ))
-          )}
+          {filterOrders(cancelledOrders || []).length === 0
+            ? renderEmpty('Nenhum pedido cancelado ou reembolsado.')
+            : filterOrders(cancelledOrders || []).map((order) => (
+                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+              ))}
         </TabsContent>
       </Tabs>
     </div>
