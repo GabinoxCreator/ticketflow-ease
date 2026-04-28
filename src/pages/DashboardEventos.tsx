@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Sparkles } from 'lucide-react';
+import { CalendarDays, Sparkles } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { EventListItem } from '@/components/producer/EventListItem';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEvents } from '@/hooks/useEvents';
 import {
@@ -40,13 +38,9 @@ function EventSkeleton() {
 function EmptyState({
   title,
   message,
-  onAction,
-  actionLabel = 'Criar meu primeiro evento',
 }: {
   title: string;
   message: string;
-  onAction?: () => void;
-  actionLabel?: string;
 }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-card/30 backdrop-blur-xl">
@@ -56,25 +50,15 @@ function EmptyState({
           <CalendarDays className="w-9 h-9 text-primary" />
         </div>
         <h3 className="text-lg font-bold text-foreground mb-1.5">{title}</h3>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
           {message}
         </p>
-        {onAction && (
-          <Button
-            onClick={onAction}
-            className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/30"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {actionLabel}
-          </Button>
-        )}
       </div>
     </div>
   );
 }
 
 export default function DashboardEventos() {
-  const navigate = useNavigate();
   const { events, activeEvents, pastEvents, draftEvents, isLoading, deleteEvent } = useEvents();
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -91,7 +75,6 @@ export default function DashboardEventos() {
     eventList: typeof events,
     emptyTitle: string,
     emptyMessage: string,
-    showCreateCta = true,
   ) => {
     if (isLoading) {
       return (
@@ -104,13 +87,7 @@ export default function DashboardEventos() {
     }
 
     if (!eventList || eventList.length === 0) {
-      return (
-        <EmptyState
-          title={emptyTitle}
-          message={emptyMessage}
-          onAction={showCreateCta ? () => navigate('/produtor/criar-evento') : undefined}
-        />
-      );
+      return <EmptyState title={emptyTitle} message={emptyMessage} />;
     }
 
     return (
@@ -146,13 +123,6 @@ export default function DashboardEventos() {
                 Gerencie todos os seus eventos em um só lugar
               </p>
             </div>
-            <Button
-              onClick={() => navigate('/produtor/criar-evento')}
-              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/30 self-start sm:self-auto flex-shrink-0"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Criar Evento
-            </Button>
           </div>
         </div>
 
@@ -210,7 +180,6 @@ export default function DashboardEventos() {
               pastEvents,
               'Nenhum evento passado por aqui',
               'Seus eventos finalizados aparecerão aqui após a data ter passado.',
-              false,
             )}
           </TabsContent>
 
