@@ -117,22 +117,20 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
 
       {/* Orders Tabs — scrollable horizontally on mobile */}
       <Tabs defaultValue="all">
-        <div className="-mx-1 overflow-x-auto scrollbar-none">
-          <TabsList className="flex w-max min-w-full gap-1 p-1 bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
-            <TabsTrigger value="all" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Todos <Badge variant="secondary" className="ml-2 bg-background/50">{orders?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="paid" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Pagos <Badge variant="secondary" className="ml-2 bg-background/50">{paidOrders?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Pendentes <Badge variant="secondary" className="ml-2 bg-background/50">{pendingOrders?.length || 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="cancelled" className="rounded-xl px-3 py-2 whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-              Cancelados <Badge variant="secondary" className="ml-2 bg-background/50">{cancelledOrders?.length || 0}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList className="grid grid-cols-4 sm:flex w-full gap-1 p-1 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
+          <TabsTrigger value="all" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Todos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{orders?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="paid" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Pagos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{paidOrders?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Pendentes <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{pendingOrders?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Cancelados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{cancelledOrders?.length || 0}</Badge>
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="all" className="mt-4 space-y-3">
           {filterOrders(orders || []).length === 0
