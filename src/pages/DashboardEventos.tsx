@@ -38,13 +38,9 @@ function EventSkeleton() {
 function EmptyState({
   title,
   message,
-  onAction,
-  actionLabel = 'Criar meu primeiro evento',
 }: {
   title: string;
   message: string;
-  onAction?: () => void;
-  actionLabel?: string;
 }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-card/30 backdrop-blur-xl">
@@ -54,18 +50,9 @@ function EmptyState({
           <CalendarDays className="w-9 h-9 text-primary" />
         </div>
         <h3 className="text-lg font-bold text-foreground mb-1.5">{title}</h3>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
           {message}
         </p>
-        {onAction && (
-          <Button
-            onClick={onAction}
-            className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/30"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            {actionLabel}
-          </Button>
-        )}
       </div>
     </div>
   );
