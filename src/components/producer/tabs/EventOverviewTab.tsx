@@ -1,9 +1,6 @@
 import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, Download, QrCode, Eye, BarChart3 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { SalesChart } from '@/components/producer/SalesChart';
 import { LotSummaryCard } from '@/components/producer/LotSummaryCard';
-import { useNavigate } from 'react-router-dom';
 
 interface SalesByLot {
   id: string;
@@ -26,6 +23,15 @@ interface EventOverviewTabProps {
   onTabChange: (tab: string) => void;
 }
 
+function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`relative rounded-2xl border border-primary/10 bg-card/40 backdrop-blur-xl overflow-hidden ${className}`}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+      {children}
+    </div>
+  );
+}
+
 export function EventOverviewTab({
   eventId,
   totalRevenue,
@@ -36,9 +42,7 @@ export function EventOverviewTab({
   salesByDay,
   onTabChange,
 }: EventOverviewTabProps) {
-  const navigate = useNavigate();
-
-  const formatCurrency = (value: number) => 
+  const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const statsCards = [
@@ -46,29 +50,30 @@ export function EventOverviewTab({
       title: 'Receita Total',
       value: formatCurrency(totalRevenue),
       icon: DollarSign,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
+      iconColor: 'text-primary',
+      iconBg: 'bg-gradient-to-br from-primary/20 to-pink-500/20',
+      gradient: true,
     },
     {
       title: 'Ingressos Vendidos',
       value: ticketsSold.toString(),
       icon: Ticket,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
+      iconColor: 'text-blue-400',
+      iconBg: 'bg-blue-500/15',
     },
     {
       title: 'Ingressos Disponíveis',
       value: ticketsAvailable.toString(),
       icon: Package,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
+      iconColor: 'text-purple-400',
+      iconBg: 'bg-purple-500/15',
     },
     {
       title: 'Taxa de Conversão',
       value: `${conversionRate}%`,
       icon: TrendingUp,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10',
+      iconColor: 'text-amber-400',
+      iconBg: 'bg-amber-500/15',
     },
   ];
 
@@ -81,7 +86,6 @@ export function EventOverviewTab({
     { label: 'Listas', icon: BarChart3, onClick: () => onTabChange('lists') },
   ];
 
-  // Transform salesByDay for the chart
   const chartData = salesByDay.map(day => ({
     date: day.label,
     vendas: day.tickets,
@@ -91,61 +95,62 @@ export function EventOverviewTab({
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {statsCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.title}</p>
-                </div>
+          <GlassCard key={stat.title}>
+            <div className="p-4 flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${stat.iconBg}`}>
+                <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
               </div>
-            </CardContent>
-          </Card>
+              <div className="min-w-0">
+                <p className={`text-xl md:text-2xl font-bold truncate ${stat.gradient ? 'bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent' : ''}`}>
+                  {stat.value}
+                </p>
+                <p className="text-[11px] md:text-xs text-muted-foreground">{stat.title}</p>
+              </div>
+            </div>
+          </GlassCard>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales Chart */}
         <div className="lg:col-span-2">
-          <SalesChart data={chartData} />
+          <GlassCard>
+            <div className="p-1">
+              <SalesChart data={chartData} />
+            </div>
+          </GlassCard>
         </div>
 
         {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Ações Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <GlassCard>
+          <div className="p-5">
+            <h3 className="text-base font-semibold mb-4">Ações Rápidas</h3>
             <div className="grid grid-cols-2 gap-3">
               {quickActions.map((action) => (
-                <Button
+                <button
                   key={action.label}
-                  variant="outline"
-                  className="h-auto py-4 flex flex-col gap-2"
                   onClick={action.onClick}
+                  className="rounded-xl border border-primary/10 bg-background/40 hover:bg-background/70 hover:border-primary/30 transition-all p-4 flex flex-col items-center gap-2 text-center group"
                 >
-                  <action.icon className="h-5 w-5" />
-                  <span className="text-xs">{action.label}</span>
-                </Button>
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-primary/15 to-pink-500/15 group-hover:from-primary/25 group-hover:to-pink-500/25 transition-colors">
+                    <action.icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-xs font-medium">{action.label}</span>
+                </button>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </GlassCard>
       </div>
 
       {/* Sales by Lot */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Vendas por Lote</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <GlassCard>
+        <div className="p-5">
+          <h3 className="text-base font-semibold mb-4">Vendas por Lote</h3>
           {salesByLot.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
+            <p className="text-center text-muted-foreground py-8 text-sm">
               Nenhum lote cadastrado. Adicione lotes na aba "Lotes".
             </p>
           ) : (
@@ -163,8 +168,8 @@ export function EventOverviewTab({
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </GlassCard>
     </div>
   );
 }
