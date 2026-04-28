@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Sparkles } from 'lucide-react';
+import { CalendarDays, Sparkles } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { EventListItem } from '@/components/producer/EventListItem';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEvents } from '@/hooks/useEvents';
 import {
