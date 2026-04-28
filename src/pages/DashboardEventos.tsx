@@ -123,13 +123,6 @@ export default function DashboardEventos() {
                 Gerencie todos os seus eventos em um só lugar
               </p>
             </div>
-            <Button
-              onClick={() => navigate('/produtor/criar-evento')}
-              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/30 self-start sm:self-auto flex-shrink-0"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Criar Evento
-            </Button>
           </div>
         </div>
 
