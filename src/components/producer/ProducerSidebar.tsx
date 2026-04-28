@@ -6,7 +6,6 @@ import {
   User,
   Wallet,
   Users,
-  ClipboardList,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ const mainMenuItems = [
 ];
 
 const managementItems = [
-  { title: 'Pedidos', url: '/produtor/pedidos', icon: ClipboardList },
   { title: 'Financeiro', url: '/produtor/financeiro', icon: Wallet },
   { title: 'Colaboradores', url: '/produtor/equipe', icon: Users },
 ];
