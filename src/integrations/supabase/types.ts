@@ -656,6 +656,7 @@ export type Database = {
           bank_account_snapshot: Json | null
           created_at: string
           created_by: string | null
+          event_id: string | null
           gross_amount: number
           id: string
           net_amount: number
@@ -673,6 +674,7 @@ export type Database = {
           bank_account_snapshot?: Json | null
           created_at?: string
           created_by?: string | null
+          event_id?: string | null
           gross_amount?: number
           id?: string
           net_amount?: number
@@ -690,6 +692,7 @@ export type Database = {
           bank_account_snapshot?: Json | null
           created_at?: string
           created_by?: string | null
+          event_id?: string | null
           gross_amount?: number
           id?: string
           net_amount?: number
@@ -704,6 +707,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payouts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payouts_producer_profile_id_fkey"
             columns: ["producer_profile_id"]
