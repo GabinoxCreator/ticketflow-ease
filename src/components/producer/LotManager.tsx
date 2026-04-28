@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Edit2, Trash2, Flame, Users, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -153,12 +153,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                         <Users className="w-3 h-3" /> Grupo ({lot.group_ticket_quantity})
                       </span>
                     )}
-                    {lot.fake_scarcity_enabled && (
-                      <span className="inline-flex items-center gap-1 text-xs text-orange-500">
-                        <Flame className="w-3 h-3" /> Escassez
-                      </span>
-                    )}
                   </div>
+
+                  {/* Controle inline de escassez */}
+                  <InlineScarcityControl lot={lot} onUpdate={onUpdate} />
                 </div>
               </CardContent>
             </Card>
@@ -315,6 +313,66 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+interface InlineScarcityControlProps {
+  lot: EventLot;
+  onUpdate: (id: string, data: Partial<LotFormData>) => void;
+}
+
+function InlineScarcityControl({ lot, onUpdate }: InlineScarcityControlProps) {
+  const [localValue, setLocalValue] = useState(lot.fake_scarcity_percentage || 50);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync local value when lot changes externally
+  useEffect(() => {
+    setLocalValue(lot.fake_scarcity_percentage || 50);
+  }, [lot.fake_scarcity_percentage]);
+
+  const handleChange = (v: number) => {
+    setLocalValue(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onUpdate(lot.id, { fake_scarcity_percentage: v });
+    }, 600);
+  };
+
+  if (!lot.fake_scarcity_enabled) {
+    return (
+      <button
+        type="button"
+        onClick={() => onUpdate(lot.id, { fake_scarcity_enabled: true, fake_scarcity_percentage: 50 })}
+        className="inline-flex items-center gap-1 text-xs text-orange-500/80 hover:text-orange-500 transition mt-1"
+      >
+        <Flame className="w-3 h-3" /> Ativar escassez
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-400">
+          <Flame className="w-3.5 h-3.5" /> Escassez exibida
+        </span>
+        <span className="text-sm font-bold text-orange-400">{localValue}%</span>
+      </div>
+      <Slider
+        value={[localValue]}
+        onValueChange={([v]) => handleChange(v)}
+        min={10}
+        max={95}
+        step={5}
+      />
+      <button
+        type="button"
+        onClick={() => onUpdate(lot.id, { fake_scarcity_enabled: false })}
+        className="text-[11px] text-muted-foreground hover:text-foreground transition"
+      >
+        Desativar
+      </button>
     </div>
   );
 }

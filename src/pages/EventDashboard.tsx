@@ -89,20 +89,18 @@ export default function EventDashboard() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="relative mb-6 -mx-1 overflow-x-auto scrollbar-none">
-          <TabsList className="flex w-max min-w-full gap-1 p-1 bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
-            {tabItems.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 rounded-xl px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-              >
-                <tab.icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+        <TabsList className="grid grid-cols-4 sm:flex sm:flex-wrap w-full gap-1 p-1 mb-6 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
+          {tabItems.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex items-center justify-center gap-2 text-xs sm:text-sm rounded-xl px-2 sm:px-3 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+            >
+              <tab.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="hidden sm:inline">{tab.label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
         <TabsContent value="overview">
           <EventOverviewTab
