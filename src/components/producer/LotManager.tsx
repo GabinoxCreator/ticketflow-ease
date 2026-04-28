@@ -153,12 +153,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                         <Users className="w-3 h-3" /> Grupo ({lot.group_ticket_quantity})
                       </span>
                     )}
-                    {lot.fake_scarcity_enabled && (
-                      <span className="inline-flex items-center gap-1 text-xs text-orange-500">
-                        <Flame className="w-3 h-3" /> Escassez
-                      </span>
-                    )}
                   </div>
+
+                  {/* Controle inline de escassez */}
+                  <InlineScarcityControl lot={lot} onUpdate={onUpdate} />
                 </div>
               </CardContent>
             </Card>
