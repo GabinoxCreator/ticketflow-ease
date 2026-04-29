@@ -319,6 +319,56 @@ export type Database = {
         }
         Relationships: []
       }
+      event_coupons: {
+        Row: {
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          event_id: string
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          updated_at: string
+          uses_count: number
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          event_id: string
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          updated_at?: string
+          uses_count?: number
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          updated_at?: string
+          uses_count?: number
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coupons_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_likes: {
         Row: {
           anonymous_id: string
@@ -603,10 +653,12 @@ export type Database = {
       }
       orders: {
         Row: {
+          coupon_id: string | null
           created_at: string
           customer_email: string
           customer_name: string
           customer_phone: string | null
+          discount_amount: number
           event_id: string
           id: string
           payment_method: string | null
@@ -616,10 +668,12 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          coupon_id?: string | null
           created_at?: string
           customer_email: string
           customer_name: string
           customer_phone?: string | null
+          discount_amount?: number
           event_id: string
           id?: string
           payment_method?: string | null
@@ -629,10 +683,12 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          coupon_id?: string | null
           created_at?: string
           customer_email?: string
           customer_name?: string
           customer_phone?: string | null
+          discount_amount?: number
           event_id?: string
           id?: string
           payment_method?: string | null
@@ -642,6 +698,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "event_coupons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_event_id_fkey"
             columns: ["event_id"]
