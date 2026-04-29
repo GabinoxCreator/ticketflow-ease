@@ -46,6 +46,7 @@ interface EventLot {
   is_active?: boolean | null;
   fake_scarcity_enabled?: boolean | null;
   fake_scarcity_percentage?: number | null;
+  sector_name?: string | null;
 }
 
 const EventDetails = () => {
