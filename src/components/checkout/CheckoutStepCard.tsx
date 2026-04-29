@@ -58,6 +58,7 @@ export function CheckoutStepCard({
   eventTitle,
   items,
   totalAmount,
+  couponId,
   customerName,
   customerEmail,
   customerPhone,
@@ -248,6 +249,7 @@ export function CheckoutStepCard({
           paymentMethodId,
           issuerId,
           installments: parseInt(installments),
+          couponId,
         },
       });
 
@@ -283,26 +285,15 @@ export function CheckoutStepCard({
       exit={{ opacity: 0, x: -20 }}
       className="space-y-5"
     >
-      {/* Order Summary */}
-      <div className="bg-secondary/50 rounded-xl p-4 space-y-2">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          Resumo do pedido
-        </h3>
-        <p className="font-display font-bold">{eventTitle}</p>
-        <div className="space-y-1">
-          {items.map((item) => (
-            <div key={item.lotId} className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{item.quantity}x {item.lotName}</span>
-              <span>{formatPrice(item.price * item.quantity)}</span>
-            </div>
-          ))}
+      {/* Total compacto */}
+      <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total a pagar</p>
+          <p className="text-sm font-semibold truncate">{eventTitle}</p>
         </div>
-        <div className="border-t border-border pt-2 flex justify-between items-center">
-          <span className="font-semibold">Total</span>
-          <span className="font-display font-bold text-xl gradient-text">
-            {formatPrice(totalAmount)}
-          </span>
-        </div>
+        <span className="font-display font-bold text-2xl gradient-text flex-shrink-0">
+          {formatPrice(totalAmount)}
+        </span>
       </div>
 
       {/* Card Form */}
