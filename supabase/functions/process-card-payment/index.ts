@@ -223,6 +223,21 @@ serve(async (req) => {
         .update({ status: 'valid' })
         .eq('order_id', order.id);
 
+      // Increment coupon uses
+      if (appliedCouponId) {
+        const { data: c } = await supabaseClient
+          .from('event_coupons')
+          .select('uses_count')
+          .eq('id', appliedCouponId)
+          .maybeSingle();
+        if (c) {
+          await supabaseClient
+            .from('event_coupons')
+            .update({ uses_count: (c.uses_count || 0) + 1 })
+            .eq('id', appliedCouponId);
+        }
+      }
+
       return new Response(
         JSON.stringify({ status: 'approved', orderId: order.id, paymentId: mpPayment.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

@@ -90,11 +90,13 @@ serve(async (req) => {
 
       if (targetOrderId) {
         // Update order status
-        await supabaseClient
+        const { data: updatedOrder } = await supabaseClient
           .from('orders')
           .update({ status: 'paid' })
           .eq('id', targetOrderId)
-          .eq('status', 'pending');
+          .eq('status', 'pending')
+          .select('coupon_id')
+          .maybeSingle();
 
         // Update tickets to valid
         await supabaseClient
@@ -102,6 +104,21 @@ serve(async (req) => {
           .update({ status: 'valid' })
           .eq('order_id', targetOrderId)
           .eq('status', 'pending');
+
+        // Increment coupon uses
+        if (updatedOrder?.coupon_id) {
+          const { data: c } = await supabaseClient
+            .from('event_coupons')
+            .select('uses_count')
+            .eq('id', updatedOrder.coupon_id)
+            .maybeSingle();
+          if (c) {
+            await supabaseClient
+              .from('event_coupons')
+              .update({ uses_count: (c.uses_count || 0) + 1 })
+              .eq('id', updatedOrder.coupon_id);
+          }
+        }
 
         logStep('Order and tickets updated to paid/valid', { orderId: targetOrderId });
       } else {
