@@ -220,68 +220,93 @@ const EventDetails = () => {
           )}
 
         {/* Desktop Hero Split */}
-          <section className="relative overflow-hidden hidden lg:flex pt-8 w-full max-w-7xl mx-auto px-4 min-h-[50vh] items-center gap-12">
-            {/* Blurred background */}
-            <div className="absolute inset-0 -z-10">
-              <img
-                src={event.image_url || '/placeholder.svg'}
-                alt=""
-                className="w-full h-full object-cover scale-110 blur-3xl opacity-30"
-              />
-              <div className="absolute inset-0 bg-background/60" />
-            </div>
+          <section className="relative overflow-hidden hidden lg:flex pt-12 w-full max-w-7xl mx-auto px-4 min-h-[60vh] items-center gap-16">
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
-              className="flex-1 space-y-4"
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="flex-1 space-y-6"
             >
-              <h1 className="font-display font-bold text-4xl xl:text-5xl">
-                {event.title}
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                {event.city}, {event.state}
-              </p>
-              <p className="text-primary font-semibold text-xl break-words">
-                {event.venue}
-              </p>
-              {event.address && (
-                <div className="flex items-start gap-2 text-muted-foreground">
-                  <MapPin className="w-5 h-5 mt-0.5 shrink-0" />
-                  <span className="break-words">{event.address}</span>
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary px-3 py-1 text-xs uppercase tracking-wider mb-4">
+                    Evento Confirmado
+                  </Badge>
+                </motion.div>
+                <h1 className="font-display font-bold text-5xl xl:text-6xl tracking-tight leading-[1.1]">
+                  {event.title}
+                </h1>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <div className="bg-secondary/40 backdrop-blur-md border border-white/5 rounded-full px-4 py-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">{event.city}, {event.state}</span>
                 </div>
-              )}
-              <div className="flex flex-wrap gap-6 text-muted-foreground pt-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 shrink-0" />
-                  <span>{formatDate(event.date)}</span>
+                <div className="bg-secondary/40 backdrop-blur-md border border-white/5 rounded-full px-4 py-2 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">{formatDate(event.date)}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 shrink-0" />
-                  <span>{event.time}</span>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <p className="text-2xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent break-words">
+                  {event.venue}
+                </p>
+                {event.address && (
+                  <div className="flex items-start gap-3 text-muted-foreground/80 max-w-md">
+                    <div className="w-10 h-10 rounded-xl bg-secondary/50 flex items-center justify-center shrink-0 border border-white/5">
+                      <MapPin className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="break-words text-base pt-1">{event.address}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-8 pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <Clock className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest">Início</p>
+                    <p className="font-bold text-lg">{event.time}</p>
+                  </div>
                 </div>
               </div>
             </motion.div>
+
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex-1 relative"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="flex-1 relative group"
             >
-              <div className="rounded-xl overflow-hidden">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 to-accent/20 blur-2xl opacity-50 group-hover:opacity-75 transition-opacity" />
+              <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl">
                 <img
                   src={event.image_url || '/placeholder.svg'}
                   alt={event.title}
-                  className="w-full h-auto max-h-[50vh] object-cover"
+                  className="w-full h-auto aspect-[4/5] object-cover transition-transform duration-700 group-hover:scale-105"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
               </div>
-              <button
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleLike}
-                className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2 transition-colors hover:bg-black/70"
+                className="absolute top-6 right-6 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-4 py-2.5 transition-all hover:bg-black/60"
               >
                 <Heart className={cn('w-5 h-5 transition-colors', liked ? 'fill-red-500 text-red-500' : 'text-white')} />
-                {likeCount > 0 && (
-                  <span className={cn('text-sm font-medium', liked ? 'text-red-500' : 'text-white')}>{likeCount}</span>
-                )}
-              </button>
+                <span className={cn('text-sm font-semibold', liked ? 'text-red-500' : 'text-white')}>
+                  {likeCount > 0 ? likeCount : 'Curtir'}
+                </span>
+              </motion.button>
             </motion.div>
           </section>
 
