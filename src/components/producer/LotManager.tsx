@@ -130,50 +130,69 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {lots.map((lot) => (
-            <Card key={lot.id} className={cn(!lot.is_active && 'opacity-60')}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground font-medium">{lot.sector_name}</p>
-                    <CardTitle className="text-base">{lot.name}</CardTitle>
-                    {!lot.is_active && <span className="text-xs text-muted-foreground">Inativo</span>}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(lot)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(lot.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+        <div className="space-y-6">
+          {groupedLots.map(([sectorName, sectorLots]) => (
+            <Card key={sectorName} className="bg-card/50">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <CardTitle className="text-base uppercase tracking-wide">{sectorName}</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {sectorLots.length} {sectorLots.length === 1 ? 'lote' : 'lotes'}
+                  </p>
                 </div>
+                <Button size="sm" variant="outline" onClick={() => handleOpenDialog(undefined, sectorName)}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Novo Lote
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{formatCurrency(lot.price)}</span>
-                    {lot.original_price && lot.original_price > lot.price && (
-                      <span className="text-sm text-muted-foreground line-through">{formatCurrency(lot.original_price)}</span>
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{lot.sold_quantity}</span> / {lot.total_quantity} vendidos
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((lot.sold_quantity / lot.total_quantity) * 100, 100)}%` }} />
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {lot.group_ticket_enabled && (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="w-3 h-3" /> Grupo ({lot.group_ticket_quantity})
-                      </span>
-                    )}
-                  </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {sectorLots.map((lot) => (
+                    <Card key={lot.id} className={cn('bg-background', !lot.is_active && 'opacity-60')}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="text-base">{lot.name}</CardTitle>
+                            {!lot.is_active && <span className="text-xs text-muted-foreground">Inativo</span>}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(lot)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(lot.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-bold">{formatCurrency(lot.price)}</span>
+                            {lot.original_price && lot.original_price > lot.price && (
+                              <span className="text-sm text-muted-foreground line-through">{formatCurrency(lot.original_price)}</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{lot.sold_quantity}</span> / {lot.total_quantity} vendidos
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((lot.sold_quantity / lot.total_quantity) * 100, 100)}%` }} />
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {lot.group_ticket_enabled && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Users className="w-3 h-3" /> Grupo ({lot.group_ticket_quantity})
+                              </span>
+                            )}
+                          </div>
 
-                  {/* Controle inline de escassez */}
-                  <InlineScarcityControl lot={lot} onUpdate={onUpdate} />
+                          {/* Controle inline de escassez */}
+                          <InlineScarcityControl lot={lot} onUpdate={onUpdate} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </CardContent>
             </Card>
