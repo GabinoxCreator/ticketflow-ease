@@ -397,19 +397,24 @@ const EventDetails = () => {
                     return 0;
                   });
                   return (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {entries.map(([sectorName, sectorLots], idx) => (
                         <motion.div
                           key={sectorName}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.1 + idx * 0.05 }}
-                          className="bg-card rounded-2xl border border-border p-5 md:p-8"
+                          className="bg-gradient-to-br from-card/80 to-secondary/30 backdrop-blur-xl rounded-3xl border border-white/5 overflow-hidden shadow-xl"
                         >
-                          <h3 className="font-display font-bold text-sm uppercase tracking-wider mb-4">
-                            {sectorName}
-                          </h3>
-                          <div className="border-t border-border">
+                          <div className="px-6 py-4 bg-primary/10 border-b border-primary/10 flex items-center justify-between">
+                            <h3 className="font-display font-bold text-xs uppercase tracking-[0.2em] text-primary">
+                              {sectorName}
+                            </h3>
+                            <Badge variant="outline" className="text-[10px] bg-primary/5 border-primary/20 text-primary">
+                              {sectorLots.length} opção{sectorLots.length > 1 ? 'ões' : ''}
+                            </Badge>
+                          </div>
+                          <div className="p-2 md:p-4">
                             {sectorLots.map((lot) => (
                               <LotCard
                                 key={lot.id}
