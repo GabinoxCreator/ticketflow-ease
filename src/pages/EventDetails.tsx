@@ -199,13 +199,19 @@ const EventDetails = () => {
         <meta name="description" content={event.short_description || event.description || ''} />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background relative overflow-x-hidden">
+        {/* Ambient background glows */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+          <div className="absolute top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px] animate-pulse" />
+          <div className="absolute bottom-[10%] -right-[10%] w-[40%] h-[40%] rounded-full bg-accent/10 blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
+
         <Header />
 
-        <main className={cn("pt-20 w-full", totalTickets > 0 && "pb-24 lg:pb-0")}>
+        <main className={cn("pt-20 w-full relative z-0", totalTickets > 0 && "pb-24 lg:pb-0")}>
           {/* Evento Encerrado Banner */}
           {isEventFinished && (
-            <div className="w-full bg-destructive/10 border-b border-destructive/20">
+            <div className="w-full bg-destructive/10 border-b border-destructive/20 backdrop-blur-md">
               <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive" />
                 <span className="font-semibold text-destructive">Evento Encerrado</span>
