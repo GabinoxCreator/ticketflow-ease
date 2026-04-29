@@ -22,6 +22,7 @@ interface CardPaymentRequest {
   paymentMethodId: string;
   issuerId: string;
   installments: number;
+  couponId?: string;
 }
 
 const logStep = (step: string, details?: any) => {
@@ -47,7 +48,7 @@ serve(async (req) => {
     );
 
     const body = await req.json() as CardPaymentRequest;
-    const { eventId, items, customerName, customerEmail, customerPhone, customerCPF, cardToken, paymentMethodId, issuerId, installments } = body;
+    const { eventId, items, customerName, customerEmail, customerPhone, customerCPF, cardToken, paymentMethodId, issuerId, installments, couponId } = body;
 
     logStep('Request received', { eventId, itemsCount: items.length, customerEmail, paymentMethodId });
 
@@ -86,6 +87,27 @@ serve(async (req) => {
 
     logStep('Items validated', { totalAmount });
 
+    // Apply coupon
+    let discountAmount = 0;
+    let appliedCouponId: string | null = null;
+    if (couponId) {
+      const { data: coupon } = await supabaseClient
+        .from('event_coupons')
+        .select('id, discount_type, discount_value, max_uses, uses_count, valid_until, is_active')
+        .eq('id', couponId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (coupon && coupon.is_active &&
+          (!coupon.valid_until || new Date(coupon.valid_until).getTime() > Date.now()) &&
+          (coupon.max_uses == null || coupon.uses_count < coupon.max_uses)) {
+        discountAmount = coupon.discount_type === 'percent'
+          ? (totalAmount * Number(coupon.discount_value)) / 100
+          : Math.min(Number(coupon.discount_value), totalAmount);
+        appliedCouponId = coupon.id;
+      }
+    }
+    const finalAmount = Math.max(0.01, totalAmount - discountAmount);
+
     // Get user ID if authenticated
     let userId: string | null = null;
     const authHeader = req.headers.get('Authorization');
@@ -103,7 +125,9 @@ serve(async (req) => {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
-        total_amount: totalAmount,
+        total_amount: finalAmount,
+        discount_amount: discountAmount,
+        coupon_id: appliedCouponId,
         payment_method: 'card',
         status: 'pending',
         user_id: userId,
@@ -155,7 +179,7 @@ serve(async (req) => {
 
     // Process card payment via Mercado Pago
     const mpBody: any = {
-      transaction_amount: totalAmount,
+      transaction_amount: finalAmount,
       token: cardToken,
       description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
       installments: installments,
