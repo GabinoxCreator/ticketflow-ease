@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, CheckCircle2, QrCode, RefreshCw } from 'lucide-react';
+import { Copy, CheckCircle2, RefreshCw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { CheckoutTimer } from './CheckoutTimer';
@@ -26,14 +26,9 @@ export function CheckoutStepPix({
   const [copied, setCopied] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
+  const formatPrice = (p: number) =>
+    p.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Poll for payment status every 5 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -46,7 +41,6 @@ export function CheckoutStepPix({
         console.error('Error checking payment status:', error);
       }
     }, 5000);
-
     return () => clearInterval(interval);
   }, [checkPaymentStatus, onPaymentConfirmed]);
 
@@ -56,7 +50,7 @@ export function CheckoutStepPix({
       setCopied(true);
       toast.success('Código PIX copiado!');
       setTimeout(() => setCopied(false), 3000);
-    } catch (error) {
+    } catch {
       toast.error('Erro ao copiar código');
     }
   };
@@ -65,12 +59,9 @@ export function CheckoutStepPix({
     setIsChecking(true);
     try {
       const isPaid = await checkPaymentStatus();
-      if (isPaid) {
-        onPaymentConfirmed();
-      } else {
-        toast.info('Pagamento ainda não confirmado');
-      }
-    } catch (error) {
+      if (isPaid) onPaymentConfirmed();
+      else toast.info('Pagamento ainda não confirmado');
+    } catch {
       toast.error('Erro ao verificar pagamento');
     } finally {
       setIsChecking(false);
@@ -82,87 +73,66 @@ export function CheckoutStepPix({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
+      className="space-y-5"
     >
-      {/* Timer */}
-      <div className="flex flex-col items-center gap-2">
-        <p className="text-sm text-muted-foreground">Tempo restante para pagamento</p>
-        <CheckoutTimer expiresAt={expiresAt} onExpire={onExpire} />
+      {/* Valor + timer */}
+      <div className="text-center space-y-1">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor a pagar</p>
+        <p className="font-display font-bold text-3xl gradient-text">{formatPrice(totalAmount)}</p>
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <span className="text-xs text-muted-foreground">Expira em</span>
+          <CheckoutTimer expiresAt={expiresAt} onExpire={onExpire} />
+        </div>
       </div>
 
       {/* QR Code */}
-      <div className="flex flex-col items-center">
-        <div className="bg-white p-4 rounded-2xl shadow-lg">
-          <QRCodeSVG
-            value={pixCode}
-            size={200}
-            level="H"
-            includeMargin
-            imageSettings={{
-              src: '/favicon.ico',
-              height: 24,
-              width: 24,
-              excavate: true,
-            }}
-          />
-        </div>
-        
-        <div className="mt-4 text-center">
-          <p className="text-sm text-muted-foreground">Escaneie o QR Code ou</p>
-          <p className="text-sm text-muted-foreground">copie o código PIX abaixo</p>
+      <div className="flex justify-center">
+        <div className="bg-white p-4 rounded-2xl shadow-xl">
+          <QRCodeSVG value={pixCode} size={220} level="M" includeMargin={false} />
         </div>
       </div>
 
-      {/* PIX Code Copy */}
-      <div className="space-y-2">
-        <div className="relative">
-          <div className="bg-secondary/50 rounded-xl p-4 pr-12 overflow-hidden">
-            <p className="text-xs text-muted-foreground mb-1">Código PIX (Copia e Cola)</p>
-            <p className="text-sm font-mono break-all line-clamp-2">{pixCode}</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2"
-            onClick={handleCopy}
-          >
-            {copied ? (
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-            ) : (
-              <Copy className="w-5 h-5" />
-            )}
-          </Button>
+      {/* Copiar PIX */}
+      <Button
+        variant={copied ? 'outline' : 'hero'}
+        size="lg"
+        className="w-full"
+        onClick={handleCopy}
+      >
+        {copied ? (
+          <>
+            <CheckCircle2 className="w-5 h-5 mr-2 text-green-500" />
+            Código copiado!
+          </>
+        ) : (
+          <>
+            <Copy className="w-5 h-5 mr-2" />
+            Copiar código PIX
+          </>
+        )}
+      </Button>
+
+      <div className="bg-secondary/40 rounded-lg p-3">
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">PIX Copia e Cola</p>
+        <p className="text-xs font-mono break-all line-clamp-2 text-muted-foreground">{pixCode}</p>
+      </div>
+
+      {/* Instruções enxutas */}
+      <div className="space-y-2 text-xs text-muted-foreground">
+        <div className="flex items-start gap-2">
+          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold">1</span>
+          Abra o app do seu banco e escolha pagar via PIX
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold">2</span>
+          Cole o código copiado ou escaneie o QR Code
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center font-bold">3</span>
+          Confirme o valor e finalize o pagamento
         </div>
       </div>
 
-      {/* Amount Summary */}
-      <div className="bg-primary/10 rounded-xl p-4 text-center">
-        <p className="text-sm text-muted-foreground">Valor a pagar</p>
-        <p className="font-display font-bold text-3xl gradient-text">
-          {formatPrice(totalAmount)}
-        </p>
-      </div>
-
-      {/* Instructions */}
-      <div className="space-y-3">
-        <h4 className="font-semibold text-sm">Como pagar:</h4>
-        <ol className="space-y-2 text-sm text-muted-foreground">
-          <li className="flex items-start gap-2">
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-semibold">1</span>
-            Abra o app do seu banco
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-semibold">2</span>
-            Escolha pagar via PIX com QR Code ou código
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center font-semibold">3</span>
-            Confirme as informações e finalize
-          </li>
-        </ol>
-      </div>
-
-      {/* Manual Check Button */}
       <Button
         variant="outline"
         className="w-full"
