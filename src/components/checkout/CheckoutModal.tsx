@@ -172,9 +172,8 @@ export function CheckoutModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
-        hideClose
         className={cn(
-          'p-0 gap-0 overflow-hidden flex flex-col',
+          'p-0 gap-0 overflow-hidden flex flex-col [&>button]:hidden',
           isMobile
             ? 'max-w-none w-screen h-[100dvh] rounded-none border-0 sm:max-w-none top-0 left-0 translate-x-0 translate-y-0'
             : 'sm:max-w-md max-h-[90vh]'

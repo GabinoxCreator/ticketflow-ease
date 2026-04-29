@@ -26,6 +26,7 @@ interface CheckoutStepCardProps {
   eventTitle: string;
   items: CartItem[];
   totalAmount: number;
+  couponId?: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
