@@ -541,14 +541,15 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
   return (
     <div
       className={cn(
-        'py-4 border-b border-border last:border-b-0',
-        isSoldOut && 'opacity-50'
+        'px-5 md:px-6 py-5 transition-colors',
+        isSoldOut && 'opacity-50',
+        quantity > 0 && 'bg-primary/5'
       )}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-bold text-sm uppercase tracking-wide">{lot.name}</h4>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <h4 className="font-bold text-base text-foreground">{lot.name}</h4>
             {isSoldOut && (
               <Badge variant="secondary" className="text-xs">Esgotado</Badge>
             )}
@@ -561,44 +562,56 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
           </div>
 
           {lot.description && (
-            <p className="text-xs text-muted-foreground mb-1">{lot.description}</p>
+            <p className="text-xs text-muted-foreground mb-2">{lot.description}</p>
           )}
 
           <div className="flex items-center gap-2">
             {lot.original_price && (
-              <span className="text-xs text-muted-foreground line-through">
+              <span className="text-sm text-muted-foreground line-through">
                 {formatPrice(lot.original_price)}
               </span>
             )}
-            <span className="font-semibold text-base">
+            <span className="font-bold text-2xl text-foreground">
               {formatPrice(lot.price)}
             </span>
           </div>
         </div>
 
         {!isSoldOut && (
-          <div className="flex items-center gap-3 shrink-0">
+          <div
+            className={cn(
+              'flex items-center gap-1 shrink-0 rounded-full bg-background/40 backdrop-blur-sm border px-1.5 py-1.5 transition-colors',
+              quantity > 0 ? 'border-primary/50' : 'border-border/50'
+            )}
+          >
             <button
               onClick={() => onQuantityChange(-1)}
               disabled={quantity === 0}
               className={cn(
-                'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
                 quantity === 0
-                  ? 'border-muted text-muted cursor-not-allowed'
-                  : 'border-muted-foreground text-foreground hover:bg-muted'
+                  ? 'border-border/40 text-muted-foreground/50 cursor-not-allowed'
+                  : 'border-border/60 bg-background/60 text-foreground hover:bg-primary/20 hover:border-primary/50'
               )}
             >
               <Minus className="w-4 h-4" />
             </button>
-            <span className="w-6 text-center font-semibold text-sm">{quantity}</span>
+            <span
+              className={cn(
+                'w-8 text-center text-lg font-semibold tabular-nums transition-colors',
+                quantity > 0 ? 'text-foreground' : 'text-muted-foreground'
+              )}
+            >
+              {quantity}
+            </span>
             <button
               onClick={() => onQuantityChange(1)}
               disabled={quantity >= 10 || quantity >= available}
               className={cn(
-                'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
                 (quantity >= 10 || quantity >= available)
-                  ? 'border-muted text-muted cursor-not-allowed'
-                  : 'border-muted-foreground text-foreground hover:bg-muted'
+                  ? 'border-border/40 text-muted-foreground/50 cursor-not-allowed'
+                  : 'border-border/60 bg-background/60 text-foreground hover:bg-primary/20 hover:border-primary/50'
               )}
             >
               <Plus className="w-4 h-4" />
