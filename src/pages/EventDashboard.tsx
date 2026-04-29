@@ -13,9 +13,10 @@ import { EventListsTab } from '@/components/producer/tabs/EventListsTab';
 import { useEvent } from '@/hooks/useEvents';
 import { EventCheckinTab } from '@/components/producer/tabs/EventCheckinTab';
 import { EventDoorSalesTab } from '@/components/producer/tabs/EventDoorSalesTab';
+import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +69,7 @@ export default function EventDashboard() {
     { value: 'checkin', label: 'Check-in', icon: ScanLine },
     { value: 'doorsales', label: 'Portaria', icon: DollarSign },
     { value: 'lists', label: 'Listas', icon: Gift },
+    { value: 'coupons', label: 'Cupons', icon: Tag },
   ];
 
   const breadcrumbs = [
@@ -141,6 +143,10 @@ export default function EventDashboard() {
 
         <TabsContent value="lists">
           <EventListsTab eventId={event.id} />
+        </TabsContent>
+
+        <TabsContent value="coupons">
+          <EventCouponsTab eventId={event.id} />
         </TabsContent>
       </Tabs>
     </ProducerLayout>
