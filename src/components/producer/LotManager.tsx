@@ -51,7 +51,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   const [editingLot, setEditingLot] = useState<EventLot | null>(null);
   const [formData, setFormData] = useState<LotFormData>(emptyLot);
 
-  const handleOpenDialog = (lot?: EventLot) => {
+  const handleOpenDialog = (lot?: EventLot, presetSector?: string) => {
     if (lot) {
       setEditingLot(lot);
       setFormData({
@@ -73,10 +73,27 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       });
     } else {
       setEditingLot(null);
-      setFormData(emptyLot);
+      setFormData({ ...emptyLot, sector_name: presetSector || 'Ingresso' });
     }
     setIsDialogOpen(true);
   };
+
+  // Group lots by sector_name (preserve insertion order; "Ingresso" first)
+  const groupedLots = (() => {
+    const groups = new Map<string, EventLot[]>();
+    for (const lot of lots) {
+      const key = (lot.sector_name?.trim() || 'Ingresso');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(lot);
+    }
+    const entries = Array.from(groups.entries());
+    entries.sort(([a], [b]) => {
+      if (a === 'Ingresso') return -1;
+      if (b === 'Ingresso') return 1;
+      return 0;
+    });
+    return entries;
+  })();
 
   const handleSubmit = () => {
     if (editingLot) {
