@@ -543,23 +543,27 @@ const EventDetails = () => {
               initial={{ y: 100 }}
               animate={{ y: 0 }}
               exit={{ y: 100 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 lg:hidden bg-card border-t border-border px-4 py-3"
+              transition={{ type: 'spring', stiffness: 400, damping: 40 }}
+              className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{totalTickets} ingresso{totalTickets > 1 ? 's' : ''}</p>
-                  <p className="font-bold text-lg gradient-text">{formatPrice(totalAmount)}</p>
+              <div className="mx-4 mb-4 bg-card/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.4)] relative overflow-hidden group">
+                {/* Accent glow for mobile bar */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                
+                <div className="flex items-center justify-between gap-4 relative z-10">
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">{totalTickets} ingresso{totalTickets > 1 ? 's' : ''}</p>
+                    <p className="font-bold text-2xl gradient-text tracking-tight">{formatPrice(totalAmount)}</p>
+                  </div>
+                  <Button
+                    variant="hero"
+                    size="lg"
+                    onClick={handleCheckout}
+                    className="shrink-0 h-14 px-8 rounded-2xl font-bold text-base shadow-lg shadow-primary/20 active:scale-95 transition-transform"
+                  >
+                    Comprar
+                  </Button>
                 </div>
-                <Button
-                  variant="hero"
-                  size="lg"
-                  onClick={handleCheckout}
-                  className="shrink-0"
-                >
-                  <Ticket className="w-5 h-5 mr-2" />
-                  Comprar
-                </Button>
               </div>
             </motion.div>
           )}
