@@ -18,6 +18,7 @@ interface PixRequest {
   customerEmail: string;
   customerCPF: string;
   customerPhone?: string;
+  couponId?: string;
 }
 
 const logStep = (step: string, details?: any) => {
@@ -42,7 +43,7 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { eventId, items, customerName, customerEmail, customerCPF, customerPhone } = await req.json() as PixRequest;
+    const { eventId, items, customerName, customerEmail, customerCPF, customerPhone, couponId } = await req.json() as PixRequest;
 
     logStep('Request received', { eventId, itemsCount: items.length, customerEmail });
 
@@ -98,6 +99,27 @@ serve(async (req) => {
 
     logStep('Items validated', { totalAmount, itemsCount: lineItems.length });
 
+    // Apply coupon if provided
+    let discountAmount = 0;
+    let appliedCouponId: string | null = null;
+    if (couponId) {
+      const { data: coupon } = await supabaseClient
+        .from('event_coupons')
+        .select('id, discount_type, discount_value, max_uses, uses_count, valid_until, is_active, event_id')
+        .eq('id', couponId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (coupon && coupon.is_active &&
+          (!coupon.valid_until || new Date(coupon.valid_until).getTime() > Date.now()) &&
+          (coupon.max_uses == null || coupon.uses_count < coupon.max_uses)) {
+        discountAmount = coupon.discount_type === 'percent'
+          ? (totalAmount * Number(coupon.discount_value)) / 100
+          : Math.min(Number(coupon.discount_value), totalAmount);
+        appliedCouponId = coupon.id;
+      }
+    }
+    const finalAmount = Math.max(0.01, totalAmount - discountAmount);
+
     // Get user ID if authenticated
     let userId: string | null = null;
     const authHeader = req.headers.get('Authorization');
@@ -115,7 +137,9 @@ serve(async (req) => {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
-        total_amount: totalAmount,
+        total_amount: finalAmount,
+        discount_amount: discountAmount,
+        coupon_id: appliedCouponId,
         payment_method: 'pix',
         status: 'pending',
         user_id: userId,
@@ -177,7 +201,7 @@ serve(async (req) => {
         'X-Idempotency-Key': order.id,
       },
       body: JSON.stringify({
-        transaction_amount: totalAmount,
+        transaction_amount: finalAmount,
         description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
         payment_method_id: 'pix',
         payer: {
