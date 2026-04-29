@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft } from 'lucide-react';
+import { X, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
@@ -157,6 +157,7 @@ export function CheckoutModal({
 
   const canGoBack = step === 'payment' || step === 'card' || step === 'pix';
   const showHeader = step !== 'success';
+  const showTrust = step === 'payment' || step === 'card' || step === 'pix';
   const totalTickets = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const titleByStep: Record<CheckoutStep, string> = {
@@ -173,31 +174,37 @@ export function CheckoutModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent
         className={cn(
-          'p-0 gap-0 overflow-hidden flex flex-col [&>button]:hidden',
+          'p-0 gap-0 overflow-hidden flex flex-col [&>button]:hidden bg-background',
           isMobile
             ? 'max-w-none w-screen h-[100dvh] rounded-none border-0 sm:max-w-none top-0 left-0 translate-x-0 translate-y-0'
             : 'sm:max-w-md max-h-[90vh]'
         )}
       >
+        {/* Decoração de fundo - gradient sutil indigo/magenta */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-20 w-80 h-80 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-accent/10 blur-3xl" />
+        </div>
+
         {showHeader && (
-          <div className="relative flex items-center justify-center px-4 py-3 border-b border-border flex-shrink-0">
+          <div className="relative flex items-center justify-center px-4 h-16 border-b border-border/50 flex-shrink-0 backdrop-blur-xl bg-background/60 z-10">
             {canGoBack ? (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
-                className="absolute left-2 top-1/2 -translate-y-1/2"
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full hover:bg-secondary/60"
               >
                 <ChevronLeft className="w-5 h-5" />
               </Button>
             ) : null}
-            <h2 className="font-display font-semibold text-base">{titleByStep[step]}</h2>
+            <h2 className="font-display font-bold text-base tracking-tight">{titleByStep[step]}</h2>
             {step !== 'awaiting' && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleClose}
-                className="absolute right-2 top-1/2 -translate-y-1/2"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full hover:bg-secondary/60"
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -205,7 +212,7 @@ export function CheckoutModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="relative flex-1 overflow-y-auto px-5 py-6 z-10">
           <AnimatePresence mode="wait">
             {step === 'form' && (
               <CheckoutStepProgressiveForm
@@ -289,6 +296,15 @@ export function CheckoutModal({
             )}
           </AnimatePresence>
         </div>
+
+        {showTrust && (
+          <div className="relative flex items-center justify-center gap-1.5 px-4 py-2.5 border-t border-border/50 bg-background/60 backdrop-blur-xl flex-shrink-0 z-10">
+            <ShieldCheck className="w-3 h-3 text-primary" />
+            <p className="text-[10px] text-muted-foreground tracking-wide">
+              Pagamento 100% seguro · Criptografia SSL
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

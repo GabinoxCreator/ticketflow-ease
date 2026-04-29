@@ -1,111 +1,73 @@
-## Objetivo
+# Polimento Premium do Checkout
 
-Refazer o fluxo de checkout para ser **fullscreen no mobile**, com navegação clara (voltar mantém o carrinho), forma de pagamento que avança automaticamente ao selecionar (sem botão "Finalizar Compra"), telas de PIX e cartão com layout premium, QR Code limpo (sem logo do Lovable), e introduzir **cupons de desconto** gerenciados pelo produtor e aplicáveis no resumo do pedido.
+Upgrade puramente visual nas 4 telas do fluxo (Modal/Header, Pagamento, PIX, Cartão). Sem mudanças de lógica, dados ou backend.
 
-## 1. Modal de checkout fullscreen — `CheckoutModal.tsx`
+## Princípios de design
+- **Dark premium**: gradient sutil no fundo do modal (indigo → magenta a 5-8% opacity), glow em pontos focais.
+- **Glassmorphism**: cards de resumo com `bg-card/60 backdrop-blur` + borda gradient suave.
+- **Hierarquia tipográfica**: total grande (3xl) com `gradient-text`, labels em uppercase tracking-wide muted.
+- **Microinterações**: hover scale 1.02, ring de foco indigo, ícones em containers gradient.
+- **Mobile-first**: respeita `100dvh`, espaçamento generoso, botões `h-14` no CTA principal.
 
-- No mobile (`useIsMobile`), o `DialogContent` ocupa **100vw × 100vh**, sem bordas arredondadas, sem `max-h-[70vh]` no conteúdo. Conteúdo rola só se ultrapassar a altura da tela.
-- No desktop, mantém o modal centralizado atual.
+## 1. CheckoutModal – Header & Container
+
+- Adicionar fundo decorativo no `DialogContent`: gradient radial sutil indigo/magenta no topo (absolute, `pointer-events-none`, opacity-20, blur-3xl).
 - Header redesenhado:
-  - Botão **← Voltar** à esquerda (sempre visível, exceto em `success`/`awaiting`).
-  - Título **centralizado** (Pagamento / PIX / Cartão / etc.).
-  - Botão **× Fechar** à direita.
-- Comportamento do "Voltar":
-  - Em `payment` → fecha o modal **mantendo o carrinho** (estado `selectedLots` em `EventDetails` permanece intacto — já é o caso hoje, só garantir que `handleClose` não limpe nada externo).
-  - Em `card` ou `pix` → volta para `payment`.
-- Remover a barra de "step indicator" (`form`/`payment`/`card`) — o título já comunica a etapa e ela polui o fullscreen.
+  - Altura `h-16`, borda inferior sutil com gradient (`border-b border-border/50`).
+  - Título centralizado com `font-display font-bold text-base`.
+  - Ícones `Voltar` e `X` em variante `ghost` com `rounded-full`, hover `bg-secondary/60`.
+- Footer "trust strip" fixo no mobile (apenas nas telas payment/card/pix): `Lock` icon + "Pagamento 100% seguro" em `text-[10px]` muted.
 
-## 2. Tela "Pagamento" (resumo + forma) — `CheckoutStepPayment.tsx`
+## 2. CheckoutStepPayment
 
-- Adicionar bloco **"Cupom de desconto"** dentro do card de Resumo:
-  - Input + botão "Aplicar" (compactos).
-  - Estado: `applied | invalid | none`. Quando aplicado: mostrar nome do cupom + valor descontado em verde + botão "remover".
-  - Linha "Subtotal", "Desconto (-R$ X,XX)" e "Total" recalculado.
-- Remover o botão **"Finalizar Compra"**. Ao **clicar em PIX ou Cartão**, dispara imediatamente `onSelectPayment(method)` (auto-avança).
-  - PIX → loading inline no próprio card de PIX enquanto cria a cobrança, depois transiciona para a tela PIX.
-  - Cartão → transição direta para a tela do cartão.
-- Visual: cards de método maiores, com hover/active states mais marcantes.
+**Resumo do pedido (card premium):**
+- Container glass: `bg-gradient-to-br from-card/80 to-secondary/40 backdrop-blur-xl border border-border/60 rounded-2xl p-5`.
+- Pequena tag no topo: badge gradient indigo/magenta com nome do evento + data em chip lado a lado.
+- Lista de itens com leading mais arejado, quantidade em pill `bg-primary/10 text-primary`.
+- Linha do **Total**: caixa destacada com gradient sutil + shadow `shadow-primary/20`, valor `text-3xl gradient-text`.
 
-## 3. Tela PIX — `CheckoutStepPix.tsx`
+**Cupom:**
+- Quando aplicado: card verde com gradient + ícone com glow.
+- Quando vazio: input com altura `h-12`, ícone `Tag` indigo, botão "Aplicar" em variant `gradient`.
 
-- Layout reorganizado para caber em uma tela mobile sem rolagem excessiva:
-  - **Topo:** Timer compacto + valor em destaque.
-  - **Centro:** QR Code grande e centralizado, **sem logo no meio** (remover `imageSettings` do `QRCodeSVG`; opcional usar `logoFestpag` no futuro, mas por ora deixar limpo).
-  - **Abaixo do QR:** botão "Copiar código PIX" full-width (mais óbvio que o ícone atual) + caixa colapsável com o código.
-  - **Instruções:** versão enxuta em 3 passos, fonte menor.
-  - **Botões:** "Já paguei, verificar" (primário) — o polling automático continua.
-- Tudo dentro de container fullscreen com padding consistente.
+**Botões de método de pagamento:**
+- Cards maiores (`p-5`, gap-4), borda `border-border/60`.
+- Ícone num container `w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20` com `shadow-inner`.
+- Hover: `border-primary scale-[1.02] shadow-lg shadow-primary/10`.
+- Adicionar chevron `ArrowRight` à direita (ganha `translate-x-1` no hover) para affordance.
+- Selo "Recomendado" no PIX (badge gradient pequeno, `top-3 right-3`).
 
-## 4. Tela Cartão — `CheckoutStepCard.tsx`
+## 3. CheckoutStepPix
 
-- **Remover** o bloco "Resumo do pedido" interno (o usuário já viu na tela anterior).
-- Mostrar apenas no topo um cabeçalho mínimo: **"Total: R$ X,XX"** (com desconto do cupom se houver).
-- Formulário do cartão mantém os mesmos campos, mas com espaçamento melhor para mobile (inputs maiores, agrupamento Validade/CVV em grid).
-- Botão "Pagar R$ X,XX" fixo no rodapé do fullscreen.
+- **Header de valor**: bloco centralizado com glow circular atrás do preço (absolute blur-3xl bg-primary/30).
+- **QR Code premium**: container `rounded-3xl` com **borda gradient** (técnica `gradient-border`), padding `p-5`, sombra `shadow-2xl shadow-primary/20`. Cantos com pequenos "corner brackets" decorativos em indigo (4 absolute divs).
+- **Timer** dentro de pill `bg-secondary/60 backdrop-blur border border-border/60 rounded-full px-4 py-1.5` com ícone de relógio.
+- **Botão "Copiar PIX"**: variant `hero`, `h-14`, fonte semibold.
+- **PIX copia-e-cola**: card com header "PIX Copia e Cola" + monoespaçada truncada e botão `Copy` sutil à direita.
+- **Instruções**: passar para um card glass único com 3 linhas, números em círculo gradient (`bg-gradient-to-br from-primary to-accent text-white`).
+- **"Já paguei, verificar"**: variant `outline` com borda gradient sutil.
 
-## 5. Cupons de desconto — novo módulo
+## 4. CheckoutStepCard
 
-### Banco de dados (migration)
-Criar tabela `event_coupons`:
-```text
-id (uuid pk)
-event_id (uuid fk events)
-code (text, único por evento, normalizado upper)
-discount_type ('percent' | 'fixed')
-discount_value (numeric)
-max_uses (int, nullable)
-uses_count (int default 0)
-valid_until (timestamptz, nullable)
-is_active (boolean default true)
-created_at, updated_at
-```
-- RLS:
-  - SELECT público para cupons ativos (necessário para validar no checkout) — ou via Edge Function (preferido, ver abaixo).
-  - INSERT/UPDATE/DELETE só para o produtor dono do evento (via `producer_profile_id`).
-- Índice único em `(event_id, upper(code))`.
+- **Total compacto** vira card glass com lock icon + "Pagamento criptografado" em badge.
+- Inputs com `h-12`, ícones à esquerda em todos os campos (Card, User, Calendar, Lock, IdCard).
+- Bandeira do cartão exibida como **chip pill** colorido no canto direito do input.
+- Grid Validade/CVV mantido, mas labels com uppercase tracking-wide.
+- Select de parcelas com trigger `h-12` e ícone à esquerda.
+- Botão "Pagar X" em `hero` `h-14` com brilho animado (`animate-pulse-glow` quando habilitado).
+- Footer trust: 3 selos lado a lado (`Lock` SSL, `Shield` Mercado Pago, `CheckCircle2` Garantia).
 
-### Edge Function `validate-coupon`
-- Input: `{ eventId, code }`.
-- Retorna: `{ valid, discountType, discountValue, message }`.
-- Verifica: existe, ativo, não expirado, `uses_count < max_uses`.
-- Mantém RLS fechada e evita brute-force expondo a tabela.
+## Detalhes técnicos
 
-### UI do produtor — nova aba "Cupons" no `EventDashboard`
-- Adicionar tab **"Cupons"** ao lado de "Pedidos", "Participantes", etc.
-- Componente `EventCouponsTab.tsx`:
-  - Lista de cupons do evento com código, tipo, valor, usos/limite, validade, status (ativo/inativo) e ações editar/excluir.
-  - Botão "Novo cupom" abre dialog com: código, tipo (percentual/valor fixo), valor, limite de usos (opcional), validade (opcional), ativo.
-- Hook `useEventCoupons(eventId)` (CRUD via Supabase, padrão `useEventLots`).
+Arquivos a editar (somente JSX/Tailwind):
+- `src/components/checkout/CheckoutModal.tsx` – header + decoração de fundo.
+- `src/components/checkout/CheckoutStepPayment.tsx` – resumo, cupom, botões de método.
+- `src/components/checkout/CheckoutStepPix.tsx` – QR premium, total com glow, instruções.
+- `src/components/checkout/CheckoutStepCard.tsx` – inputs com ícones, total glass, trust strip.
 
-### Aplicação no checkout
-- `CheckoutStepPayment` chama `validate-coupon` ao clicar "Aplicar".
-- `CheckoutModal` mantém `appliedCoupon` no estado e passa o `discountAmount` para `CheckoutStepCard` e para a criação do pedido.
-- `create-mercadopago-pix` e `process-card-payment` recebem `couponId` opcional; ao confirmar pagamento, incrementam `uses_count` e armazenam `coupon_id` no `orders` (adicionar coluna `coupon_id` e `discount_amount` em `orders` na mesma migration).
+Reusar tokens existentes: `gradient-text`, `gradient-border`, `glass`, `card-glow`, `animate-pulse-glow` (já definidos em `src/index.css`). Sem novos pacotes, sem mudanças em CSS global, sem alterações em hooks/edge functions/DB.
 
-## 6. Detalhes técnicos
-
-- `useIsMobile` já existe (`src/hooks/use-mobile.tsx`) — usar em `CheckoutModal`.
-- Para fullscreen no Dialog do Radix, sobrescrever classes do `DialogContent`:
-  ```text
-  isMobile && "max-w-none w-screen h-screen rounded-none p-0 sm:max-w-none"
-  ```
-- Conteúdo interno passa a usar `flex flex-col h-full` com header fixo, área central `flex-1 overflow-y-auto` e rodapé de ação (quando aplicável) fixo.
-
-## Arquivos afetados
-
-**Editados:**
-- `src/components/checkout/CheckoutModal.tsx` (fullscreen, header, remoção do step indicator, estado do cupom)
-- `src/components/checkout/CheckoutStepPayment.tsx` (cupom + auto-avanço)
-- `src/components/checkout/CheckoutStepPix.tsx` (layout premium, QR sem logo, copy full-width)
-- `src/components/checkout/CheckoutStepCard.tsx` (remover resumo duplicado, layout fullscreen)
-- `src/pages/EventDashboard.tsx` (adicionar tab "Cupons")
-- `supabase/functions/create-mercadopago-pix/index.ts` e `process-card-payment/index.ts` (aceitar `couponId`, aplicar desconto, incrementar uso)
-
-**Criados:**
-- `supabase/migrations/<timestamp>_event_coupons.sql` (tabela + RLS + colunas em `orders`)
-- `supabase/functions/validate-coupon/index.ts`
-- `src/hooks/useEventCoupons.ts`
-- `src/components/producer/tabs/EventCouponsTab.tsx`
-- `src/components/producer/CouponDialog.tsx`
-
-Sem mudança no fluxo de autenticação nem no `AuthModal`.
+## Fora do escopo
+- Lógica de pagamento, validação de cupom, integração Mercado Pago.
+- Mudanças no fluxo (steps, navegação, callbacks).
+- Telas `Awaiting`, `Success`, `Expired` (manter como estão, podem entrar em iteração futura se desejar).
