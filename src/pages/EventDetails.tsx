@@ -311,61 +311,75 @@ const EventDetails = () => {
           </section>
 
           {/* Mobile Banner */}
-          <section className="lg:hidden relative overflow-x-clip bg-black max-w-full">
-            <div className="w-full max-h-[50vh] md:max-h-[70vh] flex items-center justify-center overflow-hidden">
+          <section className="lg:hidden relative overflow-x-clip bg-black/20 max-w-full">
+            <div className="w-full aspect-[4/5] flex items-center justify-center overflow-hidden">
               <img
                 src={event.image_url || '/placeholder.svg'}
                 alt={event.title}
-                className="w-full h-auto max-h-[50vh] md:max-h-[70vh] object-contain"
+                className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-            <button
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+            
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={handleLike}
-              className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-2 transition-colors hover:bg-black/70"
+              className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-black/40 backdrop-blur-md border border-white/10 rounded-full p-3 transition-colors"
             >
               <Heart className={cn('w-5 h-5 transition-colors', liked ? 'fill-red-500 text-red-500' : 'text-white')} />
-              {likeCount > 0 && (
-                <span className={cn('text-sm font-medium', liked ? 'text-red-500' : 'text-white')}>{likeCount}</span>
-              )}
-            </button>
+            </motion.button>
           </section>
 
           {/* Content */}
           <section className="w-full max-w-7xl mx-auto px-4 mt-0 relative z-10 pb-8">
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Main Info */}
-              <div className="lg:col-span-2 space-y-6 min-w-0">
+              <div className="lg:col-span-2 space-y-8 min-w-0">
                 {/* Event Info - mobile only */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="py-6 lg:hidden"
+                  className="py-8 lg:hidden space-y-6"
                 >
-                  <h1 className="font-display font-bold text-3xl md:text-4xl mb-2">
-                    {event.title}
-                  </h1>
-                  <p className="text-muted-foreground mb-4">
-                    {event.city}, {event.state}
-                  </p>
-                  <p className="font-semibold text-lg mb-4 break-words text-primary-foreground">
-                    {event.venue}
-                  </p>
-                  {event.address && (
-                    <div className="flex items-start gap-2 text-muted-foreground mb-4 min-w-0">
-                      <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span className="text-sm break-words">{event.address}</span>
+                  <div className="space-y-2">
+                    <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary text-[10px] uppercase tracking-widest">
+                      Evento Confirmado
+                    </Badge>
+                    <h1 className="font-display font-bold text-4xl leading-tight">
+                      {event.title}
+                    </h1>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
+                      <Calendar className="w-5 h-5 text-primary mb-2" />
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Data</p>
+                      <p className="font-bold text-sm truncate">{formatDate(event.date).split(',')[0]}</p>
                     </div>
-                  )}
-                  <div className="flex flex-wrap gap-4 text-muted-foreground">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Calendar className="w-4 h-4 shrink-0" />
-                      <span className="text-sm break-words">{formatDate(event.date)}</span>
+                    <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl p-4 border border-white/5">
+                      <Clock className="w-5 h-5 text-primary mb-2" />
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Horário</p>
+                      <p className="font-bold text-sm">{event.time}</p>
                     </div>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Clock className="w-4 h-4 shrink-0" />
-                      <span className="text-sm">{event.time}</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-sm flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        {event.city}, {event.state}
+                      </p>
+                      <p className="font-semibold text-xl break-words text-primary-foreground">
+                        {event.venue}
+                      </p>
                     </div>
+                    {event.address && (
+                      <div className="p-4 rounded-2xl bg-secondary/20 border border-white/5 flex items-start gap-3">
+                        <MapPin className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                        <span className="text-sm text-muted-foreground leading-relaxed break-words">{event.address}</span>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
 
