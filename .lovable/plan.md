@@ -1,89 +1,73 @@
-# Polimento Premium da Página do Evento
+# Polimento Premium do Checkout
 
-Upgrade visual da página `EventDetails.tsx` mantendo 100% da estrutura, dados e lógica (likes, lotes, checkout, auth). Aplicar a mesma linguagem premium que já está no checkout: glassmorphism, glows indigo/magenta, hierarquia tipográfica e microinterações.
+Upgrade puramente visual nas 4 telas do fluxo (Modal/Header, Pagamento, PIX, Cartão). Sem mudanças de lógica, dados ou backend.
 
-## 1. Hero Desktop (split)
+## Princípios de design
+- **Dark premium**: gradient sutil no fundo do modal (indigo → magenta a 5-8% opacity), glow em pontos focais.
+- **Glassmorphism**: cards de resumo com `bg-card/60 backdrop-blur` + borda gradient suave.
+- **Hierarquia tipográfica**: total grande (3xl) com `gradient-text`, labels em uppercase tracking-wide muted.
+- **Microinterações**: hover scale 1.02, ring de foco indigo, ícones em containers gradient.
+- **Mobile-first**: respeita `100dvh`, espaçamento generoso, botões `h-14` no CTA principal.
 
-- Aumentar altura para `min-h-[60vh]`, gradient mais rico no background (blur + dois orbes flutuantes indigo/magenta).
-- **Coluna esquerda**:
-  - Chip pequeno acima do título com data curta + cidade ("SAB, 15 NOV · SÃO PAULO") em `bg-primary/10 border border-primary/30 text-primary text-xs uppercase tracking-wider`.
-  - Título com `text-5xl xl:text-6xl gradient-text` na primeira linha (ou destaque parcial).
-  - Cards info (data, hora, venue, endereço) em **pills glass** lado a lado: `bg-card/60 backdrop-blur border border-border/60 rounded-xl px-4 py-3` com ícones em container gradient mini.
-  - Likes movidos para chip inline ao lado do título com `Heart` animado.
-- **Coluna direita** (imagem):
-  - `rounded-3xl` com **borda gradient** (indigo→magenta), shadow `shadow-2xl shadow-primary/30`.
-  - Glow externo (absolute blur-3xl) atrás da imagem.
-  - Botão de like em pill premium, com contagem em `font-bold tabular-nums`.
+## 1. CheckoutModal – Header & Container
 
-## 2. Hero Mobile
+- Adicionar fundo decorativo no `DialogContent`: gradient radial sutil indigo/magenta no topo (absolute, `pointer-events-none`, opacity-20, blur-3xl).
+- Header redesenhado:
+  - Altura `h-16`, borda inferior sutil com gradient (`border-b border-border/50`).
+  - Título centralizado com `font-display font-bold text-base`.
+  - Ícones `Voltar` e `X` em variante `ghost` com `rounded-full`, hover `bg-secondary/60`.
+- Footer "trust strip" fixo no mobile (apenas nas telas payment/card/pix): `Lock` icon + "Pagamento 100% seguro" em `text-[10px]` muted.
 
-- Manter imagem em `object-contain`, mas adicionar **gradient overlay duplo** (top: indigo/10, bottom: background→transparent).
-- Botão like com glassmorphism (`bg-background/40 backdrop-blur-xl border border-white/10 rounded-full`).
-- Bloco de info mobile (logo abaixo do banner): mover para card glass único com:
-  - Chip de categoria/data no topo.
-  - Título grande, venue com ícone gradient.
-  - Pills horizontais de data/hora/local em scroll horizontal se necessário.
+## 2. CheckoutStepPayment
 
-## 3. Cards de Setores (lotes)
+**Resumo do pedido (card premium):**
+- Container glass: `bg-gradient-to-br from-card/80 to-secondary/40 backdrop-blur-xl border border-border/60 rounded-2xl p-5`.
+- Pequena tag no topo: badge gradient indigo/magenta com nome do evento + data em chip lado a lado.
+- Lista de itens com leading mais arejado, quantidade em pill `bg-primary/10 text-primary`.
+- Linha do **Total**: caixa destacada com gradient sutil + shadow `shadow-primary/20`, valor `text-3xl gradient-text`.
 
-Atualmente cada setor tem `bg-card rounded-2xl border border-border`. Upgrade:
+**Cupom:**
+- Quando aplicado: card verde com gradient + ícone com glow.
+- Quando vazio: input com altura `h-12`, ícone `Tag` indigo, botão "Aplicar" em variant `gradient`.
 
-- Container: `bg-gradient-to-br from-card/90 to-secondary/30 backdrop-blur-xl border border-border/60 rounded-2xl shadow-xl shadow-primary/5 overflow-hidden`.
-- **Header do setor** redesenhado:
-  - Faixa superior com `bg-gradient-to-r from-primary/10 to-accent/10 border-b border-border/60 px-5 py-3`.
-  - Ícone de setor (Ticket ou Crown para VIP) num container gradient à esquerda.
-  - Nome do setor com `font-display font-bold text-base`, sem uppercase forçado (mantendo legibilidade).
-  - Badge contador à direita: "X opções" em pill sutil.
-- **LotCard** repaginado:
-  - Linha em `py-5` com hover `bg-primary/5` sutil.
-  - Nome em `font-bold text-base` (não mais uppercase apertado).
-  - Preço com `text-xl font-display font-bold` (gradient-text apenas no preço final principal).
-  - Original price com line-through bem suave + badge "−X%" em verde se houver desconto.
-  - Badges "Últimos" / "Esgotado" com gradient (destrutivo gradient para "Últimos").
-  - **Stepper +/−**: botões `w-10 h-10 rounded-xl` com `border-primary/30 hover:bg-primary/10`, valor central com `bg-primary/10 rounded-lg px-3 h-10` exibindo o número.
-  - Quando `quantity > 0`, linha ganha leve highlight (`bg-primary/5 border-l-2 border-primary`).
+**Botões de método de pagamento:**
+- Cards maiores (`p-5`, gap-4), borda `border-border/60`.
+- Ícone num container `w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20` com `shadow-inner`.
+- Hover: `border-primary scale-[1.02] shadow-lg shadow-primary/10`.
+- Adicionar chevron `ArrowRight` à direita (ganha `translate-x-1` no hover) para affordance.
+- Selo "Recomendado" no PIX (badge gradient pequeno, `top-3 right-3`).
 
-## 4. Sobre o evento
+## 3. CheckoutStepPix
 
-- Card glass dedicado em vez de só `<div className="py-6">`:
-  - `bg-card/60 backdrop-blur border border-border/60 rounded-2xl p-6`.
-  - Título com ícone (Info) em container gradient.
-  - Texto em `text-foreground/80 leading-relaxed`.
+- **Header de valor**: bloco centralizado com glow circular atrás do preço (absolute blur-3xl bg-primary/30).
+- **QR Code premium**: container `rounded-3xl` com **borda gradient** (técnica `gradient-border`), padding `p-5`, sombra `shadow-2xl shadow-primary/20`. Cantos com pequenos "corner brackets" decorativos em indigo (4 absolute divs).
+- **Timer** dentro de pill `bg-secondary/60 backdrop-blur border border-border/60 rounded-full px-4 py-1.5` com ícone de relógio.
+- **Botão "Copiar PIX"**: variant `hero`, `h-14`, fonte semibold.
+- **PIX copia-e-cola**: card com header "PIX Copia e Cola" + monoespaçada truncada e botão `Copy` sutil à direita.
+- **Instruções**: passar para um card glass único com 3 linhas, números em círculo gradient (`bg-gradient-to-br from-primary to-accent text-white`).
+- **"Já paguei, verificar"**: variant `outline` com borda gradient sutil.
 
-## 5. Sidebar Resumo (desktop)
+## 4. CheckoutStepCard
 
-- Container já é card; upgrade:
-  - `bg-gradient-to-br from-card/90 to-secondary/40 backdrop-blur-xl border border-border/60 shadow-2xl shadow-primary/10`.
-  - Header com ícone Receipt + "Resumo do pedido" em uppercase tracking-wider.
-  - Linhas de itens com pill de quantidade (`bg-primary/15 text-primary`).
-  - **Total destacado** dentro de caixa com gradient sutil (igual ao checkout): `bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl px-4 py-3` com valor `text-3xl gradient-text`.
-  - Botão CTA com ícone Ticket e altura `h-14`.
-  - Trust strip abaixo: 3 mini-selos (Lock, Shield, BadgeCheck).
-
-## 6. Bottom Bar Mobile
-
-- Background: `bg-gradient-to-t from-card via-card to-card/95 backdrop-blur-xl border-t border-primary/20 shadow-2xl shadow-primary/20`.
-- Adicionar glow superior (linha gradient indigo→magenta de 1px no topo).
-- Total maior (`text-xl gradient-text`), botão `h-12 px-6` com ícone.
-- Safe area iOS: `pb-[env(safe-area-inset-bottom)]`.
-
-## 7. Banner "Evento Encerrado"
-
-- Visual mais premium: `bg-gradient-to-r from-destructive/15 to-destructive/5 border-b border-destructive/30 backdrop-blur` com ícone num container vermelho gradient.
+- **Total compacto** vira card glass com lock icon + "Pagamento criptografado" em badge.
+- Inputs com `h-12`, ícones à esquerda em todos os campos (Card, User, Calendar, Lock, IdCard).
+- Bandeira do cartão exibida como **chip pill** colorido no canto direito do input.
+- Grid Validade/CVV mantido, mas labels com uppercase tracking-wide.
+- Select de parcelas com trigger `h-12` e ícone à esquerda.
+- Botão "Pagar X" em `hero` `h-14` com brilho animado (`animate-pulse-glow` quando habilitado).
+- Footer trust: 3 selos lado a lado (`Lock` SSL, `Shield` Mercado Pago, `CheckCircle2` Garantia).
 
 ## Detalhes técnicos
 
-Arquivo único: `src/pages/EventDetails.tsx` (inclui `LotCard` interno).
+Arquivos a editar (somente JSX/Tailwind):
+- `src/components/checkout/CheckoutModal.tsx` – header + decoração de fundo.
+- `src/components/checkout/CheckoutStepPayment.tsx` – resumo, cupom, botões de método.
+- `src/components/checkout/CheckoutStepPix.tsx` – QR premium, total com glow, instruções.
+- `src/components/checkout/CheckoutStepCard.tsx` – inputs com ícones, total glass, trust strip.
 
-Reuso de tokens existentes (`gradient-text`, `glass`, `card-glow`) e novos ícones lucide já no bundle (`Receipt`, `Crown`, `BadgeCheck`, `Info`, `ShieldCheck`).
-
-Sem mudanças em:
-- hooks (`useEvent`, `useEventLots`)
-- lógica de likes, agrupamento de setores, checkout, auth
-- estrutura de dados ou queries
-- outros componentes (Header, Footer, modais)
+Reusar tokens existentes: `gradient-text`, `gradient-border`, `glass`, `card-glow`, `animate-pulse-glow` (já definidos em `src/index.css`). Sem novos pacotes, sem mudanças em CSS global, sem alterações em hooks/edge functions/DB.
 
 ## Fora do escopo
-- Nova feature de "Compartilhar", reviews, mapa interativo (podem entrar depois).
-- Mudanças no fluxo de checkout (já polido).
-- Alterações em rotas ou navegação.
+- Lógica de pagamento, validação de cupom, integração Mercado Pago.
+- Mudanças no fluxo (steps, navegação, callbacks).
+- Telas `Awaiting`, `Success`, `Expired` (manter como estão, podem entrar em iteração futura se desejar).
