@@ -370,7 +370,7 @@ const EventDetails = () => {
                         <MapPin className="w-4 h-4" />
                         {event.city}, {event.state}
                       </p>
-                      <p className="font-semibold text-xl break-words text-primary-foreground">
+                      <p className="font-semibold text-lg mb-4 break-words text-primary-foreground">
                         {event.venue}
                       </p>
                     </div>
