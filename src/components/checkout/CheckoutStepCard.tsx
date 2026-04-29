@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Loader2, Lock, AlertCircle } from 'lucide-react';
+import { CreditCard, Loader2, Lock, User, Calendar, Shield, IdCard, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,15 +80,12 @@ export function CheckoutStepCard({
   const [mpReady, setMpReady] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
 
-  // Fetch MercadoPago public key from backend
   useEffect(() => {
     const fetchPublicKey = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-mercadopago-public-key');
         if (error) throw error;
-        if (data?.publicKey) {
-          setPublicKey(data.publicKey);
-        }
+        if (data?.publicKey) setPublicKey(data.publicKey);
       } catch (err) {
         console.error('Error fetching MP public key:', err);
       }
@@ -96,33 +93,26 @@ export function CheckoutStepCard({
     fetchPublicKey();
   }, []);
 
-  // Initialize MercadoPago SDK
   useEffect(() => {
     if (!publicKey) return;
     const checkMP = () => {
-      if (window.MercadoPago) {
-        setMpReady(true);
-      } else {
-        setTimeout(checkMP, 200);
-      }
+      if (window.MercadoPago) setMpReady(true);
+      else setTimeout(checkMP, 200);
     };
     checkMP();
   }, [publicKey]);
 
-  // Format card number with spaces
   const formatCardNumber = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 16);
     return numbers.replace(/(\d{4})(?=\d)/g, '$1 ');
   };
 
-  // Format expiry MM/YY
   const formatExpiry = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 4);
     if (numbers.length > 2) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
     return numbers;
   };
 
-  // Format CPF
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11);
     if (numbers.length <= 3) return numbers;
@@ -131,11 +121,9 @@ export function CheckoutStepCard({
     return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9)}`;
   };
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+  const formatPrice = (price: number) =>
+    price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Detect card brand when 6+ digits entered
   const detectCardBrand = useCallback(async (bin: string) => {
     if (!mpReady || bin.length < 6) return;
     try {
@@ -152,10 +140,8 @@ export function CheckoutStepCard({
     }
   }, [mpReady, publicKey]);
 
-  // Fetch installments when card brand detected
   useEffect(() => {
     if (!mpReady || !paymentMethodId || totalAmount <= 0) return;
-
     const fetchInstallments = async () => {
       try {
         const mp = new window.MercadoPago(publicKey);
@@ -164,7 +150,6 @@ export function CheckoutStepCard({
           bin: cardNumber.replace(/\s/g, '').slice(0, 6),
           payment_method_id: paymentMethodId,
         });
-
         if (result?.length > 0 && result[0].payer_costs) {
           setInstallmentOptions(result[0].payer_costs.map((pc: any) => ({
             installments: pc.installments,
@@ -183,18 +168,15 @@ export function CheckoutStepCard({
         }]);
       }
     };
-
     fetchInstallments();
   }, [mpReady, paymentMethodId, totalAmount, publicKey, cardNumber]);
 
   const handleCardNumberChange = (value: string) => {
     const formatted = formatCardNumber(value);
     setCardNumber(formatted);
-
     const digits = value.replace(/\D/g, '');
-    if (digits.length >= 6) {
-      detectCardBrand(digits.slice(0, 6));
-    } else {
+    if (digits.length >= 6) detectCardBrand(digits.slice(0, 6));
+    else {
       setCardBrand('');
       setPaymentMethodId('');
       setInstallmentOptions([]);
@@ -206,7 +188,6 @@ export function CheckoutStepCard({
       toast.error('SDK de pagamento não carregado. Tente novamente.');
       return;
     }
-
     const cleanCard = cardNumber.replace(/\s/g, '');
     const [expMonth, expYear] = expiryDate.split('/');
     const cleanCPF = cpf.replace(/\D/g, '');
@@ -217,11 +198,8 @@ export function CheckoutStepCard({
     }
 
     setIsProcessing(true);
-
     try {
       const mp = new window.MercadoPago(publicKey);
-
-      // Create card token
       const tokenResult = await mp.createCardToken({
         cardNumber: cleanCard,
         cardholderName: cardHolder,
@@ -231,12 +209,8 @@ export function CheckoutStepCard({
         identificationType: 'CPF',
         identificationNumber: cleanCPF,
       });
+      if (!tokenResult?.id) throw new Error('Erro ao tokenizar cartão');
 
-      if (!tokenResult?.id) {
-        throw new Error('Erro ao tokenizar cartão');
-      }
-
-      // Send to backend
       const { data, error } = await supabase.functions.invoke('process-card-payment', {
         body: {
           eventId,
@@ -258,10 +232,8 @@ export function CheckoutStepCard({
         const friendlyMsg = CARD_ERROR_MESSAGES[data.errorCode] || data.error;
         throw new Error(friendlyMsg);
       }
-
-      if (data?.status === 'approved') {
-        onSuccess(data.orderId);
-      } else if (data?.status === 'in_process') {
+      if (data?.status === 'approved') onSuccess(data.orderId);
+      else if (data?.status === 'in_process') {
         toast.info('Pagamento em análise. Você será notificado quando for aprovado.');
         onSuccess(data.orderId);
       } else {
@@ -280,39 +252,50 @@ export function CheckoutStepCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.25 }}
       className="space-y-5"
     >
-      {/* Total compacto */}
-      <div className="flex items-center justify-between bg-secondary/50 rounded-xl px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Total a pagar</p>
-          <p className="text-sm font-semibold truncate">{eventTitle}</p>
+      {/* Total premium */}
+      <div className="relative rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 p-4 shadow-lg shadow-primary/10 overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-accent/30 border border-primary/40 flex items-center justify-center flex-shrink-0">
+              <Wallet className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Total a pagar</p>
+              <p className="text-xs text-foreground/80 truncate">{eventTitle}</p>
+            </div>
+          </div>
+          <span className="font-display font-bold text-2xl gradient-text flex-shrink-0 tabular-nums">
+            {formatPrice(totalAmount)}
+          </span>
         </div>
-        <span className="font-display font-bold text-2xl gradient-text flex-shrink-0">
-          {formatPrice(totalAmount)}
-        </span>
       </div>
 
       {/* Card Form */}
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         <div>
-          <Label htmlFor="card-number">Número do cartão</Label>
+          <Label htmlFor="card-number" className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Número do cartão
+          </Label>
           <div className="relative mt-1.5">
-            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
             <Input
               id="card-number"
               value={cardNumber}
               onChange={(e) => handleCardNumberChange(e.target.value)}
               placeholder="0000 0000 0000 0000"
               maxLength={19}
-              className="pl-10"
+              className="pl-10 h-12 bg-background/60 border-border/60 focus-visible:border-primary/60"
               inputMode="numeric"
             />
             {cardBrand && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">
                 {cardBrand}
               </span>
             )}
@@ -320,62 +303,84 @@ export function CheckoutStepCard({
         </div>
 
         <div>
-          <Label htmlFor="card-holder">Nome do titular</Label>
-          <Input
-            id="card-holder"
-            value={cardHolder}
-            onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
-            placeholder="NOME COMO NO CARTÃO"
-            className="mt-1.5"
-          />
+          <Label htmlFor="card-holder" className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Nome do titular
+          </Label>
+          <div className="relative mt-1.5">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+            <Input
+              id="card-holder"
+              value={cardHolder}
+              onChange={(e) => setCardHolder(e.target.value.toUpperCase())}
+              placeholder="NOME COMO NO CARTÃO"
+              className="pl-10 h-12 bg-background/60 border-border/60 focus-visible:border-primary/60"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="expiry">Validade</Label>
-            <Input
-              id="expiry"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(formatExpiry(e.target.value))}
-              placeholder="MM/AA"
-              maxLength={5}
-              className="mt-1.5"
-              inputMode="numeric"
-            />
+            <Label htmlFor="expiry" className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Validade
+            </Label>
+            <div className="relative mt-1.5">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+              <Input
+                id="expiry"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(formatExpiry(e.target.value))}
+                placeholder="MM/AA"
+                maxLength={5}
+                className="pl-10 h-12 bg-background/60 border-border/60 focus-visible:border-primary/60"
+                inputMode="numeric"
+              />
+            </div>
           </div>
           <div>
-            <Label htmlFor="cvv">CVV</Label>
-            <Input
-              id="cvv"
-              value={cvv}
-              onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="123"
-              maxLength={4}
-              className="mt-1.5"
-              inputMode="numeric"
-              type="password"
-            />
+            <Label htmlFor="cvv" className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              CVV
+            </Label>
+            <div className="relative mt-1.5">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+              <Input
+                id="cvv"
+                value={cvv}
+                onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="123"
+                maxLength={4}
+                className="pl-10 h-12 bg-background/60 border-border/60 focus-visible:border-primary/60"
+                inputMode="numeric"
+                type="password"
+              />
+            </div>
           </div>
         </div>
 
         <div>
-          <Label htmlFor="cpf-card">CPF do titular</Label>
-          <Input
-            id="cpf-card"
-            value={cpf}
-            onChange={(e) => setCpf(formatCPF(e.target.value))}
-            placeholder="000.000.000-00"
-            maxLength={14}
-            className="mt-1.5"
-            inputMode="numeric"
-          />
+          <Label htmlFor="cpf-card" className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            CPF do titular
+          </Label>
+          <div className="relative mt-1.5">
+            <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+            <Input
+              id="cpf-card"
+              value={cpf}
+              onChange={(e) => setCpf(formatCPF(e.target.value))}
+              placeholder="000.000.000-00"
+              maxLength={14}
+              className="pl-10 h-12 bg-background/60 border-border/60 focus-visible:border-primary/60"
+              inputMode="numeric"
+            />
+          </div>
         </div>
 
         {installmentOptions.length > 0 && (
           <div>
-            <Label>Parcelas</Label>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Parcelas
+            </Label>
             <Select value={installments} onValueChange={setInstallments}>
-              <SelectTrigger className="mt-1.5">
+              <SelectTrigger className="mt-1.5 h-12 bg-background/60 border-border/60">
                 <SelectValue placeholder="Selecione as parcelas" />
               </SelectTrigger>
               <SelectContent>
@@ -393,7 +398,7 @@ export function CheckoutStepCard({
       <Button
         variant="hero"
         size="lg"
-        className="w-full"
+        className="w-full h-14 text-base font-semibold"
         onClick={handleSubmit}
         disabled={isProcessing || !mpReady}
       >
@@ -410,10 +415,18 @@ export function CheckoutStepCard({
         )}
       </Button>
 
-      <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
-        <Lock className="w-3 h-3" />
-        Pagamento seguro processado pelo Mercado Pago
-      </p>
+      {/* Trust badges */}
+      <div className="flex items-center justify-center gap-4 pt-1">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <Lock className="w-3 h-3 text-primary" />
+          <span>SSL 256-bit</span>
+        </div>
+        <span className="w-1 h-1 rounded-full bg-border" />
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <Shield className="w-3 h-3 text-primary" />
+          <span>Mercado Pago</span>
+        </div>
+      </div>
     </motion.div>
   );
 }
