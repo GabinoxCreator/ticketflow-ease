@@ -1,41 +1,33 @@
-# Ajustes na página do evento
+# Restaurar visual premium dos cards de ingresso
 
-Apenas duas mudanças pontuais sobre o que já existe — sem refazer os cards de ingressos.
+O card que está renderizando hoje é o "antigo" (header simples, stepper pequeno). O print mostra o estilo premium que precisa voltar.
 
-## 1. Manter os cards de ingressos como estão
+## Mudanças em `src/pages/EventDetails.tsx`
 
-O estilo atual (header roxo com nome do setor "ÁREA VIP / INGRESSOS", badge "1 opção" no canto, e stepper circular `−  0  +`) fica **inalterado**.
+### 1. Container do setor (header roxo + badge)
+Substituir o atual (`bg-card rounded-2xl border p-5` com `<h3>` simples) por:
+- Card com `bg-card/60 backdrop-blur-xl` + `border-border/60` + `shadow-primary/5`
+- **Header em faixa** com gradient `from-primary/15 via-primary/10 to-accent/10`, padding `px-6 py-4`
+- Título do setor em `text-primary`, `uppercase`, `tracking-[0.2em]`, `font-bold text-sm`
+- **Badge "X opção/opções"** à direita: pill com `bg-background/40 backdrop-blur` + `border-primary/30` + `text-primary/80`
+- Lotes separados por `divide-y divide-border/40` (sem padding extra no container)
 
-Isso significa que do plano premium anterior **NÃO** entram:
-- Redesenho do `LotCard` / stepper
-- Mudança no agrupamento por setor
-- Bordas/gradientes novos nos containers de lote
+### 2. `LotCard` (stepper grande em cápsula glass)
+Substituir o stepper atual (dois botões circulares pequenos `w-9 h-9` com borda `muted-foreground`) por:
+- Padding maior do row: `px-5 md:px-6 py-5`
+- Nome do lote: `font-bold text-base` (branco)
+- Preço: `text-2xl font-bold` (mantém moeda BRL)
+- **Stepper em cápsula única**: container `rounded-full bg-background/40 backdrop-blur-sm border border-border/50 px-1.5 py-1.5` contendo:
+  - Botão `−` circular `w-10 h-10 rounded-full border border-border/60 bg-background/60 hover:bg-primary/20 hover:border-primary/50`
+  - Quantidade central `w-8 text-center text-lg font-semibold` (muted quando 0, branco quando >0)
+  - Botão `+` circular igual ao `−`
+- Quando `quantity > 0`: cápsula ganha `border-primary/50` para destacar seleção
 
-## 2. Cor do nome do local (venue) → branco
-
-No arquivo `src/pages/EventDetails.tsx`, o `event.venue` ("Made in Brazil Bar") aparece em duas posições com `text-primary` (roxo):
-
-- **Hero desktop** (~linha 215):
-  ```tsx
-  <p className="text-primary font-semibold text-xl break-words">
-  ```
-  → trocar para `text-foreground` (branco).
-
-- **Bloco mobile de info do evento** (~linha 282):
-  ```tsx
-  <p className="text-primary font-semibold text-lg mb-4 break-words">
-  ```
-  → trocar para `text-foreground` (branco).
-
-Mantém `font-semibold` e o tamanho de cada contexto.
-
-## O que continua do polish premium aprovado antes
-
-Apenas as melhorias de moldura ao redor (que não tocam nos cards de ingresso):
-- Glows decorativos indigo/magenta no hero
-- Sidebar desktop com visual glass + trust strip
-- Bottom bar mobile com `backdrop-blur` + safe-area
+## O que NÃO muda
+- Lógica de `handleQuantityChange`, limites (max 10, available)
+- Agrupamento por setor
+- Badge "Esgotado" / "Últimos"
+- Hero, sidebar, bottom bar, "Sobre o evento"
 
 ## Arquivo modificado
-
-- `src/pages/EventDetails.tsx`
+- `src/pages/EventDetails.tsx` (apenas o bloco de tickets ~linhas 354-380 e o componente `LotCard` ~linhas 510-602)

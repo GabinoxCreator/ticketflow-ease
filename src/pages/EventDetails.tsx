@@ -353,30 +353,40 @@ const EventDetails = () => {
                   });
                   return (
                     <div className="space-y-4">
-                      {entries.map(([sectorName, sectorLots], idx) => (
-                        <motion.div
-                          key={sectorName}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.1 + idx * 0.05 }}
-                          className="bg-card rounded-2xl border border-border p-5 md:p-8"
-                        >
-                          <h3 className="font-display font-bold text-sm uppercase tracking-wider mb-4">
-                            {sectorName}
-                          </h3>
-                          <div className="border-t border-border">
-                            {sectorLots.map((lot) => (
-                              <LotCard
-                                key={lot.id}
-                                lot={lot}
-                                quantity={selectedLots[lot.id] || 0}
-                                onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
-                                formatPrice={formatPrice}
-                              />
-                            ))}
-                          </div>
-                        </motion.div>
-                      ))}
+                      {entries.map(([sectorName, sectorLots], idx) => {
+                        const optionCount = sectorLots.length;
+                        return (
+                          <motion.div
+                            key={sectorName}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 + idx * 0.05 }}
+                            className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl overflow-hidden shadow-lg shadow-primary/5"
+                          >
+                            {/* Sector header */}
+                            <div className="flex items-center justify-between px-5 md:px-6 py-4 bg-gradient-to-r from-primary/15 via-primary/10 to-accent/10 border-b border-border/40">
+                              <h3 className="font-display font-bold text-sm uppercase tracking-[0.2em] text-primary">
+                                {sectorName}
+                              </h3>
+                              <span className="text-xs font-medium text-primary/80 bg-background/40 backdrop-blur-sm border border-primary/30 rounded-full px-3 py-1">
+                                {optionCount} {optionCount === 1 ? 'opção' : 'opções'}
+                              </span>
+                            </div>
+                            {/* Lots */}
+                            <div className="divide-y divide-border/40">
+                              {sectorLots.map((lot) => (
+                                <LotCard
+                                  key={lot.id}
+                                  lot={lot}
+                                  quantity={selectedLots[lot.id] || 0}
+                                  onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
+                                  formatPrice={formatPrice}
+                                />
+                              ))}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   );
                 })()}
