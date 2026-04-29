@@ -46,6 +46,7 @@ interface EventLot {
   is_active?: boolean | null;
   fake_scarcity_enabled?: boolean | null;
   fake_scarcity_percentage?: number | null;
+  sector_name?: string | null;
 }
 
 const EventDetails = () => {
@@ -337,30 +338,48 @@ const EventDetails = () => {
                   </div>
                 </motion.div>
 
-                {/* Tickets Section */}
-                {activeLots.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-card rounded-2xl border border-border p-5 md:p-8"
-                  >
-                    <h3 className="font-display font-bold text-sm uppercase tracking-wider mb-4">
-                      Ingressos
-                    </h3>
-                    <div className="border-t border-border">
-                      {activeLots.map((lot) => (
-                        <LotCard
-                          key={lot.id}
-                          lot={lot}
-                          quantity={selectedLots[lot.id] || 0}
-                          onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
-                          formatPrice={formatPrice}
-                        />
+                {/* Tickets Section - grouped by sector */}
+                {activeLots.length > 0 && (() => {
+                  const groups = new Map<string, typeof activeLots>();
+                  for (const lot of activeLots) {
+                    const key = (lot.sector_name?.trim() || 'Ingresso');
+                    if (!groups.has(key)) groups.set(key, [] as typeof activeLots);
+                    groups.get(key)!.push(lot);
+                  }
+                  const entries = Array.from(groups.entries()).sort(([a], [b]) => {
+                    if (a === 'Ingresso') return -1;
+                    if (b === 'Ingresso') return 1;
+                    return 0;
+                  });
+                  return (
+                    <div className="space-y-4">
+                      {entries.map(([sectorName, sectorLots], idx) => (
+                        <motion.div
+                          key={sectorName}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 + idx * 0.05 }}
+                          className="bg-card rounded-2xl border border-border p-5 md:p-8"
+                        >
+                          <h3 className="font-display font-bold text-sm uppercase tracking-wider mb-4">
+                            {sectorName}
+                          </h3>
+                          <div className="border-t border-border">
+                            {sectorLots.map((lot) => (
+                              <LotCard
+                                key={lot.id}
+                                lot={lot}
+                                quantity={selectedLots[lot.id] || 0}
+                                onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
+                                formatPrice={formatPrice}
+                              />
+                            ))}
+                          </div>
+                        </motion.div>
                       ))}
                     </div>
-                  </motion.div>
-                )}
+                  );
+                })()}
 
                 {/* About */}
                 {(event.description || event.short_description) && (

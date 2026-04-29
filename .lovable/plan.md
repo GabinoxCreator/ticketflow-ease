@@ -1,105 +1,36 @@
-## Reformular página Financeiro do Produtor (estilo Shotgun)
+## Objetivo
 
-Inspirado nos prints enviados, o Financeiro vira um painel com **visão por evento**, lista de **transferências (payouts)** com PDF, e os dados bancários/PIN ficam em uma seção de configurações dentro da mesma página. Mantemos o **gate por PIN** que já existe.
+Hoje todos os lotes (independentemente do setor) aparecem misturados em um único grid no painel do produtor e em uma única lista "INGRESSOS" na página pública do evento. Vamos passar a **agrupar visualmente por setor**, criando um card separado para cada setor (ex: "Ingresso", "Área VIP"), tanto no painel do produtor quanto na página pública.
 
-### Estrutura final da página `/produtor/financeiro`
+O campo `sector_name` já existe no banco e em cada lote — não há mudança de schema, é apenas reorganização visual.
 
+## Mudanças
+
+### 1. Painel do produtor — `src/components/producer/LotManager.tsx`
+- Em vez de um único grid `grid-cols-3` com todos os lotes, agrupar `lots` por `sector_name` (fallback: "Ingresso").
+- Para cada setor, renderizar **um card-container** com:
+  - Cabeçalho do setor: nome do setor + contagem de lotes + botão "Adicionar Lote neste Setor" (pré-preenche `sector_name` no diálogo).
+  - Dentro do container, os cards menores de cada lote do setor (mantém o visual atual de cada lote: preço, vendidos, escassez inline, editar/excluir).
+- Botão geral "Adicionar Lote" no topo continua existindo (cria lote em setor novo, com campo "Nome do Setor" editável).
+- Ordem dos setores: "Ingresso" primeiro (padrão), depois os demais por ordem de criação do primeiro lote do setor.
+
+### 2. Página pública — `src/pages/EventDetails.tsx`
+- Substituir o card único "INGRESSOS" por **um card por setor**, empilhados verticalmente.
+- Cada card mostra o nome do setor como título (ex: "INGRESSO", "ÁREA VIP") e lista apenas os `LotCard` daquele setor.
+- O `Resumo` lateral (desktop) e a barra inferior (mobile) continuam somando todos os setores normalmente.
+
+### 3. Detalhe técnico do agrupamento
 ```text
-[Gate PIN — mantido]
-        │
-        ▼
-┌────────────────────────────────────────────────────────────┐
-│ Header: Financeiro                                         │
-├────────────────────────────────────────────────────────────┤
-│ Card "Balanço Global"                                      │
-│   • Receita Líquida total (todos eventos pagos)            │
-│   • Já Repassado (sum payouts.paid)                        │
-│   • Disponível (líquida − repassado)                       │
-├────────────────────────────────────────────────────────────┤
-│ Tabs:  [Por Evento]   [Dados & PIN]                        │
-│                                                            │
-│ ── Por Evento ─────────────────────────────────────────    │
-│   [busca: Buscar eventos]                                  │
-│   Lista de eventos do produtor:                            │
-│   ┌────────────────────────────────────────────────────┐   │
-│   │ [img] Nome do evento     R$ Líquida   R$ Disponív.│   │
-│   │       data formatada                              │   │
-│   └────────────────────────────────────────────────────┘   │
-│   → ao clicar, abre detalhe do evento                      │
-│                                                            │
-│ ── Dados & PIN ────────────────────────────────────────    │
-│   • BankAccountCard (já existe, refinado)                  │
-│   • PinSetupCard (já existe)                               │
-└────────────────────────────────────────────────────────────┘
+const grouped = lots.reduce((acc, lot) => {
+  const key = lot.sector_name?.trim() || 'Ingresso';
+  (acc[key] ||= []).push(lot);
+  return acc;
+}, {});
 ```
+Renderizar `Object.entries(grouped)` mantendo "Ingresso" no topo.
 
-### Detalhe do evento (`/produtor/financeiro/:eventId`)
+## Arquivos afetados
+- `src/components/producer/LotManager.tsx` (refatorar render + adicionar handler "adicionar neste setor")
+- `src/pages/EventDetails.tsx` (quebrar card único em múltiplos cards por setor)
 
-```text
-← Todos os Eventos                       [Baixar Relatório]
-        Nome do evento
-        data formatada
-
-┌──────────────── Balanço ────────────────┐  ┌── Transferências (payouts) ──┐
-│ Receita Bruta:        R$ X              │  │ [busca]                      │
-│ Taxa plataforma (10%): -R$ Y            │  │ ┌──────────────────────────┐ │
-│ Receita Líquida:      R$ Z              │  │ │ Título  Valor   [PDF]   │ │
-│ Já enviado:          -R$ W              │  │ │ Para banco · data       │ │
-│ ─────────────────────────────           │  │ └──────────────────────────┘ │
-│ Disponível:           R$ Z−W            │  │ (vazio: "Nenhuma ainda")    │
-└─────────────────────────────────────────┘  └──────────────────────────────┘
-```
-
-- **Receita Bruta** = sum `orders.total_amount` (status `paid`/`completed`) do evento.
-- **Taxa plataforma** = aplica `producer_fee_overrides` se existir, senão `platform_settings.default_platform_fee_percent` (atual: 10% + R$0).
-- **Repasses** = `payouts` da `producer_profile_id` do produtor cujo período cobre o evento (filtragem por `bank_account_snapshot->>event_id` ou novo campo opcional). Para esta etapa, vamos **filtrar payouts por `notes` contendo o id do evento** ou exibir todos os payouts da organização e marcar quais cobrem o período do evento. Detalhe abaixo.
-- **PDF**: gerado client-side com `jsPDF` (já presente em `ticketPdf.ts`) contendo: dados do produtor, dados bancários snapshot, valores, data, número do repasse.
-
-### Decisão sobre vinculação payout ↔ evento
-
-A tabela `payouts` hoje tem `period_start/period_end` por `producer_profile_id` (não por evento). Para o painel "por evento" funcionar, vamos **adicionar `event_id uuid NULL` em `payouts`** (FK opcional para `events`). Quando o admin cria um repasse específico de evento, marca esse campo. Repasses sem `event_id` aparecem apenas no Balanço Global. Isso é compatível com dados existentes.
-
-### Mudanças
-
-1. **DB migration**
-   - `ALTER TABLE payouts ADD COLUMN event_id uuid NULL REFERENCES events(id) ON DELETE SET NULL;`
-   - Index em `payouts(event_id)`.
-
-2. **Hook novo `src/hooks/useProducerFinance.ts`**
-   - Retorna: `globalBalance` (bruta, líquida, repassado, disponível), `eventsFinance[]` (id, nome, banner, data, bruta, líquida, repassado, disponível), `getEventDetail(eventId)`, `feePercent`.
-   - Busca: events do produtor + orders agregadas + payouts (filtrando por `producer_profile_id` do user) + `producer_fee_overrides`/`platform_settings`.
-
-3. **Nova página `src/pages/Financeiro.tsx`** (refatorada)
-   - Mantém gate PIN existente.
-   - Header + Card Balanço Global.
-   - Tabs "Por Evento" / "Dados & PIN".
-   - Lista de eventos (componente `EventFinanceListItem`).
-
-4. **Nova página `src/pages/FinanceiroEvento.tsx`** rota `/produtor/financeiro/:eventId`
-   - Cards de balanço + tabela de transferências com botão PDF.
-   - Botão "Baixar Relatório" (CSV via `csvExport.ts` + opção PDF).
-
-5. **Componente `src/components/producer/PayoutPdfButton.tsx`**
-   - Gera PDF do repasse com `jsPDF` (logo, dados, valor, banco, data).
-
-6. **Roteamento `src/App.tsx`**
-   - Adicionar rota protegida `/produtor/financeiro/:eventId` → `FinanceiroEvento`.
-
-7. **Refino visual `BankAccountCard` + `PinSetupCard`**
-   - Pequenos ajustes para ficarem coerentes dentro da nova tab "Dados & PIN" (sem mudar lógica). Mantém edição inline já existente.
-
-### Visual / estilo
-- Tema escuro Indigo→Magenta (já em uso). Cards com `bg-card`, bordas suaves, números grandes (`text-3xl font-bold`) para valores. Linhas de evento com hover, banner thumbnail `w-14 h-14 rounded-lg object-cover`.
-- Tabela de transferências: header sutil, ícone verde `ArrowUpRight` para enviado, valor em vermelho (`-R$`), botão "PDF" com ícone `Download`.
-- Mobile: lista de eventos vira cards empilhados (sem tabela horizontal); detalhe do evento empilha balanço acima das transferências.
-
-### Fora de escopo
-- Criação manual de payouts pelo produtor (continua semi-manual pelo admin, conforme memória `payout-processing-model`).
-- Integração com gateway de transferência automática.
-- Mudança no fluxo de PIN.
-- Mexer em `EventOrdersTab` ou outras abas do dashboard de evento.
-
-### Observações técnicas
-- Sem mexer em RLS (políticas atuais já permitem produtor ler `payouts` próprios via `is_producer_member`).
-- PDF gerado no cliente; sem Edge Function nova nesta etapa.
-- Gate PIN continua bloqueando a página antes de qualquer fetch financeiro.
+Sem migração de banco. Sem mudança em hooks ou em checkout — apenas apresentação.
