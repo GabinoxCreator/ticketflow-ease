@@ -235,7 +235,7 @@ const EventDetails = () => {
               <p className="text-muted-foreground text-lg">
                 {event.city}, {event.state}
               </p>
-              <p className="text-primary font-semibold text-xl break-words">
+              <p className="text-foreground font-semibold text-xl break-words">
                 {event.venue}
               </p>
               {event.address && (
@@ -317,7 +317,7 @@ const EventDetails = () => {
                   <p className="text-muted-foreground mb-4">
                     {event.city}, {event.state}
                   </p>
-                  <p className="text-primary font-semibold text-lg mb-4 break-words">
+                  <p className="text-foreground font-semibold text-lg mb-4 break-words">
                     {event.venue}
                   </p>
                   {event.address && (
