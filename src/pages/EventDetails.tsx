@@ -607,64 +607,75 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
   return (
     <div
       className={cn(
-        'py-4 border-b border-border last:border-b-0',
-        isSoldOut && 'opacity-50'
+        'p-4 transition-all duration-300 rounded-2xl mb-2 last:mb-0',
+        quantity > 0 ? 'bg-primary/5 ring-1 ring-primary/20 shadow-inner' : 'hover:bg-white/5',
+        isSoldOut && 'opacity-50 grayscale pointer-events-none'
       )}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-bold text-sm uppercase tracking-wide">{lot.name}</h4>
-            {isSoldOut && (
-              <Badge variant="secondary" className="text-xs">Esgotado</Badge>
-            )}
-            {!isSoldOut && available < 50 && (
-              <Badge variant="destructive" className="text-xs gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Últimos
+          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+            <h4 className={cn(
+              "font-bold text-sm tracking-tight transition-colors",
+              quantity > 0 ? "text-primary" : "text-foreground"
+            )}>
+              {lot.name}
+            </h4>
+            {isSoldOut ? (
+              <Badge variant="secondary" className="text-[10px] bg-secondary/50 border-white/5">Esgotado</Badge>
+            ) : available < 50 ? (
+              <Badge variant="destructive" className="text-[10px] gap-1 px-2 h-5 bg-destructive/10 border-destructive/20 text-destructive animate-pulse">
+                Últimos Ingressos
               </Badge>
-            )}
+            ) : null}
           </div>
 
           {lot.description && (
-            <p className="text-xs text-muted-foreground mb-1">{lot.description}</p>
+            <p className="text-xs text-muted-foreground/80 mb-3 line-clamp-2 leading-relaxed italic">{lot.description}</p>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-baseline gap-2">
+            <span className="font-bold text-lg tracking-tight">
+              {formatPrice(lot.price)}
+            </span>
             {lot.original_price && (
-              <span className="text-xs text-muted-foreground line-through">
+              <span className="text-xs text-muted-foreground line-through opacity-50">
                 {formatPrice(lot.original_price)}
               </span>
             )}
-            <span className="font-semibold text-base">
-              {formatPrice(lot.price)}
-            </span>
           </div>
         </div>
 
         {!isSoldOut && (
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1 bg-secondary/30 rounded-2xl p-1 border border-white/5 shadow-inner">
             <button
               onClick={() => onQuantityChange(-1)}
               disabled={quantity === 0}
               className={cn(
-                'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                'w-10 h-10 rounded-xl flex items-center justify-center transition-all',
                 quantity === 0
-                  ? 'border-muted text-muted cursor-not-allowed'
-                  : 'border-muted-foreground text-foreground hover:bg-muted'
+                  ? 'text-muted-foreground/30'
+                  : 'text-foreground hover:bg-white/10 active:scale-90'
               )}
             >
               <Minus className="w-4 h-4" />
             </button>
-            <span className="w-6 text-center font-semibold text-sm">{quantity}</span>
+            <div className="w-10 flex flex-col items-center">
+              <span className={cn(
+                "text-sm font-bold transition-all",
+                quantity > 0 ? "text-primary scale-110" : "text-muted-foreground"
+              )}>
+                {quantity}
+              </span>
+            </div>
             <button
               onClick={() => onQuantityChange(1)}
               disabled={quantity >= 10 || quantity >= available}
               className={cn(
-                'w-9 h-9 rounded-full border flex items-center justify-center transition-colors',
+                'w-10 h-10 rounded-xl flex items-center justify-center transition-all',
                 (quantity >= 10 || quantity >= available)
-                  ? 'border-muted text-muted cursor-not-allowed'
-                  : 'border-muted-foreground text-foreground hover:bg-muted'
+                  ? 'text-muted-foreground/30'
+                  : 'text-primary hover:bg-primary/10 active:scale-90'
               )}
             >
               <Plus className="w-4 h-4" />
