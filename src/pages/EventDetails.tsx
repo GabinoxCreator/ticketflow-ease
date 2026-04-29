@@ -454,57 +454,79 @@ const EventDetails = () => {
                 transition={{ delay: 0.2 }}
                 className="hidden lg:block lg:sticky lg:top-24 h-fit"
               >
-                <div className="bg-card rounded-2xl border border-border p-6">
-                  <h3 className="font-display font-semibold text-lg mb-4">Resumo</h3>
+                <div className="bg-gradient-to-br from-card to-secondary/40 backdrop-blur-xl rounded-3xl border border-white/5 p-8 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-primary/20 transition-colors" />
+                  
+                  <h3 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
+                    <Ticket className="w-5 h-5 text-primary" />
+                    Resumo do Pedido
+                  </h3>
 
                   {totalTickets > 0 ? (
-                    <div className="space-y-3 mb-6">
+                    <div className="space-y-4 mb-8">
                       {Object.entries(selectedLots).map(([lotId, qty]) => {
                         const lot = activeLots.find((l) => l.id === lotId);
                         if (!lot) return null;
                         return (
-                          <div key={lotId} className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              {lot.name} x{qty}
-                            </span>
-                            <span>{formatPrice(lot.price * qty)}</span>
+                          <div key={lotId} className="flex justify-between items-start text-sm">
+                            <div className="space-y-1">
+                              <p className="font-medium">{lot.name}</p>
+                              <p className="text-xs text-muted-foreground">{qty}x {formatPrice(lot.price)}</p>
+                            </div>
+                            <span className="font-semibold">{formatPrice(lot.price * qty)}</span>
                           </div>
                         );
                       })}
-                      <div className="border-t border-border pt-3 flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span className="gradient-text text-xl">
-                          {formatPrice(totalAmount)}
-                        </span>
+                      <div className="pt-4 border-t border-white/5 space-y-4">
+                        <div className="flex justify-between items-end">
+                          <span className="text-muted-foreground text-sm">Valor Total</span>
+                          <span className="gradient-text text-3xl font-bold tracking-tight">
+                            {formatPrice(totalAmount)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground text-sm mb-6">
-                      Selecione os ingressos desejados para continuar.
-                    </p>
+                    <div className="py-12 text-center space-y-4">
+                      <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mx-auto border border-white/5">
+                        <Ticket className="w-8 h-8 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-muted-foreground text-sm max-w-[200px] mx-auto">
+                        Selecione seus ingressos para continuar com a reserva.
+                      </p>
+                    </div>
                   )}
 
                   {isEventFinished ? (
-                    <div className="text-center">
-                      <Badge variant="destructive" className="mb-2">Evento Encerrado</Badge>
-                      <p className="text-sm text-muted-foreground">Este evento já foi finalizado.</p>
+                    <div className="text-center p-4 rounded-2xl bg-destructive/10 border border-destructive/20">
+                      <p className="text-sm font-semibold text-destructive">Evento Encerrado</p>
                     </div>
                   ) : (
-                    <>
+                    <div className="space-y-4">
                       <Button
                         variant="hero"
                         size="xl"
-                        className="w-full"
+                        className="w-full h-14 rounded-2xl text-lg font-bold shadow-lg shadow-primary/20"
                         onClick={handleCheckout}
                         disabled={totalTickets === 0}
                       >
-                        <Ticket className="w-5 h-5 mr-2" />
-                        Comprar Ingressos
+                        Comprar Agora
                       </Button>
-                      <p className="text-xs text-muted-foreground text-center mt-4">
-                        Pagamento 100% seguro via PIX ou cartão
-                      </p>
-                    </>
+                      <div className="flex items-center justify-center gap-4 pt-2">
+                        <div className="flex flex-col items-center gap-1 opacity-60">
+                          <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                          </div>
+                          <span className="text-[10px] uppercase tracking-tighter">Seguro</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 opacity-60">
+                          <div className="w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center">
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                          </div>
+                          <span className="text-[10px] uppercase tracking-tighter">Oficial</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </motion.div>
