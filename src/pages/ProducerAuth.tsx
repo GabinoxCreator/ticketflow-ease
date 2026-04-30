@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import AuroraBackground from '@/components/auth/AuroraBackground';
 import ProducerSignupWizard from '@/components/auth/ProducerSignupWizard';
+import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 import logoFestpag from '@/assets/logo-festpag.png';
 
 export default function ProducerAuth() {
