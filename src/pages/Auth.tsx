@@ -76,25 +76,8 @@ const Auth: React.FC = () => {
     }
   };
 
-  const handleSendReset = async () => {
-    const parsed = z.string().email('Email inválido').safeParse(forgotEmail);
-    if (!parsed.success) {
-      toast.error(parsed.error.errors[0].message);
-      return;
-    }
-    setSendingReset(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setSendingReset(false);
-    if (error) {
-      toast.error('Erro ao enviar email. Tente novamente.');
-    } else {
-      toast.success('Email de recuperação enviado!');
-      setForgotOpen(false);
-      setForgotEmail('');
-    }
-  };
+
+
 
   if (isLoading) {
     return (
