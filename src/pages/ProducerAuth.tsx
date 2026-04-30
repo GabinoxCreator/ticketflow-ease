@@ -71,21 +71,8 @@ export default function ProducerAuth() {
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetEmail) return;
-    setIsSubmitting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setIsSubmitting(false);
-    if (error) {
-      toast.error('Erro ao enviar email de recuperação');
-    } else {
-      setResetSent(true);
-      toast.success('Email de recuperação enviado!');
-    }
-  };
+
+
 
   if (isLoading) {
     return (
