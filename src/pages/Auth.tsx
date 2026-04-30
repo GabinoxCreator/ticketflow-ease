@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import AuroraBackground from '@/components/auth/AuroraBackground';
 import SignupWizard from '@/components/auth/SignupWizard';
+import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
