@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Save, Loader2, CheckCircle2, Shield, Sparkles } from 'lucide-react';
+import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 import Header from '@/components/Header';
@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PasswordResetOTPFlow } from '@/components/auth/PasswordResetOTPFlow';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,8 +31,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 const MinhaConta = () => {
   const { user, profile } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false);
-  const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   const {
     register,
@@ -77,25 +78,7 @@ const MinhaConta = () => {
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!profile?.email) return;
-
-    setIsRequestingPasswordReset(true);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
-        redirectTo: `${window.location.origin}/auth?mode=reset-password`,
-      });
-
-      if (error) throw error;
-
-      setPasswordResetSent(true);
-      toast.success('Email de redefinição enviado! Verifique sua caixa de entrada.');
-    } catch (error: any) {
-      toast.error(`Erro ao enviar email: ${error.message}`);
-    } finally {
-      setIsRequestingPasswordReset(false);
-    }
-  };
+  // Fluxo legacy substituído pelo OTP via email (PasswordResetOTPFlow)
 
   return (
     <>
@@ -302,11 +285,11 @@ const MinhaConta = () => {
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-primary" />
                         <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                          Redefinição por Email
+                          Redefinição por Código
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        Enviaremos um link seguro para o email abaixo. Clique nele para criar uma nova senha.
+                        Enviaremos um código de 6 dígitos para o email abaixo. Use-o para criar uma nova senha em poucos segundos.
                       </p>
                       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/50">
                         <Mail className="w-3.5 h-3.5 text-primary" />
@@ -316,40 +299,14 @@ const MinhaConta = () => {
                       </div>
                     </div>
 
-                    {passwordResetSent ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex items-start gap-3 p-4 bg-primary/10 border border-primary/30 rounded-xl"
-                      >
-                        <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-foreground text-sm">Email enviado!</p>
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                            Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
-                          </p>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <Button
-                        variant="gradient"
-                        className="w-full"
-                        onClick={handlePasswordReset}
-                        disabled={isRequestingPasswordReset}
-                      >
-                        {isRequestingPasswordReset ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Enviando...
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="w-4 h-4 mr-2" />
-                            Enviar Email de Redefinição
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    <Button
+                      variant="gradient"
+                      className="w-full"
+                      onClick={() => setShowResetDialog(true)}
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      Redefinir Senha por Código
+                    </Button>
 
                     <div className="pt-2 border-t border-border/30">
                       <p className="text-xs text-muted-foreground/70 leading-relaxed">
@@ -363,6 +320,22 @@ const MinhaConta = () => {
           </div>
         </div>
       </main>
+
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Redefinir senha</DialogTitle>
+          </DialogHeader>
+          <PasswordResetOTPFlow
+            initialEmail={profile?.email || ''}
+            onBack={() => setShowResetDialog(false)}
+            onSuccess={() => {
+              setShowResetDialog(false);
+              toast.success('Senha redefinida! Use a nova senha no próximo acesso.');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </>
