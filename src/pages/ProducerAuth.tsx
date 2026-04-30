@@ -125,67 +125,14 @@ export default function ProducerAuth() {
                 {/* LOGIN */}
                 <TabsContent value="login" className="mt-5">
                   {forgotMode ? (
-                    <div className="space-y-4">
-                      <h2 className="font-display font-semibold text-lg">Recuperar senha</h2>
-                      {resetSent ? (
-                        <div className="text-center space-y-4">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                            <Mail className="w-6 h-6 text-primary" />
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Enviamos um link de recuperação para <strong>{resetEmail}</strong>
-                          </p>
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => {
-                              setForgotMode(false);
-                              setResetSent(false);
-                            }}
-                          >
-                            Voltar ao login
-                          </Button>
-                        </div>
-                      ) : (
-                        <form onSubmit={handleForgotPassword} className="space-y-4">
-                          <p className="text-sm text-muted-foreground">
-                            Informe seu email para receber um link de recuperação.
-                          </p>
-                          <div className="space-y-2">
-                            <Label>Email</Label>
-                            <div className="relative">
-                              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                              <Input
-                                type="email"
-                                placeholder="seu@email.com"
-                                value={resetEmail}
-                                onChange={(e) => setResetEmail(e.target.value)}
-                                className="pl-10"
-                                required
-                              />
-                            </div>
-                          </div>
-                          <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Enviando...
-                              </>
-                            ) : (
-                              'Enviar link'
-                            )}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="w-full"
-                            onClick={() => setForgotMode(false)}
-                          >
-                            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
-                          </Button>
-                        </form>
-                      )}
-                    </div>
+                    <PasswordResetOTPFlow
+                      initialEmail={resetEmail || email}
+                      onBack={() => setForgotMode(false)}
+                      onSuccess={() => {
+                        setForgotMode(false);
+                        setResetEmail('');
+                      }}
+                    />
                   ) : (
                     <form onSubmit={handleLogin} className="space-y-4">
                       <div className="text-center space-y-1 mb-2">
