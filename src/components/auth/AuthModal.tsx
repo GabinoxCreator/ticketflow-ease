@@ -38,7 +38,6 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
 
   // Signup state
   const [signupStep, setSignupStep] = useState<SignupStep>('info');
