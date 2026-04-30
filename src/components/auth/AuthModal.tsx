@@ -76,7 +76,7 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
   useEffect(() => {
     if (!isOpen) {
       setForgotMode(false);
-      setResetSent(false);
+      setResetEmail('');
       setSignupStep('info');
       setEmailVerificationSent(false);
       setOtp('');
