@@ -42,7 +42,6 @@ const Auth: React.FC = () => {
   // Esqueci a senha
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [sendingReset, setSendingReset] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/';
 
