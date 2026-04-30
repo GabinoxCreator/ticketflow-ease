@@ -14,6 +14,7 @@ import {
   Eye, EyeOff, Mail, Lock, User, CreditCard, Phone, 
   Loader2, ArrowLeft, ArrowRight, Check, X
 } from 'lucide-react';
+import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 
 interface AuthModalProps {
   isOpen: boolean;
