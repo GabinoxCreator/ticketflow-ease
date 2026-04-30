@@ -14,6 +14,7 @@ import {
   Eye, EyeOff, Mail, Lock, User, CreditCard, Phone, 
   Loader2, ArrowLeft, ArrowRight, Check, X
 } from 'lucide-react';
+import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -37,7 +38,6 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
 
   // Signup state
   const [signupStep, setSignupStep] = useState<SignupStep>('info');
@@ -76,7 +76,7 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
   useEffect(() => {
     if (!isOpen) {
       setForgotMode(false);
-      setResetSent(false);
+      setResetEmail('');
       setSignupStep('info');
       setEmailVerificationSent(false);
       setOtp('');
@@ -106,22 +106,7 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
     }
   };
 
-  // ── Forgot password ──
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetEmail) return;
-    setIsSubmitting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setIsSubmitting(false);
-    if (error) {
-      toast.error('Erro ao enviar email de recuperação');
-    } else {
-      setResetSent(true);
-      toast.success('Email de recuperação enviado!');
-    }
-  };
+
 
   // ── Social login ──
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
@@ -244,48 +229,15 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
 
         <div className="p-6 max-h-[75vh] overflow-y-auto">
           {forgotMode ? (
-            // ── Forgot Password ──
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              {resetSent ? (
-                <div className="text-center space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                    <Mail className="w-6 h-6 text-primary" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Enviamos um link de recuperação para <strong>{resetEmail}</strong>
-                  </p>
-                  <Button variant="outline" className="w-full" onClick={() => { setForgotMode(false); setResetSent(false); }}>
-                    Voltar ao login
-                  </Button>
-                </div>
-              ) : (
-                <form onSubmit={handleForgotPassword} className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Informe seu email para receber um link de recuperação de senha.
-                  </p>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        type="email"
-                        placeholder="seu@email.com"
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</> : 'Enviar link'}
-                  </Button>
-                  <Button type="button" variant="ghost" className="w-full" onClick={() => setForgotMode(false)}>
-                    <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao login
-                  </Button>
-                </form>
-              )}
-            </motion.div>
+            // ── Forgot Password (OTP via Resend) ──
+            <PasswordResetOTPFlow
+              initialEmail={resetEmail || loginEmail}
+              onBack={() => setForgotMode(false)}
+              onSuccess={() => {
+                setForgotMode(false);
+                setResetEmail('');
+              }}
+            />
           ) : (
             <>
               {/* Tabs */}

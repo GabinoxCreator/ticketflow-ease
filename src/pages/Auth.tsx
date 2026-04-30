@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import AuroraBackground from '@/components/auth/AuroraBackground';
 import SignupWizard from '@/components/auth/SignupWizard';
+import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -41,7 +42,6 @@ const Auth: React.FC = () => {
   // Esqueci a senha
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [sendingReset, setSendingReset] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/';
 
@@ -76,25 +76,8 @@ const Auth: React.FC = () => {
     }
   };
 
-  const handleSendReset = async () => {
-    const parsed = z.string().email('Email inválido').safeParse(forgotEmail);
-    if (!parsed.success) {
-      toast.error(parsed.error.errors[0].message);
-      return;
-    }
-    setSendingReset(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setSendingReset(false);
-    if (error) {
-      toast.error('Erro ao enviar email. Tente novamente.');
-    } else {
-      toast.success('Email de recuperação enviado!');
-      setForgotOpen(false);
-      setForgotEmail('');
-    }
-  };
+
+
 
   if (isLoading) {
     return (
@@ -337,51 +320,23 @@ const Auth: React.FC = () => {
         </motion.div>
       </main>
 
-      {/* Dialog: Esqueci a senha */}
+      {/* Dialog: Esqueci a senha (OTP via Resend) */}
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              Recuperar senha
-            </DialogTitle>
+          <DialogHeader className="sr-only">
+            <DialogTitle>Recuperar senha</DialogTitle>
             <DialogDescription>
-              Digite seu email e enviaremos um link para redefinir sua senha.
+              Recupere sua senha por código enviado ao seu email.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label htmlFor="forgot-email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="forgot-email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  className="pl-10 h-12"
-                  autoFocus
-                />
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="hero"
-              className="w-full"
-              size="lg"
-              onClick={handleSendReset}
-              disabled={sendingReset}
-            >
-              {sendingReset ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                'Enviar link de recuperação'
-              )}
-            </Button>
+          <div className="pt-2">
+            <PasswordResetOTPFlow
+              initialEmail={forgotEmail}
+              onSuccess={() => {
+                setForgotOpen(false);
+                setForgotEmail('');
+              }}
+            />
           </div>
         </DialogContent>
       </Dialog>

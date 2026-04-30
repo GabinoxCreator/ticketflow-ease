@@ -45,6 +45,12 @@ verify_jwt = false
 [functions.verify-email-code]
 verify_jwt = false
 
+[functions.send-password-reset-code]
+verify_jwt = false
+
+[functions.verify-password-reset-code]
+verify_jwt = false
+
 [functions.create-collaborator]
 verify_jwt = true
 
