@@ -1,139 +1,48 @@
-## Contexto
+## Objetivo
 
-- Domínio `festpag.com.br` está **VERIFICADO** no Resend ✅
-- Remetente definido: `naoresponda@festpag.com.br`
-- Hoje, **só uma função usa Resend**: `send-verification-code` (OTP do checkout), com remetente antigo `contato@ingressosrp.com.br`
-- A recuperação de senha hoje usa o sistema padrão do Supabase Auth (`supabase.auth.resetPasswordForEmail`) — que envia um **link mágico**, não um OTP. Quer trocar para o fluxo OTP via Resend.
+Atualizar o token do Resend (`RESEND_API_KEY`) com o novo valor e concluir as pendências da migração para o domínio `festpag.com.br`.
 
----
+## Importante sobre o token
 
-## Plano de execução
+Por segurança, **não devo armazenar a chave do Resend escrita diretamente no chat** dentro do código. Vou abrir o fluxo seguro de atualização de secret para você colar a nova chave (`re_KeNo5Dn3_...`) no campo apropriado. Isso garante que ela fique criptografada e disponível para as Edge Functions.
 
-### Etapa 1 — Atualizar o remetente da verificação de email do checkout
+Recomendo também que, depois de atualizada aqui, você **revogue essa chave no painel do Resend e gere uma nova**, já que ela foi exposta no chat.
 
-**Arquivo:** `supabase/functions/send-verification-code/index.ts` (linha 69)
+## Passos
 
-Trocar:
-```ts
-from: "IngressosRP <contato@ingressosrp.com.br>",
-```
-Por:
-```ts
-from: "FestPag <naoresponda@festpag.com.br>",
-```
+### 1. Atualizar o secret RESEND_API_KEY
+Abrir o modal seguro de atualização de secret para você inserir o novo token.
 
-Também atualizar o assunto (já está bom) e manter o template HTML como está (já usa branding FestPag).
+### 2. Atualizar `MinhaConta.tsx`
+Substituir o fluxo antigo de redefinição de senha (`supabase.auth.resetPasswordForEmail` ou similar) pelo novo componente `<PasswordResetOTPFlow />`, mantendo a UX consistente com `Auth.tsx` e `ProducerAuth.tsx`.
 
----
+### 3. Transformar `/reset-password` em redirect
+Converter a página `src/pages/ResetPassword.tsx` (rota de magic link antiga) em um redirect para `/login`, evitando que links antigos quebrem.
 
-### Etapa 2 — Criar fluxo de recuperação de senha por OTP via Resend
+### 4. Limpeza de referências ao domínio antigo
+- `src/utils/ticketPdf.ts` — atualizar rodapé do PDF de `ingressosrp.com.br` para `festpag.com.br`.
+- `src/pages/AreaDoProdutor.tsx` — atualizar `mailto:contato@ingressosrp.com.br` para `contato@festpag.com.br`.
+- `src/components/home/ProducerSolutionsSection.tsx` — mesmo ajuste.
+- Buscar com `rg` outras ocorrências remanescentes de `ingressosrp.com.br` no código.
 
-A ideia é trocar o "link mágico" do Supabase por um **OTP de 6 dígitos enviado via Resend**, igual ao do checkout. Isso dá controle total sobre o remetente e o template do email.
+### 5. Validar Edge Functions
+- Confirmar que `send-verification-code`, `send-password-reset-code` e `verify-password-reset-code` estão usando `naoresponda@festpag.com.br` como remetente.
+- As funções são re-deployadas automaticamente pela Lovable após edição.
 
-#### 2.1 — Tabela no banco
+### 6. Teste recomendado (após implementação)
+- Solicitar um OTP de checkout (verificação de email) e verificar se o email chega de `naoresponda@festpag.com.br`.
+- Solicitar uma redefinição de senha em `/login`, `/produtor/login` e na conta logada (`MinhaConta`) e validar o fluxo OTP.
 
-Criar tabela `password_reset_codes` (mesmo padrão da `email_verification_codes`):
-- `id uuid PK`
-- `email text not null`
-- `code text not null` (6 dígitos)
-- `expires_at timestamptz not null` (10 minutos)
-- `verified boolean default false`
-- `created_at timestamptz default now()`
-- RLS habilitado, sem políticas públicas (só edge functions com service role acessam)
-- Índice em `email`
+## Arquivos que serão modificados
 
-#### 2.2 — Nova edge function: `send-password-reset-code`
+- `src/pages/MinhaConta.tsx`
+- `src/pages/ResetPassword.tsx`
+- `src/utils/ticketPdf.ts`
+- `src/pages/AreaDoProdutor.tsx`
+- `src/components/home/ProducerSolutionsSection.tsx`
 
-Recebe `{ email }`. Verifica se o email existe em `auth.users` (via service role). Gera código de 6 dígitos, salva em `password_reset_codes`, envia email via Resend com template branded FestPag (gradiente roxo, mesmo estilo do código de verificação do checkout).
+## Confirmação necessária
 
-Importante: por segurança, **sempre retornar sucesso**, mesmo se o email não existir (evita enumeração de usuários). Só não envia o email se o usuário não existir.
-
-`verify_jwt = false` no `config.toml`.
-
-#### 2.3 — Nova edge function: `verify-password-reset-code`
-
-Recebe `{ email, code, newPassword }`:
-1. Valida o código em `password_reset_codes` (não expirado, não verificado).
-2. Marca como `verified = true`.
-3. Usa `supabase.auth.admin.updateUserById()` (service role) para alterar a senha do usuário.
-4. Retorna sucesso.
-
-`verify_jwt = false` no `config.toml`.
-
-#### 2.4 — Atualizar UI da recuperação de senha
-
-Os 3 lugares hoje chamam `supabase.auth.resetPasswordForEmail`:
-- `src/pages/Auth.tsx` (login do cliente)
-- `src/pages/ProducerAuth.tsx` (login do produtor)
-- `src/components/auth/AuthModal.tsx` (modal de auth)
-- `src/pages/MinhaConta.tsx` (botão "alterar senha" da área do cliente)
-
-Criar um novo componente reutilizável `<PasswordResetOTPFlow />` com 3 passos:
-1. **Email** → input do email + botão "Enviar código" (chama `send-password-reset-code`)
-2. **OTP** → input dos 6 dígitos (mesmo `OTPInput` premium já usado no signup) + reenvio com cooldown
-3. **Nova senha** → input nova senha + confirmar senha + botão "Redefinir" (chama `verify-password-reset-code` com email+code+newPassword)
-4. **Sucesso** → mensagem "Senha alterada!" e redirect para login
-
-Substituir os 4 pontos acima para usar esse novo componente em vez de `resetPasswordForEmail`.
-
-#### 2.5 — Página `/reset-password` antiga
-
-A página `src/pages/ResetPassword.tsx` (que processava o link mágico do Supabase) fica **obsoleta** com o novo fluxo. Posso:
-- **Opção A:** Manter a rota mas redirecionar para a tela de login (caso algum email antigo de recuperação ainda esteja em uso)
-- **Opção B:** Remover a rota e a página
-
-Recomendo **Opção A** por 7 dias, depois remover. Mas posso fazer Opção B direto se preferir.
-
----
-
-### Etapa 3 — Limpar referências textuais ao domínio antigo
-
-Encontrei estas pendências fora do Resend:
-- `src/utils/ticketPdf.ts:346` → rodapé do PDF: `'Gerado por FestPag · ingressosrp.com.br'` → trocar para `festpag.com.br`
-- `src/pages/AreaDoProdutor.tsx:123` → `mailto:contato@ingressosrp.com.br` → trocar para `contato@festpag.com.br`
-- `src/components/home/ProducerSolutionsSection.tsx:155` → mesmo `mailto:` → trocar para `contato@festpag.com.br`
-
----
-
-### Etapa 4 — Teste de ponta a ponta
-
-Após o deploy:
-1. **Checkout OTP:** iniciar uma compra e conferir que o código chega de `naoresponda@festpag.com.br`.
-2. **Recuperação de senha:** ir em login → "Esqueci minha senha" → digitar email → receber OTP → digitar OTP + nova senha → confirmar que consegue logar com a nova senha.
-3. Verificar no painel do Resend → **Logs** se ambos os envios aparecem como `delivered`.
-
----
-
-## Estrutura dos arquivos novos/alterados
-
-```
-supabase/
-  functions/
-    send-verification-code/index.ts        [editar — só remetente]
-    send-password-reset-code/index.ts      [novo]
-    verify-password-reset-code/index.ts    [novo]
-  config.toml                              [editar — registrar 2 novas funções com verify_jwt=false]
-  migrations/<timestamp>_password_reset.sql [nova tabela password_reset_codes]
-
-src/
-  components/auth/PasswordResetOTPFlow.tsx [novo — fluxo de 3 passos reutilizável]
-  pages/Auth.tsx                           [editar — usar novo fluxo]
-  pages/ProducerAuth.tsx                   [editar — usar novo fluxo]
-  pages/MinhaConta.tsx                     [editar — usar novo fluxo]
-  pages/ResetPassword.tsx                  [editar — virar redirect /login (Opção A)]
-  components/auth/AuthModal.tsx            [editar — usar novo fluxo]
-  utils/ticketPdf.ts                       [editar — domínio]
-  pages/AreaDoProdutor.tsx                 [editar — mailto]
-  components/home/ProducerSolutionsSection.tsx [editar — mailto]
-```
-
----
-
-## Pergunta antes de executar
-
-Sobre a página `/reset-password` antiga (que recebia o link mágico do Supabase):
-
-- **Opção A** — manter a rota como redirect para a tela de login (mais seguro caso algum link antigo esteja em circulação)
-- **Opção B** — remover a página e rota completamente
-
-Qual prefere? Se não responder, sigo com a **Opção A** por padrão.
+Posso prosseguir com:
+1. Abrir o modal para você atualizar o `RESEND_API_KEY` com o novo token, **e**
+2. Aplicar todas as alterações de código descritas acima?
