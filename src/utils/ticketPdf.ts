@@ -343,7 +343,7 @@ export async function generateTicketPDF(ticket: UserTicket): Promise<void> {
   pdf.line(margin, footerY - 4, pageW - margin, footerY - 4);
   pdf.setFontSize(8);
   pdf.setTextColor(...mutedGray);
-  pdf.text('Gerado por FestPag · ingressosrp.com.br', margin, footerY);
+  pdf.text('Gerado por FestPag · festpag.com.br', margin, footerY);
   pdf.text(
     `Emitido em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
     pageW - margin,

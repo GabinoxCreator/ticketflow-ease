@@ -120,7 +120,7 @@ export default function AreaDoProdutor() {
                       <ArrowRight className="w-5 h-5" />
                     </Button>
                     <Button asChild variant="outline" size="xl" className="border-primary/30 hover:border-primary/60 hover:bg-primary/5">
-                      <a href="mailto:contato@ingressosrp.com.br">Falar com vendas</a>
+                      <a href="mailto:contato@festpag.com.br">Falar com vendas</a>
                     </Button>
                   </div>
                 </div>
