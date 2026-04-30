@@ -33,8 +33,6 @@ export default function ProducerAuth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
-
   // Sync tab when route changes
   useEffect(() => {
     setTab(location.pathname.includes('/cadastro') ? 'signup' : 'login');
