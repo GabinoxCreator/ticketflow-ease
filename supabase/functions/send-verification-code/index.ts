@@ -68,35 +68,42 @@ serve(async (req) => {
     const { error: emailError } = await resend.emails.send({
       from: "FestPag <naoresponda@festpag.com.br>",
       to: [email],
-      subject: "Seu código de verificação - FestPag",
+      subject: `${code} é o seu código de verificação - FestPag`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0;">
+          Seu código FestPag: ${code} (expira em 10 minutos)
+        </div>
+
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #7c3aed; margin: 0;">FestPag</h1>
+            <img src="https://festpag.com.br/logo-festpag.png" alt="FestPag" width="160" style="display:inline-block; max-width:160px; height:auto;" />
           </div>
-          
-          <h2 style="color: #1f2937;">Olá, ${name}!</h2>
-          
-          <p style="color: #4b5563; font-size: 16px;">
-            Seu código de verificação para concluir a compra é:
-          </p>
-          
-          <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border-radius: 12px; padding: 30px; text-align: center; margin: 30px 0;">
+
+          <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border-radius: 12px; padding: 30px; text-align: center; margin: 0 0 30px 0;">
+            <p style="margin: 0 0 8px 0; color: rgba(255,255,255,0.85); font-size: 13px; letter-spacing: 2px; text-transform: uppercase;">
+              Seu código
+            </p>
             <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: white;">
               ${code}
             </span>
           </div>
-          
+
+          <h2 style="color: #1f2937;">Olá, ${name}!</h2>
+
+          <p style="color: #4b5563; font-size: 16px;">
+            Use o código acima para concluir a sua compra com segurança.
+          </p>
+
           <p style="color: #6b7280; font-size: 14px;">
             Este código expira em <strong>10 minutos</strong>.
           </p>
-          
+
           <p style="color: #6b7280; font-size: 14px;">
             Se você não solicitou este código, ignore este email.
           </p>
-          
+
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-          
+
           <p style="color: #9ca3af; font-size: 12px; text-align: center;">
             © ${new Date().getFullYear()} FestPag. Todos os direitos reservados.
           </p>

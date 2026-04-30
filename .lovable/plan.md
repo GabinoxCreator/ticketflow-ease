@@ -1,48 +1,36 @@
 ## Objetivo
 
-Atualizar o token do Resend (`RESEND_API_KEY`) com o novo valor e concluir as pendências da migração para o domínio `festpag.com.br`.
+Melhorar a experiência dos emails OTP (verificação de checkout e redefinição de senha) em duas frentes:
 
-## Importante sobre o token
+1. **Topo do email**: substituir o título textual "FestPag" pela logo oficial da marca.
+2. **Início do conteúdo + notificação push**: mover o bloco do código de 6 dígitos para o topo (logo abaixo da logo) e incluir o código no `subject` + preheader, para que o usuário consiga ler o código direto na notificação push do celular, sem precisar abrir o email.
 
-Por segurança, **não devo armazenar a chave do Resend escrita diretamente no chat** dentro do código. Vou abrir o fluxo seguro de atualização de secret para você colar a nova chave (`re_KeNo5Dn3_...`) no campo apropriado. Isso garante que ela fique criptografada e disponível para as Edge Functions.
+## Mudanças
 
-Recomendo também que, depois de atualizada aqui, você **revogue essa chave no painel do Resend e gere uma nova**, já que ela foi exposta no chat.
+### 1. `supabase/functions/send-password-reset-code/index.ts`
+- **Subject**: `"Código para redefinir sua senha - FestPag"` → `"205293 é o seu código para redefinir a senha - FestPag"` (código dinâmico no início).
+- Adicionar **preheader oculto** (`display:none`) com `Seu código FestPag: {code} (expira em 10 minutos)` — esse texto é o que aparece na prévia do inbox / push notification.
+- Substituir `<h1>FestPag</h1>` por `<img src="https://festpag.com.br/logo-festpag.png" width="160" alt="FestPag" />`.
+- Mover o **bloco roxo do código** para logo abaixo da logo (antes do título "Redefinição de senha").
+- Adicionar pequeno label "SEU CÓDIGO" acima dos dígitos para reforçar contexto.
 
-## Passos
+### 2. `supabase/functions/send-verification-code/index.ts`
+Mesma reformulação aplicada ao email de verificação de checkout:
+- Subject: `"{code} é o seu código de verificação - FestPag"`.
+- Preheader oculto com o código.
+- Logo no topo (mesma URL pública).
+- Bloco do código movido para o topo, antes do "Olá, {name}!".
 
-### 1. Atualizar o secret RESEND_API_KEY
-Abrir o modal seguro de atualização de secret para você inserir o novo token.
+## Detalhes técnicos
 
-### 2. Atualizar `MinhaConta.tsx`
-Substituir o fluxo antigo de redefinição de senha (`supabase.auth.resetPasswordForEmail` ou similar) pelo novo componente `<PasswordResetOTPFlow />`, mantendo a UX consistente com `Auth.tsx` e `ProducerAuth.tsx`.
+- A logo será carregada da URL pública **`https://festpag.com.br/logo-festpag.png`** (já existe em `public/logo-festpag.png` e o domínio está ativo). Imagens em emails precisam ser hospedadas em URL pública — não é possível embutir do `src/assets`.
+- O **preheader** é uma técnica padrão de email: um `<div>` com `display:none; opacity:0; max-height:0` que clientes de email (Gmail, Apple Mail, etc.) usam como texto de prévia na lista de mensagens e em notificações push.
+- O background do email continua **branco (#ffffff)** — boa prática para deliverability e leitura, independente do tema escuro do app.
+- O resto do conteúdo (mensagem, aviso de expiração, "se não foi você"), footer e rodapé permanecem iguais.
 
-### 3. Transformar `/reset-password` em redirect
-Converter a página `src/pages/ResetPassword.tsx` (rota de magic link antiga) em um redirect para `/login`, evitando que links antigos quebrem.
+## Resultado esperado na notificação push
 
-### 4. Limpeza de referências ao domínio antigo
-- `src/utils/ticketPdf.ts` — atualizar rodapé do PDF de `ingressosrp.com.br` para `festpag.com.br`.
-- `src/pages/AreaDoProdutor.tsx` — atualizar `mailto:contato@ingressosrp.com.br` para `contato@festpag.com.br`.
-- `src/components/home/ProducerSolutionsSection.tsx` — mesmo ajuste.
-- Buscar com `rg` outras ocorrências remanescentes de `ingressosrp.com.br` no código.
+Antes: `Código para redefinir sua senha - FestPag — Recebemos uma solicitação...`
+Depois: `205293 é o seu código para redefinir a senha - FestPag — Seu código FestPag: 205293 (expira em 10 minutos)`
 
-### 5. Validar Edge Functions
-- Confirmar que `send-verification-code`, `send-password-reset-code` e `verify-password-reset-code` estão usando `naoresponda@festpag.com.br` como remetente.
-- As funções são re-deployadas automaticamente pela Lovable após edição.
-
-### 6. Teste recomendado (após implementação)
-- Solicitar um OTP de checkout (verificação de email) e verificar se o email chega de `naoresponda@festpag.com.br`.
-- Solicitar uma redefinição de senha em `/login`, `/produtor/login` e na conta logada (`MinhaConta`) e validar o fluxo OTP.
-
-## Arquivos que serão modificados
-
-- `src/pages/MinhaConta.tsx`
-- `src/pages/ResetPassword.tsx`
-- `src/utils/ticketPdf.ts`
-- `src/pages/AreaDoProdutor.tsx`
-- `src/components/home/ProducerSolutionsSection.tsx`
-
-## Confirmação necessária
-
-Posso prosseguir com:
-1. Abrir o modal para você atualizar o `RESEND_API_KEY` com o novo token, **e**
-2. Aplicar todas as alterações de código descritas acima?
+Posso prosseguir?
