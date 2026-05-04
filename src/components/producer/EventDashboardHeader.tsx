@@ -18,7 +18,15 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
 
   const eventDate = new Date(event.date + 'T12:00:00');
   const daysUntil = differenceInDays(eventDate, new Date());
-  const isEventPast = isPast(eventDate);
+  const eventEndDate = (() => {
+    if (event.end_date) {
+      const t = event.end_time ? event.end_time.slice(0, 8) : '23:59:00';
+      return new Date(`${event.end_date}T${t}`);
+    }
+    const startTime = event.time ? event.time.slice(0, 8) : '00:00:00';
+    return new Date(new Date(`${event.date}T${startTime}`).getTime() + 6 * 60 * 60 * 1000);
+  })();
+  const isEventPast = eventEndDate < new Date();
 
   const getStatusBadge = () => {
     if (event.status === 'cancelled') {
