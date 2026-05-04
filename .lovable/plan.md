@@ -1,25 +1,26 @@
 ## Problema
 
-Os ingressos do "Festa na ST" estão aparecendo em **Ingressos Anteriores** mesmo com o evento ainda em andamento. Hoje a lógica em `useUserTickets.ts` considera somente `event.date` (sem horário), então qualquer evento cujo dia seja hoje ou anterior cai como "passado" assim que o relógio passa da meia-noite — ou até antes, dependendo do fuso.
+Ao classificar "Próximos" vs "Anteriores", o sistema usa só `event.date` em vários lugares — então qualquer evento cujo dia seja hoje (ex.: Festa na ST, 04/05 17:00–23:00) já cai como "passado" desde o início do dia. Isso afeta tanto os ingressos do cliente quanto a listagem de eventos do produtor (e o badge "Encerrado" no header).
 
-## Solução
+Já corrigi `src/hooks/useUserTickets.ts`. Faltam os outros pontos.
 
-Usar a data/hora real de **término** do evento para decidir se ele é "próximo/atual" ou "passado". O ingresso deve permanecer válido enquanto o evento não tiver terminado.
+## Mudanças
 
-### Regras de fim do evento (em ordem):
-1. Se `end_date` e `end_time` existirem → fim = `end_date + end_time`.
-2. Se só `end_date` existir → fim = `end_date 23:59`.
-3. Caso contrário → fim = `date + time + 6h` (buffer padrão para festas que não definiram término).
+**`src/hooks/useEvents.ts`** (linhas 155–156)
+Substituir o filtro por `getEventEndDate(e)`:
+- Se `end_date` existe → fim = `end_date + (end_time || 23:59)`.
+- Senão → fim = `date + time + 6h` (buffer padrão).
+- `activeEvents` = published e fim ≥ agora.
+- `pastEvents` = `finished` OU (não-draft e fim < agora).
 
-Datas serão construídas com sufixo `T...:00` (sem `Z`) para respeitar o fuso local, conforme regra do projeto.
+**`src/components/producer/EventDashboardHeader.tsx`** (linhas 19–21)
+Trocar `isPast(eventDate)` (que usa só a data) pela mesma função `getEventEndDate(event)`, para o badge "Encerrado" só aparecer após o fim real.
 
-### Mudanças
+**`src/pages/EventDetails.tsx`** (linha 129)
+Trocar `new Date(event.date + 'T23:59:59') < new Date()` por cálculo equivalente baseado em `end_date/end_time` (com fallback `date + time + 6h`).
 
-**`src/hooks/useUserTickets.ts`**
-- Incluir `end_date, end_time` no `select` de `event:events(...)`.
-- Adicionar `end_date: string | null` e `end_time: string | null` ao tipo `UserTicket['event']`.
-- Substituir a comparação atual `new Date(t.event.date) >= new Date()` por uma função `getEventEndDate(event)` que aplica as regras acima.
-- `upcomingTickets` = eventos cujo fim ainda não passou. `pastTickets` = fim já passou.
+**`src/pages/colaborador/ColaboradorEventos.tsx`** (linhas 25–37)
+Atualmente usa `isAfter(parseISO(date), today)`. Trocar para a mesma lógica de fim de evento (passados = fim < agora; próximos = caso contrário).
 
-### Resultado esperado
-Ingressos do "Festa na ST" (hoje 04/05, 17:00) voltam para a aba **Próximos** e permanecem lá até o fim real do evento. Comportamento se aplica a todos os usuários automaticamente.
+### Resultado
+Ingressos e eventos só são marcados como "anteriores"/"encerrados" depois que o evento de fato termina. Cobre cliente, produtor e colaborador de forma consistente.
