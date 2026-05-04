@@ -126,7 +126,16 @@ const EventDetails = () => {
     );
   }
 
-  const isEventFinished = event ? (event.status === 'finished' || new Date(event.date + 'T23:59:59') < new Date()) : false;
+  const getEventEnd = () => {
+    if (!event) return new Date(0);
+    if (event.end_date) {
+      const t = event.end_time ? event.end_time.slice(0, 8) : '23:59:00';
+      return new Date(`${event.end_date}T${t}`);
+    }
+    const st = event.time ? event.time.slice(0, 8) : '00:00:00';
+    return new Date(new Date(`${event.date}T${st}`).getTime() + 6 * 60 * 60 * 1000);
+  };
+  const isEventFinished = event ? (event.status === 'finished' || getEventEnd() < new Date()) : false;
   const activeLots = isEventFinished ? [] : (lots?.filter(lot => lot.is_active) || []);
 
   const formatDate = (dateString: string) => {

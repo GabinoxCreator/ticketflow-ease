@@ -20,23 +20,19 @@ export default function ColaboradorEventos() {
     navigate('/colaborador');
   };
 
-  const today = startOfDay(new Date());
+  const now = new Date();
 
-  const upcomingEvents = events.filter((e) => {
-    try {
-      return isAfter(parseISO(e.date), today) || parseISO(e.date).getTime() === today.getTime();
-    } catch {
-      return true;
+  const getEventEnd = (e: any): Date => {
+    if (e.end_date) {
+      const t = e.end_time ? e.end_time.slice(0, 8) : '23:59:00';
+      return new Date(`${e.end_date}T${t}`);
     }
-  });
+    const st = e.time ? e.time.slice(0, 8) : '00:00:00';
+    return new Date(new Date(`${e.date}T${st}`).getTime() + 6 * 60 * 60 * 1000);
+  };
 
-  const pastEvents = events.filter((e) => {
-    try {
-      return !isAfter(parseISO(e.date), today) && parseISO(e.date).getTime() !== today.getTime();
-    } catch {
-      return false;
-    }
-  });
+  const upcomingEvents = events.filter((e) => getEventEnd(e) >= now);
+  const pastEvents = events.filter((e) => getEventEnd(e) < now);
 
   const formatDate = (dateStr: string) => {
     try {
