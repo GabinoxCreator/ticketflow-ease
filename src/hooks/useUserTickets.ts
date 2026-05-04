@@ -16,6 +16,8 @@ export interface UserTicket {
     title: string;
     date: string;
     time: string;
+    end_date: string | null;
+    end_time: string | null;
     venue: string;
     city: string;
     state: string;
