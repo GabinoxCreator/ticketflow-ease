@@ -6,11 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-interface CartItem {
-  lotId: string;
-  quantity: number;
-}
-
+interface CartItem { lotId: string; quantity: number; }
 interface PixRequest {
   eventId: string;
   items: CartItem[];
@@ -21,15 +17,19 @@ interface PixRequest {
   couponId?: string;
 }
 
+const PIX_EXPIRATION_MINUTES = 30;
+
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CREATE-MERCADOPAGO-PIX] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  // Track reservations made so we can release them on any failure path.
+  const reservedSoFar: Array<{ lotId: string; quantity: number }> = [];
+  let supabaseClient: any = null;
 
   try {
     logStep('Function started');
@@ -37,69 +37,62 @@ serve(async (req) => {
     const mercadopagoToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mercadopagoToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN is not set');
 
-    const supabaseClient = createClient(
+    supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { persistSession: false } }
     );
 
     const { eventId, items, customerName, customerEmail, customerCPF, customerPhone, couponId } = await req.json() as PixRequest;
-
     logStep('Request received', { eventId, itemsCount: items.length, customerEmail });
 
-    // Fetch event details
+    // Validate event
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
       .select('id, title, status')
       .eq('id', eventId)
       .single();
 
-    if (eventError || !event) {
-      throw new Error('Evento não encontrado');
-    }
+    if (eventError || !event) throw new Error('Evento não encontrado');
+    if (event.status !== 'published') throw new Error('Evento não está disponível para vendas');
 
-    if (event.status !== 'published') {
-      throw new Error('Evento não está disponível para vendas');
-    }
-
-    // Fetch lots and validate availability
-    const lotIds = items.map(item => item.lotId);
+    // Validate lots and prices
+    const lotIds = items.map(i => i.lotId);
     const { data: lots, error: lotsError } = await supabaseClient
       .from('event_lots')
-      .select('id, name, price, total_quantity, sold_quantity, is_active')
+      .select('id, name, price, is_active')
       .in('id', lotIds)
       .eq('event_id', eventId);
 
-    if (lotsError || !lots) {
-      throw new Error('Erro ao buscar lotes');
-    }
+    if (lotsError || !lots) throw new Error('Erro ao buscar lotes');
 
-    // Calculate total and validate
     let totalAmount = 0;
     const lineItems: Array<{ lotId: string; lotName: string; quantity: number; price: number }> = [];
 
     for (const item of items) {
-      const lot = lots.find(l => l.id === item.lotId);
+      const lot = lots.find((l: any) => l.id === item.lotId);
       if (!lot) throw new Error(`Lote não encontrado: ${item.lotId}`);
       if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
-
-      const available = lot.total_quantity - lot.sold_quantity;
-      if (available < item.quantity) {
-        throw new Error(`Quantidade insuficiente para ${lot.name}`);
-      }
-
-      totalAmount += lot.price * item.quantity;
-      lineItems.push({
-        lotId: lot.id,
-        lotName: lot.name,
-        quantity: item.quantity,
-        price: lot.price,
-      });
+      totalAmount += Number(lot.price) * item.quantity;
+      lineItems.push({ lotId: lot.id, lotName: lot.name, quantity: item.quantity, price: Number(lot.price) });
     }
 
-    logStep('Items validated', { totalAmount, itemsCount: lineItems.length });
+    // ATOMIC RESERVATION — must succeed for all items
+    for (const item of lineItems) {
+      const { data: reserved, error: rpcErr } = await supabaseClient
+        .rpc('reserve_lot_quantity', { _lot_id: item.lotId, _qty: item.quantity });
+      if (rpcErr) {
+        logStep('Reserve RPC error', { rpcErr });
+        throw new Error('Erro ao reservar ingressos');
+      }
+      if (!reserved) {
+        throw new Error(`Quantidade insuficiente para ${item.lotName}`);
+      }
+      reservedSoFar.push({ lotId: item.lotId, quantity: item.quantity });
+    }
+    logStep('All lots reserved', { count: reservedSoFar.length });
 
-    // Apply coupon if provided
+    // Apply coupon
     let discountAmount = 0;
     let appliedCouponId: string | null = null;
     if (couponId) {
@@ -120,7 +113,7 @@ serve(async (req) => {
     }
     const finalAmount = Math.max(0.01, totalAmount - discountAmount);
 
-    // Get user ID if authenticated
+    // Auth (optional)
     let userId: string | null = null;
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
@@ -129,7 +122,9 @@ serve(async (req) => {
       userId = userData.user?.id || null;
     }
 
-    // Create order with pending status
+    const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60 * 1000).toISOString();
+
+    // Create order
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
       .insert({
@@ -143,6 +138,7 @@ serve(async (req) => {
         payment_method: 'pix',
         status: 'pending',
         user_id: userId,
+        expires_at: expiresAtIso,
       })
       .select()
       .single();
@@ -151,10 +147,9 @@ serve(async (req) => {
       logStep('Order creation failed', { orderError });
       throw new Error('Erro ao criar pedido');
     }
-
     logStep('Order created', { orderId: order.id });
 
-    // Create tickets with pending status
+    // Create tickets pending
     const ticketsToCreate = lineItems.flatMap(item =>
       Array.from({ length: item.quantity }, () => ({
         event_id: eventId,
@@ -168,31 +163,17 @@ serve(async (req) => {
       }))
     );
 
-    const { error: ticketsError } = await supabaseClient
-      .from('tickets')
-      .insert(ticketsToCreate);
-
+    const { error: ticketsError } = await supabaseClient.from('tickets').insert(ticketsToCreate);
     if (ticketsError) {
       logStep('Tickets creation failed', { ticketsError });
       await supabaseClient.from('orders').delete().eq('id', order.id);
       throw new Error('Erro ao reservar ingressos');
     }
 
-    // Update sold_quantity for each lot
-    for (const item of lineItems) {
-      const lot = lots.find(l => l.id === item.lotId)!;
-      await supabaseClient
-        .from('event_lots')
-        .update({ sold_quantity: lot.sold_quantity + item.quantity })
-        .eq('id', item.lotId);
-    }
-
-    logStep('Tickets reserved', { count: ticketsToCreate.length });
-
-    // Clean CPF for Mercado Pago (numbers only)
+    // Clean CPF
     const cleanCPF = customerCPF.replace(/\D/g, '');
 
-    // Create PIX payment via Mercado Pago API
+    // Create PIX at MP
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
@@ -208,10 +189,7 @@ serve(async (req) => {
           email: customerEmail,
           first_name: customerName.split(' ')[0],
           last_name: customerName.split(' ').slice(1).join(' ') || customerName.split(' ')[0],
-          identification: {
-            type: 'CPF',
-            number: cleanCPF,
-          },
+          identification: { type: 'CPF', number: cleanCPF },
         },
         external_reference: order.id,
       }),
@@ -220,7 +198,6 @@ serve(async (req) => {
     if (!mpResponse.ok) {
       const mpError = await mpResponse.json();
       logStep('Mercado Pago error', mpError);
-      // Rollback
       await supabaseClient.from('tickets').delete().eq('order_id', order.id);
       await supabaseClient.from('orders').delete().eq('id', order.id);
       throw new Error(mpError.message || 'Erro ao criar pagamento PIX');
@@ -231,14 +208,15 @@ serve(async (req) => {
 
     const pixInfo = mpPayment.point_of_interaction?.transaction_data;
 
-    // Update order with MP payment ID
     await supabaseClient
       .from('orders')
       .update({ payment_method: `pix:${mpPayment.id}` })
       .eq('id', order.id);
 
-    // Expiration from MP or fallback 30 min
-    const expiresAt = pixInfo?.expiration_date || new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const expiresAt = pixInfo?.expiration_date || expiresAtIso;
+
+    // Success — DO NOT release reservations (they will be confirmed on payment).
+    reservedSoFar.length = 0;
 
     return new Response(
       JSON.stringify({
@@ -249,19 +227,25 @@ serve(async (req) => {
         expiresAt,
         paymentId: mpPayment.id,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error: any) {
     logStep('ERROR', { message: error.message });
+
+    // Release any reservations made before the failure
+    if (supabaseClient && reservedSoFar.length > 0) {
+      for (const r of reservedSoFar) {
+        try {
+          await supabaseClient.rpc('release_lot_quantity', { _lot_id: r.lotId, _qty: r.quantity });
+        } catch (e) {
+          logStep('Failed to release reservation', { lotId: r.lotId, e });
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
