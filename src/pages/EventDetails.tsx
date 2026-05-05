@@ -42,6 +42,7 @@ interface EventLot {
   original_price?: number | null;
   total_quantity: number;
   sold_quantity: number;
+  reserved_quantity?: number;
   description?: string | null;
   is_active?: boolean | null;
   fake_scarcity_enabled?: boolean | null;
@@ -540,7 +541,7 @@ interface LotCardProps {
 }
 
 const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps) => {
-  const available = lot.total_quantity - lot.sold_quantity;
+  const available = lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0);
   const isSoldOut = available === 0;
 
   return (

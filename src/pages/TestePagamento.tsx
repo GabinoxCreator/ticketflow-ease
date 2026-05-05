@@ -236,7 +236,7 @@ const TestePagamento = () => {
                           <p className="font-bold text-primary">{formatPrice(lot.price)}</p>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Disponível: {lot.total_quantity - lot.sold_quantity}
+                          Disponível: {lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0)}
                         </p>
                       </button>
                     ))

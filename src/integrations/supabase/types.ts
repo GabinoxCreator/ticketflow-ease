@@ -413,6 +413,7 @@ export type Database = {
           name: string
           original_price: number | null
           price: number
+          reserved_quantity: number
           sales_start_type: string
           sector_name: string
           sold_quantity: number
@@ -434,6 +435,7 @@ export type Database = {
           name: string
           original_price?: number | null
           price: number
+          reserved_quantity?: number
           sales_start_type?: string
           sector_name?: string
           sold_quantity?: number
@@ -455,6 +457,7 @@ export type Database = {
           name?: string
           original_price?: number | null
           price?: number
+          reserved_quantity?: number
           sales_start_type?: string
           sector_name?: string
           sold_quantity?: number
@@ -660,6 +663,7 @@ export type Database = {
           customer_phone: string | null
           discount_amount: number
           event_id: string
+          expires_at: string | null
           id: string
           payment_method: string | null
           status: string
@@ -675,6 +679,7 @@ export type Database = {
           customer_phone?: string | null
           discount_amount?: number
           event_id: string
+          expires_at?: string | null
           id?: string
           payment_method?: string | null
           status?: string
@@ -690,6 +695,7 @@ export type Database = {
           customer_phone?: string | null
           discount_amount?: number
           event_id?: string
+          expires_at?: string | null
           id?: string
           payment_method?: string | null
           status?: string
@@ -1194,6 +1200,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_lot_sale: {
+        Args: { _lot_id: string; _qty: number }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1207,6 +1217,14 @@ export type Database = {
       }
       is_producer_member: {
         Args: { _producer_profile_id: string; _user_id: string }
+        Returns: boolean
+      }
+      release_lot_quantity: {
+        Args: { _lot_id: string; _qty: number }
+        Returns: boolean
+      }
+      reserve_lot_quantity: {
+        Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
     }

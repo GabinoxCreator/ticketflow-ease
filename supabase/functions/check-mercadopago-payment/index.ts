@@ -11,10 +11,35 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-MERCADOPAGO-PAYMENT] ${step}${detailsStr}`);
 };
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+async function confirmInventoryForOrder(supabaseClient: any, targetOrderId: string) {
+  // Get pending tickets grouped by lot
+  const { data: tickets } = await supabaseClient
+    .from('tickets')
+    .select('lot_id')
+    .eq('order_id', targetOrderId)
+    .eq('status', 'pending');
+
+  if (!tickets || tickets.length === 0) {
+    logStep('No pending tickets to confirm', { targetOrderId });
+    return;
   }
+
+  const grouped = new Map<string, number>();
+  for (const t of tickets) {
+    grouped.set(t.lot_id, (grouped.get(t.lot_id) || 0) + 1);
+  }
+
+  for (const [lotId, qty] of grouped.entries()) {
+    const { data: ok, error: rpcErr } = await supabaseClient
+      .rpc('confirm_lot_sale', { _lot_id: lotId, _qty: qty });
+    if (rpcErr || !ok) {
+      logStep('confirm_lot_sale failed during polling — possible race', { lotId, qty, rpcErr });
+    }
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     logStep('Function started');
@@ -29,44 +54,25 @@ serve(async (req) => {
     );
 
     const { paymentId, orderId } = await req.json();
-
-    if (!paymentId && !orderId) {
-      throw new Error('paymentId or orderId is required');
-    }
+    if (!paymentId && !orderId) throw new Error('paymentId or orderId is required');
 
     let mpStatus = '';
     let mpPaymentId = paymentId;
 
     if (paymentId) {
-      // Check directly via payment ID
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: {
-          'Authorization': `Bearer ${mercadopagoToken}`,
-        },
+        headers: { 'Authorization': `Bearer ${mercadopagoToken}` },
       });
-
-      if (!mpResponse.ok) {
-        throw new Error('Erro ao consultar pagamento');
-      }
-
+      if (!mpResponse.ok) throw new Error('Erro ao consultar pagamento');
       const payment = await mpResponse.json();
       mpStatus = payment.status;
       logStep('Payment status checked', { paymentId, status: mpStatus });
     } else if (orderId) {
-      // Search payment by external_reference (order ID)
       const mpResponse = await fetch(
         `https://api.mercadopago.com/v1/payments/search?external_reference=${orderId}&sort=date_created&criteria=desc`,
-        {
-          headers: {
-            'Authorization': `Bearer ${mercadopagoToken}`,
-          },
-        }
+        { headers: { 'Authorization': `Bearer ${mercadopagoToken}` } }
       );
-
-      if (!mpResponse.ok) {
-        throw new Error('Erro ao consultar pagamento');
-      }
-
+      if (!mpResponse.ok) throw new Error('Erro ao consultar pagamento');
       const searchResult = await mpResponse.json();
       if (searchResult.results && searchResult.results.length > 0) {
         const payment = searchResult.results[0];
@@ -84,79 +90,81 @@ serve(async (req) => {
 
     const isPaid = mpStatus === 'approved';
 
-    // If paid, update order and tickets
     if (isPaid) {
       const targetOrderId = orderId || null;
 
       if (targetOrderId) {
-        // Update order status
+        // Idempotent transition: only the first call sees status='pending'
         const { data: updatedOrder } = await supabaseClient
           .from('orders')
-          .update({ status: 'paid' })
+          .update({ status: 'paid', expires_at: null })
           .eq('id', targetOrderId)
           .eq('status', 'pending')
           .select('coupon_id')
           .maybeSingle();
 
-        // Update tickets to valid
-        await supabaseClient
-          .from('tickets')
-          .update({ status: 'valid' })
-          .eq('order_id', targetOrderId)
-          .eq('status', 'pending');
+        if (updatedOrder) {
+          // First time we observed paid — confirm inventory
+          await confirmInventoryForOrder(supabaseClient, targetOrderId);
 
-        // Increment coupon uses
-        if (updatedOrder?.coupon_id) {
-          const { data: c } = await supabaseClient
-            .from('event_coupons')
-            .select('uses_count')
-            .eq('id', updatedOrder.coupon_id)
-            .maybeSingle();
-          if (c) {
-            await supabaseClient
+          await supabaseClient
+            .from('tickets')
+            .update({ status: 'valid' })
+            .eq('order_id', targetOrderId)
+            .eq('status', 'pending');
+
+          if (updatedOrder.coupon_id) {
+            const { data: c } = await supabaseClient
               .from('event_coupons')
-              .update({ uses_count: (c.uses_count || 0) + 1 })
-              .eq('id', updatedOrder.coupon_id);
+              .select('uses_count')
+              .eq('id', updatedOrder.coupon_id)
+              .maybeSingle();
+            if (c) {
+              await supabaseClient
+                .from('event_coupons')
+                .update({ uses_count: (c.uses_count || 0) + 1 })
+                .eq('id', updatedOrder.coupon_id);
+            }
           }
-        }
 
-        logStep('Order and tickets updated to paid/valid', { orderId: targetOrderId });
+          logStep('Order/tickets/inventory confirmed', { orderId: targetOrderId });
+        } else {
+          logStep('Order already processed (idempotent skip)', { orderId: targetOrderId });
+        }
       } else {
-        // Find order by payment method containing payment ID
+        // Find by payment id
         const { data: orders } = await supabaseClient
           .from('orders')
           .select('id')
           .like('payment_method', `%${mpPaymentId}%`)
           .eq('status', 'pending');
-
         if (orders && orders.length > 0) {
           for (const o of orders) {
-            await supabaseClient.from('orders').update({ status: 'paid' }).eq('id', o.id);
-            await supabaseClient.from('tickets').update({ status: 'valid' }).eq('order_id', o.id).eq('status', 'pending');
+            const { data: upd } = await supabaseClient
+              .from('orders')
+              .update({ status: 'paid', expires_at: null })
+              .eq('id', o.id).eq('status', 'pending')
+              .select('id').maybeSingle();
+            if (upd) {
+              await confirmInventoryForOrder(supabaseClient, o.id);
+              await supabaseClient.from('tickets')
+                .update({ status: 'valid' })
+                .eq('order_id', o.id).eq('status', 'pending');
+            }
           }
-          logStep('Orders updated via payment ID lookup');
         }
       }
     }
 
     return new Response(
-      JSON.stringify({
-        status: mpStatus,
-        paid: isPaid,
-        paymentId: mpPaymentId,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ status: mpStatus, paid: isPaid, paymentId: mpPaymentId }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
     logStep('ERROR', { message: error.message });
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

@@ -31,6 +31,8 @@ export interface Event {
     price: number;
     total_quantity: number;
     sold_quantity: number;
+    reserved_quantity?: number;
+    is_active?: boolean;
   }>;
 }
 
@@ -67,7 +69,7 @@ export function useEvents() {
         .from('events')
         .select(`
           *,
-          event_lots ( id, price, total_quantity, sold_quantity )
+          event_lots ( id, price, total_quantity, sold_quantity, reserved_quantity, is_active )
         `)
         .eq('producer_id', user.id)
         .order('created_at', { ascending: false });
