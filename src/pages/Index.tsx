@@ -23,6 +23,7 @@ const Index = () => {
       const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
       const totalTickets = lots.reduce((acc: number, lot: any) => acc + lot.total_quantity, 0);
       const soldTickets = lots.reduce((acc: number, lot: any) => acc + lot.sold_quantity, 0);
+      const reservedTickets = lots.reduce((acc: number, lot: any) => acc + (lot.reserved_quantity || 0), 0);
 
       return {
         id: event.id,
@@ -48,7 +49,7 @@ const Index = () => {
           name: lot.name,
           price: lot.price,
           originalPrice: lot.original_price,
-          available: lot.total_quantity - lot.sold_quantity,
+          available: lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0),
           total: lot.total_quantity,
           startDate: '',
           endDate: '',

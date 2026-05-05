@@ -10,6 +10,7 @@ export interface EventLot {
   original_price: number | null;
   total_quantity: number;
   sold_quantity: number;
+  reserved_quantity: number;
   start_date: string | null;
   end_date: string | null;
   description: string | null;
@@ -128,7 +129,8 @@ export function useEventLots(eventId: string | undefined) {
 
   const totalQuantity = lots?.reduce((acc, lot) => acc + lot.total_quantity, 0) || 0;
   const soldQuantity = lots?.reduce((acc, lot) => acc + lot.sold_quantity, 0) || 0;
-  const availableQuantity = totalQuantity - soldQuantity;
+  const reservedQuantity = lots?.reduce((acc, lot) => acc + (lot.reserved_quantity || 0), 0) || 0;
+  const availableQuantity = totalQuantity - soldQuantity - reservedQuantity;
 
   return {
     lots,
