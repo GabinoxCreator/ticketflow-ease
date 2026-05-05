@@ -268,7 +268,7 @@ serve(async (req) => {
       }
       reservedSoFar.length = 0;
 
-      await supabaseClient.from('tickets').delete().eq('order_id', order.id);
+      await supabaseClient.from('tickets').update({ status: 'cancelled' }).eq('order_id', order.id).eq('status', 'pending');
       await supabaseClient
         .from('orders')
         .update({

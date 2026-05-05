@@ -10,7 +10,7 @@ export interface Order {
   customer_email: string;
   customer_phone: string | null;
   total_amount: number;
-  status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'failed';
+  status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'failed' | 'expired' | 'charged_back';
   payment_method: string | null;
   created_at: string;
   updated_at: string;
@@ -59,7 +59,7 @@ export function useEventOrders(eventId: string | undefined) {
 
   const paidOrders = orders?.filter(o => o.status === 'paid' || o.status === 'completed') || [];
   const pendingOrders = orders?.filter(o => o.status === 'pending') || [];
-  const cancelledOrders = orders?.filter(o => o.status === 'cancelled' || o.status === 'refunded' || o.status === 'failed') || [];
+  const cancelledOrders = orders?.filter(o => ['cancelled','refunded','failed','expired','charged_back'].includes(o.status)) || [];
   const failedOrders = orders?.filter(o => o.status === 'failed') || [];
 
   const totalRevenue = paidOrders.reduce((sum, order) => sum + Number(order.total_amount), 0);

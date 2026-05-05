@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.mercadopago-webhook]
 verify_jwt = false
+
+[functions.expire-pending-orders]
+verify_jwt = true
+
+[functions.reconcile-orphan-orders]
+verify_jwt = true
