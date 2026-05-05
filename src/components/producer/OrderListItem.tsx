@@ -28,6 +28,8 @@ export function OrderListItem({ order, onUpdateStatus }: OrderListItemProps) {
         return <Badge variant="destructive">Cancelado</Badge>;
       case 'refunded':
         return <Badge variant="outline">Reembolsado</Badge>;
+      case 'failed':
+        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">Falhou</Badge>;
       default:
         return null;
     }
