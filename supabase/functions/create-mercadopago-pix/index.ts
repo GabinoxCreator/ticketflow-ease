@@ -210,7 +210,10 @@ serve(async (req) => {
 
     await supabaseClient
       .from('orders')
-      .update({ payment_method: `pix:${mpPayment.id}` })
+      .update({
+        payment_method: `pix:${mpPayment.id}`,
+        mp_payment_id: String(mpPayment.id),
+      })
       .eq('id', order.id);
 
     const expiresAt = pixInfo?.expiration_date || expiresAtIso;

@@ -654,6 +654,39 @@ export type Database = {
           },
         ]
       }
+      mp_webhook_events: {
+        Row: {
+          id: string
+          mp_payment_id: string
+          mp_status: string
+          order_id: string | null
+          outcome: string
+          payload: Json
+          processed_at: string
+          request_id: string | null
+        }
+        Insert: {
+          id?: string
+          mp_payment_id: string
+          mp_status: string
+          order_id?: string | null
+          outcome: string
+          payload: Json
+          processed_at?: string
+          request_id?: string | null
+        }
+        Update: {
+          id?: string
+          mp_payment_id?: string
+          mp_status?: string
+          order_id?: string | null
+          outcome?: string
+          payload?: Json
+          processed_at?: string
+          request_id?: string | null
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           coupon_id: string | null
@@ -665,6 +698,7 @@ export type Database = {
           event_id: string
           expires_at: string | null
           id: string
+          mp_payment_id: string | null
           payment_method: string | null
           status: string
           total_amount: number
@@ -681,6 +715,7 @@ export type Database = {
           event_id: string
           expires_at?: string | null
           id?: string
+          mp_payment_id?: string | null
           payment_method?: string | null
           status?: string
           total_amount?: number
@@ -697,6 +732,7 @@ export type Database = {
           event_id?: string
           expires_at?: string | null
           id?: string
+          mp_payment_id?: string | null
           payment_method?: string | null
           status?: string
           total_amount?: number
