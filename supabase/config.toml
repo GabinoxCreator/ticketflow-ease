@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.get-mercadopago-public-key]
 verify_jwt = false
+
+[functions.mercadopago-webhook]
+verify_jwt = false

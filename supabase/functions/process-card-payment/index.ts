@@ -206,7 +206,12 @@ serve(async (req) => {
       // Mark order paid + tickets valid (idempotent)
       await supabaseClient
         .from('orders')
-        .update({ status: 'paid', payment_method: `card:${mpPayment.id}`, expires_at: null })
+        .update({
+          status: 'paid',
+          payment_method: `card:${mpPayment.id}`,
+          mp_payment_id: String(mpPayment.id),
+          expires_at: null,
+        })
         .eq('id', order.id);
       await supabaseClient
         .from('tickets')
@@ -239,7 +244,10 @@ serve(async (req) => {
       // Payment in review
       await supabaseClient
         .from('orders')
-        .update({ payment_method: `card:${mpPayment.id}` })
+        .update({
+          payment_method: `card:${mpPayment.id}`,
+          mp_payment_id: String(mpPayment.id),
+        })
         .eq('id', order.id);
 
       // Don't release — order remains pending with reservation alive
@@ -266,6 +274,7 @@ serve(async (req) => {
         .update({
           status: 'failed',
           payment_method: `card:${mpPayment.id || 'unknown'}`,
+          mp_payment_id: mpPayment.id ? String(mpPayment.id) : null,
           expires_at: new Date().toISOString(),
         })
         .eq('id', order.id);
