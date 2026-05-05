@@ -21,6 +21,15 @@ const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({ children }) =
     return <Navigate to="/admin/login" replace />;
   }
 
+  // Wait for role to load before deciding (avoids race redirect to home)
+  if (userRole === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   if (userRole !== 'admin') {
     return <Navigate to="/" replace />;
   }
