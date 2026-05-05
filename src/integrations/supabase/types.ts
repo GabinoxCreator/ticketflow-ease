@@ -1240,6 +1240,10 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      decrement_sold_quantity_legacy: {
+        Args: { _lot_id: string; _qty: number }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
