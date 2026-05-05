@@ -85,6 +85,15 @@ async function applyExpired(supabase: any, order: OrderRow) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  // Auth: shared secret for cron / manual ops (no JWT required)
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  const provided = req.headers.get('x-cron-secret') ?? req.headers.get('X-Cron-Secret');
+  if (!cronSecret || provided !== cronSecret) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const stats = { scanned: 0, recovered: 0, expired: 0, extended: 0, skipped: 0, errors: 0 };
   const startedAt = new Date().toISOString();
 
