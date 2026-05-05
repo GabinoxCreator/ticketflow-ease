@@ -262,7 +262,7 @@ serve(async (req) => {
         for (const [lotId, qty] of counts) {
           await supabase.rpc('release_lot_quantity', { _lot_id: lotId, _qty: qty });
         }
-        await supabase.from('tickets').delete().eq('order_id', order.id);
+        await supabase.from('tickets').update({ status: 'cancelled' }).eq('order_id', order.id).eq('status', 'pending');
         outcome = 'applied';
         log('rejected applied', { orderId: order.id });
       }
