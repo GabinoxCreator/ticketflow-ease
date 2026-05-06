@@ -50,10 +50,18 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<EventLot | null>(null);
   const [formData, setFormData] = useState<LotFormData>(emptyLot);
+  // 'new_sector' = criando um novo Ingresso (setor); 'existing' = adicionando lote a setor existente
+  const [sectorMode, setSectorMode] = useState<'existing' | 'new_sector'>('existing');
 
-  const handleOpenDialog = (lot?: EventLot, presetSector?: string) => {
+  // Lista de setores únicos existentes
+  const existingSectors = Array.from(
+    new Set((lots || []).map((l) => (l.sector_name?.trim() || 'Ingresso')))
+  );
+
+  const handleOpenDialog = (lot?: EventLot, presetSector?: string, mode?: 'new_sector') => {
     if (lot) {
       setEditingLot(lot);
+      setSectorMode('existing');
       setFormData({
         name: lot.name,
         price: lot.price,
@@ -73,7 +81,21 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       });
     } else {
       setEditingLot(null);
-      setFormData({ ...emptyLot, sector_name: presetSector || 'Ingresso' });
+      if (mode === 'new_sector' || existingSectors.length === 0) {
+        setSectorMode('new_sector');
+        setFormData({ ...emptyLot, sector_name: '' });
+      } else {
+        setSectorMode('existing');
+        const sector = presetSector || existingSectors[0];
+        const lotsInSector = (lots || []).filter(
+          (l) => (l.sector_name?.trim() || 'Ingresso') === sector
+        ).length;
+        setFormData({
+          ...emptyLot,
+          sector_name: sector,
+          name: `${lotsInSector + 1}º Lote`,
+        });
+      }
     }
     setIsDialogOpen(true);
   };
@@ -110,10 +132,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Lotes de Ingressos</h3>
-        <Button onClick={() => handleOpenDialog()} size="sm">
+        <h3 className="text-lg font-semibold">Ingressos</h3>
+        <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} size="sm">
           <Plus className="w-4 h-4 mr-2" />
-          Adicionar Lote
+          Novo Ingresso
         </Button>
       </div>
 
@@ -121,11 +143,11 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4">
-              Nenhum lote criado ainda. Adicione um lote para começar a vender ingressos.
+              Nenhum ingresso criado ainda. Adicione um ingresso para começar a vender.
             </p>
-            <Button onClick={() => handleOpenDialog()} variant="outline">
+            <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} variant="outline">
               <Plus className="w-4 h-4 mr-2" />
-              Criar Primeiro Lote
+              Criar Primeiro Ingresso
             </Button>
           </CardContent>
         </Card>
@@ -203,17 +225,47 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingLot ? 'Editar Lote' : 'Novo Lote'}</DialogTitle>
+            <DialogTitle>
+              {editingLot
+                ? 'Editar Lote'
+                : sectorMode === 'new_sector'
+                ? 'Novo Ingresso'
+                : `Novo Lote em ${formData.sector_name || ''}`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Sector Name */}
+            {/* Sector */}
             <div className="space-y-2">
-              <Label>Nome do Setor</Label>
-              <Input
-                placeholder="Ex: Ingresso, Pista, VIP"
-                value={formData.sector_name || ''}
-                onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
-              />
+              <Label>{sectorMode === 'new_sector' ? 'Nome do Ingresso (Setor) *' : 'Ingresso (Setor) *'}</Label>
+              {sectorMode === 'new_sector' ? (
+                <Input
+                  placeholder="Ex: Pista, Camarote, Área VIP"
+                  value={formData.sector_name || ''}
+                  onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
+                />
+              ) : (
+                <Select
+                  value={formData.sector_name || ''}
+                  onValueChange={(v) => {
+                    if (v === '__new__') {
+                      setSectorMode('new_sector');
+                      setFormData({ ...formData, sector_name: '' });
+                    } else {
+                      setFormData({ ...formData, sector_name: v });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingSectors.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__">+ Criar novo setor…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Name */}

@@ -63,7 +63,7 @@ export default function EventDashboard() {
   const tabItems = [
     { value: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
     { value: 'data', label: 'Dados', icon: FileText },
-    { value: 'lots', label: 'Lotes', icon: Ticket },
+    { value: 'lots', label: 'Ingressos', icon: Ticket },
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'checkin', label: 'Check-in', icon: ScanLine },
