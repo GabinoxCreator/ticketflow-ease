@@ -65,6 +65,8 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Navigate to="/" replace />} />
+                {/* Mantido temporariamente para back_url legacy do Mercado Pago.
+                    Auditar logs e remover após confirmar 0 hits recentes. */}
                 <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                 <Route path="/login" element={<Auth />} />
                 <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
