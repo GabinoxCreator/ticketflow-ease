@@ -1,60 +1,67 @@
-## Reformular página de Configurações do Produtor
+# Refinar página de Configurações do Produtor
 
-Arquivo: `src/pages/ProducerSettings.tsx`
+Vou reformular a página `/produtor/configuracoes` para ficar tudo em **um único card**, com **um único botão "Salvar Configurações"**, e adicionar **upload de logo da produtora**.
 
-### Estrutura visual nova
+## O que muda
 
-Layout em 2 colunas no desktop, 1 coluna no mobile, com hero/header próprio da página:
+### 1. Card único, com seções internas
+Em vez de dois cards separados (Dados Pessoais / Produtora) com dois botões, será **um card grande** dividido em seções visuais:
 
 ```text
-┌──────────────────────────────────────────────────┐
-│ Configurações                                    │
-│ Gerencie seu perfil e os dados da sua produtora  │
-└──────────────────────────────────────────────────┘
-
-┌────────────────────────┐  ┌────────────────────────┐
-│ 👤 Dados Pessoais      │  │ 🏢 Produtora           │
-│ (read-mostly do perfil)│  │ (reflete no evento)    │
-│ - Email (disabled)     │  │ - Nome da Produtora ⭐  │
-│ - Nome completo        │  │   (badge "aparece em   │
-│ - WhatsApp             │  │    Realização")        │
-│                        │  │ - Logo da produtora    │
-│ [Salvar Perfil]        │  │   (upload futuro/      │
-│                        │  │    fallback FestPag)   │
-│                        │  │ - Razão social         │
-│                        │  │ - CNPJ/CPF             │
-│                        │  │ - Email organização    │
-│                        │  │ - Telefone             │
-│                        │  │ [Salvar Produtora]     │
-└────────────────────────┘  └────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ ⚙️  Configurações da Conta                              │
+│     Gerencie seu perfil e os dados da sua produtora     │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│ 🏢 PRODUTORA  (destaque — aparece em "Realização")     │
+│  ┌───────┐                                              │
+│  │ LOGO  │   Nome da Produtora: [Made in Brazil Bar  ] │
+│  │ 96x96 │   Pré-visualização da credencial pública   │
+│  └───────┘                                              │
+│  Trocar logo | Remover                                  │
+│                                                         │
+│  ── Dados fiscais (opcional) ──                         │
+│  Razão Social  | CNPJ/CPF                               │
+│  Email contato | Telefone                               │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│ 👤 DADOS PESSOAIS                                       │
+│  Email (readonly) | Nome completo | WhatsApp           │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│                          [ Salvar Configurações ]       │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Mudanças de design
+- **Mobile**: tudo empilhado naturalmente.
+- **Desktop**: campos em grid 2-colunas dentro de cada seção.
+- Os "Dados Pessoais" recebem o mesmo tratamento visual moderno da seção Produtora (ícones nos campos, cabeçalho com badge, separadores) para sumir com o "ar de versão antiga".
 
-- Header da página com gradiente sutil (Indigo → Magenta) e ícone, igual estilo do dashboard.
-- Cards com `rounded-2xl`, borda suave, padding maior, ícone colorido em chip.
-- Campos com labels mais claras + helper text curto em cinza (ex.: "Este nome aparece como Realização na página pública do evento").
-- Badge/realce no campo "Nome da Produtora" indicando que é o nome público.
-- Preview ao vivo do bloco "Realização" (avatar + nome) abaixo do campo, mostrando exatamente como vai aparecer no site do evento.
-- Botões `size="lg"`, full-width no mobile, alinhados à direita no desktop.
-- Estados de loading/saved consistentes (toast + botão desabilitado).
+### 2. Upload de logo da produtora
+- Novo campo de logo no topo da seção Produtora, com preview circular 96×96.
+- Reutiliza o componente existente `ImageUpload` + hook `useImageUpload` (que já faz upload pro bucket `event-images`).
+- Botões: **Trocar logo** / **Remover**. Se vazio, mostra fallback do logo FestPag na pré-visualização.
+- Salva em `producer_profiles.logo_url`.
+- A pré-visualização da "Realização" passa a usar o logo recém-carregado em tempo real.
 
-### Renomear / reorganizar (sem mudar schema)
+### 3. Botão único "Salvar Configurações"
+- Um único botão no rodapé do card, com gradiente Indigo→Magenta.
+- Internamente dispara em paralelo:
+  - `update profiles` (nome_completo, whatsapp)
+  - `update producer_profiles` (brand_name, logo_url, legal_name, document, email, phone)
+- Loading state único; toast de sucesso único; toast de erro se algum falhar.
+- Detecta se nada mudou e avisa "Nenhuma alteração para salvar".
 
-- O label "Nome da Marca / Organização" passa a ser **"Nome da Produtora"** (continua salvando em `brand_name`).
-- Seção "Dados da Organização" passa a se chamar **"Produtora"** para alinhar com a linguagem do site.
-- Campos secundários (Razão Social, CNPJ, Email/Telefone da org) ficam num grupo "Dados fiscais e de contato" colapsável ou abaixo, com menos destaque que o nome da produtora.
+## Detalhes técnicos
 
-### Sincronização com a página do evento
+**Arquivo único editado**: `src/pages/ProducerSettings.tsx`
 
-Sem mudanças: a página `EventDetails.tsx` já lê `producer_profiles.brand_name` e `logo_url` via join (feito no passo anterior). Após salvar aqui, o "Realização" reflete automaticamente.
+- Remover os dois handlers `handleSaveProfile` / `handleSaveOrg`. Substituir por `handleSaveAll` que faz `Promise.all` dos dois updates e invalida queries.
+- Importar `ImageUpload` de `@/components/producer/ImageUpload` e usar variante compacta (envolver em um wrapper de tamanho fixo para ficar como avatar quadrado, já que o componente padrão é aspect-video — podemos colocar um wrapper `w-32` ou criar um modo "avatar" inline com `<input type=file>` + preview circular). Para manter simples e consistente, vou usar o `ImageUpload` existente dentro de um container `max-w-[180px]` e aspect-square via classe extra, ou — se ficar feio — fazer um upload inline próprio no arquivo (≈30 linhas) reutilizando `useImageUpload`.
+- Manter o tipo de coluna `logo_url` que já existe em `producer_profiles` (visto em mensagens anteriores). **Sem migrações de banco.**
+- Manter Helmet/SEO.
+- Layout: um `Card` único `max-w-4xl mx-auto`, com `<section>` separadas por `<Separator>`.
 
-### Sem mudanças
-
-- Nenhuma alteração de schema, RLS ou tipos.
-- Nenhuma mudança em outras páginas (a página do evento já está integrada).
-- Upload de logo NÃO entra agora — fica como melhoria futura. O fallback continua sendo a logo do FestPag.
-
-### Arquivos afetados
-
-- `src/pages/ProducerSettings.tsx` — único arquivo modificado.
+## Fora do escopo
+- Sem mudanças em rotas, RLS, edge functions ou outras páginas.
+- Página pública do evento já consome `brand_name` e `logo_url` — refletirá automaticamente.
