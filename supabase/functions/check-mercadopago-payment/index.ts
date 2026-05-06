@@ -128,6 +128,11 @@ serve(async (req) => {
           }
 
           logStep('Order/tickets/inventory confirmed', { orderId: targetOrderId });
+
+          // Fire-and-forget confirmation email
+          supabaseClient.functions.invoke('send-order-confirmation-email', {
+            body: { order_id: targetOrderId },
+          }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
         } else {
           logStep('Order already processed (idempotent skip)', { orderId: targetOrderId });
         }
