@@ -1,45 +1,50 @@
-## Modal "Novo Setor" redesenhado
+## Mudanças na página pública do evento (`src/pages/EventDetails.tsx`)
 
-Substituir os radio buttons por seleção visual em **cards grandes**, com o setor já existente vindo selecionado por padrão.
+### 1. "Sobre o evento" — preservar formatação
+Hoje o texto da descrição é renderizado em um único `<p>`, perdendo as quebras de linha que o produtor digitou no textarea.
 
-### Layout
+- Trocar o `<p>` por um container com `whitespace-pre-wrap`, ou dividir em parágrafos por `\n\n`:
+  ```tsx
+  <div className="text-muted-foreground leading-relaxed space-y-4">
+    {(event.description || event.short_description || '')
+      .split(/\n{2,}/)
+      .map((para, i) => (
+        <p key={i} className="whitespace-pre-wrap">{para}</p>
+      ))}
+  </div>
+  ```
+- Resultado: parágrafos separados, quebras simples preservadas (igual ao print 3 do produtor).
 
+### 2. Bloco "Realização" — abaixo da descrição
+Novo card mostrando produtora responsável pelo evento (igual ao print 1).
+
+Layout:
 ```text
-┌─ Novo Setor ────────────────────────────────────────────┐
-│  Escolha um setor para adicionar o ingresso             │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
-│  │INGRESSOS │  │ ÁREA VIP │  │ CAMAROTE │  │   +    │ │
-│  │ 3 itens  │  │  1 item  │  │  0 itens │  │ Novo   │ │
-│  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
-│                                                         │
-│  (se "Novo" clicado:)                                   │
-│  Nome do novo setor: [_____________________________]    │
-│                                                         │
-│              [ Cancelar ]      [ Continuar → ]          │
-└─────────────────────────────────────────────────────────┘
+Realização
+┌─────────────────────────────────────────────┐
+│ [logo]   Nome da Produtora                  │
+│          (X eventos realizados — opcional)  │
+└─────────────────────────────────────────────┘
 ```
 
-### Comportamento
-- Ao abrir o modal, o **primeiro setor existente já vem selecionado** (highlight). Usuário só clica Continuar.
-- Cards de setores existentes são clicáveis. Clique = troca a seleção.
-- Card final **"+ Novo"** com ícone Plus grande. Ao clicar, vira "modo novo setor" e abre input inline (autoFocus).
-- Apenas um item selecionado por vez.
-- **Continuar** habilita quando há setor selecionado (existente) ou nome digitado (novo).
-- Se não houver nenhum setor ainda, abre direto em modo "Novo" sem mostrar grid.
+- Buscar `producer_profiles` (campos `brand_name`, `logo_url`) usando `event.producer_profile_id`.
+  - Estendo `useEvent` (em `src/hooks/useEvents.ts`) para já trazer `producer_profiles ( brand_name, logo_url )` via select com join.
+- Renderizar logo:
+  - Se `producer_profile.logo_url` existir → usar.
+  - Caso contrário → fallback com a logo padrão do **FestPag** (importar `src/assets/festpag-logo.*` se existir; se não existir, criar um asset/placeholder simples — verifico no momento de implementar).
+- Texto:
+  - Linha 1: `brand_name` (em destaque).
+  - Linha 2: pequeno texto cinza "Realização" ou contagem opcional. Manter simples, sem contar eventos por enquanto (evita query extra).
 
-### Visual
-- Modal mais largo: `sm:max-w-2xl`, padding generoso.
-- Cards: grid responsivo (`grid-cols-2 sm:grid-cols-3`), `min-h-[110px]`, `p-5`, `border-2`, `rounded-xl`.
-- Selecionado: `border-primary bg-primary/10 ring-2 ring-primary/30`.
-- Não selecionado: `border-border hover:border-primary/40 hover:bg-muted/50`.
-- Card "Novo": `border-dashed`, ícone Plus 28px centralizado, label "Novo setor".
-- Tipografia maior nos botões/títulos. Sem radios nativos.
+## Configurações do produtor (`src/pages/ProducerSettings.tsx`)
+O campo **"Nome da Marca / Organização"** (`brand_name`) já existe e já é editável. Vou apenas:
+- Confirmar que ele é o que será refletido no bloco "Realização" da página pública.
+- Sem mudanças adicionais necessárias para o nome.
+- (Logo customizada por produtora fica para um próximo passo — neste bloco usamos sempre o fallback FestPag a menos que `logo_url` já esteja preenchido no banco.)
 
-### Etapa 2 (formulário do ingresso)
-- Mantida como está. Badge do setor no topo + link "alterar".
+## Arquivos afetados
+- `src/pages/EventDetails.tsx` — formatação da descrição + bloco Realização.
+- `src/hooks/useEvents.ts` — `useEvent` passa a trazer dados básicos da produtora via join.
+- (Eventualmente) `src/assets/festpag-logo.png` — só se ainda não existir um asset utilizável.
 
-### Arquivo afetado
-- `src/components/producer/LotManager.tsx` — apenas a etapa 1 do modal e estado relacionado.
-
-Sem alterações de banco, hooks ou tipos.
+Sem mudanças no banco, RLS, tipos, ou em ProducerSettings.
