@@ -510,35 +510,34 @@ const MeusIngressos = () => {
             <TabsList className="w-full mb-6 bg-card/60 backdrop-blur-xl border border-border/50 p-1 h-auto">
               <TabsTrigger
                 value="upcoming"
-                className="flex-1 gap-2 data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/20 data-[state=active]:to-accent/15 data-[state=active]:text-primary data-[state=active]:shadow-sm py-2"
+                className="flex-1 min-w-0 gap-1.5 px-2 data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary/20 data-[state=active]:to-accent/15 data-[state=active]:text-primary data-[state=active]:shadow-sm py-2"
               >
-                <Ticket className="w-4 h-4" />
-                <span className="hidden xs:inline">Próximos</span>
-                <span className="xs:hidden">Novos</span>
+                <Ticket className="w-4 h-4 hidden sm:inline-flex shrink-0" />
+                <span className="truncate">Próximos</span>
                 {upcomingTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 bg-primary/15 text-primary border-0">
+                  <Badge variant="secondary" className="ml-0.5 bg-primary/15 text-primary border-0 shrink-0">
                     {upcomingTickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
                 value="past"
-                className="flex-1 gap-2 data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-sm py-2"
+                className="flex-1 min-w-0 gap-1.5 px-2 data-[state=active]:bg-muted/60 data-[state=active]:text-foreground data-[state=active]:shadow-sm py-2"
               >
-                Anteriores
+                <span className="truncate">Anteriores</span>
                 {pastTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 border-0">
+                  <Badge variant="secondary" className="ml-0.5 border-0 shrink-0">
                     {pastTickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
                 value="cancelled"
-                className="flex-1 gap-2 data-[state=active]:bg-destructive/10 data-[state=active]:text-destructive data-[state=active]:shadow-sm py-2"
+                className="flex-1 min-w-0 gap-1.5 px-2 data-[state=active]:bg-destructive/10 data-[state=active]:text-destructive data-[state=active]:shadow-sm py-2"
               >
-                Cancelados
+                <span className="truncate">Cancelados</span>
                 {cancelledTickets.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 bg-destructive/15 text-destructive border-0">
+                  <Badge variant="secondary" className="ml-0.5 bg-destructive/15 text-destructive border-0 shrink-0">
                     {cancelledTickets.length}
                   </Badge>
                 )}
