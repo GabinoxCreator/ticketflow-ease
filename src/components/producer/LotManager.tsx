@@ -217,17 +217,47 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingLot ? 'Editar Lote' : 'Novo Lote'}</DialogTitle>
+            <DialogTitle>
+              {editingLot
+                ? 'Editar Lote'
+                : sectorMode === 'new_sector'
+                ? 'Novo Ingresso'
+                : `Novo Lote em ${formData.sector_name || ''}`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Sector Name */}
+            {/* Sector */}
             <div className="space-y-2">
-              <Label>Nome do Setor</Label>
-              <Input
-                placeholder="Ex: Ingresso, Pista, VIP"
-                value={formData.sector_name || ''}
-                onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
-              />
+              <Label>{sectorMode === 'new_sector' ? 'Nome do Ingresso (Setor) *' : 'Ingresso (Setor) *'}</Label>
+              {sectorMode === 'new_sector' ? (
+                <Input
+                  placeholder="Ex: Pista, Camarote, Área VIP"
+                  value={formData.sector_name || ''}
+                  onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
+                />
+              ) : (
+                <Select
+                  value={formData.sector_name || ''}
+                  onValueChange={(v) => {
+                    if (v === '__new__') {
+                      setSectorMode('new_sector');
+                      setFormData({ ...formData, sector_name: '' });
+                    } else {
+                      setFormData({ ...formData, sector_name: v });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingSectors.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                    <SelectItem value="__new__">+ Criar novo setor…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Name */}
