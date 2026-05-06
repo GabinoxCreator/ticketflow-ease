@@ -124,10 +124,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Lotes de Ingressos</h3>
-        <Button onClick={() => handleOpenDialog()} size="sm">
+        <h3 className="text-lg font-semibold">Ingressos</h3>
+        <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} size="sm">
           <Plus className="w-4 h-4 mr-2" />
-          Adicionar Lote
+          Novo Ingresso
         </Button>
       </div>
 
@@ -135,11 +135,11 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4">
-              Nenhum lote criado ainda. Adicione um lote para começar a vender ingressos.
+              Nenhum ingresso criado ainda. Adicione um ingresso para começar a vender.
             </p>
-            <Button onClick={() => handleOpenDialog()} variant="outline">
+            <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} variant="outline">
               <Plus className="w-4 h-4 mr-2" />
-              Criar Primeiro Lote
+              Criar Primeiro Ingresso
             </Button>
           </CardContent>
         </Card>
