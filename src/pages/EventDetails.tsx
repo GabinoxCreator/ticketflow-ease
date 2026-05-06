@@ -25,6 +25,7 @@ import { CheckoutModal } from '@/components/checkout/CheckoutModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import festpagLogo from '@/assets/logo-festpag.png';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
