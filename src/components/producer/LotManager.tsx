@@ -338,6 +338,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
               </DialogFooter>
             </div>
           ) : (
+          <>
           <div className="space-y-4">
             {/* Setor selecionado (read-only badge) */}
             <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
