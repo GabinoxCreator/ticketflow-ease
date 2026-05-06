@@ -482,11 +482,17 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            {flow === 'new_sector' ? (
+              <Button variant="outline" onClick={() => setStep(1)}>← Voltar</Button>
+            ) : (
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            )}
             <Button onClick={handleSubmit} disabled={!formData.name || formData.price <= 0}>
-              {editingLot ? 'Salvar' : 'Criar Lote'}
+              {flow === 'edit' ? 'Salvar' : 'Criar Ingresso'}
             </Button>
           </DialogFooter>
+          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
