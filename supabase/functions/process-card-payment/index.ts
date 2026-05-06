@@ -236,6 +236,11 @@ serve(async (req) => {
         logStep('Order paid but inventory mismatch detected — manual review needed', { orderId: order.id });
       }
 
+      // Fire-and-forget: post-payment confirmation email (idempotent by order_id)
+      supabaseClient.functions.invoke('send-order-confirmation-email', {
+        body: { order_id: order.id },
+      }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
+
       return new Response(
         JSON.stringify({ status: 'approved', orderId: order.id, paymentId: mpPayment.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
