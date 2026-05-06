@@ -86,7 +86,15 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         setFormData({ ...emptyLot, sector_name: '' });
       } else {
         setSectorMode('existing');
-        setFormData({ ...emptyLot, sector_name: presetSector || existingSectors[0] });
+        const sector = presetSector || existingSectors[0];
+        const lotsInSector = (lots || []).filter(
+          (l) => (l.sector_name?.trim() || 'Ingresso') === sector
+        ).length;
+        setFormData({
+          ...emptyLot,
+          sector_name: sector,
+          name: `${lotsInSector + 1}º Lote`,
+        });
       }
     }
     setIsDialogOpen(true);
