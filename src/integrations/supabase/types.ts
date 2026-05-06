@@ -654,6 +654,24 @@ export type Database = {
           },
         ]
       }
+      health_alert_throttle: {
+        Row: {
+          alert_key: string
+          id: string
+          last_sent_at: string
+        }
+        Insert: {
+          alert_key: string
+          id?: string
+          last_sent_at?: string
+        }
+        Update: {
+          alert_key?: string
+          id?: string
+          last_sent_at?: string
+        }
+        Relationships: []
+      }
       mp_webhook_events: {
         Row: {
           id: string
@@ -1143,6 +1161,30 @@ export type Database = {
           id?: string
           nome_completo?: string
           whatsapp?: string
+        }
+        Relationships: []
+      }
+      system_health_snapshots: {
+        Row: {
+          captured_at: string
+          duration_ms: number | null
+          id: string
+          metrics: Json
+          overall_severity: string
+        }
+        Insert: {
+          captured_at?: string
+          duration_ms?: number | null
+          id?: string
+          metrics?: Json
+          overall_severity: string
+        }
+        Update: {
+          captured_at?: string
+          duration_ms?: number | null
+          id?: string
+          metrics?: Json
+          overall_severity?: string
         }
         Relationships: []
       }
