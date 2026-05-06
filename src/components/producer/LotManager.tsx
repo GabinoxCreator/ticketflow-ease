@@ -50,10 +50,18 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<EventLot | null>(null);
   const [formData, setFormData] = useState<LotFormData>(emptyLot);
+  // 'new_sector' = criando um novo Ingresso (setor); 'existing' = adicionando lote a setor existente
+  const [sectorMode, setSectorMode] = useState<'existing' | 'new_sector'>('existing');
 
-  const handleOpenDialog = (lot?: EventLot, presetSector?: string) => {
+  // Lista de setores únicos existentes
+  const existingSectors = Array.from(
+    new Set((lots || []).map((l) => (l.sector_name?.trim() || 'Ingresso')))
+  );
+
+  const handleOpenDialog = (lot?: EventLot, presetSector?: string, mode?: 'new_sector') => {
     if (lot) {
       setEditingLot(lot);
+      setSectorMode('existing');
       setFormData({
         name: lot.name,
         price: lot.price,
@@ -73,7 +81,13 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       });
     } else {
       setEditingLot(null);
-      setFormData({ ...emptyLot, sector_name: presetSector || 'Ingresso' });
+      if (mode === 'new_sector' || existingSectors.length === 0) {
+        setSectorMode('new_sector');
+        setFormData({ ...emptyLot, sector_name: '' });
+      } else {
+        setSectorMode('existing');
+        setFormData({ ...emptyLot, sector_name: presetSector || existingSectors[0] });
+      }
     }
     setIsDialogOpen(true);
   };
