@@ -491,7 +491,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
               {flow === 'edit' ? 'Salvar' : 'Criar Ingresso'}
             </Button>
           </DialogFooter>
-          </div>
+          </>
           )}
         </DialogContent>
       </Dialog>
