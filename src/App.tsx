@@ -42,6 +42,8 @@ import AdminProdutores from "./pages/admin/AdminProdutores";
 import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
 import AdminRepasses from "./pages/admin/AdminRepasses";
 import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
+import AdminSaude from "./pages/admin/AdminSaude";
+import AdminLayout from "./components/admin/AdminLayout";
 
 const queryClient = new QueryClient();
 
@@ -111,6 +113,7 @@ const App = () => (
                 <Route path="/admin/produtores/:id" element={<AdminProtectedRoute><AdminProdutorDetalhe /></AdminProtectedRoute>} />
                 <Route path="/admin/repasses" element={<AdminProtectedRoute><AdminRepasses /></AdminProtectedRoute>} />
                 <Route path="/admin/configuracoes" element={<AdminProtectedRoute><AdminConfiguracoes /></AdminProtectedRoute>} />
+                <Route path="/admin/saude" element={<AdminProtectedRoute><AdminLayout><AdminSaude /></AdminLayout></AdminProtectedRoute>} />
 
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
