@@ -130,10 +130,16 @@ serve(async (req) => {
 
           logStep('Order/tickets/inventory confirmed', { orderId: targetOrderId });
 
-          // Fire-and-forget confirmation email
-          supabaseClient.functions.invoke('send-order-confirmation-email', {
-            body: { order_id: targetOrderId },
-          }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
+          // Post-payment confirmation email — awaited but never throws.
+          try {
+            const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
+              orderId: targetOrderId,
+              source: 'polling',
+            });
+            logStep('order_email_result', emailResult);
+          } catch (e) {
+            logStep('order_email_unexpected', { e: String(e) });
+          }
         } else {
           logStep('Order already processed (idempotent skip)', { orderId: targetOrderId });
         }
