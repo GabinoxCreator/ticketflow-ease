@@ -729,6 +729,39 @@ export type Database = {
         }
         Relationships: []
       }
+      order_email_notifications: {
+        Row: {
+          attempts: number
+          created_at: string
+          kind: string
+          last_error: string | null
+          order_id: string
+          resend_message_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          kind?: string
+          last_error?: string | null
+          order_id: string
+          resend_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          kind?: string
+          last_error?: string | null
+          order_id?: string
+          resend_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           coupon_id: string | null
