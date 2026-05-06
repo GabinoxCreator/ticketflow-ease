@@ -30,6 +30,9 @@ export function PinVerificationDialog({
   const [showPin, setShowPin] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState('');
+  const [forceCreateMode, setForceCreateMode] = useState(false);
+
+  const inCreateMode = !hasPin || forceCreateMode;
 
   const handleVerifyPin = async () => {
     if (pin.length !== 4) {
@@ -50,6 +53,11 @@ export function PinVerificationDialog({
       if (data.valid) {
         toast.success('PIN verificado com sucesso!');
         onVerified();
+      } else if (data.needs_reset) {
+        toast.info('Por segurança, recrie seu PIN.');
+        setForceCreateMode(true);
+        setPin('');
+        setConfirmPin('');
       } else {
         setError('PIN incorreto. Tente novamente.');
         setPin('');
@@ -115,12 +123,14 @@ export function PinVerificationDialog({
             </div>
           </div>
           <DialogTitle className="text-center">
-            {hasPin ? 'Verificação de Segurança' : 'Criar PIN de Segurança'}
+            {inCreateMode ? (forceCreateMode ? 'Recrie seu PIN' : 'Criar PIN de Segurança') : 'Verificação de Segurança'}
           </DialogTitle>
           <DialogDescription className="text-center">
-            {hasPin 
-              ? 'Digite seu PIN de 4 dígitos para acessar a área financeira'
-              : 'Crie um PIN de 4 dígitos para proteger suas informações financeiras'
+            {inCreateMode 
+              ? (forceCreateMode 
+                  ? 'Por segurança, atualizamos a proteção do PIN. Crie um novo PIN de 4 dígitos.'
+                  : 'Crie um PIN de 4 dígitos para proteger suas informações financeiras')
+              : 'Digite seu PIN de 4 dígitos para acessar a área financeira'
             }
           </DialogDescription>
         </DialogHeader>
@@ -128,7 +138,7 @@ export function PinVerificationDialog({
         <div className="space-y-4 mt-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {hasPin ? 'PIN' : 'Novo PIN'}
+              {inCreateMode ? 'Novo PIN' : 'PIN'}
             </label>
             <div className="relative">
               <Input
@@ -152,7 +162,7 @@ export function PinVerificationDialog({
             </div>
           </div>
 
-          {!hasPin && (
+          {inCreateMode && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Confirmar PIN</label>
               <Input
@@ -172,10 +182,10 @@ export function PinVerificationDialog({
 
           <Button
             className="w-full"
-            onClick={hasPin ? handleVerifyPin : handleCreatePin}
-            disabled={isVerifying || pin.length !== 4 || (!hasPin && confirmPin.length !== 4)}
+            onClick={inCreateMode ? handleCreatePin : handleVerifyPin}
+            disabled={isVerifying || pin.length !== 4 || (inCreateMode && confirmPin.length !== 4)}
           >
-            {isVerifying ? 'Verificando...' : hasPin ? 'Verificar' : 'Criar PIN'}
+            {isVerifying ? 'Verificando...' : inCreateMode ? 'Criar PIN' : 'Verificar'}
           </Button>
         </div>
       </DialogContent>
