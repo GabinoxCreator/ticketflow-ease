@@ -44,12 +44,22 @@ const Auth: React.FC = () => {
   const [forgotEmail, setForgotEmail] = useState('');
 
   const redirect = searchParams.get('redirect') || '/';
+  const mode = searchParams.get('mode');
 
   useEffect(() => {
     if (user && !isLoading) {
       navigate(redirect);
     }
   }, [user, isLoading, navigate, redirect]);
+
+  // B4.4a: Auto-open password reset dialog when ?mode=forgot
+  useEffect(() => {
+    if (mode === 'forgot') {
+      const emailParam = searchParams.get('email');
+      if (emailParam) setForgotEmail(emailParam);
+      setForgotOpen(true);
+    }
+  }, [mode, searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
