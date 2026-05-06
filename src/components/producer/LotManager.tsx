@@ -253,81 +253,91 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className={cn(
+          "max-h-[90vh] overflow-y-auto",
+          flow === 'new_sector' && step === 1 ? "sm:max-w-2xl" : "sm:max-w-lg"
+        )}>
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-xl">
               {flow === 'edit'
                 ? 'Editar Ingresso'
                 : flow === 'new_sector' && step === 1
                 ? 'Novo Setor'
-                : flow === 'new_sector'
-                ? `Novo Ingresso em ${formData.sector_name || ''}`
                 : `Novo Ingresso em ${formData.sector_name || ''}`}
             </DialogTitle>
           </DialogHeader>
 
           {/* Etapa 1 — escolher / criar setor (apenas no fluxo new_sector) */}
           {flow === 'new_sector' && step === 1 ? (
-            <div className="space-y-4">
+            <div className="space-y-6 pt-2">
               <p className="text-sm text-muted-foreground">
-                Escolha um setor existente ou crie um novo. Em seguida você vai cadastrar o primeiro ingresso desse setor.
+                Escolha um setor para adicionar o ingresso.
               </p>
 
-              {existingSectors.length > 0 && (
-                <div className="space-y-2">
-                  <label className="flex items-start gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="sector-choice"
-                      className="mt-1"
-                      checked={sectorChoice === 'existing'}
-                      onChange={() => setSectorChoice('existing')}
-                    />
-                    <div className="flex-1 space-y-2">
-                      <span className="text-sm font-medium">Usar setor existente</span>
-                      {sectorChoice === 'existing' && (
-                        <Select value={sectorSelected} onValueChange={setSectorSelected}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um setor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {existingSectors.map((s) => (
-                              <SelectItem key={s} value={s}>{s}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {existingSectors.map((s) => {
+                  const count = (lots || []).filter(
+                    (l) => (l.sector_name?.trim() || 'Ingresso') === s
+                  ).length;
+                  const selected = sectorChoice === 'existing' && sectorSelected === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setSectorChoice('existing');
+                        setSectorSelected(s);
+                      }}
+                      className={cn(
+                        "min-h-[110px] p-5 rounded-xl border-2 text-left transition-all flex flex-col justify-center",
+                        selected
+                          ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                          : "border-border hover:border-primary/40 hover:bg-muted/40"
                       )}
-                    </div>
-                  </label>
+                    >
+                      <span className="text-sm font-bold uppercase tracking-wide truncate">{s}</span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {count} {count === 1 ? 'ingresso' : 'ingressos'}
+                      </span>
+                    </button>
+                  );
+                })}
+
+                {/* Card "+ Novo" */}
+                <button
+                  type="button"
+                  onClick={() => setSectorChoice('new')}
+                  className={cn(
+                    "min-h-[110px] p-5 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1",
+                    sectorChoice === 'new'
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                      : "border-border hover:border-primary/40 hover:bg-muted/40"
+                  )}
+                >
+                  <Plus className="w-7 h-7 text-primary" />
+                  <span className="text-sm font-medium">Novo setor</span>
+                </button>
+              </div>
+
+              {sectorChoice === 'new' && (
+                <div className="space-y-2 rounded-xl border bg-muted/30 p-4">
+                  <Label className="text-sm">Nome do novo setor *</Label>
+                  <Input
+                    placeholder="Ex: Pista, Camarote, Área VIP"
+                    value={sectorNewName}
+                    onChange={(e) => setSectorNewName(e.target.value)}
+                    autoFocus
+                    className="h-11"
+                  />
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="sector-choice"
-                    className="mt-1"
-                    checked={sectorChoice === 'new'}
-                    onChange={() => setSectorChoice('new')}
-                  />
-                  <div className="flex-1 space-y-2">
-                    <span className="text-sm font-medium">Criar novo setor</span>
-                    {sectorChoice === 'new' && (
-                      <Input
-                        placeholder="Ex: Pista, Camarote, Área VIP"
-                        value={sectorNewName}
-                        onChange={(e) => setSectorNewName(e.target.value)}
-                        autoFocus
-                      />
-                    )}
-                  </div>
-                </label>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+              <DialogFooter className="pt-2">
+                <Button variant="outline" size="lg" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
                 <Button
+                  size="lg"
                   onClick={handleStep1Continue}
                   disabled={
                     sectorChoice === 'existing' ? !sectorSelected.trim() : !sectorNewName.trim()
