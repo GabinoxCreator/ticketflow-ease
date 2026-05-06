@@ -256,53 +256,111 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingLot
-                ? 'Editar Lote'
-                : sectorMode === 'new_sector'
-                ? 'Novo Ingresso'
-                : `Novo Lote em ${formData.sector_name || ''}`}
+              {flow === 'edit'
+                ? 'Editar Ingresso'
+                : flow === 'new_sector' && step === 1
+                ? 'Novo Setor'
+                : flow === 'new_sector'
+                ? `Novo Ingresso em ${formData.sector_name || ''}`
+                : `Novo Ingresso em ${formData.sector_name || ''}`}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Sector */}
-            <div className="space-y-2">
-              <Label>{sectorMode === 'new_sector' ? 'Nome do Ingresso (Setor) *' : 'Ingresso (Setor) *'}</Label>
-              {sectorMode === 'new_sector' ? (
-                <Input
-                  placeholder="Ex: Pista, Camarote, Área VIP"
-                  value={formData.sector_name || ''}
-                  onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
-                />
-              ) : (
-                <Select
-                  value={formData.sector_name || ''}
-                  onValueChange={(v) => {
-                    if (v === '__new__') {
-                      setSectorMode('new_sector');
-                      setFormData({ ...formData, sector_name: '' });
-                    } else {
-                      setFormData({ ...formData, sector_name: v });
-                    }
-                  }}
+
+          {/* Etapa 1 — escolher / criar setor (apenas no fluxo new_sector) */}
+          {flow === 'new_sector' && step === 1 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Escolha um setor existente ou crie um novo. Em seguida você vai cadastrar o primeiro ingresso desse setor.
+              </p>
+
+              {existingSectors.length > 0 && (
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sector-choice"
+                      className="mt-1"
+                      checked={sectorChoice === 'existing'}
+                      onChange={() => setSectorChoice('existing')}
+                    />
+                    <div className="flex-1 space-y-2">
+                      <span className="text-sm font-medium">Usar setor existente</span>
+                      {sectorChoice === 'existing' && (
+                        <Select value={sectorSelected} onValueChange={setSectorSelected}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um setor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {existingSectors.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sector-choice"
+                    className="mt-1"
+                    checked={sectorChoice === 'new'}
+                    onChange={() => setSectorChoice('new')}
+                  />
+                  <div className="flex-1 space-y-2">
+                    <span className="text-sm font-medium">Criar novo setor</span>
+                    {sectorChoice === 'new' && (
+                      <Input
+                        placeholder="Ex: Pista, Camarote, Área VIP"
+                        value={sectorNewName}
+                        onChange={(e) => setSectorNewName(e.target.value)}
+                        autoFocus
+                      />
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                <Button
+                  onClick={handleStep1Continue}
+                  disabled={
+                    sectorChoice === 'existing' ? !sectorSelected.trim() : !sectorNewName.trim()
+                  }
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um setor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingSectors.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__">+ Criar novo setor…</SelectItem>
-                  </SelectContent>
-                </Select>
+                  Continuar →
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+          <div className="space-y-4">
+            {/* Setor selecionado (read-only badge) */}
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Setor: </span>
+                <span className="font-medium">{formData.sector_name}</span>
+              </div>
+              {flow === 'new_sector' && (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setStep(1)}
+                >
+                  alterar
+                </button>
               )}
             </div>
 
             {/* Name */}
             <div className="space-y-2">
-              <Label>Nome do Lote *</Label>
+              <Label>Nome do Ingresso *</Label>
               <Input
-                placeholder="Ex: 1º Lote"
+                placeholder="Ex: 1º Lote, Meia, Inteira"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
