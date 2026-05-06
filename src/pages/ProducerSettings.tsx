@@ -103,17 +103,20 @@ export default function ProducerSettings() {
     setSaving(true);
     try {
       const tasks: Promise<any>[] = [
-        supabase
-          .from('profiles')
-          .update({ nome_completo: nome, whatsapp })
-          .eq('id', user.id),
+        Promise.resolve(
+          supabase
+            .from('profiles')
+            .update({ nome_completo: nome, whatsapp })
+            .eq('id', user.id),
+        ),
       ];
 
       if (producerProfileId) {
         tasks.push(
-          supabase
-            .from('producer_profiles')
-            .update({
+          Promise.resolve(
+            supabase
+              .from('producer_profiles')
+              .update({
               brand_name: brandName,
               logo_url: logoUrl,
               legal_name: legalName || null,
