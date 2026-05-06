@@ -117,11 +117,22 @@ serve(async (req) => {
     }
 
     if (action === 'validate') {
-      // Check window
-      const { data: windowRows } = await supabase
+      // Check window — fail closed if RPC fails or returns nothing
+      const { data: windowRows, error: windowError } = await supabase
         .rpc('is_event_checkin_open', { _event_id: event_id });
       const win = Array.isArray(windowRows) ? windowRows[0] : windowRows;
-      if (win && !win.is_open) {
+      if (windowError || !win) {
+        console.error('[CHECKIN-WINDOW] unavailable', { event_id, collaborator_id, error: windowError });
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: 'Não foi possível validar a janela de check-in. Tente novamente.',
+            reason: 'checkin_window_unavailable',
+          }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!win.is_open) {
         await supabase.from('checkin_logs').insert({
           ticket_id: ticket.id,
           event_id,

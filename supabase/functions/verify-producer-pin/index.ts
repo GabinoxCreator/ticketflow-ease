@@ -32,7 +32,7 @@ serve(async (req) => {
 
     // Rate limit per user
     const rl = await checkRateLimit(serviceClient, `pin:user:${user.id}`, 5, 600, 1800);
-    if (!rl.allowed) return rateLimitResponse(rl.retryAfter, corsHeaders);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     const { pin } = await req.json();
     if (!pin || !/^\d{4}$/.test(pin)) throw new Error('PIN must be 4 digits');

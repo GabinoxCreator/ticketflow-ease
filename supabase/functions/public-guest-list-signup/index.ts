@@ -42,7 +42,7 @@ serve(async (req) => {
     // Rate limit by IP+list
     const ip = getClientIp(req);
     const rl = await checkRateLimit(supabase, `guest:ip:${ip}:${list.id}`, 5, 600, 600);
-    if (!rl.allowed) return rateLimitResponse(rl.retryAfter, corsHeaders);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     if (!list.is_active) {
       return new Response(
@@ -69,6 +69,20 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Este evento já passou' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Idempotency: if a public entry with same normalized name exists, return duplicate
+    const normalizedName = name.trim().toLowerCase();
+    const { data: existing } = await supabase
+      .from('guest_list_entries')
+      .select('id, name')
+      .eq('guest_list_id', list.id)
+      .eq('added_by', 'public');
+    if (existing?.some((e: any) => (e.name ?? '').trim().toLowerCase() === normalizedName)) {
+      return new Response(
+        JSON.stringify({ success: true, duplicate: true, message: 'Você já está nesta lista' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
