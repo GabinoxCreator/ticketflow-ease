@@ -42,6 +42,13 @@ import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
 import { AdminLayout } from "./components/admin/AdminLayout";
 
+// Preserves query string when redirecting legacy /auth → /login
+// (ex.: /auth?mode=forgot → /login?mode=forgot)
+const LegacyAuthRedirect = () => {
+  const location = useLocation();
+  return <Navigate to={`/login${location.search}`} replace />;
+};
+
 const queryClient = new QueryClient();
 
 const App = () => (
