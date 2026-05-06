@@ -123,7 +123,7 @@ const CheckoutSuccess = () => {
           </h1>
           
           <p className="text-muted-foreground mb-6">
-            Seus ingressos foram gerados e enviados para{' '}
+            Seus ingressos foram gerados. A confirmação será enviada para{' '}
             <span className="text-foreground font-medium">
               {orderDetails?.customer_email}
             </span>

@@ -79,9 +79,9 @@ export function CheckoutStepSuccess({
       >
         <Mail className="w-5 h-5 text-primary flex-shrink-0" />
         <div>
-          <p className="text-sm font-medium">Confirmação enviada</p>
+          <p className="text-sm font-medium">Confirmação a caminho</p>
           <p className="text-xs text-muted-foreground">
-            Enviamos os detalhes para {customerEmail}
+            Enviaremos os detalhes para {customerEmail} em instantes
           </p>
         </div>
       </motion.div>

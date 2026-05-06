@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -129,10 +130,16 @@ serve(async (req) => {
 
           logStep('Order/tickets/inventory confirmed', { orderId: targetOrderId });
 
-          // Fire-and-forget confirmation email
-          supabaseClient.functions.invoke('send-order-confirmation-email', {
-            body: { order_id: targetOrderId },
-          }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
+          // Post-payment confirmation email — awaited but never throws.
+          try {
+            const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
+              orderId: targetOrderId,
+              source: 'polling',
+            });
+            logStep('order_email_result', emailResult);
+          } catch (e) {
+            logStep('order_email_unexpected', { e: String(e) });
+          }
         } else {
           logStep('Order already processed (idempotent skip)', { orderId: targetOrderId });
         }
@@ -155,9 +162,15 @@ serve(async (req) => {
               await supabaseClient.from('tickets')
                 .update({ status: 'valid' })
                 .eq('order_id', o.id).eq('status', 'pending');
-              supabaseClient.functions.invoke('send-order-confirmation-email', {
-                body: { order_id: o.id },
-              }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
+              try {
+                const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
+                  orderId: o.id,
+                  source: 'polling',
+                });
+                logStep('order_email_result', emailResult);
+              } catch (e) {
+                logStep('order_email_unexpected', { e: String(e) });
+              }
             }
           }
         }

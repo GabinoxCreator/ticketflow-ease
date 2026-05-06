@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -236,10 +237,17 @@ serve(async (req) => {
         logStep('Order paid but inventory mismatch detected — manual review needed', { orderId: order.id });
       }
 
-      // Fire-and-forget: post-payment confirmation email (idempotent by order_id)
-      supabaseClient.functions.invoke('send-order-confirmation-email', {
-        body: { order_id: order.id },
-      }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
+      // Post-payment confirmation email — awaited but never throws.
+      try {
+        const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
+          orderId: order.id,
+          source: 'card_inline',
+        });
+        logStep('order_email_result', emailResult);
+      } catch (e) {
+        // Defensive: helper should never throw, but never let email break payment.
+        logStep('order_email_unexpected', { e: String(e) });
+      }
 
       return new Response(
         JSON.stringify({ status: 'approved', orderId: order.id, paymentId: mpPayment.id }),
