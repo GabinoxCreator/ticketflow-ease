@@ -123,8 +123,9 @@ export default function ProducerSettings() {
               document: document || null,
               email: orgEmail || null,
               phone: orgPhone || null,
-            })
-            .eq('id', producerProfileId),
+              })
+              .eq('id', producerProfileId),
+          ),
         );
       }
 
