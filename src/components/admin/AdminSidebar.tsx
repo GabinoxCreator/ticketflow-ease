@@ -17,10 +17,13 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
+import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity } from 'lucide-react';
+// ... keep existing code (other imports)
 const menuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
   { title: 'Produtores', url: '/admin/produtores', icon: Users },
   { title: 'Repasses', url: '/admin/repasses', icon: Banknote },
+  { title: 'Saúde', url: '/admin/saude', icon: Activity },
   { title: 'Configurações', url: '/admin/configuracoes', icon: Settings },
 ];
 

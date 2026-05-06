@@ -43,7 +43,7 @@ import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
 import AdminRepasses from "./pages/admin/AdminRepasses";
 import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
-import AdminLayout from "./components/admin/AdminLayout";
+import { AdminLayout } from "./components/admin/AdminLayout";
 
 const queryClient = new QueryClient();
 
