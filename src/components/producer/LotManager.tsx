@@ -46,22 +46,36 @@ const emptyLot: LotFormData = {
   sales_start_type: 'now',
 };
 
+type Flow = 'new_sector' | 'add_to_sector' | 'edit';
+
 export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<EventLot | null>(null);
   const [formData, setFormData] = useState<LotFormData>(emptyLot);
-  // 'new_sector' = criando um novo Ingresso (setor); 'existing' = adicionando lote a setor existente
-  const [sectorMode, setSectorMode] = useState<'existing' | 'new_sector'>('existing');
+  const [flow, setFlow] = useState<Flow>('add_to_sector');
+  const [step, setStep] = useState<1 | 2>(2);
+  // Etapa 1 — escolha de setor: 'existing' usa select, 'new' usa input
+  const [sectorChoice, setSectorChoice] = useState<'existing' | 'new'>('new');
+  const [sectorSelected, setSectorSelected] = useState<string>('');
+  const [sectorNewName, setSectorNewName] = useState<string>('');
 
   // Lista de setores únicos existentes
   const existingSectors = Array.from(
     new Set((lots || []).map((l) => (l.sector_name?.trim() || 'Ingresso')))
   );
 
+  const buildDefaultLotName = (sector: string) => {
+    const lotsInSector = (lots || []).filter(
+      (l) => (l.sector_name?.trim() || 'Ingresso') === sector
+    ).length;
+    return `${lotsInSector + 1}º Lote`;
+  };
+
   const handleOpenDialog = (lot?: EventLot, presetSector?: string, mode?: 'new_sector') => {
     if (lot) {
       setEditingLot(lot);
-      setSectorMode('existing');
+      setFlow('edit');
+      setStep(2);
       setFormData({
         name: lot.name,
         price: lot.price,
@@ -79,25 +93,41 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         sales_start_type: lot.sales_start_type || 'now',
         starts_after_lot_id: lot.starts_after_lot_id || null,
       });
-    } else {
+    } else if (mode === 'new_sector') {
+      // Fluxo "Novo Setor" — abre etapa 1
       setEditingLot(null);
-      if (mode === 'new_sector' || existingSectors.length === 0) {
-        setSectorMode('new_sector');
-        setFormData({ ...emptyLot, sector_name: '' });
-      } else {
-        setSectorMode('existing');
-        const sector = presetSector || existingSectors[0];
-        const lotsInSector = (lots || []).filter(
-          (l) => (l.sector_name?.trim() || 'Ingresso') === sector
-        ).length;
-        setFormData({
-          ...emptyLot,
-          sector_name: sector,
-          name: `${lotsInSector + 1}º Lote`,
-        });
-      }
+      setFlow('new_sector');
+      setStep(1);
+      const hasExisting = existingSectors.length > 0;
+      setSectorChoice(hasExisting ? 'existing' : 'new');
+      setSectorSelected(hasExisting ? existingSectors[0] : '');
+      setSectorNewName('');
+      setFormData({ ...emptyLot, sector_name: '', name: '' });
+    } else {
+      // Fluxo "Novo Ingresso" dentro de um setor — direto na etapa 2
+      setEditingLot(null);
+      setFlow('add_to_sector');
+      setStep(2);
+      const sector = presetSector || existingSectors[0] || 'Ingresso';
+      setFormData({
+        ...emptyLot,
+        sector_name: sector,
+        name: buildDefaultLotName(sector),
+      });
     }
     setIsDialogOpen(true);
+  };
+
+  const handleStep1Continue = () => {
+    const sector =
+      sectorChoice === 'existing' ? sectorSelected.trim() : sectorNewName.trim();
+    if (!sector) return;
+    setFormData({
+      ...formData,
+      sector_name: sector,
+      name: buildDefaultLotName(sector),
+    });
+    setStep(2);
   };
 
   // Group lots by sector_name (preserve insertion order; "Ingresso" first)
@@ -135,7 +165,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <h3 className="text-lg font-semibold">Ingressos</h3>
         <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} size="sm">
           <Plus className="w-4 h-4 mr-2" />
-          Novo Ingresso
+          Novo Setor
         </Button>
       </div>
 
@@ -143,11 +173,11 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4">
-              Nenhum ingresso criado ainda. Adicione um ingresso para começar a vender.
+              Nenhum setor criado ainda. Crie um setor (ex: Pista, Camarote) para começar a cadastrar ingressos.
             </p>
             <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} variant="outline">
               <Plus className="w-4 h-4 mr-2" />
-              Criar Primeiro Ingresso
+              Criar Primeiro Setor
             </Button>
           </CardContent>
         </Card>
@@ -159,12 +189,12 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                 <div className="min-w-0">
                   <CardTitle className="text-base uppercase tracking-wide">{sectorName}</CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {sectorLots.length} {sectorLots.length === 1 ? 'lote' : 'lotes'}
+                    {sectorLots.length} {sectorLots.length === 1 ? 'ingresso' : 'ingressos'}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => handleOpenDialog(undefined, sectorName)}>
                   <Plus className="w-4 h-4 mr-1" />
-                  Novo Lote
+                  Novo Ingresso
                 </Button>
               </CardHeader>
               <CardContent>
@@ -226,53 +256,112 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingLot
-                ? 'Editar Lote'
-                : sectorMode === 'new_sector'
-                ? 'Novo Ingresso'
-                : `Novo Lote em ${formData.sector_name || ''}`}
+              {flow === 'edit'
+                ? 'Editar Ingresso'
+                : flow === 'new_sector' && step === 1
+                ? 'Novo Setor'
+                : flow === 'new_sector'
+                ? `Novo Ingresso em ${formData.sector_name || ''}`
+                : `Novo Ingresso em ${formData.sector_name || ''}`}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Sector */}
-            <div className="space-y-2">
-              <Label>{sectorMode === 'new_sector' ? 'Nome do Ingresso (Setor) *' : 'Ingresso (Setor) *'}</Label>
-              {sectorMode === 'new_sector' ? (
-                <Input
-                  placeholder="Ex: Pista, Camarote, Área VIP"
-                  value={formData.sector_name || ''}
-                  onChange={(e) => setFormData({ ...formData, sector_name: e.target.value })}
-                />
-              ) : (
-                <Select
-                  value={formData.sector_name || ''}
-                  onValueChange={(v) => {
-                    if (v === '__new__') {
-                      setSectorMode('new_sector');
-                      setFormData({ ...formData, sector_name: '' });
-                    } else {
-                      setFormData({ ...formData, sector_name: v });
-                    }
-                  }}
+
+          {/* Etapa 1 — escolher / criar setor (apenas no fluxo new_sector) */}
+          {flow === 'new_sector' && step === 1 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Escolha um setor existente ou crie um novo. Em seguida você vai cadastrar o primeiro ingresso desse setor.
+              </p>
+
+              {existingSectors.length > 0 && (
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="sector-choice"
+                      className="mt-1"
+                      checked={sectorChoice === 'existing'}
+                      onChange={() => setSectorChoice('existing')}
+                    />
+                    <div className="flex-1 space-y-2">
+                      <span className="text-sm font-medium">Usar setor existente</span>
+                      {sectorChoice === 'existing' && (
+                        <Select value={sectorSelected} onValueChange={setSectorSelected}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um setor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {existingSectors.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sector-choice"
+                    className="mt-1"
+                    checked={sectorChoice === 'new'}
+                    onChange={() => setSectorChoice('new')}
+                  />
+                  <div className="flex-1 space-y-2">
+                    <span className="text-sm font-medium">Criar novo setor</span>
+                    {sectorChoice === 'new' && (
+                      <Input
+                        placeholder="Ex: Pista, Camarote, Área VIP"
+                        value={sectorNewName}
+                        onChange={(e) => setSectorNewName(e.target.value)}
+                        autoFocus
+                      />
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                <Button
+                  onClick={handleStep1Continue}
+                  disabled={
+                    sectorChoice === 'existing' ? !sectorSelected.trim() : !sectorNewName.trim()
+                  }
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um setor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingSectors.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                    <SelectItem value="__new__">+ Criar novo setor…</SelectItem>
-                  </SelectContent>
-                </Select>
+                  Continuar →
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+          <>
+          <div className="space-y-4">
+            {/* Setor selecionado (read-only badge) */}
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Setor: </span>
+                <span className="font-medium">{formData.sector_name}</span>
+              </div>
+              {flow === 'new_sector' && (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setStep(1)}
+                >
+                  alterar
+                </button>
               )}
             </div>
 
             {/* Name */}
             <div className="space-y-2">
-              <Label>Nome do Lote *</Label>
+              <Label>Nome do Ingresso *</Label>
               <Input
-                placeholder="Ex: 1º Lote"
+                placeholder="Ex: 1º Lote, Meia, Inteira"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -394,11 +483,17 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            {flow === 'new_sector' ? (
+              <Button variant="outline" onClick={() => setStep(1)}>← Voltar</Button>
+            ) : (
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            )}
             <Button onClick={handleSubmit} disabled={!formData.name || formData.price <= 0}>
-              {editingLot ? 'Salvar' : 'Criar Lote'}
+              {flow === 'edit' ? 'Salvar' : 'Criar Ingresso'}
             </Button>
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -1,63 +1,46 @@
-## Objetivo
-Ajustar a terminologia e o fluxo de criação na aba de Lotes/Ingressos do dashboard do produtor para refletir o modelo mental correto: **Ingresso = setor** (ex: "Ingresso", "Área VIP", "Camarote") e **Lote = variação de preço/quantidade dentro de um setor** (ex: "1º Lote", "2º Lote").
+## Hierarquia correta
+- **Setor** = grupo (ex: Área VIP, Camarote, Pista). Botão grande do topo: **+ Novo Setor**.
+- **Ingresso** = item vendável dentro de um setor (ex: 1º Lote, Meia, Inteira). Botão dentro do card de cada setor: **+ Novo Ingresso**.
+- Aba do dashboard continua "Ingressos" (já está correto).
 
-Tudo é trabalho de UI/UX no frontend — sem mudanças no banco ou regras de negócio.
+## Renomeações de texto (`src/components/producer/LotManager.tsx`)
+- Botão topo direito: "Novo Ingresso" → **"Novo Setor"**.
+- Estado vazio: "Nenhum setor criado ainda…" / **"Criar Primeiro Setor"**.
+- Botão dentro de cada card de setor: "Novo Lote" → **"Novo Ingresso"**.
+- Linha "3 lotes" abaixo do nome do setor → **"3 ingressos"**.
+- Título do modal:
+  - Editar → "Editar Ingresso"
+  - Criar setor (etapa 1) → "Novo Setor"
+  - Criar ingresso em setor existente → "Novo Ingresso em {setor}"
+- Label "Nome do Lote *" → **"Nome do Ingresso *"**.
 
----
-
-## Mudanças
-
-### 1. Renomear a aba na barra do dashboard
-Arquivo: `src/pages/EventDashboard.tsx`
-- Trocar `label: 'Lotes'` por `label: 'Ingressos'` no item de menu (mantém `value: 'lots'` internamente para não quebrar nada).
-
-### 2. Renomear título e botão principal
-Arquivo: `src/components/producer/LotManager.tsx`
-- Título da seção: `Lotes de Ingressos` → `Ingressos`
-- Botão grande (topo direito): `Adicionar Lote` → `Novo Ingresso`
-  - Abre o modal em modo "criar setor": campo "Nome do Ingresso (Setor)" como input livre + primeiro lote.
-- Estado vazio: ajustar texto para "Nenhum ingresso criado ainda…" e botão "Criar Primeiro Ingresso".
-
-### 3. Botão "Novo Lote" dentro de cada setor
-Continua existindo dentro de cada card de setor (ex: dentro de "AREA VIP" → "+ Novo Lote"). 
-- Hoje ele já passa `presetSector`, mas o usuário relatou que o setor não vem preenchido. Vamos garantir o comportamento via mudança no modal (ver item 4).
-
-### 4. Reformular o modal de Lote
-Arquivo: `src/components/producer/LotManager.tsx`
-- Trocar o input livre `Nome do Setor` por um **Select** com:
-  - Opções: lista de setores únicos já existentes (extraída de `lots`)
-  - Opção fixa final: "➕ Criar novo setor…"
-  - Quando "Criar novo setor" é selecionado, aparece um input de texto abaixo para digitar o nome.
-- Comportamento:
-  - **Modo "Novo Ingresso"** (botão do topo): Select inicia em "Criar novo setor" com input vazio.
-  - **Modo "Novo Lote" dentro de um setor**: Select já vem com aquele setor pré-selecionado e travado visualmente (ainda permite trocar, mas pré-selecionado corretamente — corrige o bug relatado de cair em "Ingresso").
-  - **Modo "Editar"**: Select pré-selecionado com o setor atual do lote.
-- Ajustar o label do modal: "Novo Lote" / "Editar Lote" / "Novo Ingresso" conforme contexto.
-
-### 5. Pequenos textos de apoio
-- Tooltip/legendas: trocar referências a "lote" para "ingresso" onde se refere ao setor, mantendo "lote" apenas para variações de preço dentro de um setor.
-- Linha "3 lotes" abaixo do nome do setor: manter como está (correto — são lotes do setor).
-
----
-
-## Detalhes técnicos
+## Modal multietapas (apenas no fluxo "Novo Setor")
+Ao clicar **+ Novo Setor** no topo, modal abre na **etapa 1 – Setor**:
 
 ```text
-Estrutura conceitual final:
-Ingresso (setor)        ← criado pelo botão "Novo Ingresso"
- ├─ Lote 1              ← criado pelo botão "Novo Lote" dentro do setor
- ├─ Lote 2
- └─ ...
+┌─ Novo Setor ──────────────────────┐
+│  ( ) Usar setor existente         │
+│      [ Select de setores ▾ ]      │
+│  (•) Criar novo setor             │
+│      [ Input: nome do setor ]     │
+│           [ Cancelar ] [ Continuar → ]
+└───────────────────────────────────┘
 ```
 
-- Sem migrations. `event_lots.sector_name` continua sendo o campo que agrupa.
-- Lista de setores existentes derivada de `Array.from(new Set(lots.map(l => l.sector_name?.trim() || 'Ingresso')))`.
-- Adicionar um pequeno estado local no modal: `sectorMode: 'existing' | 'new'` para controlar o Select vs input.
+- Sem setores ainda → "Usar setor existente" desabilitado, "Criar novo setor" marcado por padrão.
+- **Continuar** valida nome e avança para **etapa 2 – Ingresso** (formulário atual com nome, preço, quantidade, escassez, grupo, etc.).
+- **Voltar** disponível na etapa 2 só nesse fluxo.
 
----
+Ao clicar **+ Novo Ingresso** dentro de um card de setor → abre **direto na etapa 2** com setor travado.
+Ao **editar** ingresso existente → abre direto na etapa 2 (comportamento atual).
+
+## Implementação técnica
+- Estado local: `step: 1 | 2` e `flow: 'new_sector' | 'add_to_sector' | 'edit'`.
+- Etapa 2 mostra setor escolhido como **badge read-only** no topo (com link "alterar" só se `flow === 'new_sector'`).
+- Remove o Select "Ingresso (Setor)" da etapa 2.
+- `handleSubmit` só dispara na etapa 2.
 
 ## Arquivos afetados
-- `src/pages/EventDashboard.tsx` (1 linha — label da aba)
-- `src/components/producer/LotManager.tsx` (modal + textos + botões)
+- `src/components/producer/LotManager.tsx` (único arquivo)
 
-Nenhuma alteração de backend, RLS, hooks ou tipos.
+Sem mudanças no banco, hooks ou tipos.
