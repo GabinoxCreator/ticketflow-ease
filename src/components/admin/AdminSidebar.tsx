@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,8 +17,6 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
-import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity } from 'lucide-react';
-// ... keep existing code (other imports)
 const menuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
   { title: 'Produtores', url: '/admin/produtores', icon: Users },
