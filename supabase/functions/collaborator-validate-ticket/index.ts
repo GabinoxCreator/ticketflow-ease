@@ -7,17 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to validate collaborator session
 async function validateCollaboratorSession(
   supabase: any,
   collaboratorId: string,
   sessionToken: string
 ): Promise<{ valid: boolean; error?: string }> {
-  if (!sessionToken) {
-    return { valid: false, error: 'Token de sessão não fornecido' };
-  }
+  if (!sessionToken) return { valid: false, error: 'Token de sessão não fornecido' };
 
-  // Get session from database
   const { data: session, error: sessionError } = await supabase
     .from('collaborator_sessions')
     .select('session_token_hash, expires_at')
@@ -25,28 +21,18 @@ async function validateCollaboratorSession(
     .single();
 
   if (sessionError || !session) {
-    console.log('Session not found for collaborator:', collaboratorId);
     return { valid: false, error: 'Sessão não encontrada. Faça login novamente.' };
   }
-
-  // Check if session is expired
   if (new Date(session.expires_at) < new Date()) {
-    console.log('Session expired for collaborator:', collaboratorId);
     return { valid: false, error: 'Sessão expirada. Faça login novamente.' };
   }
-
-  // Verify token hash
   try {
-    const isValidToken = compareSync(sessionToken, session.session_token_hash);
-    if (!isValidToken) {
-      console.log('Invalid session token for collaborator:', collaboratorId);
+    if (!compareSync(sessionToken, session.session_token_hash)) {
       return { valid: false, error: 'Token de sessão inválido. Faça login novamente.' };
     }
   } catch {
-    console.log('Error verifying session token');
     return { valid: false, error: 'Erro ao verificar sessão' };
   }
-
   return { valid: true };
 }
 
@@ -57,8 +43,6 @@ serve(async (req) => {
 
   try {
     const { ticket_code, event_id, collaborator_id, session_token, action, source } = await req.json();
-    
-    console.log('Ticket validation request:', { ticket_code, event_id, collaborator_id, action });
 
     if (!ticket_code || !event_id || !collaborator_id) {
       return new Response(
@@ -67,11 +51,11 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
-    // SECURITY: Validate session token FIRST
     const sessionValidation = await validateCollaboratorSession(supabase, collaborator_id, session_token);
     if (!sessionValidation.valid) {
       return new Response(
@@ -80,69 +64,39 @@ serve(async (req) => {
       );
     }
 
-    // Verify collaborator has access to this event
-    const { data: access, error: accessError } = await supabase
+    const { data: access } = await supabase
       .from('collaborator_events')
       .select('id')
       .eq('collaborator_id', collaborator_id)
       .eq('event_id', event_id)
       .maybeSingle();
 
-    if (accessError || !access) {
-      console.log('Collaborator does not have access to this event');
+    if (!access) {
       return new Response(
         JSON.stringify({ error: 'Colaborador não tem acesso a este evento' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Find ticket by code (can be full code or first 8 chars)
     const searchCode = ticket_code.toLowerCase();
-    const { data: tickets, error: ticketError } = await supabase
+    const { data: tickets } = await supabase
       .from('tickets')
-      .select(`
-        *,
-        events (
-          id,
-          title,
-          date,
-          time,
-          venue
-        ),
-        event_lots (
-          id,
-          name,
-          price
-        )
-      `)
+      .select(`*, events(id,title,date,time,venue), event_lots(id,name,price)`)
       .eq('event_id', event_id)
       .or(`ticket_code.eq.${ticket_code},ticket_code.ilike.${searchCode}%`);
 
-    if (ticketError) {
-      console.error('Error finding ticket:', ticketError);
-      return new Response(
-        JSON.stringify({ error: 'Erro ao buscar ingresso' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const ticket = tickets?.find(t => 
-      t.ticket_code === ticket_code || 
+    const ticket = tickets?.find((t: any) =>
+      t.ticket_code === ticket_code ||
       t.ticket_code.toLowerCase().startsWith(searchCode)
     );
 
     if (!ticket) {
-      console.log('Ticket not found');
       return new Response(
-        JSON.stringify({ 
-          error: 'Ingresso não encontrado',
-          found: false 
-        }),
+        JSON.stringify({ error: 'Ingresso não encontrado', found: false }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // If just checking (not validating)
     if (action === 'check') {
       return new Response(
         JSON.stringify({
@@ -162,86 +116,101 @@ serve(async (req) => {
       );
     }
 
-    // Validate ticket
     if (action === 'validate') {
-      if (ticket.status === 'used') {
-        return new Response(
-          JSON.stringify({
-            found: true,
-            error: 'Ingresso já foi utilizado',
-            ticket: {
-              id: ticket.id,
-              ticket_code: ticket.ticket_code,
-              holder_name: ticket.holder_name,
-              status: ticket.status,
-              validated_at: ticket.validated_at,
-            },
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (ticket.status === 'cancelled') {
-        return new Response(
-          JSON.stringify({
-            found: true,
-            error: 'Ingresso cancelado',
-            ticket: {
-              id: ticket.id,
-              ticket_code: ticket.ticket_code,
-              holder_name: ticket.holder_name,
-              status: ticket.status,
-            },
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (ticket.status === 'pending') {
-        return new Response(
-          JSON.stringify({
-            found: true,
-            error: 'Ingresso com pagamento pendente',
-            ticket: {
-              id: ticket.id,
-              ticket_code: ticket.ticket_code,
-              holder_name: ticket.holder_name,
-              status: ticket.status,
-            },
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Mark ticket as used
-      const { error: updateError } = await supabase
-        .from('tickets')
-        .update({
-          status: 'used',
-          validated_at: new Date().toISOString(),
-        })
-        .eq('id', ticket.id);
-
-      if (updateError) {
-        console.error('Error updating ticket:', updateError);
-        return new Response(
-          JSON.stringify({ error: 'Erro ao validar ingresso' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log('Ticket validated successfully:', ticket.ticket_code);
-
-      // Log check-in
-      await supabase
-        .from('checkin_logs')
-        .insert({
+      // Check window
+      const { data: windowRows } = await supabase
+        .rpc('is_event_checkin_open', { _event_id: event_id });
+      const win = Array.isArray(windowRows) ? windowRows[0] : windowRows;
+      if (win && !win.is_open) {
+        await supabase.from('checkin_logs').insert({
           ticket_id: ticket.id,
-          event_id: event_id,
-          collaborator_id: collaborator_id,
+          event_id,
+          collaborator_id,
           source: source || 'manual',
-          action: 'checkin',
+          action: 'checkin_blocked_window',
         });
+        const message = win.reason === 'before_window'
+          ? 'Check-in ainda não liberado para este evento.'
+          : win.reason === 'after_window'
+            ? 'Janela de check-in encerrada.'
+            : 'Check-in indisponível.';
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            found: true,
+            reason: win.reason,
+            starts_at: win.starts_at,
+            ends_at: win.ends_at,
+            message,
+            error: message,
+            ticket: {
+              id: ticket.id,
+              ticket_code: ticket.ticket_code,
+              holder_name: ticket.holder_name,
+              status: ticket.status,
+            },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (ticket.status === 'cancelled' || ticket.status === 'pending') {
+        return new Response(
+          JSON.stringify({
+            found: true,
+            error: ticket.status === 'cancelled' ? 'Ingresso cancelado' : 'Ingresso com pagamento pendente',
+            ticket: {
+              id: ticket.id,
+              ticket_code: ticket.ticket_code,
+              holder_name: ticket.holder_name,
+              status: ticket.status,
+            },
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Atomic update: only succeeds if status is still 'valid'
+      const validatedAt = new Date().toISOString();
+      const { data: updated } = await supabase
+        .from('tickets')
+        .update({ status: 'used', validated_at: validatedAt })
+        .eq('id', ticket.id)
+        .eq('status', 'valid')
+        .select()
+        .maybeSingle();
+
+      if (!updated) {
+        // Re-read to determine current state
+        const { data: fresh } = await supabase
+          .from('tickets')
+          .select('status, validated_at')
+          .eq('id', ticket.id)
+          .maybeSingle();
+        const isUsed = fresh?.status === 'used';
+        return new Response(
+          JSON.stringify({
+            found: true,
+            error: isUsed ? 'Ingresso já foi utilizado' : 'Status do ingresso inválido',
+            ticket: {
+              id: ticket.id,
+              ticket_code: ticket.ticket_code,
+              holder_name: ticket.holder_name,
+              status: fresh?.status ?? ticket.status,
+              validated_at: fresh?.validated_at,
+            },
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      await supabase.from('checkin_logs').insert({
+        ticket_id: ticket.id,
+        event_id,
+        collaborator_id,
+        source: source || 'manual',
+        action: 'checkin',
+      });
 
       return new Response(
         JSON.stringify({
@@ -253,7 +222,7 @@ serve(async (req) => {
             holder_name: ticket.holder_name,
             holder_email: ticket.holder_email,
             status: 'used',
-            validated_at: new Date().toISOString(),
+            validated_at: validatedAt,
             lot_name: ticket.event_lots?.name,
             event_title: ticket.events?.title,
           },
@@ -267,7 +236,7 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in collaborator-validate-ticket:', error);
+    console.error('[VALIDATE-TICKET] error:', error);
     return new Response(
       JSON.stringify({ error: 'Erro interno do servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
