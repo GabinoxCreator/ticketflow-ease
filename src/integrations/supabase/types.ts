@@ -731,34 +731,52 @@ export type Database = {
       }
       order_email_notifications: {
         Row: {
-          attempts: number
+          attempt_count: number
+          claimed_at: string
           created_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
           kind: string
-          last_error: string | null
           order_id: string
-          resend_message_id: string | null
+          recipient_email: string | null
+          resend_email_id: string | null
           sent_at: string | null
+          source: string | null
           status: string
+          updated_at: string
         }
         Insert: {
-          attempts?: number
+          attempt_count?: number
+          claimed_at: string
           created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
           kind?: string
-          last_error?: string | null
           order_id: string
-          resend_message_id?: string | null
+          recipient_email?: string | null
+          resend_email_id?: string | null
           sent_at?: string | null
+          source?: string | null
           status?: string
+          updated_at?: string
         }
         Update: {
-          attempts?: number
+          attempt_count?: number
+          claimed_at?: string
           created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
           kind?: string
-          last_error?: string | null
           order_id?: string
-          resend_message_id?: string | null
+          recipient_email?: string | null
+          resend_email_id?: string | null
           sent_at?: string | null
+          source?: string | null
           status?: string
+          updated_at?: string
         }
         Relationships: []
       }
