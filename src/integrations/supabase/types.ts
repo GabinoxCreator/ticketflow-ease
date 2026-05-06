@@ -44,6 +44,30 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_rate_limits: {
+        Row: {
+          attempts: number
+          blocked_until: string | null
+          bucket_key: string
+          last_attempt_at: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          blocked_until?: string | null
+          bucket_key: string
+          last_attempt_at?: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          blocked_until?: string | null
+          bucket_key?: string
+          last_attempt_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       checkin_logs: {
         Row: {
           action: string
@@ -1278,6 +1302,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          _block_seconds: number
+          _bucket: string
+          _max: number
+          _window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          retry_after_seconds: number
+        }[]
+      }
       confirm_lot_sale: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
@@ -1292,6 +1328,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      is_event_checkin_open: {
+        Args: { _event_id: string }
+        Returns: {
+          ends_at: string
+          is_open: boolean
+          reason: string
+          starts_at: string
+        }[]
       }
       is_producer_admin: {
         Args: { _producer_profile_id: string; _user_id: string }
