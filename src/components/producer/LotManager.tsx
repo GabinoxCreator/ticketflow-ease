@@ -46,22 +46,36 @@ const emptyLot: LotFormData = {
   sales_start_type: 'now',
 };
 
+type Flow = 'new_sector' | 'add_to_sector' | 'edit';
+
 export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<EventLot | null>(null);
   const [formData, setFormData] = useState<LotFormData>(emptyLot);
-  // 'new_sector' = criando um novo Ingresso (setor); 'existing' = adicionando lote a setor existente
-  const [sectorMode, setSectorMode] = useState<'existing' | 'new_sector'>('existing');
+  const [flow, setFlow] = useState<Flow>('add_to_sector');
+  const [step, setStep] = useState<1 | 2>(2);
+  // Etapa 1 — escolha de setor: 'existing' usa select, 'new' usa input
+  const [sectorChoice, setSectorChoice] = useState<'existing' | 'new'>('new');
+  const [sectorSelected, setSectorSelected] = useState<string>('');
+  const [sectorNewName, setSectorNewName] = useState<string>('');
 
   // Lista de setores únicos existentes
   const existingSectors = Array.from(
     new Set((lots || []).map((l) => (l.sector_name?.trim() || 'Ingresso')))
   );
 
+  const buildDefaultLotName = (sector: string) => {
+    const lotsInSector = (lots || []).filter(
+      (l) => (l.sector_name?.trim() || 'Ingresso') === sector
+    ).length;
+    return `${lotsInSector + 1}º Lote`;
+  };
+
   const handleOpenDialog = (lot?: EventLot, presetSector?: string, mode?: 'new_sector') => {
     if (lot) {
       setEditingLot(lot);
-      setSectorMode('existing');
+      setFlow('edit');
+      setStep(2);
       setFormData({
         name: lot.name,
         price: lot.price,
@@ -79,25 +93,41 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         sales_start_type: lot.sales_start_type || 'now',
         starts_after_lot_id: lot.starts_after_lot_id || null,
       });
-    } else {
+    } else if (mode === 'new_sector') {
+      // Fluxo "Novo Setor" — abre etapa 1
       setEditingLot(null);
-      if (mode === 'new_sector' || existingSectors.length === 0) {
-        setSectorMode('new_sector');
-        setFormData({ ...emptyLot, sector_name: '' });
-      } else {
-        setSectorMode('existing');
-        const sector = presetSector || existingSectors[0];
-        const lotsInSector = (lots || []).filter(
-          (l) => (l.sector_name?.trim() || 'Ingresso') === sector
-        ).length;
-        setFormData({
-          ...emptyLot,
-          sector_name: sector,
-          name: `${lotsInSector + 1}º Lote`,
-        });
-      }
+      setFlow('new_sector');
+      setStep(1);
+      const hasExisting = existingSectors.length > 0;
+      setSectorChoice(hasExisting ? 'existing' : 'new');
+      setSectorSelected(hasExisting ? existingSectors[0] : '');
+      setSectorNewName('');
+      setFormData({ ...emptyLot, sector_name: '', name: '' });
+    } else {
+      // Fluxo "Novo Ingresso" dentro de um setor — direto na etapa 2
+      setEditingLot(null);
+      setFlow('add_to_sector');
+      setStep(2);
+      const sector = presetSector || existingSectors[0] || 'Ingresso';
+      setFormData({
+        ...emptyLot,
+        sector_name: sector,
+        name: buildDefaultLotName(sector),
+      });
     }
     setIsDialogOpen(true);
+  };
+
+  const handleStep1Continue = () => {
+    const sector =
+      sectorChoice === 'existing' ? sectorSelected.trim() : sectorNewName.trim();
+    if (!sector) return;
+    setFormData({
+      ...formData,
+      sector_name: sector,
+      name: buildDefaultLotName(sector),
+    });
+    setStep(2);
   };
 
   // Group lots by sector_name (preserve insertion order; "Ingresso" first)
