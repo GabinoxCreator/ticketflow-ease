@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { AnimatePresence, motion } from 'framer-motion';
+import { buildWindowMessage } from '@/lib/checkinWindow';
 
 interface ScanResult {
-  type: 'success' | 'already_used' | 'invalid' | 'error';
+  type: 'success' | 'already_used' | 'invalid' | 'error' | 'window_closed';
   message: string;
   holderName?: string;
   lotName?: string;
@@ -79,6 +80,13 @@ export default function ColaboradorQRScanner({
           lotName: data.ticket?.lot_name,
         };
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      } else if (data.reason === 'before_window' || data.reason === 'after_window') {
+        result = {
+          type: 'window_closed',
+          message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
+          holderName: data.ticket?.holder_name,
+        };
+        if (navigator.vibrate) navigator.vibrate(300);
       } else if (data.error?.includes('já foi utilizado')) {
         result = {
           type: 'already_used',
@@ -174,6 +182,11 @@ export default function ColaboradorQRScanner({
     },
     already_used: {
       bg: 'bg-yellow-500',
+      icon: AlertCircle,
+      textColor: 'text-white',
+    },
+    window_closed: {
+      bg: 'bg-red-600',
       icon: AlertCircle,
       textColor: 'text-white',
     },

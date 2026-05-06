@@ -1,148 +1,174 @@
-# Bloco 4 — Observabilidade & painel de saúde (revisado)
+# Bloco 5 — Hardening de Segurança (revisado v5)
 
-Ajustes aprovados pelo usuário incorporados: snapshot único por captura com `metrics jsonb`, drift de inventário separado em duas leituras, debounce por tipo de alerta, ações operacionais sob audit + confirmação forte, painel baseado em snapshots persistidos.
+Plano v4 aprovado integralmente, com **única correção** no helper `formatCheckinWindow`: comparação de "mesmo dia" agora usa data formatada em `America/Sao_Paulo`, não `toDateString()` (que usa timezone do navegador).
 
-## 1. Migration
+Diagnósticos confirmados: 0 duplicados em `guest_list_entries` públicas; 1 produtor com PIN; `checkin_logs.action` sem CHECK constraint.
 
-### 1.1 `system_health_snapshots`
-Uma linha por captura. JSON consolidado.
+## 1. RLS de cupons — fechar leitura pública
+
+`DROP POLICY "Cupons ativos visíveis publicamente" ON event_coupons`. Validação pública continua via `validate-coupon` (service role).
+
+## 2. Janela de check-in — helper SQL
 
 ```text
-id uuid pk
-captured_at timestamptz default now()
-metrics jsonb            -- ver shape abaixo
-overall_severity text    -- 'ok' | 'warn' | 'crit'
-duration_ms int          -- tempo da função para coletar
+public.is_event_checkin_open(_event_id uuid)
+  returns table (is_open boolean, reason text, starts_at timestamptz, ends_at timestamptz)
 ```
 
-Índices: `(captured_at desc)`, `(overall_severity, captured_at desc)`.
+Regras (timezone `America/Sao_Paulo`):
+- `starts_at = (events.date::date)::timestamp AT TIME ZONE 'America/Sao_Paulo'` (00:00 local).
+- `ends_at = ((events.date + events.time)::timestamp AT TIME ZONE 'America/Sao_Paulo') + interval '15 hours'`.
+- `is_open = now() BETWEEN starts_at AND ends_at`.
+- `reason`: `event_not_found` | `before_window` | `after_window` | `null`.
+- Não usa `end_date`/`end_time`.
 
-RLS:
-- `select` apenas para `has_role(auth.uid(),'admin')`.
-- `insert/update/delete` bloqueado para qualquer role (somente service role escreve).
+Permissões restritas:
+```sql
+REVOKE ALL ON FUNCTION public.is_event_checkin_open(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_event_checkin_open(uuid) TO service_role;
+```
 
-Shape de `metrics`:
-```text
-{
-  orders: {
-    pending_count, pending_oldest_age_seconds,
-    paid_last_hour, expired_last_hour, failed_last_hour
-  },
-  webhooks: {
-    received_last_hour, ok_last_hour, error_last_hour, duplicate_last_hour,
-    last_event_at
-  },
-  cron: {
-    last_run_at, last_status, runs_last_hour, failed_last_hour
-  },
-  inventory: {
-    confirmed_drift_count,   -- lotes em que sold != tickets valid
-    reservation_drift_count  -- lotes em que reserved != tickets pending recentes
-  }
+## 3. Edge functions de check-in — atômicas + janela
+
+### `collaborator-validate-ticket`
+1. Validar sessão e acesso ao evento.
+2. `supabase.rpc('is_event_checkin_open', { _event_id })`.
+3. Se `is_open=false` → log `checkin_blocked_window` + retorna `{ ok:false, reason, starts_at, ends_at, message }` (HTTP 200).
+4. Update atômico:
+   ```ts
+   .from('tickets')
+   .update({ status: 'used', validated_at: new Date().toISOString() })
+   .eq('id', ticket.id).eq('status', 'valid')
+   .select().maybeSingle();
+   ```
+5. Se null → reler ticket → `already_used` ou `invalid_status`.
+6. Sucesso → log `action='checkin'`.
+
+### `collaborator-validate-guest-entry`
+- Mesma chamada `is_event_checkin_open` + log de bloqueio.
+- Update atômico com `.eq('status', 'pending')`. Se null → "convidado já fez check-in".
+
+## 4. Frontend de colaborador — `formatCheckinWindow` (CORRIGIDO)
+
+`src/lib/checkinWindow.ts`:
+
+```ts
+export function formatCheckinWindow(starts: Date, ends: Date): string {
+  const d = (x: Date) => x.toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+  });
+  const t = (x: Date) => x.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
+  const sameDay = d(starts) === d(ends);
+  return sameDay
+    ? `Check-in permitido em ${d(starts)}, das ${t(starts)} às ${t(ends)}.`
+    : `Check-in permitido de ${d(starts)} ${t(starts)} até ${d(ends)} ${t(ends)}.`;
 }
 ```
-Cada bloco contribui com sua severidade local; `overall_severity` é o pior dos blocos.
 
-### 1.2 `health_alert_throttle`
-Debounce por tipo de alerta.
-```text
-id uuid pk
-alert_key text unique  -- ex.: 'cron_stalled:crit', 'inventory_confirmed_drift:crit', 'pending_orders_spike:warn'
-last_sent_at timestamptz
-```
-RLS: select admin; escrita só service role.
+Comparação de mesmo dia usa string formatada em `America/Sao_Paulo` — independe do timezone do navegador.
 
-### 1.3 `audit_logs` (já existe)
-Reaproveitar para registrar `manual_expire_run`, `manual_reconcile_dry_run`, `manual_reconcile_apply` com `actor_id = auth.uid()` e `metadata` contendo o resultado retornado.
+Exemplos:
+- Evento 06/05 08:00 → `"Check-in permitido em 06/05/2026, das 00:00 às 23:00."`
+- Evento 06/05 10:00 → `"Check-in permitido de 06/05/2026 00:00 até 07/05/2026 01:00."`
+- Evento 06/05 22:00 → `"Check-in permitido de 06/05/2026 00:00 até 07/05/2026 13:00."`
 
-## 2. Edge function `health-snapshot`
+`ColaboradorQRScanner.tsx` e `ColaboradorListaDetalhe.tsx` tratam `reason in ('before_window','after_window')` com toast vermelho usando o helper.
 
-- `verify_jwt = false`, autenticação via header `X-Cron-Secret` (mesmo padrão do Bloco 3, secret `CRON_SECRET` já existe).
-- Roda só leituras (service role). Calcula os 4 blocos:
-  - **Orders:** counts por status na última hora + idade do `pending` mais antigo.
-  - **Webhooks:** agrega `mp_webhook_events` por `outcome` na última hora.
-  - **Cron:** consulta `cron.job_run_details` filtrando o jobname do Bloco 3.
-  - **Inventory:**
-    - `confirmed_drift`: por lote, `sold_quantity` vs `count(tickets where status='valid')`.
-    - `reservation_drift`: por lote, `reserved_quantity` vs `count(tickets where status='pending' and order.expires_at > now())`.
-- Aplica regras de severidade:
-  - `orders.pending_count > 50` → warn; `> 200` ou `pending_oldest_age > 60min` → crit.
-  - `cron.last_run_at` ausente nos últimos 5 min → crit.
-  - `webhooks.error_last_hour > 5` → warn; `> 20` → crit.
-  - `inventory.confirmed_drift_count > 0` → crit.
-  - `inventory.reservation_drift_count > 0` → warn (transitório esperado).
-- Insere o snapshot.
-- Para cada bloco com severidade ≥ warn: gera `alert_key` (ex.: `pending_orders_spike:crit`); se `crit` e `health_alert_throttle.last_sent_at` for `null` ou > 30 min, dispara email via Resend para `gabinox54037@gmail.com` e atualiza throttle.
+## 5. Rate-limit (ad-hoc com TTL)
 
-Cron schedule (SQL fora de migration, contém URL e secret):
-```text
-health-snapshot-every-minute → POST /functions/v1/health-snapshot
-header X-Cron-Secret = current_setting('app.cron_secret', true)
+Tabela `auth_rate_limits` (`bucket_key pk, attempts, window_start, blocked_until, last_attempt_at`). RLS: select admin; escrita só service role.
+
+Função `check_rate_limit(_bucket text, _max int, _window_seconds int, _block_seconds int) returns (allowed bool, retry_after_seconds int)` via `INSERT … ON CONFLICT DO UPDATE` atômico.
+
+TTL via pg_cron (1h):
+```sql
+DELETE FROM auth_rate_limits
+ WHERE last_attempt_at < now() - interval '24 hours'
+   AND (blocked_until IS NULL OR blocked_until < now());
 ```
 
-## 3. Aba `/admin/saude`
+Buckets (lowercase):
+- `login:user:<lower(username)>` 5/15min, bloqueio 15min.
+- `login:ip:<ip>` 20/15min.
+- `otp:email:<lower(email)>` 3/15min, bloqueio 30min.
+- `otp:ip:<ip>` 10/15min.
+- `pin:user:<user_id>` 5/10min, bloqueio 30min.
+- `guest:ip:<ip>:<list_id>` 5/10min.
 
-- Item “Saúde” no `AdminSidebar` com ícone `Activity`.
-- Página consome **somente** `system_health_snapshots` (a fonte é a tabela; logs são debug).
-- Layout:
-  - Header com badge do `overall_severity` mais recente (verde/amarelo/vermelho no tema admin).
-  - 4 cards de blocos (Orders, Webhooks, Cron, Inventory) lendo do `metrics` mais recente, cada um com sua severidade local e timestamp.
-  - Mini-gráfico (sparkline) por bloco com últimas 60 capturas (`pending_count`, `webhooks_error_last_hour`, etc.).
-  - Tabela “Alertas recentes”: snapshots `warn`/`crit` das últimas 24h (timestamp, blocos afetados, principais valores).
-  - Seção “Ações operacionais” (collapse fechado por default), apenas admin: botões abaixo.
+IP via `cf-connecting-ip` → fallback primeiro item de `x-forwarded-for`. Bloqueado: **HTTP 429** + `{ error:'rate_limited', retry_after_seconds }`.
 
-### Ações operacionais (com proteção extra)
+Aplicado em: `collaborator-login`, `send-verification-code`, `send-password-reset-code`, `verify-producer-pin`, `public-guest-list-signup`.
 
-Para ambas:
-- `AlertDialog` de confirmação com **digitar “CONFIRMAR”** para habilitar o botão final.
-- Insere `audit_logs` com `actor_id = auth.uid()`, `target_type = 'system'`, `action = '<nome>'`, `metadata = { result }`.
-- Restrito a admin (já garantido pela rota + RLS de `audit_logs`).
+**Ordem em `public-guest-list-signup`:** resolver lista por slug (404 se não existir, sem bucket) → rate-limit com `list.id` → capacidade → insert (com tratamento de `23505` para idempotência).
 
-Botões:
-1. **“Reconciliar órfãos (dry run)”** — chama `reconcile-orphan-orders?dry_run=true`. Mostra o plano retornado. **Sem botão de “aplicar” neste bloco.** A aplicação real continua sendo feita manualmente fora do painel até decidirmos abrir.
-2. **“Forçar varredura de expiração”** — chama `expire-pending-orders` autenticado como admin (sem `X-Cron-Secret`; a função aceita admin via JWT como fallback documentado). Audit log obrigatório.
+## 6. PIN do produtor — bcrypt
 
-## 4. Padronização de logs (complemento, não fonte)
+- `set-producer-pin` e `verify-producer-pin` migram para `bcrypt` (`https://deno.land/x/bcrypt@v0.4.1/mod.ts`).
+- `verify-producer-pin`: `$2…` → `bcrypt.compare`; legado SHA-256 → `{ valid:false, needs_reset:true }`.
+- `set-producer-pin`: aceita PIN sem `current_pin` quando hash existente é legado.
+- Rate-limit aplicado.
+- `PinVerificationDialog.tsx`: em `needs_reset:true` muda para "criar novo PIN" sem cobrar PIN atual + toast.
 
-Pequena varredura nas funções de pagamento (`mercadopago-webhook`, `expire-pending-orders`, `process-card-payment`, `create-mercadopago-pix`, `reconcile-orphan-orders`) para padronizar prefixo (`[MP-WH]`, `[EXPIRE-RUN]`, etc.) e campos (`event`, `order_id`, `mp_payment_id`, `outcome`). Sem mudança de lógica.
+## 7. Idempotência em `public-guest-list-signup`
 
-## 5. Fora do escopo
+```sql
+CREATE UNIQUE INDEX uniq_guest_entry_per_list_public
+  ON guest_list_entries (guest_list_id, lower(trim(name)))
+  WHERE added_by = 'public';
+```
+Erro `23505` na inserção → `{ ok:true, duplicate:true, message:'Você já está nesta lista' }`.
 
-- Refunds/estornos.
-- Aplicar reconciliação direto pelo painel (só dry run nesta entrega).
-- Painel para colaboradores ou produtores (Saúde é exclusivo do admin).
-- Mexer em rotas de cliente/produtor.
+## 8. Audit logs
 
-## 6. Secrets / config
+`audit_logs` apenas com `actor_id = auth.uid()`. Novas: `pin_set`, `pin_reset_forced`. Ações sem ator humano → `console.log` padronizado, sem placeholder UUID.
 
-Reaproveita: `CRON_SECRET`, `RESEND_API_KEY`. Nenhum novo secret necessário.
+## 9. Índices SQL
 
-`supabase/config.toml`: bloco da nova função
-```toml
-[functions.health-snapshot]
-verify_jwt = false
+```sql
+CREATE INDEX IF NOT EXISTS idx_tickets_event_status     ON tickets(event_id, status);
+CREATE INDEX IF NOT EXISTS idx_tickets_lot_status       ON tickets(lot_id, status);
+CREATE INDEX IF NOT EXISTS idx_orders_event_status      ON orders(event_id, status);
+CREATE INDEX IF NOT EXISTS idx_orders_pending_expires   ON orders(expires_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_checkin_logs_event_created ON checkin_logs(event_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_mp_webhook_processed     ON mp_webhook_events(processed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_health_snapshots_captured ON system_health_snapshots(captured_at DESC);
 ```
 
-## 7. Arquivos previstos
+## 10. Tipos Supabase
 
-Novos:
-- `supabase/functions/health-snapshot/index.ts`
-- `src/pages/admin/AdminSaude.tsx`
-- `src/hooks/useHealthSnapshots.ts`
-- 1 migration (tabelas + RLS)
+Após migration: regenerar `src/integrations/supabase/types.ts` para incluir `auth_rate_limits`, `check_rate_limit` e `is_event_checkin_open`.
 
-Editados:
-- `src/components/admin/AdminSidebar.tsx` (item “Saúde”)
-- `src/App.tsx` (rota `/admin/saude`)
-- `supabase/config.toml` (bloco da função)
-- 5 arquivos de edge functions de pagamento (apenas `console.log` padronizado)
+## 11. Fora do escopo
 
-## 8. Ordem de execução
+Tickets anônimos/claim, notificações pós-pagamento, remoção de `/checkout` legado, captcha externo, cookies httpOnly para colaborador.
 
-1. Migration (`system_health_snapshots` + `health_alert_throttle` + RLS).
-2. Edge function `health-snapshot` + entrada no `config.toml`.
-3. Teste manual via `X-Cron-Secret` e verificação dos primeiros snapshots.
-4. Agendar `pg_cron` (SQL inline, fora de migration).
-5. Construir `/admin/saude` (cards + sparkline + tabela + ações com confirm + audit).
-6. Padronização de logs nas 5 funções de pagamento.
-7. Validação final (10 min rodando + abrir painel + testar uma ação operacional dry run).
+## 12. Arquivos previstos
+
+**Migration única:** RLS cupons + `is_event_checkin_open` (REVOKE/GRANT restritos) + `auth_rate_limits` + `check_rate_limit` + unique index guest + 7 índices + pg_cron cleanup.
+
+**Edge functions:** `collaborator-validate-ticket`, `collaborator-validate-guest-entry`, `collaborator-login`, `send-verification-code`, `send-password-reset-code`, `set-producer-pin`, `verify-producer-pin`, `public-guest-list-signup`.
+
+**Frontend:** `ColaboradorQRScanner.tsx`, `ColaboradorListaDetalhe.tsx`, `PinVerificationDialog.tsx`, novo `src/lib/checkinWindow.ts`.
+
+**Tipos:** `src/integrations/supabase/types.ts` regenerado.
+
+## 13. Ordem de execução
+
+1. Migration consolidada.
+2. Regenerar `types.ts`.
+3. Edge functions de check-in (janela + atomicidade).
+4. Rate-limit nos 5 endpoints.
+5. Bcrypt do PIN + UI `needs_reset`.
+6. Idempotência em guest signup.
+7. Checklist manual: 6 logins falhos → 429; QR fora da janela → recusa com mensagem formatada (verificar caso "mesmo dia" e "cruza dia"); segunda inscrição mesmo nome → idempotente; produtor com PIN antigo → reset; consulta anônima a `event_coupons` → vazia; dois scanners simultâneos no mesmo ticket → só um valida.
+
+## 14. Rollback
+
+- Cupons: recriar policy pública.
+- Funções/tabelas novas: `DROP` isolado + revert das edge functions.
+- Unique index guest: `DROP INDEX`.
+- Bcrypt PIN: rollback exige reset manual (N=1).

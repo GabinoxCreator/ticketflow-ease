@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { buildWindowMessage } from '@/lib/checkinWindow';
 
 interface GuestEntry {
   id: string;
@@ -83,7 +84,9 @@ export default function ColaboradorListaDetalhe({
         );
         onCheckinDone();
       } else {
-        if (data.error?.includes('já fez check-in')) {
+        if (data.reason === 'before_window' || data.reason === 'after_window') {
+          toast.error(buildWindowMessage(data.reason, data.starts_at, data.ends_at));
+        } else if (data.error?.includes('já fez check-in')) {
           toast.info('Convidado já fez check-in');
           setLocalEntries(prev =>
             prev.map(e => e.id === entry.id ? { ...e, status: 'checked_in' } : e)
