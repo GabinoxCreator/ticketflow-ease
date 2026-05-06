@@ -1,0 +1,1 @@
+ALTER TABLE public.health_alert_throttle ADD CONSTRAINT health_alert_throttle_alert_key_unique UNIQUE (alert_key);
