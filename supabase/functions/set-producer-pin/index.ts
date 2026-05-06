@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { hashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,8 +12,8 @@ const logStep = (step: string, details?: any) => {
   console.log(`[SET-PRODUCER-PIN] ${step}${detailsStr}`);
 };
 
-// Simple hash function for PIN (in production, use bcrypt)
-async function hashPin(pin: string): Promise<string> {
+// Legacy SHA-256 hash (only used to verify legacy current_pin during forced reset path)
+async function legacyHashPin(pin: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(pin + Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -35,69 +36,81 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
-    
+
     const user = userData.user;
     if (!user) throw new Error("User not authenticated");
     logStep("User authenticated", { userId: user.id });
 
     const { pin, current_pin } = await req.json();
-    
-    // Validate PIN format
+
     if (!pin || !/^\d{4}$/.test(pin)) {
       throw new Error("PIN must be exactly 4 digits");
     }
 
-    // Check if user has a Stripe account record
-    const { data: accountData, error: accountError } = await supabaseClient
+    const { data: accountData } = await supabaseClient
       .from("producer_stripe_accounts")
       .select("pin_hash")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const hasExistingPin = accountData?.pin_hash != null;
+    const existingHash = accountData?.pin_hash ?? null;
+    const isLegacy = existingHash != null && !existingHash.startsWith("$2");
 
-    // If updating existing PIN, verify current PIN
-    if (hasExistingPin) {
-      if (!current_pin) {
-        throw new Error("Current PIN is required to set a new PIN");
-      }
-      const currentHash = await hashPin(current_pin);
-      if (currentHash !== accountData.pin_hash) {
+    // Verify current PIN unless this is a forced reset from a legacy hash
+    if (existingHash && !isLegacy) {
+      if (!current_pin) throw new Error("Current PIN is required to set a new PIN");
+      const { compareSync } = await import("https://deno.land/x/bcrypt@v0.4.1/mod.ts");
+      if (!compareSync(current_pin, existingHash)) {
         throw new Error("Current PIN is incorrect");
       }
-      logStep("Current PIN verified");
+      logStep("Current PIN verified (bcrypt)");
+    } else if (isLegacy) {
+      // Legacy SHA-256 hash - allow setting new PIN without current_pin (forced reset)
+      // If current_pin is provided, verify it; otherwise allow reset.
+      if (current_pin) {
+        const legacy = await legacyHashPin(current_pin);
+        if (legacy !== existingHash) {
+          // Don't fail — legacy reset path allows direct overwrite
+          logStep("Legacy current_pin mismatch, proceeding with forced reset");
+        }
+      }
+      logStep("Legacy PIN detected, performing forced reset");
     }
 
-    const pinHash = await hashPin(pin);
-    logStep("PIN hashed successfully");
+    const pinHash = hashSync(pin);
+    logStep("PIN hashed with bcrypt");
+
+    const wasReset = isLegacy;
 
     if (!accountData) {
-      // Create new record if doesn't exist
       const { error: insertError } = await supabaseClient
         .from("producer_stripe_accounts")
-        .insert({
-          user_id: user.id,
-          pin_hash: pinHash,
-        });
-
+        .insert({ user_id: user.id, pin_hash: pinHash });
       if (insertError) throw new Error(`Failed to save PIN: ${insertError.message}`);
     } else {
-      // Update existing record
       const { error: updateError } = await supabaseClient
         .from("producer_stripe_accounts")
         .update({ pin_hash: pinHash })
         .eq("user_id", user.id);
-
       if (updateError) throw new Error(`Failed to update PIN: ${updateError.message}`);
     }
 
+    // Audit log (human actor)
+    await supabaseClient.from("audit_logs").insert({
+      actor_id: user.id,
+      target_type: "producer_pin",
+      target_id: user.id,
+      action: wasReset ? "pin_reset_forced" : "pin_set",
+      metadata: { had_existing: !!existingHash },
+    });
+
     logStep("PIN saved successfully");
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, was_reset: wasReset }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
