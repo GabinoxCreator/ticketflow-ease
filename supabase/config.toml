@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.reconcile-orphan-orders]
 verify_jwt = true
+
+[functions.health-snapshot]
+verify_jwt = false
