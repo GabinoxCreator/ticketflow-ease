@@ -188,12 +188,12 @@ export function useEvent(id: string | undefined) {
       
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select('*, producer_profiles ( brand_name, logo_url )')
         .eq('id', id)
         .maybeSingle();
 
       if (error) throw error;
-      return data as Event | null;
+      return data as any;
     },
     enabled: !!id,
   });

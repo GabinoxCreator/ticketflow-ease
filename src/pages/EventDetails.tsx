@@ -25,6 +25,7 @@ import { CheckoutModal } from '@/components/checkout/CheckoutModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import festpagLogo from '@/assets/logo-festpag.png';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -406,11 +407,42 @@ const EventDetails = () => {
                     className="py-6"
                   >
                     <h3 className="font-display font-bold text-xl mb-4">Sobre o evento</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {event.description || event.short_description}
-                    </p>
+                    <div className="text-muted-foreground leading-relaxed space-y-4">
+                      {(event.description || event.short_description || '')
+                        .split(/\n{2,}/)
+                        .map((para: string, i: number) => (
+                          <p key={i} className="whitespace-pre-wrap break-words">{para}</p>
+                        ))}
+                    </div>
                   </motion.div>
                 )}
+
+                {/* Realização */}
+                {(() => {
+                  const producer = (event as any).producer_profiles;
+                  const brandName = producer?.brand_name;
+                  const logoUrl = producer?.logo_url || festpagLogo;
+                  if (!brandName) return null;
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.18 }}
+                      className="py-6"
+                    >
+                      <h3 className="font-display font-bold text-xl mb-4">Realização</h3>
+                      <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card">
+                        <div className="h-14 w-14 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                          <img src={logoUrl} alt={brandName} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{brandName}</p>
+                          <p className="text-sm text-muted-foreground">Produtora do evento</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
               </div>
 
               {/* Sidebar - Desktop only */}
