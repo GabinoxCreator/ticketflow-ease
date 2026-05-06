@@ -17,7 +17,6 @@ import DashboardEventos from "./pages/DashboardEventos";
 import CriarEvento from "./pages/CriarEvento";
 import EditarEvento from "./pages/EditarEvento";
 import EventDashboard from "./pages/EventDashboard";
-import Checkout from "./pages/Checkout";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import Financeiro from "./pages/Financeiro";
 import FinanceiroEvento from "./pages/FinanceiroEvento";
@@ -28,8 +27,6 @@ import ColaboradorLogin from "./pages/colaborador/ColaboradorLogin";
 import ColaboradorEventos from "./pages/colaborador/ColaboradorEventos";
 import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
-import TestePagamento from "./pages/TestePagamento";
-import ResetPassword from "./pages/ResetPassword";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosDeUso from "./pages/TermosDeUso";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
@@ -60,10 +57,10 @@ const App = () => (
                 {/* Public */}
                 <Route path="/" element={<Index />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
-                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/checkout" element={<Navigate to="/" replace />} />
                 <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                 <Route path="/login" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
                 <Route path="/termos" element={<TermosDeUso />} />
 
@@ -117,7 +114,7 @@ const App = () => (
 
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
-                <Route path="/teste-pagamento" element={<TestePagamento />} />
+                
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
