@@ -94,7 +94,7 @@ const App = () => (
                 <Route path="/produtor/configuracoes" element={<ProtectedRoute requiredRole="produtor"><ProducerSettings /></ProtectedRoute>} />
 
                 {/* Legacy redirects */}
-                <Route path="/auth" element={<Navigate to="/login" replace />} />
+                <Route path="/auth" element={<LegacyAuthRedirect />} />
                 <Route path="/dashboard" element={<Navigate to="/produtor/dashboard" replace />} />
                 <Route path="/dashboard/eventos" element={<Navigate to="/produtor/eventos" replace />} />
                 <Route path="/dashboard/evento/:id" element={<Navigate to="/produtor/eventos/:id" replace />} />
