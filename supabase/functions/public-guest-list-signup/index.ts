@@ -72,6 +72,20 @@ serve(async (req) => {
       );
     }
 
+    // Idempotency: if a public entry with same normalized name exists, return duplicate
+    const normalizedName = name.trim().toLowerCase();
+    const { data: existing } = await supabase
+      .from('guest_list_entries')
+      .select('id, name')
+      .eq('guest_list_id', list.id)
+      .eq('added_by', 'public');
+    if (existing?.some((e: any) => (e.name ?? '').trim().toLowerCase() === normalizedName)) {
+      return new Response(
+        JSON.stringify({ success: true, duplicate: true, message: 'Você já está nesta lista' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (list.max_guests) {
       const { count } = await supabase
         .from('guest_list_entries')
