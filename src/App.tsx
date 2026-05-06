@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ColaboradorAuthProvider } from "@/contexts/ColaboradorAuthContext";
@@ -42,6 +42,13 @@ import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
 import { AdminLayout } from "./components/admin/AdminLayout";
 
+// Preserves query string when redirecting legacy /auth → /login
+// (ex.: /auth?mode=forgot → /login?mode=forgot)
+const LegacyAuthRedirect = () => {
+  const location = useLocation();
+  return <Navigate to={`/login${location.search}`} replace />;
+};
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -58,6 +65,8 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Navigate to="/" replace />} />
+                {/* Mantido temporariamente para back_url legacy do Mercado Pago.
+                    Auditar logs e remover após confirmar 0 hits recentes. */}
                 <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                 <Route path="/login" element={<Auth />} />
                 <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
@@ -85,7 +94,7 @@ const App = () => (
                 <Route path="/produtor/configuracoes" element={<ProtectedRoute requiredRole="produtor"><ProducerSettings /></ProtectedRoute>} />
 
                 {/* Legacy redirects */}
-                <Route path="/auth" element={<Navigate to="/login" replace />} />
+                <Route path="/auth" element={<LegacyAuthRedirect />} />
                 <Route path="/dashboard" element={<Navigate to="/produtor/dashboard" replace />} />
                 <Route path="/dashboard/eventos" element={<Navigate to="/produtor/eventos" replace />} />
                 <Route path="/dashboard/evento/:id" element={<Navigate to="/produtor/eventos/:id" replace />} />
