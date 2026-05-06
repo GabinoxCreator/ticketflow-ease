@@ -155,6 +155,9 @@ serve(async (req) => {
               await supabaseClient.from('tickets')
                 .update({ status: 'valid' })
                 .eq('order_id', o.id).eq('status', 'pending');
+              supabaseClient.functions.invoke('send-order-confirmation-email', {
+                body: { order_id: o.id },
+              }).catch((e) => logStep('send-order-confirmation-email invoke failed', { e: String(e) }));
             }
           }
         }
