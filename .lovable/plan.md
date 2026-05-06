@@ -1,114 +1,122 @@
+# B6.1 — Notificação pós-pagamento idempotente
 
-# B4 — Limpeza técnica do FestPag (v2 ajustado)
+## 1. Diagnóstico do estado atual
 
-Plano revisado conforme feedback. Ainda em modo plan, nada implementado.
+Hoje um pedido pode virar `paid` em três caminhos distintos, todos já com transição idempotente via `UPDATE ... WHERE status='pending'`:
 
-## Verificação prévia (Ajuste 2)
+- `process-card-payment` (cartão tokenizado, síncrono) — confirma e marca `paid` quando MP aprova.
+- `check-mercadopago-payment` (polling do front, ex.: PIX e retorno do checkout) — confirma `paid` se MP retornar `approved`.
+- `mercadopago-webhook` (assíncrono, oficial) — fonte de verdade; também marca `paid`.
 
-Inspeção do `src/pages/Auth.tsx` mostra que **`Auth.tsx` NÃO suporta `?mode=forgot`** atualmente:
-- Lê apenas `searchParams.get('redirect')`.
-- O modal "Esqueci minha senha" só abre via clique no botão (`setForgotOpen(true)`).
-- Não há `useEffect` que observe `mode` ou abra o `Dialog` automaticamente.
+Pontos confirmados:
+- `CheckoutStepSuccess` afirma "enviamos por e-mail" mas **não há envio real**. Hoje só existem emails de OTP (`send-verification-code`, `send-password-reset-code`) usando Resend (`naoresponda@festpag.com.br`).
+- `orders.user_id` e `tickets.user_id` podem ser nulos (claim será tratado em outro bloco).
+- Os três pontos de confirmação são potencialmente concorrentes: webhook + polling + cartão podem todos disparar para o mesmo `order_id`. Sem idempotência, geraria emails duplicados.
+- Já existe a tabela `mp_webhook_events` com `unique(mp_payment_id, mp_status)` que serializa idempotência do webhook, mas isso **não cobre** os outros dois caminhos.
 
-Conclusão: o B4.4 muda de forma — primeiro precisamos ensinar `Auth.tsx` a abrir o fluxo de OTP quando vier `?mode=forgot`, só então o redirect direto faz sentido.
+## 2. Como disparar email sem duplicidade
 
-## Blocos finais
+Princípio: o envio nunca deve ocorrer no caminho síncrono de confirmação diretamente. Em vez disso:
 
-### B4.1 — Remover páginas órfãs do colaborador (sem mudanças)
-- **Deletar**:
-  - `src/pages/colaborador/ColaboradorDashboard.tsx`
-  - `src/pages/colaborador/ColaboradorEventoMenu.tsx`
-  - `src/pages/colaborador/ColaboradorParticipantes.tsx`
-  - `src/pages/colaborador/ColaboradorConvidados.tsx`
-  - `src/pages/colaborador/QRCodeScanner.tsx`
-- **Manter** todos os redirects legacy em `App.tsx`.
-- **Validação manual**:
-  1. Login colaborador em `/colaborador` ok.
-  2. `/colaborador/eventos` lista eventos.
-  3. `/colaborador/dashboard` redireciona para `/colaborador/eventos`.
-  4. `/colaborador/evento/:id/scanner` redireciona para `/colaborador/evento/:id`.
-  5. QR scan + lista + validação seguem funcionando.
+1. Cada caminho de confirmação que faz a transição `pending -> paid` chama uma única edge function `send-order-confirmation-email` com `order_id`.
+2. Essa função executa um **claim atômico** numa nova tabela `order_email_notifications` antes de qualquer envio. Se outro caminho já reservou o slot, ela retorna `already_sent` e não envia.
+3. Só depois do claim bem sucedido a função carrega dados, chama Resend e atualiza o registro com `sent_at` / `resend_message_id`.
 
-### B4.2 — Remover `TestePagamento` e função fantasma (sem mudanças)
-- **Deletar** `src/pages/TestePagamento.tsx`.
-- **Editar `App.tsx`**: remover import e rota `/teste-pagamento`.
-- **Editar `supabase/config.toml`**: remover bloco `[functions.create-checkout-session]`.
-- **Não tocar** em nenhuma Edge Function.
-- **Validação manual**:
-  1. `/teste-pagamento` cai em NotFound.
-  2. Build limpo.
+Isso garante: **um envio por order_id**, mesmo com 3 callers em paralelo.
 
-### B4.3 — Remover `Checkout.tsx` legado (ajustado)
-- **Deletar apenas** `src/pages/Checkout.tsx`.
-- **Manter** `src/pages/CheckoutSuccess.tsx`, seu import e a rota `/checkout/sucesso` exatamente como hoje (preserva `back_url` antigo do MP e contexto pós-pagamento).
-- **Editar `App.tsx`**:
-  - Remover `import Checkout from "./pages/Checkout";`.
-  - Trocar `<Route path="/checkout" element={<Checkout />} />` por `<Route path="/checkout" element={<Navigate to="/" replace />} />`.
-- **Não remover** `supabase/functions/create-mercadopago-preference` — fica como follow-up depois de confirmar 0 invocações em logs.
-- **Validação manual**:
-  1. Compra real PIX via `CheckoutModal` (em `EventDetails`) funciona ponta a ponta.
-  2. Compra real cartão via `CheckoutModal` funciona.
-  3. `/checkout?evento=X` redireciona para `/`.
-  4. `/checkout/sucesso?order_id=X&payment_id=Y` ainda renderiza `CheckoutSuccess`, confirma pagamento e mostra o botão para `/meus-ingressos`.
+Importante: o claim deve ser feito **fora da transação** que muda `orders.status`, mas **somente quando o `UPDATE` retornou linha alterada** (i.e. somente o caller que efetivamente fez `pending -> paid` deve invocar). Os outros callers que viram "no-op" não chamam, evitando ruído. Mesmo assim, o claim é a defesa final.
 
-### B4.4 — Consolidar reset de senha (faseado, conforme Ajuste 2)
-Como `Auth.tsx` ainda não suporta `?mode=forgot`, dividimos em dois micro-passos:
+## 3. Modelagem de idempotência
 
-**B4.4a — Adicionar suporte a `?mode=forgot` em `Auth.tsx`**
-- Em `Auth.tsx`, ler `searchParams.get('mode')` e, quando igual a `forgot`, abrir o `Dialog` de OTP automaticamente (`setForgotOpen(true)` em `useEffect`, com `forgotEmail` pré-preenchido por `searchParams.get('email')` se vier).
-- Sem mudar o modal nem o componente `PasswordResetOTPFlow`.
-- **Validação manual**:
-  1. Acessar `/login?mode=forgot` abre o dialog de recuperação direto.
-  2. Acessar `/login` normal continua mostrando login sem dialog.
-  3. Fluxo OTP completo continua funcional.
+Nova tabela:
 
-**B4.4b — Apontar `/reset-password` para o novo fluxo**
-Somente após B4.4a validado:
-- **Deletar** `src/pages/ResetPassword.tsx`.
-- **Editar `App.tsx`**:
-  - Remover `import ResetPassword from "./pages/ResetPassword";`.
-  - Trocar `/reset-password` para `<Navigate to="/login?mode=forgot" replace />`.
-  - Manter `/auth` → `/login` como está (o redirect existente já é simples; não tentar preservar query string aqui para não introduzir parsing desnecessário).
-- **Validação manual**:
-  1. `/reset-password` cai em `/login?mode=forgot` em 1 hop e abre o dialog.
-  2. `/auth` ainda redireciona para `/login`.
-  3. Fluxo OTP segue ok.
-
-### B4.5 — Auditoria final dos redirects legacy (sem deleção)
-- Manter redirects legacy de produtor (`/dashboard*`, `/criar-evento`, `/editar-evento/:id`) e colaborador.
-- Adicionar comentário curto em `App.tsx` indicando que existem para preservar bookmarks.
-- **Validação manual**: smoke test rápido de cada URL legacy → equivalente novo.
-
-## Arquivos impactados (resumo final)
-
-```text
-DELETE  src/pages/Checkout.tsx
-DELETE  src/pages/ResetPassword.tsx                     (em B4.4b)
-DELETE  src/pages/TestePagamento.tsx
-DELETE  src/pages/colaborador/ColaboradorDashboard.tsx
-DELETE  src/pages/colaborador/ColaboradorEventoMenu.tsx
-DELETE  src/pages/colaborador/ColaboradorParticipantes.tsx
-DELETE  src/pages/colaborador/ColaboradorConvidados.tsx
-DELETE  src/pages/colaborador/QRCodeScanner.tsx
-
-EDIT    src/App.tsx                  (remover imports mortos, trocar rotas por <Navigate>)
-EDIT    src/pages/Auth.tsx           (suporte a ?mode=forgot — B4.4a)
-EDIT    supabase/config.toml         (remover bloco create-checkout-session)
-
-KEEP    src/pages/CheckoutSuccess.tsx
-KEEP    rota /checkout/sucesso
-KEEP    supabase/functions/create-mercadopago-preference  (follow-up depois)
-KEEP    redirects legacy de produtor e colaborador
+```sql
+create table public.order_email_notifications (
+  order_id uuid primary key,
+  kind text not null default 'paid_confirmation',
+  status text not null default 'pending', -- pending | sent | failed
+  attempts int not null default 0,
+  last_error text,
+  resend_message_id text,
+  created_at timestamptz not null default now(),
+  sent_at timestamptz
+);
+alter table public.order_email_notifications enable row level security;
+-- só admins leem; service role escreve
+create policy "Admins view notifications" on public.order_email_notifications
+  for select to authenticated using (has_role(auth.uid(), 'admin'));
 ```
 
-## Riscos residuais
+Claim atômico dentro da edge function (service role):
 
-- `back_url` antigo MP → mantido `/checkout/sucesso` funcional, risco neutralizado.
-- Bookmarks `/checkout?evento=...` → redirecionam para `/`, perda apenas do cart serializado (volátil).
-- `/reset-password` antigo → continua funcionando via redirect com 1 hop (depois de B4.4b).
+```sql
+insert into order_email_notifications (order_id, status, attempts)
+values ($1, 'pending', 1)
+on conflict (order_id) do nothing
+returning order_id;
+```
 
-## Parecer
+- Se retornou linha → este worker tem o lock e procede com envio.
+- Se retornou vazio → outro worker já claimou; sair com `{ skipped: true, reason: 'already_claimed' }`.
 
-**Aprovado com ajustes incorporados.** Ordem sugerida: B4.1 → B4.2 → B4.3 → B4.4a → B4.4b → B4.5. Cada bloco em commit separado.
+Após Resend OK: `update ... set status='sent', sent_at=now(), resend_message_id=...`.
+Se Resend falhar: `update ... set status='failed', last_error=...`. Política: para v1 não fazemos retry automático (admin pode reenviar manualmente futuramente). Cron de retry fica fora deste bloco.
 
-Aguardando aprovação para implementar.
+## 4. Arquivos / edge functions / tabelas impactados
+
+**Novo:**
+- Migration: tabela `order_email_notifications`.
+- Edge function `send-order-confirmation-email/index.ts` (`verify_jwt = false`, autenticada por chamada interna com service role; valida `order_id`).
+- Entrada em `supabase/config.toml` para a nova função.
+
+**Modificados (apenas adicionando 1 chamada `functions.invoke` após a transição confirmada):**
+- `supabase/functions/process-card-payment/index.ts` — após `update ... status='paid'` retornar linha.
+- `supabase/functions/check-mercadopago-payment/index.ts` — dentro do bloco `if (updatedOrder)` no caminho `targetOrderId`, e também no caminho fallback por `paymentId`.
+- `supabase/functions/mercadopago-webhook/index.ts` — dentro do bloco `if (changed)` da transição approved.
+
+A invocação é fire-and-forget (`.catch(log)`), nunca bloqueia o fluxo crítico de pagamento.
+
+**Não alterado:**
+- `CheckoutStepSuccess.tsx` (já mostra a mensagem correta).
+- Nenhuma tabela de orders/tickets.
+
+## 5. Riscos de regressão
+
+- **Falha do Resend bloquear pagamento**: mitigado por fire-and-forget + try/catch.
+- **Race entre webhook e polling chamando a função simultaneamente**: mitigado pelo claim único (`on conflict do nothing`).
+- **Order sem email do cliente**: improvável (`customer_email` é NOT NULL nos fluxos atuais), mas a função valida e retorna 200 sem enviar se faltar.
+- **Custo extra de chamadas a Resend**: 1 email por pedido pago. Aceitável.
+- **Domain reputation**: já usamos `festpag.com.br` no Resend para OTP — mesmo sender, mesmo padrão visual.
+- **RLS**: nada novo exposto ao client; tabela só lida por admin.
+
+## 6. Plano em blocos pequenos
+
+- **B6.1.a** — Migration: criar `order_email_notifications` + RLS.
+- **B6.1.b** — Edge function `send-order-confirmation-email` (claim + load + Resend + update). Registrar em `config.toml`.
+- **B6.1.c** — Hook em `process-card-payment` (1 invoke após `paid`).
+- **B6.1.d** — Hook em `check-mercadopago-payment` (dois pontos: targetOrderId e fallback).
+- **B6.1.e** — Hook em `mercadopago-webhook` (bloco approved aplicado).
+- **B6.1.f** — Validação manual + observabilidade (logs `[SEND-ORDER-EMAIL]`).
+
+Cada bloco é reversível isoladamente.
+
+## 7. Checklist manual de validação
+
+1. Comprar com cartão aprovado → 1 email recebido em até 5s; `order_email_notifications.status='sent'`.
+2. Comprar com PIX, simular pagamento → webhook chega antes do polling: 1 email; polling subsequente loga `already_claimed`.
+3. Forçar polling antes do webhook (PIX rápido) → 1 email; webhook subsequente loga `already_claimed`.
+4. Reprocessar webhook duplicado MP (mesmo `payment_id`) → nenhum email extra (dedupe já existente em `mp_webhook_events`).
+5. Pedido com `customer_email` faltando → função retorna 200, registro fica `failed` com `last_error='missing_email'`, sem crash.
+6. Resend simulado offline → registro `failed`, pedido segue `paid` normalmente, fluxo de checkout não afetado.
+7. Email contém: nome do evento, qtd ingressos, total, status `Pago`, link para `/meus-ingressos`, fallback textual quando `user_id` é null ("seus ingressos foram vinculados ao email X — faça login com este email para acessá-los").
+8. Cartão recusado → nenhum email enviado.
+
+## 8. Parecer final
+
+**Aprovado para implementação** após sua confirmação. Solução respeita:
+- idempotência real por `order_id` via constraint de PK,
+- compatibilidade com produção (fire-and-forget, sem mudar fluxo de pagamento),
+- canal Resend já existente no projeto,
+- escopo limitado: nada de claim de tickets órfãos, nada de WhatsApp.
+
+Aguardo aprovação para abrir B6.1.a.
