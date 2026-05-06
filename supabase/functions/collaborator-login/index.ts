@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { compareSync, hashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,6 +28,15 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate limit
+    const ip = getClientIp(req);
+    const userBucket = `login:user:${String(username).trim().toLowerCase()}`;
+    const ipBucket = `login:ip:${ip}`;
+    const rlUser = await checkRateLimit(supabase, userBucket, 5, 900, 900);
+    if (!rlUser.allowed) return rateLimitResponse(rlUser.retryAfter, corsHeaders);
+    const rlIp = await checkRateLimit(supabase, ipBucket, 20, 900, 900);
+    if (!rlIp.allowed) return rateLimitResponse(rlIp.retryAfter, corsHeaders);
 
     // Find collaborator by username
     const { data: collaborator, error: findError } = await supabase

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const Resend = (await import("https://esm.sh/resend@2.0.0")).Resend;
 
@@ -37,6 +38,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    // Rate limit
+    const ip = getClientIp(req);
+    const emailBucket = `otp:email:${email.trim().toLowerCase()}`;
+    const ipBucket = `otp:ip:${ip}`;
+    const rlEmail = await checkRateLimit(supabase, emailBucket, 3, 900, 1800);
+    if (!rlEmail.allowed) return rateLimitResponse(rlEmail.retryAfter, corsHeaders);
+    const rlIp = await checkRateLimit(supabase, ipBucket, 10, 900, 1800);
+    if (!rlIp.allowed) return rateLimitResponse(rlIp.retryAfter, corsHeaders);
 
     // Delete any existing codes for this email
     await supabase
