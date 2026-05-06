@@ -165,7 +165,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <h3 className="text-lg font-semibold">Ingressos</h3>
         <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} size="sm">
           <Plus className="w-4 h-4 mr-2" />
-          Novo Ingresso
+          Novo Setor
         </Button>
       </div>
 
@@ -173,11 +173,11 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4">
-              Nenhum ingresso criado ainda. Adicione um ingresso para começar a vender.
+              Nenhum setor criado ainda. Crie um setor (ex: Pista, Camarote) para começar a cadastrar ingressos.
             </p>
             <Button onClick={() => handleOpenDialog(undefined, undefined, 'new_sector')} variant="outline">
               <Plus className="w-4 h-4 mr-2" />
-              Criar Primeiro Ingresso
+              Criar Primeiro Setor
             </Button>
           </CardContent>
         </Card>
@@ -189,12 +189,12 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                 <div className="min-w-0">
                   <CardTitle className="text-base uppercase tracking-wide">{sectorName}</CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {sectorLots.length} {sectorLots.length === 1 ? 'lote' : 'lotes'}
+                    {sectorLots.length} {sectorLots.length === 1 ? 'ingresso' : 'ingressos'}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => handleOpenDialog(undefined, sectorName)}>
                   <Plus className="w-4 h-4 mr-1" />
-                  Novo Lote
+                  Novo Ingresso
                 </Button>
               </CardHeader>
               <CardContent>
