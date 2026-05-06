@@ -7,26 +7,45 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, User, Mail, Phone, Building2, Sparkles, Settings as SettingsIcon, Globe } from 'lucide-react';
+import {
+  Loader2,
+  User,
+  Mail,
+  Phone,
+  Building2,
+  Sparkles,
+  Settings as SettingsIcon,
+  Globe,
+  Upload,
+  Trash2,
+  ImageIcon,
+} from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
 
 export default function ProducerSettings() {
   const { profile, user, producerProfileId } = useAuth();
   const queryClient = useQueryClient();
+  const { uploadImage, deleteImage, isUploading } = useImageUpload();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Personal
   const [nome, setNome] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
 
+  // Producer
   const [brandName, setBrandName] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [legalName, setLegalName] = useState('');
   const [document, setDocument] = useState('');
   const [orgEmail, setOrgEmail] = useState('');
   const [orgPhone, setOrgPhone] = useState('');
-  const [savingOrg, setSavingOrg] = useState(false);
+
+  const [saving, setSaving] = useState(false);
 
   const { data: producerProfile } = useQuery({
     queryKey: ['producer-profile', producerProfileId],
@@ -53,6 +72,7 @@ export default function ProducerSettings() {
   useEffect(() => {
     if (producerProfile) {
       setBrandName(producerProfile.brand_name || '');
+      setLogoUrl(producerProfile.logo_url || null);
       setLegalName(producerProfile.legal_name || '');
       setDocument(producerProfile.document || '');
       setOrgEmail(producerProfile.email || '');
@@ -60,41 +80,69 @@ export default function ProducerSettings() {
     }
   }, [producerProfile]);
 
-  const handleSaveProfile = async () => {
-    if (!user?.id) return;
-    setSavingProfile(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ nome_completo: nome, whatsapp })
-      .eq('id', user.id);
-    setSavingProfile(false);
-    if (error) toast.error('Erro ao salvar perfil');
-    else toast.success('Perfil atualizado!');
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImage(file);
+    if (url) {
+      setLogoUrl(url);
+      toast.success('Logo carregado! Lembre de salvar para confirmar.');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSaveOrg = async () => {
-    if (!producerProfileId) return;
-    setSavingOrg(true);
-    const { error } = await supabase
-      .from('producer_profiles')
-      .update({
-        brand_name: brandName,
-        legal_name: legalName || null,
-        document: document || null,
-        email: orgEmail || null,
-        phone: orgPhone || null,
-      })
-      .eq('id', producerProfileId);
-    setSavingOrg(false);
-    if (error) {
-      toast.error('Erro ao salvar dados da produtora');
-    } else {
-      toast.success('Produtora atualizada!');
+  const handleLogoRemove = async () => {
+    if (logoUrl) {
+      await deleteImage(logoUrl);
+    }
+    setLogoUrl(null);
+  };
+
+  const handleSaveAll = async () => {
+    if (!user?.id) return;
+    setSaving(true);
+    try {
+      const tasks: Promise<any>[] = [
+        Promise.resolve(
+          supabase
+            .from('profiles')
+            .update({ nome_completo: nome, whatsapp })
+            .eq('id', user.id),
+        ),
+      ];
+
+      if (producerProfileId) {
+        tasks.push(
+          Promise.resolve(
+            supabase
+              .from('producer_profiles')
+              .update({
+              brand_name: brandName,
+              logo_url: logoUrl,
+              legal_name: legalName || null,
+              document: document || null,
+              email: orgEmail || null,
+              phone: orgPhone || null,
+              })
+              .eq('id', producerProfileId),
+          ),
+        );
+      }
+
+      const results = await Promise.all(tasks);
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) throw firstError;
+
+      toast.success('Configurações salvas!');
       queryClient.invalidateQueries({ queryKey: ['producer-profile'] });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao salvar configurações');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const logoUrl = producerProfile?.logo_url || festpagLogo;
+  const previewLogo = logoUrl || festpagLogo;
   const previewName = brandName || 'Nome da sua produtora';
 
   return (
@@ -103,7 +151,7 @@ export default function ProducerSettings() {
         <title>Configurações | FestPag</title>
       </Helmet>
 
-      <div className="space-y-8 max-w-6xl mx-auto">
+      <div className="space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-background to-pink-500/10 p-6 sm:p-8">
           <div className="flex items-center gap-4">
@@ -111,7 +159,7 @@ export default function ProducerSettings() {
               <SettingsIcon className="h-6 w-6 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Configurações</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Configurações da Conta</h1>
               <p className="text-sm sm:text-base text-muted-foreground">
                 Gerencie seu perfil e os dados da sua produtora
               </p>
@@ -119,144 +167,140 @@ export default function ProducerSettings() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Dados Pessoais */}
-          <Card className="rounded-2xl border-border/60">
-            <CardContent className="p-6 space-y-5">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <User className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold">Dados Pessoais</h2>
-                  <p className="text-xs text-muted-foreground">Informações da sua conta</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="email" value={user?.email || ''} disabled className="pl-9 bg-muted" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome Completo</Label>
-                <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="whatsapp">WhatsApp</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="whatsapp"
-                    value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
-                    placeholder="(11) 99999-9999"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <Button onClick={handleSaveProfile} disabled={savingProfile} size="lg" className="w-full sm:w-auto">
-                  {savingProfile && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Salvar Perfil
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Produtora */}
-          {producerProfileId && (
-            <Card className="rounded-2xl border-border/60 relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-pink-500" />
-              <CardContent className="p-6 space-y-5">
+        <Card className="rounded-2xl border-border/60 overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-pink-500" />
+          <CardContent className="p-6 sm:p-8 space-y-10">
+            {/* PRODUTORA */}
+            {producerProfileId && (
+              <section className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center">
                     <Building2 className="h-5 w-5 text-primary" />
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-semibold">Produtora</h2>
-                    <p className="text-xs text-muted-foreground">Aparece publicamente nos seus eventos</p>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 flex-wrap">
+                      Produtora
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <Sparkles className="h-3 w-3" />
+                        Aparece em "Realização"
+                      </Badge>
+                    </h2>
+                    <p className="text-xs text-muted-foreground">Identidade pública dos seus eventos</p>
                   </div>
                 </div>
 
-                <Separator />
-
-                {/* Nome da produtora — destaque */}
-                <div className="space-y-2 p-4 rounded-xl bg-primary/5 border border-primary/20">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Label htmlFor="brandName" className="text-base font-semibold">
-                      Nome da Produtora
-                    </Label>
-                    <Badge variant="secondary" className="gap-1 text-[10px]">
-                      <Sparkles className="h-3 w-3" />
-                      Aparece em "Realização"
-                    </Badge>
+                {/* Logo + Nome */}
+                <div className="flex flex-col sm:flex-row gap-6 items-start p-5 rounded-xl bg-primary/5 border border-primary/20">
+                  {/* Logo */}
+                  <div className="flex flex-col items-center gap-3 shrink-0 mx-auto sm:mx-0">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                    <div className="relative h-24 w-24 rounded-full overflow-hidden bg-muted border-2 border-primary/30 flex items-center justify-center">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Logo da produtora" className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                      )}
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Loader2 className="h-6 w-6 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                      >
+                        <Upload className="h-3 w-3 mr-1" />
+                        {logoUrl ? 'Trocar' : 'Enviar'}
+                      </Button>
+                      {logoUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleLogoRemove}
+                          disabled={isUploading}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Input
-                    id="brandName"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    placeholder="Ex: ND Eventos"
-                    className="h-11 text-base"
-                  />
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Globe className="h-3 w-3" />
-                    Este nome será exibido como produtora oficial na página pública dos seus eventos.
-                  </p>
 
-                  {/* Preview ao vivo */}
-                  <div className="mt-3 p-3 rounded-lg bg-card border border-border">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
-                      Pré-visualização
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <div className="h-11 w-11 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                        <img src={logoUrl} alt={previewName} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{previewName}</p>
-                        <p className="text-xs text-muted-foreground">Produtora do evento</p>
+                  {/* Nome + preview */}
+                  <div className="flex-1 w-full space-y-3 min-w-0">
+                    <div className="space-y-2">
+                      <Label htmlFor="brandName" className="text-base font-semibold">
+                        Nome da Produtora
+                      </Label>
+                      <Input
+                        id="brandName"
+                        value={brandName}
+                        onChange={(e) => setBrandName(e.target.value)}
+                        placeholder="Ex: Made in Brazil Bar"
+                        className="h-11 text-base"
+                      />
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Globe className="h-3 w-3 shrink-0" />
+                        Exibido como produtora oficial na página pública dos eventos.
+                      </p>
+                    </div>
+
+                    {/* Pré-visualização */}
+                    <div className="p-3 rounded-lg bg-card border border-border">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
+                        Pré-visualização (Realização)
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="h-11 w-11 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                          <img src={previewLogo} alt={previewName} className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{previewName}</p>
+                          <p className="text-xs text-muted-foreground">Produtora do evento</p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Dados fiscais e de contato */}
+                {/* Dados fiscais */}
                 <div className="space-y-4">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
                     Dados fiscais e de contato
                   </p>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="legalName">Razão Social</Label>
-                    <Input
-                      id="legalName"
-                      value={legalName}
-                      onChange={(e) => setLegalName(e.target.value)}
-                      placeholder="Razão social (opcional)"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="document">CNPJ / CPF</Label>
-                    <Input
-                      id="document"
-                      value={document}
-                      onChange={(e) => setDocument(e.target.value)}
-                      placeholder="00.000.000/0000-00"
-                    />
-                  </div>
-
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="orgEmail">Email</Label>
+                      <Label htmlFor="legalName">Razão Social</Label>
+                      <Input
+                        id="legalName"
+                        value={legalName}
+                        onChange={(e) => setLegalName(e.target.value)}
+                        placeholder="Razão social (opcional)"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="document">CNPJ / CPF</Label>
+                      <Input
+                        id="document"
+                        value={document}
+                        onChange={(e) => setDocument(e.target.value)}
+                        placeholder="00.000.000/0000-00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="orgEmail">Email de contato</Label>
                       <Input
                         id="orgEmail"
                         type="email"
@@ -276,22 +320,69 @@ export default function ProducerSettings() {
                     </div>
                   </div>
                 </div>
+              </section>
+            )}
 
-                <div className="flex justify-end pt-2">
-                  <Button
-                    onClick={handleSaveOrg}
-                    disabled={savingOrg}
-                    size="lg"
-                    className="w-full sm:w-auto bg-gradient-to-r from-primary to-pink-500 hover:opacity-90"
-                  >
-                    {savingOrg && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Salvar Produtora
-                  </Button>
+            <Separator />
+
+            {/* DADOS PESSOAIS */}
+            <section className="space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary" />
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Dados Pessoais</h2>
+                  <p className="text-xs text-muted-foreground">Informações da sua conta de acesso</p>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="email" value={user?.email || ''} disabled className="pl-9 bg-muted" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome Completo</Label>
+                  <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">WhatsApp</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="whatsapp"
+                      value={whatsapp}
+                      onChange={(e) => setWhatsapp(e.target.value)}
+                      placeholder="(11) 99999-9999"
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <Separator />
+
+            {/* Botão único */}
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSaveAll}
+                disabled={saving || isUploading}
+                size="lg"
+                className="w-full sm:w-auto bg-gradient-to-r from-primary to-pink-500 hover:opacity-90"
+              >
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar Configurações
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </ProducerLayout>
   );
