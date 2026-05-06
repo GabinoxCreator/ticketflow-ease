@@ -39,9 +39,9 @@ serve(async (req) => {
     // Rate limit
     const ip = getClientIp(req);
     const rlEmail = await checkRateLimit(supabase, `otp:email:${normalizedEmail}`, 3, 900, 1800);
-    if (!rlEmail.allowed) return rateLimitResponse(rlEmail.retryAfter, corsHeaders);
+    if (!rlEmail.allowed) return rateLimitResponse(rlEmail, corsHeaders);
     const rlIp = await checkRateLimit(supabase, `otp:ip:${ip}`, 10, 900, 1800);
-    if (!rlIp.allowed) return rateLimitResponse(rlIp.retryAfter, corsHeaders);
+    if (!rlIp.allowed) return rateLimitResponse(rlIp, corsHeaders);
 
     // Verifica se o usuário existe (sem revelar para o cliente)
     const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();

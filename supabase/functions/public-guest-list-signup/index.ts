@@ -42,7 +42,7 @@ serve(async (req) => {
     // Rate limit by IP+list
     const ip = getClientIp(req);
     const rl = await checkRateLimit(supabase, `guest:ip:${ip}:${list.id}`, 5, 600, 600);
-    if (!rl.allowed) return rateLimitResponse(rl.retryAfter, corsHeaders);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     if (!list.is_active) {
       return new Response(

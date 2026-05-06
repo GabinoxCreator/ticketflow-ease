@@ -44,9 +44,9 @@ serve(async (req) => {
     const emailBucket = `otp:email:${email.trim().toLowerCase()}`;
     const ipBucket = `otp:ip:${ip}`;
     const rlEmail = await checkRateLimit(supabase, emailBucket, 3, 900, 1800);
-    if (!rlEmail.allowed) return rateLimitResponse(rlEmail.retryAfter, corsHeaders);
+    if (!rlEmail.allowed) return rateLimitResponse(rlEmail, corsHeaders);
     const rlIp = await checkRateLimit(supabase, ipBucket, 10, 900, 1800);
-    if (!rlIp.allowed) return rateLimitResponse(rlIp.retryAfter, corsHeaders);
+    if (!rlIp.allowed) return rateLimitResponse(rlIp, corsHeaders);
 
     // Delete any existing codes for this email
     await supabase

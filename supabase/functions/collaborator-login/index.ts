@@ -34,9 +34,9 @@ serve(async (req) => {
     const userBucket = `login:user:${String(username).trim().toLowerCase()}`;
     const ipBucket = `login:ip:${ip}`;
     const rlUser = await checkRateLimit(supabase, userBucket, 5, 900, 900);
-    if (!rlUser.allowed) return rateLimitResponse(rlUser.retryAfter, corsHeaders);
+    if (!rlUser.allowed) return rateLimitResponse(rlUser, corsHeaders);
     const rlIp = await checkRateLimit(supabase, ipBucket, 20, 900, 900);
-    if (!rlIp.allowed) return rateLimitResponse(rlIp.retryAfter, corsHeaders);
+    if (!rlIp.allowed) return rateLimitResponse(rlIp, corsHeaders);
 
     // Find collaborator by username
     const { data: collaborator, error: findError } = await supabase
