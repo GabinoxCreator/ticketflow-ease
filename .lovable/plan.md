@@ -1,46 +1,45 @@
-## Hierarquia correta
-- **Setor** = grupo (ex: Área VIP, Camarote, Pista). Botão grande do topo: **+ Novo Setor**.
-- **Ingresso** = item vendável dentro de um setor (ex: 1º Lote, Meia, Inteira). Botão dentro do card de cada setor: **+ Novo Ingresso**.
-- Aba do dashboard continua "Ingressos" (já está correto).
+## Modal "Novo Setor" redesenhado
 
-## Renomeações de texto (`src/components/producer/LotManager.tsx`)
-- Botão topo direito: "Novo Ingresso" → **"Novo Setor"**.
-- Estado vazio: "Nenhum setor criado ainda…" / **"Criar Primeiro Setor"**.
-- Botão dentro de cada card de setor: "Novo Lote" → **"Novo Ingresso"**.
-- Linha "3 lotes" abaixo do nome do setor → **"3 ingressos"**.
-- Título do modal:
-  - Editar → "Editar Ingresso"
-  - Criar setor (etapa 1) → "Novo Setor"
-  - Criar ingresso em setor existente → "Novo Ingresso em {setor}"
-- Label "Nome do Lote *" → **"Nome do Ingresso *"**.
+Substituir os radio buttons por seleção visual em **cards grandes**, com o setor já existente vindo selecionado por padrão.
 
-## Modal multietapas (apenas no fluxo "Novo Setor")
-Ao clicar **+ Novo Setor** no topo, modal abre na **etapa 1 – Setor**:
+### Layout
 
 ```text
-┌─ Novo Setor ──────────────────────┐
-│  ( ) Usar setor existente         │
-│      [ Select de setores ▾ ]      │
-│  (•) Criar novo setor             │
-│      [ Input: nome do setor ]     │
-│           [ Cancelar ] [ Continuar → ]
-└───────────────────────────────────┘
+┌─ Novo Setor ────────────────────────────────────────────┐
+│  Escolha um setor para adicionar o ingresso             │
+│                                                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │INGRESSOS │  │ ÁREA VIP │  │ CAMAROTE │  │   +    │ │
+│  │ 3 itens  │  │  1 item  │  │  0 itens │  │ Novo   │ │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
+│                                                         │
+│  (se "Novo" clicado:)                                   │
+│  Nome do novo setor: [_____________________________]    │
+│                                                         │
+│              [ Cancelar ]      [ Continuar → ]          │
+└─────────────────────────────────────────────────────────┘
 ```
 
-- Sem setores ainda → "Usar setor existente" desabilitado, "Criar novo setor" marcado por padrão.
-- **Continuar** valida nome e avança para **etapa 2 – Ingresso** (formulário atual com nome, preço, quantidade, escassez, grupo, etc.).
-- **Voltar** disponível na etapa 2 só nesse fluxo.
+### Comportamento
+- Ao abrir o modal, o **primeiro setor existente já vem selecionado** (highlight). Usuário só clica Continuar.
+- Cards de setores existentes são clicáveis. Clique = troca a seleção.
+- Card final **"+ Novo"** com ícone Plus grande. Ao clicar, vira "modo novo setor" e abre input inline (autoFocus).
+- Apenas um item selecionado por vez.
+- **Continuar** habilita quando há setor selecionado (existente) ou nome digitado (novo).
+- Se não houver nenhum setor ainda, abre direto em modo "Novo" sem mostrar grid.
 
-Ao clicar **+ Novo Ingresso** dentro de um card de setor → abre **direto na etapa 2** com setor travado.
-Ao **editar** ingresso existente → abre direto na etapa 2 (comportamento atual).
+### Visual
+- Modal mais largo: `sm:max-w-2xl`, padding generoso.
+- Cards: grid responsivo (`grid-cols-2 sm:grid-cols-3`), `min-h-[110px]`, `p-5`, `border-2`, `rounded-xl`.
+- Selecionado: `border-primary bg-primary/10 ring-2 ring-primary/30`.
+- Não selecionado: `border-border hover:border-primary/40 hover:bg-muted/50`.
+- Card "Novo": `border-dashed`, ícone Plus 28px centralizado, label "Novo setor".
+- Tipografia maior nos botões/títulos. Sem radios nativos.
 
-## Implementação técnica
-- Estado local: `step: 1 | 2` e `flow: 'new_sector' | 'add_to_sector' | 'edit'`.
-- Etapa 2 mostra setor escolhido como **badge read-only** no topo (com link "alterar" só se `flow === 'new_sector'`).
-- Remove o Select "Ingresso (Setor)" da etapa 2.
-- `handleSubmit` só dispara na etapa 2.
+### Etapa 2 (formulário do ingresso)
+- Mantida como está. Badge do setor no topo + link "alterar".
 
-## Arquivos afetados
-- `src/components/producer/LotManager.tsx` (único arquivo)
+### Arquivo afetado
+- `src/components/producer/LotManager.tsx` — apenas a etapa 1 do modal e estado relacionado.
 
-Sem mudanças no banco, hooks ou tipos.
+Sem alterações de banco, hooks ou tipos.
