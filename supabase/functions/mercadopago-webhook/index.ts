@@ -237,10 +237,16 @@ serve(async (req) => {
         outcome = 'applied';
         log('approved applied', { orderId: order.id, paymentId });
 
-        // Fire-and-forget confirmation email (idempotent by order_id)
-        supabase.functions.invoke('send-order-confirmation-email', {
-          body: { order_id: order.id },
-        }).catch((e) => log('send-order-confirmation-email invoke failed', { e: String(e) }));
+        // Post-payment confirmation email — awaited but never throws.
+        try {
+          const emailResult = await sendOrderConfirmationEmailSafe(supabase, {
+            orderId: order.id,
+            source: 'webhook',
+          });
+          log('order_email_result', emailResult);
+        } catch (e) {
+          log('order_email_unexpected', { e: String(e) });
+        }
       } else {
         log('approved no-op (already paid or other)', { orderId: order.id });
       }
