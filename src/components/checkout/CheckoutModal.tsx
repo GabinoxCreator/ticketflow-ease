@@ -288,8 +288,8 @@ export function CheckoutModal({
                 customerEmail={customerData.email}
                 customerPhone={customerData.phone}
                 customerCPF={customerData.cpf}
-                onSuccess={(newOrderId) => { setOrderId(newOrderId); setStep('success'); }}
-                onInProcess={(newOrderId) => { setOrderId(newOrderId); setStep('awaiting'); }}
+                onSuccess={(newOrderId, pid) => { setOrderId(newOrderId); if (pid) setPaymentId(pid); setStep('success'); }}
+                onInProcess={(newOrderId, pid) => { setOrderId(newOrderId); if (pid) setPaymentId(pid); setStep('awaiting'); }}
                 onError={() => {}}
               />
             )}
