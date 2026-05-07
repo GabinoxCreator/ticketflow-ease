@@ -255,6 +255,8 @@ export function CheckoutModal({
                 initialCPF={customerData.cpf}
                 initialName={customerData.name}
                 initialEmail={customerData.email}
+                requireName={!customerData.name || customerData.name.trim().length < 3}
+                requireEmail={!customerData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.email)}
                 onContinue={handleCpfContinue}
               />
             )}
