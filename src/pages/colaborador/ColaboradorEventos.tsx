@@ -130,26 +130,26 @@ export default function ColaboradorEventos() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
+      <header className="bg-white dark:bg-slate-900 border-b sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Eventos</h1>
-            <p className="text-sm text-muted-foreground">
-              Olá, {collaborator?.name}
-            </p>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Olá,</p>
+            <h1 className="text-lg font-bold truncate">{collaborator?.name}</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="w-5 h-5" />
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
+            <LogOut className="w-4 h-4" />
+            <span className="text-xs">Sair</span>
           </Button>
         </div>
       </header>
 
       {/* Content */}
       <main className="max-w-lg mx-auto p-4">
+        <h2 className="text-xl font-bold mb-1">Seus eventos</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Selecione um evento para operar o check-in
+          Toque em um evento para iniciar o check-in.
         </p>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
