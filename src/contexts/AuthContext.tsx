@@ -12,6 +12,7 @@ interface Profile {
   email: string;
   avatar_url: string | null;
   created_at: string;
+  cpf: string | null;
 }
 
 interface SignUpData {
