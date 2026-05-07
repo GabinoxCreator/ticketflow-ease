@@ -143,7 +143,7 @@ export default function ColaboradorQRScanner({
         scannerRef.current = scanner;
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 280, height: 280 } },
+          { fps: 10 },
           (decodedText) => { if (mounted) onScan(decodedText); },
           () => {}
         );
