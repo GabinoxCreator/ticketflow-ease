@@ -190,44 +190,49 @@ export default function ColaboradorQRTab({
         {/* Big scan button */}
         <button
           onClick={() => setScannerOpen(true)}
-          className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-5 flex items-center gap-4 shadow-lg active:scale-[0.98] transition-transform"
+          className="group w-full rounded-2xl bg-gradient-to-br from-primary via-primary to-pink-600 text-white p-5 flex items-center gap-4 shadow-lg shadow-primary/25 active:scale-[0.98] hover:shadow-xl hover:shadow-primary/30 transition-all"
         >
-          <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
-            <Camera className="w-7 h-7" />
+          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0 ring-1 ring-white/30">
+            <Camera className="w-8 h-8" strokeWidth={2.2} />
           </div>
-          <div className="text-left">
-            <p className="text-lg font-bold leading-tight">Escanear QR Code</p>
-            <p className="text-sm opacity-90">Modo rápido para portaria</p>
+          <div className="text-left flex-1 min-w-0">
+            <p className="text-[11px] uppercase tracking-wider font-bold opacity-80">
+              Modo portaria
+            </p>
+            <p className="text-xl font-extrabold leading-tight">Escanear QR Code</p>
+            <p className="text-xs opacity-90 mt-0.5">Câmera traseira · validação automática</p>
           </div>
         </button>
 
         {/* Manual search */}
-        <Card className="border-slate-200 dark:border-slate-800">
-          <CardContent className="p-4">
-            <form onSubmit={handleSearch} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Busca manual</p>
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  Sem QR
-                </span>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <form onSubmit={handleSearch} className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-900">Busca manual</p>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                Sem QR
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Nome, código, email ou telefone"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-11 bg-slate-50 border-slate-200 focus:bg-white"
+                />
               </div>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Nome, código, email ou telefone"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-11"
-                  />
-                </div>
-                <Button type="submit" disabled={isSearching || !searchQuery.trim()} className="h-11 px-4">
-                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+              <Button
+                type="submit"
+                disabled={isSearching || !searchQuery.trim()}
+                className="h-11 px-4"
+              >
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </div>
+          </form>
+        </div>
 
         {/* Search results */}
         {searchResults.length > 0 && (
