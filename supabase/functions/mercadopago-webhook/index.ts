@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
+import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +45,6 @@ async function verifyMpSignature(
 }
 
 async function findOrder(supabase: any, externalRef: string | null, paymentId: string) {
-  // 1. external_reference
   if (externalRef) {
     const { data } = await supabase
       .from('orders')
@@ -54,21 +53,12 @@ async function findOrder(supabase: any, externalRef: string | null, paymentId: s
       .maybeSingle();
     if (data) return data;
   }
-  // 2. mp_payment_id column
   const { data: byCol } = await supabase
     .from('orders')
     .select('id, status, coupon_id, event_id, total_amount, customer_email')
     .eq('mp_payment_id', paymentId)
     .maybeSingle();
-  if (byCol) return byCol;
-
-  // 3. legacy fallback
-  const { data: byText } = await supabase
-    .from('orders')
-    .select('id, status, coupon_id, event_id, total_amount, customer_email')
-    .ilike('payment_method', `%${paymentId}%`)
-    .maybeSingle();
-  return byText || null;
+  return byCol || null;
 }
 
 serve(async (req) => {
