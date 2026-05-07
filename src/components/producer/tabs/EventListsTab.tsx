@@ -32,9 +32,10 @@ import {
 
 interface EventListsTabProps {
   eventId: string;
+  eventTime?: string | null;
 }
 
-export function EventListsTab({ eventId }: EventListsTabProps) {
+export function EventListsTab({ eventId, eventTime }: EventListsTabProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedList, setSelectedList] = useState<GuestList | null>(null);
   const [listToDelete, setListToDelete] = useState<GuestList | null>(null);
@@ -213,6 +214,7 @@ export function EventListsTab({ eventId }: EventListsTabProps) {
 
       <AddGuestListDialog
         eventId={eventId}
+        eventTime={eventTime}
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
       />
