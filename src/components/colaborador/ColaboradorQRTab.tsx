@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import ColaboradorQRScanner from './ColaboradorQRScanner';
+import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
+import { buildWindowMessage } from '@/lib/checkinWindow';
 
 interface SearchResult {
   id: string;
