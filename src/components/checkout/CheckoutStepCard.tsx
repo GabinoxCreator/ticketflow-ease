@@ -72,7 +72,13 @@ export function CheckoutStepCard({
   const [cardHolder, setCardHolder] = useState(customerName);
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
-  const [cpf, setCpf] = useState(customerCPF);
+  const [cpf, setCpf] = useState(() => {
+    const d = (customerCPF || '').replace(/\D/g, '').slice(0, 11);
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`;
+    return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+  });
   const [installments, setInstallments] = useState('1');
   const [installmentOptions, setInstallmentOptions] = useState<Installment[]>([]);
   const [paymentMethodId, setPaymentMethodId] = useState('');
