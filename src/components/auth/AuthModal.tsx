@@ -246,14 +246,38 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
           {/* Header */}
           <div
             className={cn(
-              'px-6 pt-6 pb-4 border-b border-border/50',
-              isMobile && 'sticky top-0 z-10 bg-card/95 backdrop-blur-xl',
+              'border-b border-border/50',
+              isMobile
+                ? 'sticky top-0 z-10 bg-card/95 backdrop-blur-xl px-4 pt-4 pb-4'
+                : 'px-6 pt-6 pb-4',
             )}
           >
-            <h2 className="font-display font-bold text-2xl tracking-tight pr-8">
-              {title}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+            {isMobile ? (
+              <div className="grid grid-cols-[40px_1fr_40px] items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Voltar"
+                  className="h-10 w-10 inline-flex items-center justify-center rounded-full text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="text-center min-w-0">
+                  <h2 className="font-display font-bold text-lg tracking-tight truncate">
+                    {title}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>
+                </div>
+                <div aria-hidden className="h-10 w-10" />
+              </div>
+            ) : (
+              <>
+                <h2 className="font-display font-bold text-2xl tracking-tight pr-8">
+                  {title}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+              </>
+            )}
           </div>
 
           {/* Body */}
