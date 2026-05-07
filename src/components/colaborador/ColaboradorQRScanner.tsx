@@ -133,6 +133,7 @@ export default function ColaboradorQRScanner({
 
   useEffect(() => {
     if (!open) return;
+    if (result) return; // don't (re)start while showing result
     let mounted = true;
     const containerId = 'colaborador-qr-reader';
 
@@ -161,7 +162,15 @@ export default function ColaboradorQRScanner({
         scannerRef.current = null;
       }
     };
-  }, [open, onScan]);
+  }, [open, onScan, result]);
+
+  // Stop camera as soon as a result appears (prevents iOS black-screenshot artifact)
+  useEffect(() => {
+    if (result && scannerRef.current) {
+      scannerRef.current.stop().catch(() => {});
+      scannerRef.current = null;
+    }
+  }, [result]);
 
   if (!open) return null;
 
@@ -186,8 +195,11 @@ export default function ColaboradorQRScanner({
       <div className="flex-1 relative">
         <div id="colaborador-qr-reader" className="w-full h-full" />
 
+        {/* Solid backdrop while showing result — avoids iOS black screenshot over live <video> */}
+        {result && <div className="absolute inset-0 bg-slate-950 z-20" />}
+
         {/* Frame overlay */}
-        {!cameraError && (
+        {!cameraError && !result && (
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
             <div className="relative w-72 h-72 max-w-[80vw] max-h-[80vw]">
               <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-white rounded-tl-2xl" />

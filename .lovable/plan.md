@@ -1,46 +1,39 @@
-# Corrigir falha ao salvar alterações no evento
+# Corrigir tela preta ao printar confirmação de check-in
 
-## Diagnóstico
+## Problema
 
-Ao analisar `src/pages/EditarEvento.tsx` e os dados do banco, identifiquei **dois bugs** que impedem (ou parecem impedir) salvar a edição:
+Quando o ingresso é validado com sucesso, o modal verde aparece **sobreposto à câmera** (que continua rodando atrás). Em iOS, o stream de vídeo da câmera **não é capturado em screenshots por segurança do sistema** — então o print sai todo preto, mesmo com o modal verde visível na tela.
 
-### Bug 1 — Horário com segundos não casa com as opções do TimeSelect
-- No banco, `events.time` é armazenado como `15:00:00` (formato `HH:MM:SS`).
-- O `TimeSelect` gera opções no formato `HH:MM` (`19:00`, `19:15`, ...).
-- Quando o formulário carrega o evento, faz `time: event.time` ⇒ `"15:00:00"` — esse valor **não existe** na lista, então o select aparece vazio até o produtor escolher um novo horário. Confunde o usuário e quebra o estado controlado.
+## Causa
 
-### Bug 2 — Estado (UF) não é exibido após carregar o evento
-- O DB tem `state = "SP"`, mas no screenshot o campo "Estado" aparece vazio.
-- O `<SelectValue />` está sem `placeholder` e sem fallback. Suspeita: por algum motivo o `setValue` durante `reset` está sendo sobrescrito, OU o trigger não está exibindo o valor por falta de `placeholder` em estado inicial.
-- Quando o produtor tenta salvar, a validação Zod `state: z.string().min(2)` falha **silenciosamente** porque não há `<p>` mostrando `errors.state.message` no JSX. O `handleSubmit` simplesmente não chama `onSubmit` e a UI não dá feedback — daí a sensação de "não consegui salvar".
+No `ColaboradorQRScanner.tsx`, ao validar com sucesso:
+1. `setValidating(false)` esconde o overlay de "Validando…"
+2. `setResult(r)` mostra o `CheckinResultModal` (que tem fundo `bg-black/70`)
+3. Mas o `<div id="colaborador-qr-reader">` com o `<video>` da câmera continua ativo atrás
+4. iOS substitui o vídeo por preto no screenshot → fundo todo preto
 
-### Bug 3 (menor) — Sem feedback de erros de validação no Select
-- Os campos `state`, `date`, `time`, `end_time` não renderizam mensagens de erro do Zod. Se qualquer um falhar, o botão "Salvar" parece não fazer nada.
+## Solução
 
-## O que vou alterar
+Garantir um **fundo sólido opaco** atrás do modal de resultado quando há resultado, e parar a câmera para liberar recurso e evitar artefato.
 
-Apenas `src/pages/EditarEvento.tsx`:
+### `src/components/colaborador/ColaboradorQRScanner.tsx`
 
-1. **Normalizar `time` e `end_time` ao carregar** o evento:
-   ```ts
-   time: (event.time || '').slice(0, 5),
-   end_time: (event.end_time || '').slice(0, 5),
-   ```
-2. **Garantir que o Select de Estado exiba o valor**:
-   - Adicionar `placeholder="UF"` no `<SelectValue placeholder="UF" />`.
-   - Forçar `value={watchedValues.state || ''}` (já é o caso, mas garantir).
-3. **Mostrar mensagens de erro** abaixo dos campos `state`, `date`, `time` (Zod errors) — assim o produtor vê o motivo se a validação falhar.
-4. **Toast de erro de validação**: passar um segundo callback ao `handleSubmit(onSubmit, onInvalid)` que mostre `toast.error('Verifique os campos obrigatórios')` se houver campos inválidos.
+1. Quando `result` está setado, renderizar uma **camada de fundo sólida** (`bg-slate-950`) cobrindo o scanner — assim o screenshot captura essa cor sólida atrás do modal verde, não o preto do vídeo.
+2. Parar o scanner (`scannerRef.current.stop()`) assim que `result` for definido — economiza bateria e remove o `<video>` problemático.
+3. Reiniciar o scanner quando `result` voltar a `null` (modal fechado).
 
-## Fora do escopo
+Mudança concreta:
+- Adicionar `useEffect([result])` que para a câmera quando `result !== null` e reinicia quando volta a `null`.
+- Adicionar uma `<div className="absolute inset-0 bg-slate-950 z-20" />` quando `result` está ativo (atrás do modal mas acima do `<video>`).
 
-- Não vou mexer em `useEvents.ts`, hooks de lotes, ou regras de negócio.
-- Não mexo em RLS, autenticação ou outros formulários.
+## Fora de escopo
 
-## Checklist de validação manual
+- Lógica de validação, edge functions, regras de check-in
+- Outros estados (busca manual já não tem esse problema, pois não há câmera ativa)
 
-1. Abrir `/produtor/editar-evento/<id>` de um evento existente.
-2. Conferir que o Horário aparece já preenchido (ex: `15:00`).
-3. Conferir que o Estado aparece preenchido (ex: `SP`).
-4. Mudar o horário para outro valor e clicar em "Salvar Alterações" — toast de sucesso.
-5. Apagar o estado e tentar salvar — deve aparecer mensagem de erro visível.
+## Validação manual
+
+1. Escanear um QR válido no celular → modal verde aparece.
+2. Tirar print da tela → o screenshot deve mostrar o **modal verde sobre fundo escuro sólido**, não tela toda preta.
+3. Fechar o modal → câmera reinicia normalmente e volta a escanear.
+4. Mesma validação para estados de erro (já utilizado, fora da janela, etc.).
