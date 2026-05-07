@@ -93,12 +93,9 @@ export function CheckoutModal({
     setStep('payment');
   };
 
-  const handlePaymentSelect = async (method: 'pix' | 'card') => {
-    if (method === 'card') {
-      setStep('card');
-      return;
-    }
+  const [pendingMethod, setPendingMethod] = useState<'pix' | 'card' | null>(null);
 
+  const startPix = useCallback(async (cpfDigits: string) => {
     setIsProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
@@ -107,7 +104,7 @@ export function CheckoutModal({
           items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
           customerName: customerData.name,
           customerEmail: customerData.email,
-          customerCPF: customerData.cpf,
+          customerCPF: cpfDigits,
           customerPhone: customerData.phone,
           couponId: appliedCoupon?.couponId,
         },
@@ -121,6 +118,31 @@ export function CheckoutModal({
       toast.error(error.message || 'Erro ao processar pagamento');
     } finally {
       setIsProcessing(false);
+    }
+  }, [eventId, items, customerData, appliedCoupon]);
+
+  const handlePaymentSelect = async (method: 'pix' | 'card') => {
+    const cpfDigits = unformatCPF(customerData.cpf);
+    if (!validateCPF(cpfDigits)) {
+      setPendingMethod(method);
+      setStep('cpf');
+      return;
+    }
+    if (method === 'card') {
+      setStep('card');
+      return;
+    }
+    await startPix(cpfDigits);
+  };
+
+  const handleCpfContinue = async (cpfDigits: string, name: string, email: string) => {
+    setCustomerData((prev) => ({ ...prev, cpf: cpfDigits, name, email }));
+    const method = pendingMethod ?? 'pix';
+    setPendingMethod(null);
+    if (method === 'card') {
+      setStep('card');
+    } else {
+      await startPix(cpfDigits);
     }
   };
 
