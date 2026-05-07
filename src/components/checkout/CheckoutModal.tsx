@@ -77,8 +77,9 @@ export function CheckoutModal({
 
   useEffect(() => {
     if (isOpen) {
+      const profileCpfDigits = unformatCPF(profile?.cpf || '');
       setCustomerData({
-        cpf: '',
+        cpf: profileCpfDigits,
         name: profile?.nome_completo || user?.user_metadata?.nome_completo || '',
         email: user?.email || '',
         phone: profile?.whatsapp || '',
