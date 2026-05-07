@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard } from 'lucide-react';
-import { formatCPF } from '@/utils/cpfValidator';
+import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
 import Header from '@/components/Header';
@@ -20,23 +20,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 const profileSchema = z.object({
   nome_completo: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100, 'Nome muito longo'),
   whatsapp: z.string().min(10, 'WhatsApp inválido').max(20, 'WhatsApp inválido'),
   email: z.string().email('Email inválido'),
+  cpf: z.string().refine((v) => {
+    const d = unformatCPF(v || '');
+    return d.length === 0 || validateCPF(d);
+  }, 'CPF inválido'),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 const MinhaConta = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
+    reset,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -44,8 +52,23 @@ const MinhaConta = () => {
       nome_completo: profile?.nome_completo || '',
       whatsapp: profile?.whatsapp || '',
       email: profile?.email || '',
+      cpf: profile?.cpf ? formatCPF(profile.cpf) : '',
     },
   });
+
+  const cpfValue = watch('cpf');
+
+  // Sync form when profile loads/changes
+  React.useEffect(() => {
+    if (profile) {
+      reset({
+        nome_completo: profile.nome_completo || '',
+        whatsapp: profile.whatsapp || '',
+        email: profile.email || '',
+        cpf: profile.cpf ? formatCPF(profile.cpf) : '',
+      });
+    }
+  }, [profile, reset]);
 
   const getInitials = (name: string) => {
     return name
@@ -61,16 +84,24 @@ const MinhaConta = () => {
 
     setIsUpdating(true);
     try {
+      const cpfDigits = unformatCPF(data.cpf || '');
+      const update: Record<string, unknown> = {
+        nome_completo: data.nome_completo,
+        whatsapp: data.whatsapp,
+      };
+      // Only set CPF if currently empty in profile, or if it actually changed
+      if (cpfDigits.length === 11) {
+        update.cpf = cpfDigits;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          nome_completo: data.nome_completo,
-          whatsapp: data.whatsapp,
-        })
+        .update(update)
         .eq('id', user.id);
 
       if (error) throw error;
 
+      await refreshProfile();
       toast.success('Perfil atualizado com sucesso!');
     } catch (error: any) {
       toast.error(`Erro ao atualizar perfil: ${error.message}`);
@@ -215,27 +246,47 @@ const MinhaConta = () => {
                       </p>
                     </div>
 
-                    {/* CPF (read-only) */}
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="cpf"
-                        className="text-xs uppercase tracking-wider text-muted-foreground"
-                      >
-                        CPF
-                      </Label>
-                      <div className="relative group">
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="cpf"
-                          value={profile?.cpf ? formatCPF(profile.cpf) : 'Não informado'}
-                          className="pl-10 bg-muted/30 border-border/30 cursor-not-allowed"
-                          disabled
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground/80 leading-relaxed">
-                        O CPF não pode ser alterado. Entre em contato com o suporte se houver erro.
-                      </p>
-                    </div>
+                    {/* CPF — editable only when not yet set */}
+                    {(() => {
+                      const cpfLocked = !!profile?.cpf && validateCPF(profile.cpf);
+                      return (
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="cpf"
+                            className="text-xs uppercase tracking-wider text-muted-foreground"
+                          >
+                            CPF
+                          </Label>
+                          <div className="relative group">
+                            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                              id="cpf"
+                              inputMode="numeric"
+                              maxLength={14}
+                              placeholder="000.000.000-00"
+                              {...register('cpf')}
+                              value={cpfValue || ''}
+                              onChange={(e) => setValue('cpf', formatCPF(e.target.value), { shouldDirty: true, shouldValidate: true })}
+                              className={cn(
+                                'pl-10 transition-all',
+                                cpfLocked
+                                  ? 'bg-muted/30 border-border/30 cursor-not-allowed'
+                                  : 'bg-secondary/30 border-border/50 focus-visible:border-primary/50 focus-visible:bg-secondary/50'
+                              )}
+                              disabled={cpfLocked}
+                            />
+                          </div>
+                          {errors.cpf && (
+                            <p className="text-sm text-destructive">{errors.cpf.message}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground/80 leading-relaxed">
+                            {cpfLocked
+                              ? 'O CPF já está salvo. Entre em contato com o suporte se houver erro.'
+                              : 'Informe seu CPF para agilizar suas próximas compras.'}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     {/* WhatsApp */}
                     <div className="space-y-2">
