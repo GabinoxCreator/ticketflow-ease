@@ -4,7 +4,8 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles } from 'lucide-react';
+import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard } from 'lucide-react';
+import { formatCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
 import Header from '@/components/Header';
@@ -211,6 +212,28 @@ const MinhaConta = () => {
                       </div>
                       <p className="text-xs text-muted-foreground/80 leading-relaxed">
                         O email não pode ser alterado. Entre em contato com o suporte se precisar.
+                      </p>
+                    </div>
+
+                    {/* CPF (read-only) */}
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="cpf"
+                        className="text-xs uppercase tracking-wider text-muted-foreground"
+                      >
+                        CPF
+                      </Label>
+                      <div className="relative group">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          id="cpf"
+                          value={profile?.cpf ? formatCPF(profile.cpf) : 'Não informado'}
+                          className="pl-10 bg-muted/30 border-border/30 cursor-not-allowed"
+                          disabled
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground/80 leading-relaxed">
+                        O CPF não pode ser alterado. Entre em contato com o suporte se houver erro.
                       </p>
                     </div>
 
