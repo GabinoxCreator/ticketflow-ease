@@ -343,7 +343,7 @@ export function AuthModal({ isOpen, onClose, onAuthenticated }: AuthModalProps) 
                         <button
                           type="button"
                           onClick={() => { setForgotMode(true); setResetEmail(loginEmail); }}
-                          className="text-sm text-primary hover:underline font-medium"
+                          className="text-sm text-primary hover:underline font-medium text-slate-50"
                         >
                           Esqueceu sua senha?
                         </button>
