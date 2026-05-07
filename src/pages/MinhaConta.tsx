@@ -4,7 +4,8 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles } from 'lucide-react';
+import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard } from 'lucide-react';
+import { formatCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
 import Header from '@/components/Header';
