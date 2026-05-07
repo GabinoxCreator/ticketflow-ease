@@ -55,7 +55,13 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.process-card-payment]
-verify_jwt = false
+verify_jwt = true
+
+[functions.create-mercadopago-pix]
+verify_jwt = true
+
+[functions.validate-coupon]
+verify_jwt = true
 
 [functions.get-mercadopago-public-key]
 verify_jwt = false

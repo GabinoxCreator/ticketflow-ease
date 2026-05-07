@@ -1353,6 +1353,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_order_approved: {
+        Args: { _mp_payment_id: string; _order_id: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           _block_seconds: number

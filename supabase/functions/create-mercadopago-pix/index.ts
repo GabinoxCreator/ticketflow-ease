@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,10 +25,15 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CREATE-MERCADOPAGO-PIX] ${step}${detailsStr}`);
 };
 
+const json = (body: any, status = 200) =>
+  new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  });
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // Track reservations made so we can release them on any failure path.
   const reservedSoFar: Array<{ lotId: string; quantity: number }> = [];
   let supabaseClient: any = null;
 
@@ -37,6 +43,24 @@ serve(async (req) => {
     const mercadopagoToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mercadopagoToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN is not set');
 
+    // Auth required (verify_jwt=true at platform level + in-code claims check)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return json({ error: 'Unauthorized' }, 401);
+    }
+    const token = authHeader.replace('Bearer ', '');
+
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) {
+      return json({ error: 'Unauthorized' }, 401);
+    }
+    const userId: string = claimsData.claims.sub;
+
     supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -44,7 +68,17 @@ serve(async (req) => {
     );
 
     const { eventId, items, customerName, customerEmail, customerCPF, customerPhone, couponId } = await req.json() as PixRequest;
-    logStep('Request received', { eventId, itemsCount: items.length, customerEmail });
+    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, userId });
+
+    // CPF gate BEFORE any reservation
+    const cleanCPF = unformatCPF(customerCPF);
+    if (!validateCPF(cleanCPF)) {
+      return json({ error: 'invalid_cpf', message: 'CPF inválido. Verifique e tente novamente.' }, 400);
+    }
+
+    if (!eventId || !Array.isArray(items) || items.length === 0) {
+      return json({ error: 'invalid_request' }, 400);
+    }
 
     // Validate event
     const { data: event, error: eventError } = await supabaseClient
@@ -113,15 +147,6 @@ serve(async (req) => {
     }
     const finalAmount = Math.max(0.01, totalAmount - discountAmount);
 
-    // Auth (optional)
-    let userId: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: userData } = await supabaseClient.auth.getUser(token);
-      userId = userData.user?.id || null;
-    }
-
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60 * 1000).toISOString();
 
     // Create order
@@ -170,9 +195,6 @@ serve(async (req) => {
       throw new Error('Erro ao reservar ingressos');
     }
 
-    // Clean CPF
-    const cleanCPF = customerCPF.replace(/\D/g, '');
-
     // Create PIX at MP
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
@@ -208,12 +230,10 @@ serve(async (req) => {
 
     const pixInfo = mpPayment.point_of_interaction?.transaction_data;
 
+    // Persist mp_payment_id (single source of truth). payment_method stays 'pix'.
     await supabaseClient
       .from('orders')
-      .update({
-        payment_method: `pix:${mpPayment.id}`,
-        mp_payment_id: String(mpPayment.id),
-      })
+      .update({ mp_payment_id: String(mpPayment.id) })
       .eq('id', order.id);
 
     const expiresAt = pixInfo?.expiration_date || expiresAtIso;
@@ -221,21 +241,17 @@ serve(async (req) => {
     // Success — DO NOT release reservations (they will be confirmed on payment).
     reservedSoFar.length = 0;
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        orderId: order.id,
-        pixCode: pixInfo?.qr_code || '',
-        qrCodeBase64: pixInfo?.qr_code_base64 || '',
-        expiresAt,
-        paymentId: mpPayment.id,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
+    return json({
+      success: true,
+      orderId: order.id,
+      pixCode: pixInfo?.qr_code || '',
+      qrCodeBase64: pixInfo?.qr_code_base64 || '',
+      expiresAt,
+      paymentId: mpPayment.id,
+    });
   } catch (error: any) {
     logStep('ERROR', { message: error.message });
 
-    // Release any reservations made before the failure
     if (supabaseClient && reservedSoFar.length > 0) {
       for (const r of reservedSoFar) {
         try {
@@ -246,9 +262,6 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return json({ error: error.message }, 500);
   }
 });

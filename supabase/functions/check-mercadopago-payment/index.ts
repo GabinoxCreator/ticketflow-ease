@@ -1,43 +1,24 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
+import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const SYSTEM_ACTOR = '95628c4a-8040-44ed-83c5-d6a5b8793926';
+
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CHECK-MERCADOPAGO-PAYMENT] ${step}${detailsStr}`);
 };
 
-async function confirmInventoryForOrder(supabaseClient: any, targetOrderId: string) {
-  // Get pending tickets grouped by lot
-  const { data: tickets } = await supabaseClient
-    .from('tickets')
-    .select('lot_id')
-    .eq('order_id', targetOrderId)
-    .eq('status', 'pending');
-
-  if (!tickets || tickets.length === 0) {
-    logStep('No pending tickets to confirm', { targetOrderId });
-    return;
-  }
-
-  const grouped = new Map<string, number>();
-  for (const t of tickets) {
-    grouped.set(t.lot_id, (grouped.get(t.lot_id) || 0) + 1);
-  }
-
-  for (const [lotId, qty] of grouped.entries()) {
-    const { data: ok, error: rpcErr } = await supabaseClient
-      .rpc('confirm_lot_sale', { _lot_id: lotId, _qty: qty });
-    if (rpcErr || !ok) {
-      logStep('confirm_lot_sale failed during polling — possible race', { lotId, qty, rpcErr });
-    }
-  }
-}
+const json = (body: any, status = 200) =>
+  new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  });
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -54,138 +35,140 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { paymentId, orderId } = await req.json();
-    if (!paymentId && !orderId) throw new Error('paymentId or orderId is required');
-
-    let mpStatus = '';
-    let mpPaymentId = paymentId;
-
-    if (paymentId) {
-      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-        headers: { 'Authorization': `Bearer ${mercadopagoToken}` },
-      });
-      if (!mpResponse.ok) throw new Error('Erro ao consultar pagamento');
-      const payment = await mpResponse.json();
-      mpStatus = payment.status;
-      logStep('Payment status checked', { paymentId, status: mpStatus });
-    } else if (orderId) {
-      const mpResponse = await fetch(
-        `https://api.mercadopago.com/v1/payments/search?external_reference=${orderId}&sort=date_created&criteria=desc`,
-        { headers: { 'Authorization': `Bearer ${mercadopagoToken}` } }
+    // Optional auth — when present we validate ownership
+    let authedUserId: string | null = null;
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
       );
-      if (!mpResponse.ok) throw new Error('Erro ao consultar pagamento');
-      const searchResult = await mpResponse.json();
-      if (searchResult.results && searchResult.results.length > 0) {
-        const payment = searchResult.results[0];
-        mpStatus = payment.status;
-        mpPaymentId = payment.id;
-        logStep('Payment found by orderId', { orderId, paymentId: mpPaymentId, status: mpStatus });
-      } else {
-        logStep('No payment found for orderId', { orderId });
-        return new Response(
-          JSON.stringify({ status: 'pending', paid: false }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      const { data: claimsData } = await userClient.auth.getClaims(token);
+      authedUserId = claimsData?.claims?.sub ?? null;
+    }
+
+    const { paymentId, orderId } = await req.json();
+    if (!paymentId || !orderId) {
+      return json({ error: 'paymentId and orderId are required', paid: false, autoritative: false }, 400);
+    }
+
+    // Load order locally
+    const { data: order, error: orderErr } = await supabaseClient
+      .from('orders')
+      .select('id, status, total_amount, user_id, mp_payment_id')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      return json({ error: 'order_not_found', paid: false, autoritative: false }, 404);
+    }
+
+    // Fetch payment from MP
+    const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      headers: { 'Authorization': `Bearer ${mercadopagoToken}` },
+    });
+    if (!mpResponse.ok) {
+      return json({ error: 'mp_api_error', paid: false, autoritative: false }, 502);
+    }
+    const payment = await mpResponse.json();
+    const mpStatus: string = payment.status;
+    const mpExternalRef: string | null = payment.external_reference || null;
+    const mpAmountCents = Math.round(Number(payment.transaction_amount ?? 0) * 100);
+    const orderAmountCents = Math.round(Number(order.total_amount ?? 0) * 100);
+
+    logStep('payment fetched', { paymentId, mpStatus, mpExternalRef, mpAmountCents, orderAmountCents });
+
+    // Cross-validation #1: external_reference must match
+    if (mpExternalRef !== orderId) {
+      logStep('external_reference mismatch', { mpExternalRef, orderId });
+      try {
+        await supabaseClient.from('audit_logs').insert({
+          actor_id: SYSTEM_ACTOR,
+          action: 'check_payment_external_ref_mismatch',
+          target_type: 'order',
+          target_id: orderId,
+          metadata: { mp_payment_id: String(paymentId), mp_external_reference: mpExternalRef },
+        });
+      } catch (_) {}
+      return json({
+        status: mpStatus, paid: false, autoritative: false,
+        message: 'payment_does_not_belong_to_order',
+      }, 200);
+    }
+
+    // Cross-validation #2: amount must match
+    if (mpAmountCents !== orderAmountCents) {
+      logStep('amount mismatch', { mpAmountCents, orderAmountCents });
+      try {
+        await supabaseClient.from('audit_logs').insert({
+          actor_id: SYSTEM_ACTOR,
+          action: 'check_payment_amount_mismatch',
+          target_type: 'order',
+          target_id: orderId,
+          metadata: {
+            mp_payment_id: String(paymentId),
+            mp_amount_cents: mpAmountCents,
+            order_amount_cents: orderAmountCents,
+          },
+        });
+      } catch (_) {}
+      return json({
+        status: mpStatus, paid: false, autoritative: false,
+        message: 'amount_mismatch',
+      }, 200);
+    }
+
+    // Determine authoritative ability: requires JWT of order owner
+    const isAuthoritative =
+      mpStatus === 'approved' &&
+      order.user_id != null &&
+      authedUserId != null &&
+      authedUserId === order.user_id;
+
+    if (mpStatus === 'approved' && isAuthoritative) {
+      try {
+        const result = await applyOrderApproved(supabaseClient, {
+          orderId,
+          mpPaymentId: String(paymentId),
+          source: 'polling',
+        });
+        return json({
+          status: mpStatus,
+          paid: true,
+          autoritative: true,
+          paymentId,
+          reconciliation: result,
+        });
+      } catch (e: any) {
+        logStep('applyOrderApproved error', { e: String(e) });
+        return json({
+          status: mpStatus, paid: false, autoritative: false,
+          error: 'reconciliation_failed',
+        }, 500);
       }
     }
 
-    const isPaid = mpStatus === 'approved';
+    // Non-authoritative: just reflect state. Webhook remains the source of truth.
+    // Re-read local order to surface freshest status if webhook already updated it.
+    const { data: refreshed } = await supabaseClient
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .maybeSingle();
+    const localStatus = refreshed?.status ?? order.status;
 
-    if (isPaid) {
-      const targetOrderId = orderId || null;
-
-      if (targetOrderId) {
-        // Idempotent transition: only the first call sees status='pending'
-        const { data: updatedOrder } = await supabaseClient
-          .from('orders')
-          .update({ status: 'paid', expires_at: null })
-          .eq('id', targetOrderId)
-          .eq('status', 'pending')
-          .select('coupon_id')
-          .maybeSingle();
-
-        if (updatedOrder) {
-          // First time we observed paid — confirm inventory
-          await confirmInventoryForOrder(supabaseClient, targetOrderId);
-
-          await supabaseClient
-            .from('tickets')
-            .update({ status: 'valid' })
-            .eq('order_id', targetOrderId)
-            .eq('status', 'pending');
-
-          if (updatedOrder.coupon_id) {
-            const { data: c } = await supabaseClient
-              .from('event_coupons')
-              .select('uses_count')
-              .eq('id', updatedOrder.coupon_id)
-              .maybeSingle();
-            if (c) {
-              await supabaseClient
-                .from('event_coupons')
-                .update({ uses_count: (c.uses_count || 0) + 1 })
-                .eq('id', updatedOrder.coupon_id);
-            }
-          }
-
-          logStep('Order/tickets/inventory confirmed', { orderId: targetOrderId });
-
-          // Post-payment confirmation email — awaited but never throws.
-          try {
-            const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
-              orderId: targetOrderId,
-              source: 'polling',
-            });
-            logStep('order_email_result', emailResult);
-          } catch (e) {
-            logStep('order_email_unexpected', { e: String(e) });
-          }
-        } else {
-          logStep('Order already processed (idempotent skip)', { orderId: targetOrderId });
-        }
-      } else {
-        // Find by payment id
-        const { data: orders } = await supabaseClient
-          .from('orders')
-          .select('id')
-          .like('payment_method', `%${mpPaymentId}%`)
-          .eq('status', 'pending');
-        if (orders && orders.length > 0) {
-          for (const o of orders) {
-            const { data: upd } = await supabaseClient
-              .from('orders')
-              .update({ status: 'paid', expires_at: null })
-              .eq('id', o.id).eq('status', 'pending')
-              .select('id').maybeSingle();
-            if (upd) {
-              await confirmInventoryForOrder(supabaseClient, o.id);
-              await supabaseClient.from('tickets')
-                .update({ status: 'valid' })
-                .eq('order_id', o.id).eq('status', 'pending');
-              try {
-                const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
-                  orderId: o.id,
-                  source: 'polling',
-                });
-                logStep('order_email_result', emailResult);
-              } catch (e) {
-                logStep('order_email_unexpected', { e: String(e) });
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return new Response(
-      JSON.stringify({ status: mpStatus, paid: isPaid, paymentId: mpPaymentId }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return json({
+      status: mpStatus,
+      paid: localStatus === 'paid',
+      autoritative: false,
+      paymentId,
+      message: mpStatus === 'approved' ? 'awaiting_webhook' : 'mp_status_reported',
+      orderStatus: localStatus,
+    });
   } catch (error: any) {
     logStep('ERROR', { message: error.message });
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return json({ error: error.message, paid: false, autoritative: false }, 500);
   }
 });

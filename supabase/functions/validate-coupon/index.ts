@@ -12,6 +12,28 @@ serve(async (req) => {
   }
 
   try {
+    // Auth required (verify_jwt=true at platform level + in-code claims check)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ valid: false, message: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: cErr } = await userClient.auth.getClaims(token);
+    if (cErr || !claimsData?.claims?.sub) {
+      return new Response(
+        JSON.stringify({ valid: false, message: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
