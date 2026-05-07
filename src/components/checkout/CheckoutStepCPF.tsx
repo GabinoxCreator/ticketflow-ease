@@ -54,28 +54,29 @@ export function CheckoutStepCPF({
   const handleSubmit = () => {
     let hasError = false;
 
-    // Validate CPF
     const digits = unformatCPF(cpf);
     if (digits.length !== 11 || !validateCPF(digits)) {
       setCpfError('CPF inválido');
       hasError = true;
     }
 
-    // Validate Name
-    if (name.trim().length < 3) {
-      setNameError('Nome deve ter pelo menos 3 caracteres');
-      hasError = true;
-    } else {
-      setNameError('');
+    if (requireName) {
+      if (name.trim().length < 3) {
+        setNameError('Nome deve ter pelo menos 3 caracteres');
+        hasError = true;
+      } else {
+        setNameError('');
+      }
     }
 
-    // Validate Email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setEmailError('Email inválido');
-      hasError = true;
-    } else {
-      setEmailError('');
+    if (requireEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setEmailError('Email inválido');
+        hasError = true;
+      } else {
+        setEmailError('');
+      }
     }
 
     if (!hasError) {
