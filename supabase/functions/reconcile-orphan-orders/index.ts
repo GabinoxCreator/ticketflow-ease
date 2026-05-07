@@ -130,27 +130,12 @@ serve(async (req) => {
         if (mpStatus === 'approved') {
           item.action = 'recover_to_paid';
           if (!dryRun) {
-            const { data: changed } = await supabase.from('orders')
-              .update({ status: 'paid', mp_payment_id: paymentId, expires_at: null })
-              .eq('id', order.id).eq('status', 'pending')
-              .select('id, coupon_id').maybeSingle();
-            if (changed) {
-              await supabase.from('tickets').update({ status: 'valid' })
-                .eq('order_id', order.id).eq('status', 'pending');
-              // Para LEGACY, sold_quantity já está incrementado. Para pós-Bloco 1, consumir reserva.
-              if (!isLegacy) {
-                const counts = await ticketCountsByLot(supabase, order.id);
-                for (const [lotId, qty] of counts) {
-                  await supabase.rpc('confirm_lot_sale', { _lot_id: lotId, _qty: qty });
-                }
-              }
-              if (changed.coupon_id) {
-                const { data: c } = await supabase.from('event_coupons')
-                  .select('uses_count').eq('id', changed.coupon_id).maybeSingle();
-                if (c) await supabase.from('event_coupons')
-                  .update({ uses_count: (c.uses_count || 0) + 1 }).eq('id', changed.coupon_id);
-              }
-            }
+            const result = await applyOrderApproved(supabase, {
+              orderId: order.id,
+              mpPaymentId: paymentId!,
+              source: isLegacy ? 'reconcile-orphan-orders[legacy]' : 'reconcile-orphan-orders',
+            });
+            item.helper_result = result;
           }
           stats.approved_recovered++;
         } else if (mpStatus === 'in_process' || mpStatus === 'pending') {
