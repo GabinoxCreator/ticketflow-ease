@@ -117,42 +117,49 @@ export default function ColaboradorListasTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {lists.map((list) => {
         const pending = list.entries.filter(e => e.status === 'pending').length;
         const checkedIn = list.entries.filter(e => e.status === 'checked_in').length;
         const total = list.entries.length;
+        const progress = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
 
         return (
-          <Card
+          <button
             key={list.id}
-            className="cursor-pointer hover:bg-muted/50 transition-colors active:scale-[0.98]"
             onClick={() => setSelectedList(list)}
+            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all"
           >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{list.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {total} convidado(s)
-                    </p>
-                  </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5 text-primary" />
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
-                    {pending}
-                  </Badge>
-                  <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                    {checkedIn}
-                  </Badge>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-slate-900 truncate">{list.name}</h4>
+                  <p className="text-xs text-slate-500">
+                    {total} convidado{total === 1 ? '' : 's'} · {progress}% confirmado
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0 font-bold">
+                  {checkedIn} ok
+                </Badge>
+                {pending > 0 && (
+                  <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-0 font-bold">
+                    {pending} aguard.
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </button>
         );
       })}
     </div>
