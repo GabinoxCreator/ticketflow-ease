@@ -11,6 +11,8 @@ interface CheckoutStepCPFProps {
   initialCPF?: string;
   initialName?: string;
   initialEmail?: string;
+  requireName?: boolean;
+  requireEmail?: boolean;
   onContinue: (cpf: string, name: string, email: string) => void;
 }
 
@@ -18,6 +20,8 @@ export function CheckoutStepCPF({
   initialCPF = '', 
   initialName = '',
   initialEmail = '',
+  requireName = false,
+  requireEmail = false,
   onContinue 
 }: CheckoutStepCPFProps) {
   const [cpf, setCPF] = useState(initialCPF);
