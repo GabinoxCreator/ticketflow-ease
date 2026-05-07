@@ -200,6 +200,8 @@ export default function ColaboradorListaDetalhe({
           })}
         </div>
       )}
+
+      <CheckinResultModal result={result} onClose={() => setResult(null)} />
     </div>
   );
 }
