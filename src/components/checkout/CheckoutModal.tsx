@@ -4,6 +4,7 @@ import { X, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
+import { CheckoutStepCPF } from './CheckoutStepCPF';
 import { CheckoutStepPayment } from './CheckoutStepPayment';
 import { CheckoutStepCard } from './CheckoutStepCard';
 import { CheckoutStepPix } from './CheckoutStepPix';
@@ -15,8 +16,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { validateCPF, unformatCPF } from '@/utils/cpfValidator';
 
-type CheckoutStep = 'form' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
+type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
 interface CartItem {
   lotId: string;
@@ -75,8 +77,9 @@ export function CheckoutModal({
 
   useEffect(() => {
     if (isOpen) {
+      const profileCpfDigits = unformatCPF(profile?.cpf || '');
       setCustomerData({
-        cpf: '',
+        cpf: profileCpfDigits,
         name: profile?.nome_completo || user?.user_metadata?.nome_completo || '',
         email: user?.email || '',
         phone: profile?.whatsapp || '',
@@ -90,12 +93,9 @@ export function CheckoutModal({
     setStep('payment');
   };
 
-  const handlePaymentSelect = async (method: 'pix' | 'card') => {
-    if (method === 'card') {
-      setStep('card');
-      return;
-    }
+  const [pendingMethod, setPendingMethod] = useState<'pix' | 'card' | null>(null);
 
+  const startPix = useCallback(async (cpfDigits: string) => {
     setIsProcessing(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
@@ -104,7 +104,7 @@ export function CheckoutModal({
           items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
           customerName: customerData.name,
           customerEmail: customerData.email,
-          customerCPF: customerData.cpf,
+          customerCPF: cpfDigits,
           customerPhone: customerData.phone,
           couponId: appliedCoupon?.couponId,
         },
@@ -118,6 +118,31 @@ export function CheckoutModal({
       toast.error(error.message || 'Erro ao processar pagamento');
     } finally {
       setIsProcessing(false);
+    }
+  }, [eventId, items, customerData, appliedCoupon]);
+
+  const handlePaymentSelect = async (method: 'pix' | 'card') => {
+    const cpfDigits = unformatCPF(customerData.cpf);
+    if (!validateCPF(cpfDigits)) {
+      setPendingMethod(method);
+      setStep('cpf');
+      return;
+    }
+    if (method === 'card') {
+      setStep('card');
+      return;
+    }
+    await startPix(cpfDigits);
+  };
+
+  const handleCpfContinue = async (cpfDigits: string, name: string, email: string) => {
+    setCustomerData((prev) => ({ ...prev, cpf: cpfDigits, name, email }));
+    const method = pendingMethod ?? 'pix';
+    setPendingMethod(null);
+    if (method === 'card') {
+      setStep('card');
+    } else {
+      await startPix(cpfDigits);
     }
   };
 
@@ -148,20 +173,21 @@ export function CheckoutModal({
   };
 
   const handleBack = () => {
-    if (step === 'card' || step === 'pix') {
+    if (step === 'card' || step === 'pix' || step === 'cpf') {
       setStep('payment');
     } else if (step === 'payment') {
       handleClose();
     }
   };
 
-  const canGoBack = step === 'payment' || step === 'card' || step === 'pix';
+  const canGoBack = step === 'payment' || step === 'card' || step === 'pix' || step === 'cpf';
   const showHeader = step !== 'success';
   const showTrust = step === 'payment' || step === 'card' || step === 'pix';
   const totalTickets = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const titleByStep: Record<CheckoutStep, string> = {
     form: 'Seus Dados',
+    cpf: 'Confirme seu CPF',
     payment: 'Pagamento',
     card: 'Cartão de Crédito',
     pix: 'Pagar com PIX',
@@ -222,6 +248,16 @@ export function CheckoutModal({
               />
             )}
 
+            {step === 'cpf' && (
+              <CheckoutStepCPF
+                key="cpf"
+                initialCPF={customerData.cpf}
+                initialName={customerData.name}
+                initialEmail={customerData.email}
+                onContinue={handleCpfContinue}
+              />
+            )}
+
             {step === 'payment' && (
               <CheckoutStepPayment
                 key="payment"
@@ -252,6 +288,7 @@ export function CheckoutModal({
                 customerPhone={customerData.phone}
                 customerCPF={customerData.cpf}
                 onSuccess={(newOrderId) => { setOrderId(newOrderId); setStep('success'); }}
+                onInProcess={(newOrderId) => { setOrderId(newOrderId); setStep('awaiting'); }}
                 onError={() => {}}
               />
             )}

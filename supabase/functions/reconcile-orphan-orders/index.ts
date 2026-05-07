@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +52,7 @@ serve(async (req) => {
     rejected_marked_failed: 0,
     still_in_process: 0,
     inventory_corrections: 0,
+    paid_tickets_reconciled: 0,
     errors: 0,
     items: [] as any[],
   };
@@ -91,6 +93,38 @@ serve(async (req) => {
     const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mpToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN missing');
 
+    // Sweep A: Historical paid orders with leftover pending tickets.
+    // Helper is idempotent — only fixes tickets, no inventory/coupon mutation.
+    {
+      const { data: paidWithPending } = await supabase
+        .from('orders')
+        .select('id, mp_payment_id, tickets!inner(id)')
+        .eq('status', 'paid')
+        .eq('tickets.status', 'pending')
+        .limit(BATCH_SIZE);
+      const seen = new Set<string>();
+      for (const o of (paidWithPending || []) as any[]) {
+        if (seen.has(o.id)) continue;
+        seen.add(o.id);
+        try {
+          if (!dryRun) {
+            const r = await applyOrderApproved(supabase, {
+              orderId: o.id,
+              mpPaymentId: o.mp_payment_id ?? '',
+              source: 'reconcile-orphan-orders[paid_pending_tickets]',
+            });
+            if ((r.tickets_fixed ?? 0) > 0) stats.paid_tickets_reconciled += r.tickets_fixed!;
+          } else {
+            stats.paid_tickets_reconciled++;
+          }
+          stats.items.push({ order_id: o.id, action: 'reconcile_paid_pending_tickets' });
+        } catch (e: any) {
+          stats.errors++;
+          log('PAID_RECONCILE_ERROR', { orderId: o.id, error: e?.message });
+        }
+      }
+    }
+
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
     const { data: candidates, error } = await supabase
@@ -128,27 +162,12 @@ serve(async (req) => {
         if (mpStatus === 'approved') {
           item.action = 'recover_to_paid';
           if (!dryRun) {
-            const { data: changed } = await supabase.from('orders')
-              .update({ status: 'paid', mp_payment_id: paymentId, expires_at: null })
-              .eq('id', order.id).eq('status', 'pending')
-              .select('id, coupon_id').maybeSingle();
-            if (changed) {
-              await supabase.from('tickets').update({ status: 'valid' })
-                .eq('order_id', order.id).eq('status', 'pending');
-              // Para LEGACY, sold_quantity já está incrementado. Para pós-Bloco 1, consumir reserva.
-              if (!isLegacy) {
-                const counts = await ticketCountsByLot(supabase, order.id);
-                for (const [lotId, qty] of counts) {
-                  await supabase.rpc('confirm_lot_sale', { _lot_id: lotId, _qty: qty });
-                }
-              }
-              if (changed.coupon_id) {
-                const { data: c } = await supabase.from('event_coupons')
-                  .select('uses_count').eq('id', changed.coupon_id).maybeSingle();
-                if (c) await supabase.from('event_coupons')
-                  .update({ uses_count: (c.uses_count || 0) + 1 }).eq('id', changed.coupon_id);
-              }
-            }
+            const result = await applyOrderApproved(supabase, {
+              orderId: order.id,
+              mpPaymentId: paymentId!,
+              source: isLegacy ? 'reconcile-orphan-orders[legacy]' : 'reconcile-orphan-orders',
+            });
+            item.helper_result = result;
           }
           stats.approved_recovered++;
         } else if (mpStatus === 'in_process' || mpStatus === 'pending') {

@@ -32,6 +32,7 @@ interface CheckoutStepCardProps {
   customerPhone: string;
   customerCPF: string;
   onSuccess: (orderId: string) => void;
+  onInProcess?: (orderId: string) => void;
   onError: (message: string) => void;
 }
 
@@ -64,6 +65,7 @@ export function CheckoutStepCard({
   customerPhone,
   customerCPF,
   onSuccess,
+  onInProcess,
   onError,
 }: CheckoutStepCardProps) {
   const [cardNumber, setCardNumber] = useState('');
@@ -234,8 +236,9 @@ export function CheckoutStepCard({
       }
       if (data?.status === 'approved') onSuccess(data.orderId);
       else if (data?.status === 'in_process') {
-        toast.info('Pagamento em análise. Você será notificado quando for aprovado.');
-        onSuccess(data.orderId);
+        toast.info('Pagamento em análise. Aguarde a confirmação.');
+        if (onInProcess) onInProcess(data.orderId);
+        else onSuccess(data.orderId);
       } else {
         const friendlyMsg = CARD_ERROR_MESSAGES[data?.errorCode] || 'Pagamento não aprovado. Tente outro cartão.';
         throw new Error(friendlyMsg);

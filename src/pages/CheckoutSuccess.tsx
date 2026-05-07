@@ -1,158 +1,212 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Check, Loader2, Ticket, Home } from 'lucide-react';
+import { Check, Loader2, Ticket, Home, AlertTriangle, Clock, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+
+type ViewState = 'loading' | 'paid' | 'pending' | 'in_process' | 'failed' | 'rejected' | 'expired';
+
+interface OrderRow {
+  id: string;
+  total_amount: number;
+  customer_email: string;
+  status: string;
+}
+
+const TITLES: Record<ViewState, string> = {
+  loading: 'Confirmando pagamento',
+  paid: 'Pagamento Confirmado',
+  pending: 'Pagamento em processamento',
+  in_process: 'Pagamento em análise',
+  failed: 'Pagamento não concluído',
+  rejected: 'Pagamento recusado',
+  expired: 'Pedido expirado',
+};
+
+function deriveView(orderStatus: string | null | undefined): ViewState {
+  switch (orderStatus) {
+    case 'paid': return 'paid';
+    case 'pending': return 'pending';
+    case 'in_process': return 'in_process';
+    case 'rejected': return 'rejected';
+    case 'failed': return 'failed';
+    case 'expired':
+    case 'cancelled': return 'expired';
+    default: return 'pending';
+  }
+}
 
 const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [isProcessing, setIsProcessing] = useState(true);
-  const [orderDetails, setOrderDetails] = useState<{
-    id: string;
-    total_amount: number;
-    customer_email: string;
-  } | null>(null);
+  const [view, setView] = useState<ViewState>('loading');
+  const [order, setOrder] = useState<OrderRow | null>(null);
+  const pollRef = useRef<number | null>(null);
 
-  const orderId = searchParams.get('order_id');
+  const orderId = searchParams.get('order_id') || searchParams.get('external_reference');
   const paymentId = searchParams.get('payment_id');
-  const mpStatus = searchParams.get('status');
-  const externalReference = searchParams.get('external_reference');
-
-  // Use external_reference as fallback for orderId (Mercado Pago sends it)
-  const resolvedOrderId = orderId || externalReference;
 
   useEffect(() => {
-    const confirmPayment = async () => {
-      if (!resolvedOrderId) {
-        toast.error('Pedido não encontrado');
-        navigate('/');
+    let cancelled = false;
+
+    const fetchOrder = async (): Promise<OrderRow | null> => {
+      if (!orderId) return null;
+      const { data } = await supabase
+        .from('orders')
+        .select('id, total_amount, customer_email, status')
+        .eq('id', orderId)
+        .maybeSingle();
+      return (data as OrderRow) ?? null;
+    };
+
+    const run = async () => {
+      if (!orderId) {
+        setView('failed');
         return;
       }
 
-      try {
-        // Check payment status via Mercado Pago
-        if (paymentId) {
-          const { data: mpData, error: mpError } = await supabase.functions.invoke('check-mercadopago-payment', {
-            body: { paymentId, orderId: resolvedOrderId },
+      // Authoritative path: only when paymentId present (server-side validates ownership).
+      if (paymentId) {
+        try {
+          await supabase.functions.invoke('check-mercadopago-payment', {
+            body: { paymentId, orderId },
           });
+        } catch (e) {
+          console.error('check-mercadopago-payment error', e);
+        }
+      }
 
-          if (mpError) {
-            console.error('Error checking MP payment:', mpError);
+      const o = await fetchOrder();
+      if (cancelled) return;
+      if (!o) { setView('failed'); return; }
+      setOrder(o);
+      setView(deriveView(o.status));
+
+      // Poll while in non-terminal states (read-only refresh of order row)
+      const nonTerminal = new Set(['pending', 'in_process']);
+      if (nonTerminal.has(o.status)) {
+        pollRef.current = window.setInterval(async () => {
+          const fresh = await fetchOrder();
+          if (!fresh || cancelled) return;
+          setOrder(fresh);
+          const v = deriveView(fresh.status);
+          setView(v);
+          if (!nonTerminal.has(fresh.status) && pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
           }
-        } else {
-          // No payment ID - check by order
-          const { data: mpData } = await supabase.functions.invoke('check-mercadopago-payment', {
-            body: { orderId: resolvedOrderId },
-          });
-        }
-
-        // Get order details
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', resolvedOrderId)
-          .single();
-
-        if (orderError || !order) {
-          throw new Error('Order not found');
-        }
-
-        setOrderDetails(order);
-        
-        if (order.status === 'paid') {
-          toast.success('Pagamento confirmado!');
-        } else {
-          toast.info('Pagamento está sendo processado');
-        }
-      } catch (error: any) {
-        console.error('Error confirming payment:', error);
-        toast.error('Erro ao confirmar pagamento');
-      } finally {
-        setIsProcessing(false);
+        }, 4000);
       }
     };
 
-    confirmPayment();
-  }, [resolvedOrderId, paymentId, navigate]);
+    run();
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [orderId, paymentId]);
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
+  const formatPrice = (p: number) =>
+    p.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  if (isProcessing) {
+  if (view === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Confirmando pagamento...</p>
+          <p className="text-muted-foreground">Verificando pagamento...</p>
         </div>
       </div>
     );
   }
 
+  const config: Record<Exclude<ViewState, 'loading'>, {
+    icon: JSX.Element; title: string; subtitle: string; tone: 'ok' | 'warn' | 'err';
+  }> = {
+    paid: {
+      icon: <Check className="w-10 h-10 text-primary" />,
+      title: 'Pagamento Confirmado!',
+      subtitle: 'Seus ingressos estão prontos.',
+      tone: 'ok',
+    },
+    pending: {
+      icon: <Clock className="w-10 h-10 text-amber-500" />,
+      title: 'Aguardando confirmação',
+      subtitle: 'Estamos aguardando a confirmação do pagamento. Esta página atualiza automaticamente.',
+      tone: 'warn',
+    },
+    in_process: {
+      icon: <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />,
+      title: 'Pagamento em análise',
+      subtitle: 'Seu pagamento está sendo analisado pelo banco. Você será notificado por email.',
+      tone: 'warn',
+    },
+    failed: {
+      icon: <XCircle className="w-10 h-10 text-destructive" />,
+      title: 'Pagamento não concluído',
+      subtitle: 'Não foi possível concluir seu pagamento. Tente novamente.',
+      tone: 'err',
+    },
+    rejected: {
+      icon: <XCircle className="w-10 h-10 text-destructive" />,
+      title: 'Pagamento recusado',
+      subtitle: 'O pagamento foi recusado pelo banco. Tente outro método.',
+      tone: 'err',
+    },
+    expired: {
+      icon: <AlertTriangle className="w-10 h-10 text-destructive" />,
+      title: 'Pedido expirado',
+      subtitle: 'O tempo para conclusão deste pagamento expirou.',
+      tone: 'err',
+    },
+  };
+
+  const c = config[view];
+
   return (
     <>
       <Helmet>
-        <title>Pagamento Confirmado</title>
+        <title>{TITLES[view]}</title>
       </Helmet>
 
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="bg-card border border-border rounded-2xl p-8 max-w-md w-full text-center"
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6"
-          >
-            <Check className="w-10 h-10 text-primary" />
-          </motion.div>
+          <div className={
+            'w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ' +
+            (c.tone === 'ok' ? 'bg-primary/20' : c.tone === 'warn' ? 'bg-amber-500/15' : 'bg-destructive/15')
+          }>
+            {c.icon}
+          </div>
 
-          <h1 className="font-display font-bold text-2xl mb-2">
-            Pagamento Confirmado!
-          </h1>
-          
+          <h1 className="font-display font-bold text-2xl mb-2">{c.title}</h1>
           <p className="text-muted-foreground mb-6">
-            Seus ingressos foram gerados. A confirmação será enviada para{' '}
-            <span className="text-foreground font-medium">
-              {orderDetails?.customer_email}
-            </span>
+            {c.subtitle}
+            {order?.customer_email ? <> Confirmações vão para <span className="text-foreground font-medium">{order.customer_email}</span>.</> : null}
           </p>
 
-          {orderDetails && (
+          {order && (
             <div className="bg-secondary/50 rounded-xl p-4 mb-6">
-              <p className="text-sm text-muted-foreground mb-1">Total pago</p>
+              <p className="text-sm text-muted-foreground mb-1">Total do pedido</p>
               <p className="font-display font-bold text-2xl gradient-text">
-                {formatPrice(orderDetails.total_amount)}
+                {formatPrice(order.total_amount)}
               </p>
             </div>
           )}
 
           <div className="space-y-3">
-            <Button
-              variant="hero"
-              className="w-full"
-              onClick={() => navigate('/meus-ingressos')}
-            >
-              <Ticket className="w-5 h-5 mr-2" />
-              Ver Meus Ingressos
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate('/')}
-            >
+            {view === 'paid' && (
+              <Button variant="hero" className="w-full" onClick={() => navigate('/meus-ingressos')}>
+                <Ticket className="w-5 h-5 mr-2" />
+                Ver Meus Ingressos
+              </Button>
+            )}
+            <Button variant="outline" className="w-full" onClick={() => navigate('/')}>
               <Home className="w-5 h-5 mr-2" />
               Voltar para Eventos
             </Button>
