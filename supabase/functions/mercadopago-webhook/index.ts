@@ -166,79 +166,19 @@ serve(async (req) => {
     let outcome: 'applied' | 'noop' | 'ignored' = 'noop';
 
     if (mpStatus === 'approved') {
-      // Atomic transition: pending -> paid
-      const { data: changed, error: updErr } = await supabase
-        .from('orders')
-        .update({
-          status: 'paid',
-          mp_payment_id: paymentId,
-          expires_at: null,
-        })
-        .eq('id', order.id)
-        .eq('status', 'pending')
-        .select('id, coupon_id')
-        .maybeSingle();
-
-      if (updErr) {
-        log('order update error', { updErr });
-        return new Response('db error', { status: 500 });
-      }
-
-      if (changed) {
-        // Confirm inventory per ticket
-        const { data: tickets } = await supabase
-          .from('tickets')
-          .select('lot_id')
-          .eq('order_id', order.id);
-
-        const counts = new Map<string, number>();
-        for (const t of tickets || []) {
-          counts.set(t.lot_id, (counts.get(t.lot_id) || 0) + 1);
-        }
-        for (const [lotId, qty] of counts) {
-          const { data: ok, error: confErr } = await supabase
-            .rpc('confirm_lot_sale', { _lot_id: lotId, _qty: qty });
-          if (confErr || !ok) {
-            log('confirm_lot_sale FAILED', { lotId, qty, confErr });
-          }
-        }
-
-        await supabase
-          .from('tickets')
-          .update({ status: 'valid' })
-          .eq('order_id', order.id)
-          .eq('status', 'pending');
-
-        // Coupon increment
-        if (changed.coupon_id) {
-          const { data: c } = await supabase
-            .from('event_coupons')
-            .select('uses_count')
-            .eq('id', changed.coupon_id)
-            .maybeSingle();
-          if (c) {
-            await supabase
-              .from('event_coupons')
-              .update({ uses_count: (c.uses_count || 0) + 1 })
-              .eq('id', changed.coupon_id);
-          }
-        }
-
-        outcome = 'applied';
-        log('approved applied', { orderId: order.id, paymentId });
-
-        // Post-payment confirmation email — awaited but never throws.
-        try {
-          const emailResult = await sendOrderConfirmationEmailSafe(supabase, {
-            orderId: order.id,
-            source: 'webhook',
-          });
-          log('order_email_result', emailResult);
-        } catch (e) {
-          log('order_email_unexpected', { e: String(e) });
-        }
-      } else {
-        log('approved no-op (already paid or other)', { orderId: order.id });
+      // Persist mp_payment_id first so RPC has the canonical key
+      await supabase.from('orders').update({ mp_payment_id: paymentId }).eq('id', order.id);
+      try {
+        const result = await applyOrderApproved(supabase, {
+          orderId: order.id,
+          mpPaymentId: paymentId,
+          source: 'webhook',
+        });
+        outcome = (result.first_transition || (result.tickets_fixed ?? 0) > 0) ? 'applied' : 'noop';
+        log('webhook approved processed', { orderId: order.id, paymentId, result });
+      } catch (e: any) {
+        log('applyOrderApproved error', { e: String(e) });
+        return new Response('reconciliation error', { status: 500 });
       }
     } else if (mpStatus === 'rejected' || mpStatus === 'cancelled') {
       const { data: changed } = await supabase
