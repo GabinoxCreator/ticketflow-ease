@@ -163,9 +163,25 @@ serve(async (req) => {
       return new Response('order not found', { status: 200, headers: corsHeaders });
     }
 
-    let outcome: 'applied' | 'noop' | 'ignored' = 'noop';
+    let outcome: 'applied' | 'noop' | 'ignored' | 'amount_mismatch' = 'noop';
 
     if (mpStatus === 'approved') {
+      // Validate transaction_amount matches order before approving
+      const expected = Number(order.total_amount);
+      const received = Number(payment.transaction_amount);
+      if (!Number.isFinite(received) || Math.abs(expected - received) > 0.01) {
+        log('amount mismatch — refusing to approve', { orderId: order.id, expected, received });
+        await supabase
+          .from('mp_webhook_events')
+          .update({ outcome: 'amount_mismatch' })
+          .eq('mp_payment_id', paymentId)
+          .eq('mp_status', mpStatus);
+        return new Response(JSON.stringify({ ok: false, outcome: 'amount_mismatch' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Persist mp_payment_id first so RPC has the canonical key
       await supabase.from('orders').update({ mp_payment_id: paymentId }).eq('id', order.id);
       try {
@@ -177,7 +193,13 @@ serve(async (req) => {
         outcome = (result.first_transition || (result.tickets_fixed ?? 0) > 0) ? 'applied' : 'noop';
         log('webhook approved processed', { orderId: order.id, paymentId, result });
       } catch (e: any) {
-        log('applyOrderApproved error', { e: String(e) });
+        log('applyOrderApproved error — releasing dedupe for retry', { e: String(e) });
+        // Release dedupe so MP retry can re-process this event
+        await supabase
+          .from('mp_webhook_events')
+          .delete()
+          .eq('mp_payment_id', paymentId)
+          .eq('mp_status', mpStatus);
         return new Response('reconciliation error', { status: 500 });
       }
     } else if (mpStatus === 'rejected' || mpStatus === 'cancelled') {
