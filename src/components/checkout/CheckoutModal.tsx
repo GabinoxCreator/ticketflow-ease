@@ -248,6 +248,16 @@ export function CheckoutModal({
               />
             )}
 
+            {step === 'cpf' && (
+              <CheckoutStepCPF
+                key="cpf"
+                initialCPF={customerData.cpf}
+                initialName={customerData.name}
+                initialEmail={customerData.email}
+                onContinue={handleCpfContinue}
+              />
+            )}
+
             {step === 'payment' && (
               <CheckoutStepPayment
                 key="payment"
