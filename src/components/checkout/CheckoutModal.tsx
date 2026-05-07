@@ -111,6 +111,7 @@ export function CheckoutModal({
       });
       if (error) throw error;
       setOrderId(data.orderId);
+      if (data.paymentId) setPaymentId(String(data.paymentId));
       setPixData({ code: data.pixCode, expiresAt: new Date(data.expiresAt) });
       setStep('pix');
     } catch (error: any) {
