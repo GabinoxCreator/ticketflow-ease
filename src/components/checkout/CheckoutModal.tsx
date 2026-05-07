@@ -173,7 +173,7 @@ export function CheckoutModal({
   };
 
   const handleBack = () => {
-    if (step === 'card' || step === 'pix') {
+    if (step === 'card' || step === 'pix' || step === 'cpf') {
       setStep('payment');
     } else if (step === 'payment') {
       handleClose();
