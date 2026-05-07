@@ -214,6 +214,7 @@ export function EventListsTab({ eventId, eventTime }: EventListsTabProps) {
 
       <AddGuestListDialog
         eventId={eventId}
+        eventTime={eventTime}
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
       />
