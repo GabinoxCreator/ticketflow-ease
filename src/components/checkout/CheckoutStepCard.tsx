@@ -234,11 +234,12 @@ export function CheckoutStepCard({
         const friendlyMsg = CARD_ERROR_MESSAGES[data.errorCode] || data.error;
         throw new Error(friendlyMsg);
       }
-      if (data?.status === 'approved') onSuccess(data.orderId);
+      const pid = data?.paymentId ? String(data.paymentId) : undefined;
+      if (data?.status === 'approved') onSuccess(data.orderId, pid);
       else if (data?.status === 'in_process') {
         toast.info('Pagamento em análise. Aguarde a confirmação.');
-        if (onInProcess) onInProcess(data.orderId);
-        else onSuccess(data.orderId);
+        if (onInProcess) onInProcess(data.orderId, pid);
+        else onSuccess(data.orderId, pid);
       } else {
         const friendlyMsg = CARD_ERROR_MESSAGES[data?.errorCode] || 'Pagamento não aprovado. Tente outro cartão.';
         throw new Error(friendlyMsg);
