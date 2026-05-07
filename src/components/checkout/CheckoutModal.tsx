@@ -58,7 +58,7 @@ export function CheckoutModal({
   items,
   totalAmount,
 }: CheckoutModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const isMobile = useIsMobile();
   const [step, setStep] = useState<CheckoutStep>('payment');
   const [customerData, setCustomerData] = useState({
@@ -138,6 +138,27 @@ export function CheckoutModal({
 
   const handleCpfContinue = async (cpfDigits: string, name: string, email: string) => {
     setCustomerData((prev) => ({ ...prev, cpf: cpfDigits, name, email }));
+
+    // Persist CPF to user's profile if missing/invalid there
+    try {
+      if (user && validateCPF(cpfDigits)) {
+        const profileCpfDigits = unformatCPF(profile?.cpf || '');
+        if (!validateCPF(profileCpfDigits)) {
+          const { error: upErr } = await supabase
+            .from('profiles')
+            .update({ cpf: cpfDigits })
+            .eq('id', user.id);
+          if (!upErr) {
+            await refreshProfile();
+          } else {
+            console.warn('Failed to persist CPF to profile:', upErr);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error persisting CPF to profile:', e);
+    }
+
     const method = pendingMethod ?? 'pix';
     setPendingMethod(null);
     if (method === 'card') {
