@@ -277,13 +277,15 @@ export default function EditarEvento() {
                           />
                         </PopoverContent>
                       </Popover>
+                      {errors.date && <p className="text-sm text-destructive">{errors.date.message as string}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label>Horário de Início *</Label>
                       <TimeSelect
                         value={watchedValues.time || ''}
-                        onChange={(v) => setValue('time', v, { shouldDirty: true })}
+                        onChange={(v) => setValue('time', v, { shouldDirty: true, shouldValidate: true })}
                       />
+                      {errors.time && <p className="text-sm text-destructive">{errors.time.message}</p>}
                     </div>
                   </div>
 
