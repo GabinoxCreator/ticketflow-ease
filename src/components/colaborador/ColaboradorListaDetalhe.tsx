@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { buildWindowMessage } from '@/lib/checkinWindow';
+import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
 
 interface GuestEntry {
   id: string;
@@ -38,6 +39,7 @@ export default function ColaboradorListaDetalhe({
   const [searchQuery, setSearchQuery] = useState('');
   const [validatingId, setValidatingId] = useState<string | null>(null);
   const [localEntries, setLocalEntries] = useState(entries);
+  const [result, setResult] = useState<CheckinResultData | null>(null);
 
   const pendingCount = localEntries.filter(e => e.status === 'pending').length;
   const checkedInCount = localEntries.filter(e => e.status === 'checked_in').length;
@@ -73,7 +75,12 @@ export default function ColaboradorListaDetalhe({
       if (data.session_expired) { onSessionExpired(); return; }
 
       if (data.success) {
-        toast.success(`Entrada: ${entry.name}`);
+        setResult({
+          type: 'success',
+          message: 'Convidado liberado!',
+          holderName: entry.name,
+          lotName: listName,
+        });
         if (navigator.vibrate) navigator.vibrate(200);
         setLocalEntries(prev =>
           prev.map(e =>
@@ -83,17 +90,27 @@ export default function ColaboradorListaDetalhe({
           )
         );
         onCheckinDone();
+      } else if (data.reason === 'before_window' || data.reason === 'after_window') {
+        setResult({
+          type: 'window_closed',
+          message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
+          holderName: entry.name,
+        });
+      } else if (data.error?.includes('já fez check-in')) {
+        setResult({
+          type: 'already_used',
+          message: 'Este convidado já entrou.',
+          holderName: entry.name,
+        });
+        setLocalEntries(prev =>
+          prev.map(e => e.id === entry.id ? { ...e, status: 'checked_in' } : e)
+        );
       } else {
-        if (data.reason === 'before_window' || data.reason === 'after_window') {
-          toast.error(buildWindowMessage(data.reason, data.starts_at, data.ends_at));
-        } else if (data.error?.includes('já fez check-in')) {
-          toast.info('Convidado já fez check-in');
-          setLocalEntries(prev =>
-            prev.map(e => e.id === entry.id ? { ...e, status: 'checked_in' } : e)
-          );
-        } else {
-          toast.error(data.error || 'Erro ao registrar entrada');
-        }
+        setResult({
+          type: 'error',
+          message: data.error || 'Erro ao registrar entrada',
+          holderName: entry.name,
+        });
       }
     } catch {
       toast.error('Erro de conexão');
