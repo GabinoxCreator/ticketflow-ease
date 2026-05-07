@@ -180,13 +180,14 @@ export function CheckoutModal({
     }
   };
 
-  const canGoBack = step === 'payment' || step === 'card' || step === 'pix';
+  const canGoBack = step === 'payment' || step === 'card' || step === 'pix' || step === 'cpf';
   const showHeader = step !== 'success';
   const showTrust = step === 'payment' || step === 'card' || step === 'pix';
   const totalTickets = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const titleByStep: Record<CheckoutStep, string> = {
     form: 'Seus Dados',
+    cpf: 'Confirme seu CPF',
     payment: 'Pagamento',
     card: 'Cartão de Crédito',
     pix: 'Pagar com PIX',
