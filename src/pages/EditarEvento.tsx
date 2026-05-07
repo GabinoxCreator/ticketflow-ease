@@ -340,11 +340,11 @@ export default function EditarEvento() {
                     <div className="space-y-2">
                       <Label>Estado *</Label>
                       <Select
-                        value={watchedValues.state}
-                        onValueChange={(value) => setValue('state', value, { shouldDirty: true })}
+                        value={watchedValues.state || ''}
+                        onValueChange={(value) => setValue('state', value, { shouldDirty: true, shouldValidate: true })}
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="UF" />
                         </SelectTrigger>
                         <SelectContent>
                           {states.map((s) => (
@@ -352,6 +352,7 @@ export default function EditarEvento() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {errors.state && <p className="text-sm text-destructive">{errors.state.message}</p>}
                     </div>
                   </div>
 
