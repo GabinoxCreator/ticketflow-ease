@@ -85,22 +85,22 @@ export default function ColaboradorEvento() {
   });
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
       {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
+      <header className="bg-white dark:bg-slate-900 border-b sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-3">
           <Button
             variant="ghost"
             size="sm"
-            className="gap-1 -ml-2 mb-1"
+            className="gap-1 -ml-2 mb-1 h-8"
             onClick={() => navigate('/colaborador/eventos')}
           >
             <ArrowLeft className="w-4 h-4" />
-            Voltar
+            Eventos
           </Button>
-          <h1 className="font-bold text-lg line-clamp-1">{event.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {formattedDate} às {event.time?.slice(0, 5)}
+          <h1 className="font-bold text-lg leading-tight line-clamp-1">{event.title}</h1>
+          <p className="text-xs text-muted-foreground">
+            {formattedDate} · {event.time?.slice(0, 5)}
           </p>
         </div>
       </header>
@@ -108,25 +108,25 @@ export default function ColaboradorEvento() {
       {/* Stats */}
       <div className="max-w-lg mx-auto px-4 py-3">
         <div className="grid grid-cols-3 gap-2">
-          <Card>
+          <Card className="border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/30">
             <CardContent className="p-3 text-center">
-              <CheckCircle2 className="w-5 h-5 mx-auto text-green-500 mb-1" />
-              <p className="text-xl font-bold">{stats.checkins}</p>
-              <p className="text-xs text-muted-foreground">Check-ins</p>
+              <CheckCircle2 className="w-5 h-5 mx-auto text-emerald-600 dark:text-emerald-400 mb-1" />
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 leading-none">{stats.checkins}</p>
+              <p className="text-[10px] uppercase tracking-wide text-emerald-700/70 dark:text-emerald-400/70 mt-1 font-semibold">Check-ins</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/30">
             <CardContent className="p-3 text-center">
-              <Clock className="w-5 h-5 mx-auto text-yellow-500 mb-1" />
-              <p className="text-xl font-bold">{stats.pending}</p>
-              <p className="text-xs text-muted-foreground">Pendentes</p>
+              <Clock className="w-5 h-5 mx-auto text-amber-600 dark:text-amber-400 mb-1" />
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-300 leading-none">{stats.pending}</p>
+              <p className="text-[10px] uppercase tracking-wide text-amber-700/70 dark:text-amber-400/70 mt-1 font-semibold">Pendentes</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-3 text-center">
               <Users className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-xl font-bold">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-2xl font-bold text-primary leading-none">{stats.total}</p>
+              <p className="text-[10px] uppercase tracking-wide text-primary/70 mt-1 font-semibold">Total</p>
             </CardContent>
           </Card>
         </div>

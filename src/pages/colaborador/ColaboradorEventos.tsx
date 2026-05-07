@@ -85,36 +85,39 @@ export default function ColaboradorEventos() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
           >
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-0">
                 {event.image_url && (
-                  <div className="w-full h-36 overflow-hidden">
+                  <div className="w-full h-32 overflow-hidden bg-muted relative">
                     <img
                       src={event.image_url}
                       alt={event.title}
                       className="w-full h-full object-cover"
                     />
+                    <div className="absolute top-2 right-2">
+                      {getStatusBadge(event.status)}
+                    </div>
                   </div>
                 )}
                 <div className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-base line-clamp-2">{event.title}</h3>
-                    {getStatusBadge(event.status)}
+                    <h3 className="font-bold text-base leading-tight line-clamp-2">{event.title}</h3>
+                    {!event.image_url && getStatusBadge(event.status)}
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4" />
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="flex items-center gap-1.5 text-foreground font-medium">
+                      <Calendar className="w-4 h-4 text-primary" />
                       {formatDate(event.date)}
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4" />
+                    <span className="flex items-center gap-1.5 text-foreground font-medium">
+                      <Clock className="w-4 h-4 text-primary" />
                       {formatTime(event.time)}
                     </span>
                   </div>
 
                   <Button
-                    className="w-full gap-2 h-12 text-base"
+                    className="w-full gap-2 h-12 text-base font-semibold"
                     onClick={() => navigate(`/colaborador/evento/${event.id}`)}
                   >
                     <QrCode className="w-5 h-5" />
@@ -130,26 +133,26 @@ export default function ColaboradorEventos() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
+      <header className="bg-white dark:bg-slate-900 border-b sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Eventos</h1>
-            <p className="text-sm text-muted-foreground">
-              Olá, {collaborator?.name}
-            </p>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Olá,</p>
+            <h1 className="text-lg font-bold truncate">{collaborator?.name}</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="w-5 h-5" />
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
+            <LogOut className="w-4 h-4" />
+            <span className="text-xs">Sair</span>
           </Button>
         </div>
       </header>
 
       {/* Content */}
       <main className="max-w-lg mx-auto p-4">
+        <h2 className="text-xl font-bold mb-1">Seus eventos</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Selecione um evento para operar o check-in
+          Toque em um evento para iniciar o check-in.
         </p>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -1,16 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { X, Loader2, Flashlight } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { AnimatePresence, motion } from 'framer-motion';
 import { buildWindowMessage } from '@/lib/checkinWindow';
-
-interface ScanResult {
-  type: 'success' | 'already_used' | 'invalid' | 'error' | 'window_closed';
-  message: string;
-  holderName?: string;
-  lotName?: string;
-  validatedAt?: string;
-}
+import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
 
 interface ColaboradorQRScannerProps {
   open: boolean;
@@ -19,6 +11,7 @@ interface ColaboradorQRScannerProps {
   collaboratorId: string;
   sessionToken: string;
   onSessionExpired: () => void;
+  onCheckinDone?: () => void;
 }
 
 export default function ColaboradorQRScanner({
@@ -28,20 +21,21 @@ export default function ColaboradorQRScanner({
   collaboratorId,
   sessionToken,
   onSessionExpired,
+  onCheckinDone,
 }: ColaboradorQRScannerProps) {
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [result, setResult] = useState<CheckinResultData | null>(null);
+  const [validating, setValidating] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recentScans = useRef(new Map<string, number>());
-  const resultTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isProcessing = useRef(false);
 
   const DEBOUNCE_MS = 5000;
-  const RESULT_DISPLAY_MS = 3000;
 
   const validateTicket = useCallback(async (code: string) => {
     if (isProcessing.current) return;
     isProcessing.current = true;
+    setValidating(true);
 
     try {
       const response = await fetch(
@@ -64,78 +58,80 @@ export default function ColaboradorQRScanner({
       );
 
       const data = await response.json();
-
       if (data.session_expired) {
         onSessionExpired();
         return;
       }
 
-      let result: ScanResult;
-
+      let r: CheckinResultData;
       if (data.success) {
-        result = {
+        r = {
           type: 'success',
-          message: 'Check-in realizado!',
+          message: 'Pode entrar!',
           holderName: data.ticket?.holder_name,
           lotName: data.ticket?.lot_name,
+          ticketCode: data.ticket?.ticket_code,
         };
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        onCheckinDone?.();
       } else if (data.reason === 'before_window' || data.reason === 'after_window') {
-        result = {
+        r = {
           type: 'window_closed',
           message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
           holderName: data.ticket?.holder_name,
         };
         if (navigator.vibrate) navigator.vibrate(300);
       } else if (data.error?.includes('já foi utilizado')) {
-        result = {
+        r = {
           type: 'already_used',
-          message: 'Ingresso já utilizado',
+          message: 'Esse ingresso já passou pela portaria.',
           holderName: data.ticket?.holder_name,
+          lotName: data.ticket?.lot_name,
           validatedAt: data.ticket?.validated_at,
         };
         if (navigator.vibrate) navigator.vibrate(300);
+      } else if (data.ticket?.status === 'pending') {
+        r = {
+          type: 'pending_payment',
+          message: 'Pagamento ainda não confirmado.',
+          holderName: data.ticket?.holder_name,
+          lotName: data.ticket?.lot_name,
+        };
+        if (navigator.vibrate) navigator.vibrate(300);
       } else if (data.error?.includes('não encontrado') || !data.found) {
-        result = {
+        r = {
           type: 'invalid',
-          message: data.error || 'Ingresso não encontrado',
+          message: 'Não encontramos esse ingresso para o evento.',
         };
         if (navigator.vibrate) navigator.vibrate([100, 100, 100, 100, 100]);
       } else {
-        result = {
+        r = {
           type: 'error',
-          message: data.error || 'Erro na validação',
+          message: data.error || 'Não foi possível validar agora.',
           holderName: data.ticket?.holder_name,
         };
         if (navigator.vibrate) navigator.vibrate(300);
       }
 
-      setScanResult(result);
-
-      if (resultTimeout.current) clearTimeout(resultTimeout.current);
-      resultTimeout.current = setTimeout(() => {
-        setScanResult(null);
-      }, RESULT_DISPLAY_MS);
+      setResult(r);
     } catch {
-      setScanResult({ type: 'error', message: 'Erro de conexão' });
-      if (resultTimeout.current) clearTimeout(resultTimeout.current);
-      resultTimeout.current = setTimeout(() => setScanResult(null), RESULT_DISPLAY_MS);
+      setResult({ type: 'error', message: 'Sem conexão. Tente novamente.' });
     } finally {
       isProcessing.current = false;
+      setValidating(false);
     }
-  }, [eventId, collaboratorId, sessionToken, onSessionExpired]);
+  }, [eventId, collaboratorId, sessionToken, onSessionExpired, onCheckinDone]);
 
   const onScan = useCallback((code: string) => {
     const now = Date.now();
-    const lastScan = recentScans.current.get(code);
-    if (lastScan && now - lastScan < DEBOUNCE_MS) return;
+    const last = recentScans.current.get(code);
+    if (last && now - last < DEBOUNCE_MS) return;
     recentScans.current.set(code, now);
     validateTicket(code);
   }, [validateTicket]);
 
   useEffect(() => {
     if (!open) return;
-
     let mounted = true;
     const containerId = 'colaborador-qr-reader';
 
@@ -144,13 +140,10 @@ export default function ColaboradorQRScanner({
         setCameraError(null);
         const scanner = new Html5Qrcode(containerId);
         scannerRef.current = scanner;
-
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 280, height: 280 } },
-          (decodedText) => {
-            if (mounted) onScan(decodedText);
-          },
+          (decodedText) => { if (mounted) onScan(decodedText); },
           () => {}
         );
       } catch (err: any) {
@@ -158,13 +151,10 @@ export default function ColaboradorQRScanner({
       }
     };
 
-    // Small delay to ensure DOM is ready
     const timer = setTimeout(startScanner, 100);
-
     return () => {
       mounted = false;
       clearTimeout(timer);
-      if (resultTimeout.current) clearTimeout(resultTimeout.current);
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => {});
         scannerRef.current = null;
@@ -174,107 +164,69 @@ export default function ColaboradorQRScanner({
 
   if (!open) return null;
 
-  const resultConfig = {
-    success: {
-      bg: 'bg-green-500',
-      icon: CheckCircle2,
-      textColor: 'text-white',
-    },
-    already_used: {
-      bg: 'bg-yellow-500',
-      icon: AlertCircle,
-      textColor: 'text-white',
-    },
-    window_closed: {
-      bg: 'bg-red-600',
-      icon: AlertCircle,
-      textColor: 'text-white',
-    },
-    invalid: {
-      bg: 'bg-red-600',
-      icon: XCircle,
-      textColor: 'text-white',
-    },
-    error: {
-      bg: 'bg-red-600',
-      icon: XCircle,
-      textColor: 'text-white',
-    },
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-50 w-12 h-12 rounded-full bg-black/60 flex items-center justify-center"
-      >
-        <X className="w-7 h-7 text-white" />
-      </button>
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
+        <div className="text-white">
+          <p className="text-xs uppercase tracking-wider opacity-70 font-semibold">Scanner</p>
+          <p className="text-sm font-semibold">Aponte para o QR Code</p>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Fechar scanner"
+          className="w-11 h-11 rounded-full bg-white/15 backdrop-blur flex items-center justify-center active:bg-white/25"
+        >
+          <X className="w-6 h-6 text-white" />
+        </button>
+      </div>
 
       {/* Scanner */}
-      <div className="flex-1 flex items-center justify-center relative">
+      <div className="flex-1 relative">
         <div id="colaborador-qr-reader" className="w-full h-full" />
 
+        {/* Frame overlay */}
+        {!cameraError && (
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div className="relative w-72 h-72 max-w-[80vw] max-h-[80vw]">
+              <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-white rounded-tl-2xl" />
+              <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-white rounded-tr-2xl" />
+              <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-white rounded-bl-2xl" />
+              <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-white rounded-br-2xl" />
+            </div>
+          </div>
+        )}
+
+        {validating && (
+          <div className="absolute inset-x-0 bottom-24 flex justify-center pointer-events-none">
+            <div className="bg-white/95 text-slate-900 rounded-full px-4 py-2 flex items-center gap-2 shadow-lg">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm font-semibold">Validando ingresso…</span>
+            </div>
+          </div>
+        )}
+
         {cameraError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-8">
-            <div className="text-center text-white">
-              <XCircle className="w-16 h-16 mx-auto mb-4 opacity-60" />
-              <p className="text-lg mb-2">Câmera indisponível</p>
-              <p className="text-sm opacity-70">{cameraError}</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/85 p-8">
+            <div className="text-center text-white max-w-xs">
+              <Flashlight className="w-14 h-14 mx-auto mb-4 opacity-60" />
+              <p className="text-lg font-semibold mb-2">Câmera indisponível</p>
+              <p className="text-sm opacity-70 mb-6">{cameraError}</p>
               <button
                 onClick={onClose}
-                className="mt-6 px-6 py-3 bg-white/20 rounded-lg text-white"
+                className="px-6 py-3 bg-white text-slate-900 rounded-xl font-semibold"
               >
                 Fechar
               </button>
             </div>
           </div>
         )}
-
-        {/* Scan guide overlay */}
-        {!cameraError && !scanResult && (
-          <div className="absolute bottom-8 left-0 right-0 text-center pointer-events-none">
-            <p className="text-white text-sm bg-black/50 inline-block px-4 py-2 rounded-full">
-              Aponte para o QR Code do ingresso
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Result overlay */}
-      <AnimatePresence>
-        {scanResult && (
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`absolute bottom-0 left-0 right-0 ${resultConfig[scanResult.type].bg} p-6 rounded-t-3xl`}
-          >
-            <div className="flex items-center gap-4 text-white">
-              {(() => {
-                const Icon = resultConfig[scanResult.type].icon;
-                return <Icon className="w-12 h-12 flex-shrink-0" />;
-              })()}
-              <div className="flex-1 min-w-0">
-                <p className="text-lg font-bold">{scanResult.message}</p>
-                {scanResult.holderName && (
-                  <p className="text-white/90 truncate">{scanResult.holderName}</p>
-                )}
-                {scanResult.lotName && (
-                  <p className="text-white/80 text-sm">{scanResult.lotName}</p>
-                )}
-                {scanResult.validatedAt && (
-                  <p className="text-white/70 text-sm">
-                    Validado em: {new Date(scanResult.validatedAt).toLocaleString('pt-BR')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <CheckinResultModal
+        result={result}
+        onClose={() => setResult(null)}
+      />
     </div>
   );
 }

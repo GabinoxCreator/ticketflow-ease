@@ -6,6 +6,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import ColaboradorQRScanner from './ColaboradorQRScanner';
+import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
+import { buildWindowMessage } from '@/lib/checkinWindow';
 
 interface SearchResult {
   id: string;
@@ -38,6 +40,7 @@ export default function ColaboradorQRTab({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [validatingId, setValidatingId] = useState<string | null>(null);
+  const [manualResult, setManualResult] = useState<CheckinResultData | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,17 +136,39 @@ export default function ColaboradorQRTab({
       if (data.session_expired) { onSessionExpired(); return; }
 
       if (data.success) {
-        toast.success(`Check-in: ${ticket.holder_name}`);
+        setManualResult({
+          type: 'success',
+          message: 'Pode entrar!',
+          holderName: ticket.holder_name,
+          lotName: ticket.lot_name,
+          ticketCode: ticket.ticket_code,
+        });
         if (navigator.vibrate) navigator.vibrate(200);
-        // Update local state
         setSearchResults(prev =>
           prev.map(t =>
             t.id === ticket.id ? { ...t, status: 'used', validated_at: new Date().toISOString() } : t
           )
         );
         onCheckinDone();
+      } else if (data.reason === 'before_window' || data.reason === 'after_window') {
+        setManualResult({
+          type: 'window_closed',
+          message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
+          holderName: ticket.holder_name,
+        });
+      } else if (data.error?.includes('já foi utilizado')) {
+        setManualResult({
+          type: 'already_used',
+          message: 'Esse ingresso já passou pela portaria.',
+          holderName: ticket.holder_name,
+          lotName: ticket.lot_name,
+        });
       } else {
-        toast.error(data.error || 'Erro ao validar');
+        setManualResult({
+          type: 'error',
+          message: data.error || 'Não foi possível validar agora.',
+          holderName: ticket.holder_name,
+        });
       }
     } catch {
       toast.error('Erro de conexão');
@@ -163,20 +188,29 @@ export default function ColaboradorQRTab({
     <>
       <div className="space-y-4">
         {/* Big scan button */}
-        <Button
-          size="lg"
-          className="w-full h-16 text-lg gap-3"
+        <button
           onClick={() => setScannerOpen(true)}
+          className="w-full rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-5 flex items-center gap-4 shadow-lg active:scale-[0.98] transition-transform"
         >
-          <Camera className="w-6 h-6" />
-          Escanear QR Code
-        </Button>
+          <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Camera className="w-7 h-7" />
+          </div>
+          <div className="text-left">
+            <p className="text-lg font-bold leading-tight">Escanear QR Code</p>
+            <p className="text-sm opacity-90">Modo rápido para portaria</p>
+          </div>
+        </button>
 
         {/* Manual search */}
-        <Card>
+        <Card className="border-slate-200 dark:border-slate-800">
           <CardContent className="p-4">
             <form onSubmit={handleSearch} className="space-y-3">
-              <p className="text-sm font-medium">Busca manual</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Busca manual</p>
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Sem QR
+                </span>
+              </div>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -184,10 +218,10 @@ export default function ColaboradorQRTab({
                     placeholder="Nome, código, email ou telefone"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 h-11"
                   />
                 </div>
-                <Button type="submit" disabled={isSearching || !searchQuery.trim()}>
+                <Button type="submit" disabled={isSearching || !searchQuery.trim()} className="h-11 px-4">
                   {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 </Button>
               </div>
@@ -198,28 +232,28 @@ export default function ColaboradorQRTab({
         {/* Search results */}
         {searchResults.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
               {searchResults.length} resultado(s)
             </p>
             {searchResults.map((ticket) => {
-              const config = statusConfig[ticket.status] || statusConfig.valid;
-              const StatusIcon = config.icon;
+              const conf = statusConfig[ticket.status] || statusConfig.valid;
+              const StatusIcon = conf.icon;
               return (
-                <Card key={ticket.id}>
+                <Card key={ticket.id} className="border-slate-200 dark:border-slate-800">
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-medium truncate">{ticket.holder_name}</h4>
-                          <Badge variant="secondary" className={config.color}>
+                          <h4 className="font-semibold truncate">{ticket.holder_name}</h4>
+                          <Badge variant="secondary" className={conf.color}>
                             <StatusIcon className="w-3 h-3 mr-1" />
-                            {config.label}
+                            {conf.label}
                           </Badge>
                         </div>
                         {ticket.holder_email && (
                           <p className="text-sm text-muted-foreground truncate">{ticket.holder_email}</p>
                         )}
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground font-mono">
                           {ticket.lot_name && `${ticket.lot_name} • `}
                           {ticket.ticket_code.slice(0, 8).toUpperCase()}
                         </p>
@@ -227,7 +261,7 @@ export default function ColaboradorQRTab({
                       {ticket.status === 'valid' && (
                         <Button
                           size="sm"
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 h-10"
                           disabled={validatingId === ticket.id}
                           onClick={() => handleManualCheckin(ticket)}
                         >
@@ -271,7 +305,14 @@ export default function ColaboradorQRTab({
         collaboratorId={collaboratorId}
         sessionToken={sessionToken}
         onSessionExpired={onSessionExpired}
+        onCheckinDone={onCheckinDone}
+      />
+
+      <CheckinResultModal
+        result={manualResult}
+        onClose={() => setManualResult(null)}
       />
     </>
   );
 }
+
