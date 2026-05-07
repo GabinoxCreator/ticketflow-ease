@@ -31,8 +31,8 @@ interface CheckoutStepCardProps {
   customerEmail: string;
   customerPhone: string;
   customerCPF: string;
-  onSuccess: (orderId: string) => void;
-  onInProcess?: (orderId: string) => void;
+  onSuccess: (orderId: string, paymentId?: string) => void;
+  onInProcess?: (orderId: string, paymentId?: string) => void;
   onError: (message: string) => void;
 }
 
