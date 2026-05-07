@@ -93,6 +93,38 @@ serve(async (req) => {
     const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mpToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN missing');
 
+    // Sweep A: Historical paid orders with leftover pending tickets.
+    // Helper is idempotent — only fixes tickets, no inventory/coupon mutation.
+    {
+      const { data: paidWithPending } = await supabase
+        .from('orders')
+        .select('id, mp_payment_id, tickets!inner(id)')
+        .eq('status', 'paid')
+        .eq('tickets.status', 'pending')
+        .limit(BATCH_SIZE);
+      const seen = new Set<string>();
+      for (const o of (paidWithPending || []) as any[]) {
+        if (seen.has(o.id)) continue;
+        seen.add(o.id);
+        try {
+          if (!dryRun) {
+            const r = await applyOrderApproved(supabase, {
+              orderId: o.id,
+              mpPaymentId: o.mp_payment_id ?? '',
+              source: 'reconcile-orphan-orders[paid_pending_tickets]',
+            });
+            if ((r.tickets_fixed ?? 0) > 0) stats.paid_tickets_reconciled += r.tickets_fixed!;
+          } else {
+            stats.paid_tickets_reconciled++;
+          }
+          stats.items.push({ order_id: o.id, action: 'reconcile_paid_pending_tickets' });
+        } catch (e: any) {
+          stats.errors++;
+          log('PAID_RECONCILE_ERROR', { orderId: o.id, error: e?.message });
+        }
+      }
+    }
+
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
     const { data: candidates, error } = await supabase
