@@ -199,11 +199,13 @@ export default function ColaboradorQRScanner({
         )}
 
         {validating && (
-          <div className="absolute inset-x-0 bottom-24 flex justify-center pointer-events-none">
-            <div className="bg-white/95 text-slate-900 rounded-full px-4 py-2 flex items-center gap-2 shadow-lg">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <span className="text-sm font-semibold">Validando ingresso…</span>
+          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex flex-col items-center justify-center z-30 px-8">
+            <div className="relative w-24 h-24 mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-white/15" />
+              <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-primary border-b-transparent border-l-transparent animate-spin" />
             </div>
+            <p className="text-white text-xl font-bold mb-2">Validando ingresso…</p>
+            <p className="text-white/70 text-sm text-center">Aguarde a confirmação</p>
           </div>
         )}
 
