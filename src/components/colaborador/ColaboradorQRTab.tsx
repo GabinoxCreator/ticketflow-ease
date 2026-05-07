@@ -40,6 +40,7 @@ export default function ColaboradorQRTab({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [validatingId, setValidatingId] = useState<string | null>(null);
+  const [manualResult, setManualResult] = useState<CheckinResultData | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,17 +136,39 @@ export default function ColaboradorQRTab({
       if (data.session_expired) { onSessionExpired(); return; }
 
       if (data.success) {
-        toast.success(`Check-in: ${ticket.holder_name}`);
+        setManualResult({
+          type: 'success',
+          message: 'Pode entrar!',
+          holderName: ticket.holder_name,
+          lotName: ticket.lot_name,
+          ticketCode: ticket.ticket_code,
+        });
         if (navigator.vibrate) navigator.vibrate(200);
-        // Update local state
         setSearchResults(prev =>
           prev.map(t =>
             t.id === ticket.id ? { ...t, status: 'used', validated_at: new Date().toISOString() } : t
           )
         );
         onCheckinDone();
+      } else if (data.reason === 'before_window' || data.reason === 'after_window') {
+        setManualResult({
+          type: 'window_closed',
+          message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
+          holderName: ticket.holder_name,
+        });
+      } else if (data.error?.includes('já foi utilizado')) {
+        setManualResult({
+          type: 'already_used',
+          message: 'Esse ingresso já passou pela portaria.',
+          holderName: ticket.holder_name,
+          lotName: ticket.lot_name,
+        });
       } else {
-        toast.error(data.error || 'Erro ao validar');
+        setManualResult({
+          type: 'error',
+          message: data.error || 'Não foi possível validar agora.',
+          holderName: ticket.holder_name,
+        });
       }
     } catch {
       toast.error('Erro de conexão');
