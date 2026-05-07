@@ -111,6 +111,7 @@ export function CheckoutModal({
       });
       if (error) throw error;
       setOrderId(data.orderId);
+      if (data.paymentId) setPaymentId(String(data.paymentId));
       setPixData({ code: data.pixCode, expiresAt: new Date(data.expiresAt) });
       setStep('pix');
     } catch (error: any) {
@@ -287,8 +288,8 @@ export function CheckoutModal({
                 customerEmail={customerData.email}
                 customerPhone={customerData.phone}
                 customerCPF={customerData.cpf}
-                onSuccess={(newOrderId) => { setOrderId(newOrderId); setStep('success'); }}
-                onInProcess={(newOrderId) => { setOrderId(newOrderId); setStep('awaiting'); }}
+                onSuccess={(newOrderId, pid) => { setOrderId(newOrderId); if (pid) setPaymentId(pid); setStep('success'); }}
+                onInProcess={(newOrderId, pid) => { setOrderId(newOrderId); if (pid) setPaymentId(pid); setStep('awaiting'); }}
                 onError={() => {}}
               />
             )}

@@ -221,20 +221,26 @@ serve(async (req) => {
         .eq('id', order.id);
 
       // Centralised, transactional reconciliation
+      let reconciled = false;
       try {
         await applyOrderApproved(supabaseClient, {
           orderId: order.id,
           mpPaymentId: String(mpPayment.id),
           source: 'card_inline',
         });
+        reconciled = true;
       } catch (e: any) {
         logStep('applyOrderApproved error', { e: String(e) });
-        // Order may be partially settled — keep reservation alive (helper logged audit_log)
+        // Do not claim "approved" to the client; webhook/polling will reconcile.
       }
 
       reservedSoFar.length = 0;
 
-      return json({ status: 'approved', orderId: order.id, paymentId: mpPayment.id });
+      if (reconciled) {
+        return json({ status: 'approved', orderId: order.id, paymentId: mpPayment.id });
+      }
+      // Approved at MP but local reconciliation pending — treat as in_process for UX safety
+      return json({ status: 'in_process', orderId: order.id, paymentId: mpPayment.id, reconciliation: 'pending' });
     } else if (mpPayment.status === 'in_process' || mpPayment.status === 'pending') {
       await supabaseClient
         .from('orders')
