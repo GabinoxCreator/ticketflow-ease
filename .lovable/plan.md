@@ -1,108 +1,99 @@
-## Objetivo
+## Contexto
 
-Reformular o `AddGuestListDialog` para ficar mais profissional, com hierarquia clara, time picker confiável e estado de sucesso com link copiável. Sem mudanças de regra de negócio (mesmos campos: `name`, `valid_until_time`, `max_guests`).
+O `AddGuestListDialog` já foi reescrito anteriormente com 3 seções, time picker com máscara, presets, resumo dinâmico e tela de sucesso. Esta nova rodada é de **refinamento visual e de UX** sobre a base existente, focando nos pontos que ainda podem incomodar no uso real.
 
-## Arquivos alterados
+## Arquivos a alterar
 
-- `src/components/producer/AddGuestListDialog.tsx` — reescrito (UI/UX)
-- `src/components/producer/tabs/EventListsTab.tsx` — passar `eventDate` e `eventTime` ao dialog (props opcionais) para alimentar atalhos inteligentes; nada mais muda
-- (sem novos componentes — usar `TimeSelect` existente em `src/components/producer/TimeSelect.tsx` para o select 15-em-15min)
+- `src/components/producer/AddGuestListDialog.tsx` — refinamento (sem reescrita total)
+- Nenhum outro arquivo precisa ser tocado (props `eventTime` já chegam via `EventListsTab`)
 
-## Novo layout do modal
+## Refinamentos propostos
 
-Header reforçado:
-- Título: "Nova Lista de Cortesia"
-- Subtítulo curto e operacional: "Defina nome, validade e limite. O link público é gerado automaticamente."
+### 1. Campo de horário — mais "picker", menos "input solto"
 
-Conteúdo dividido em 3 seções, separadas por divider sutil e label de seção (uppercase, `text-xs text-muted-foreground tracking-wide`):
+Hoje: input HH:MM + botão relógio que abre Popover com Select padrão. Funciona, mas o popover usa um Select shadcn (gera dois cliques para escolher).
 
-### Seção 1 — Identificação
-- Label "Nome da lista" + Input
-- Placeholder: "Ex: Lista VIP, Aniversariantes, Imprensa"
-- Helper: "Aparece para os convidados ao se inscreverem"
-- Contador 0/40 caracteres à direita do label
+Mudar para:
+- **Trigger único do picker:** o **input inteiro** vira clicável e abre o popover, além de continuar editável por teclado. Visual: input "premium" com borda mais marcada, ícone Clock à esquerda, chevron sutil à direita.
+- **Conteúdo do popover:** grid de horários ao invés de Select aninhado.
+  - Coluna esquerda: lista vertical scrollável com horários de 30 em 30min (00:00 → 23:30), `max-h-56 overflow-y-auto`
+  - Item selecionado destacado com `bg-primary/15 text-primary`
+  - Auto-scroll para o horário atual ao abrir
+- **Validação visual mais suave:** trocar borda verde permanente por:
+  - borda neutra quando válido (sem "verde insistente")
+  - borda destrutiva + ícone `AlertCircle` à direita SOMENTE quando inválido E o campo já foi tocado (evita erro no estado inicial)
+- **Presets reorganizados em 2 linhas claras:**
+  - Linha 1 (atalhos do evento, se `eventTime`): `Início do evento` · `1h antes` · `2h antes` — chips destacados em primary outline
+  - Linha 2 (genéricos): `18:00` · `20:00` · `22:00` · `23:59` — chips neutros
+  - Label pequeno acima de cada linha: "Sugestões do evento" / "Horários comuns"
 
-### Seção 2 — Regras
-**Horário de validade (foco principal):**
-- Componente: input com máscara HH:MM (regex onChange) + botão relógio à direita que abre Popover com `TimeSelect` (slots de 15min). Ícone `Clock` à esquerda dentro do input.
-- Validação visual: borda verde quando HH:MM válido, vermelha quando inválido.
-- Linha de presets (chips clicáveis com `Badge` variant outline, hover primary):
-  - Atalhos genéricos: 18:00 · 20:00 · 22:00 · 23:59
-  - Se `eventTime` foi passado: chips extras "Início do evento (HH:MM)", "1h antes", "2h antes" (calculados subtraindo)
-- Helper: "A lista ficará válida na data do evento até este horário"
+### 2. Hierarquia visual do modal
 
-**Limite de convidados (opcional):**
-- Input numérico
-- Placeholder: "Sem limite"
-- Helper dinâmico:
-  - vazio: "Deixe em branco para ilimitado"
-  - preenchido: "Máximo de N convidados nesta lista" (verde)
+- Aumentar o espaçamento entre seções (`space-y-6` em vez de `space-y-5`)
+- Labels de seção com **número** e linha divisória sutil:
+  ```
+  ─── 1 · IDENTIFICAÇÃO ───────────
+  ```
+  Implementar com flex + `<span>` + `<div className="h-px flex-1 bg-border/60" />`
+- Header do dialog com ícone temático à esquerda do título (`Users` em círculo `bg-primary/10`)
 
-### Seção 3 — Compartilhamento
-- Bloco compacto não-input: ícone `LinkIcon` + texto em duas linhas
-  - "Link público gerado automaticamente"
-  - "Você poderá copiar e compartilhar após criar a lista"
-- Visual: `rounded-lg border border-dashed bg-muted/30 p-3` (parece informativo, não editável)
+### 3. Bloco de compartilhamento mais leve
 
-## Rodapé inteligente (resumo + ações)
+Hoje ocupa 3 linhas. Reduzir para uma linha compacta:
+- Texto único: `LinkIcon` + "Um link público será gerado automaticamente após criar"
+- `text-xs text-muted-foreground` em uma única linha, sem caixa com borda dashed
+- Remove a sensação de "campo editável"
 
-Acima dos botões, mini-resumo dinâmico em card sutil:
-```
-[Nome da lista] · válida até [HH:MM] · [sem limite | até N convidados]
-```
-- Se nome vazio: mostra placeholder "Preencha o nome da lista"
-- Se horário inválido: chip vermelho "horário inválido"
+### 4. Resumo do rodapé — mais visual
 
-Botões:
-- "Cancelar" (ghost) à esquerda
-- "Criar lista" (primary) à direita, desabilitado se nome vazio ou horário inválido
+- Trocar texto inline por **3 mini-pílulas** lado a lado (nome | horário | limite), cada uma com ícone próprio (`Tag`, `Clock`, `Users`)
+- Quando o campo correspondente está vazio/inválido, pílula fica em estado muted "—"
+- Visual de cartão `bg-muted/30 rounded-lg p-3`
 
-## Estado pós-criação (sucesso)
+### 5. Limite de convidados
 
-Após `createList.mutateAsync` ok, NÃO fechar imediatamente. Trocar conteúdo do dialog para uma view de sucesso:
+- Quando preenchido, mostrar pílula sutil verde "Máximo de N" abaixo do input em vez de só texto
+- Quando vazio, manter "Deixe em branco para ilimitado" mais discreto (`text-xs text-muted-foreground`)
 
-- Ícone `CheckCircle2` grande (verde) centralizado
-- Título: "Lista criada com sucesso"
-- Subtítulo: "Compartilhe o link abaixo com seus convidados"
-- Card com URL `${origin}/lista/${slug}` em fonte mono, truncada
-- Botão "Copiar link" (primary, ícone `Copy` → vira `Check` por 2s após copiar)
-- Botão secundário "Criar outra lista" → reseta form e volta à etapa de criação
-- Botão "Concluir" → fecha modal
+### 6. Tela de sucesso — incluir botão "Gerenciar lista"
+
+Hoje tem: Copiar link / Criar outra / Concluir.
+Adicionar ação principal:
+- **"Abrir gerenciamento da lista"** (variant outline) — fecha o modal e o `EventListsTab` foca/abre essa lista. Implementação mínima: callback `onListCreated?: (list) => void` no dialog; se `EventListsTab` não consumir agora, o botão simplesmente fecha o modal (degradação suave). **Sem alterações em outros arquivos nesta rodada** — apenas preparar o callback como noop por padrão.
+
+### 7. Microcopy
+
+- Header: "Nova lista de cortesia" → manter, mas subtítulo: **"Configure quem pode entrar e até quando o link funciona."**
+- Placeholder do nome: "VIP, Imprensa, Aniversariantes…"
+- Helper do horário: **"Horário máximo, na data do evento, em que novos convidados podem se inscrever."**
+- Botão final: "Criar lista" → **"Criar e gerar link"** (mais ação, menos abstrato)
 
 ## Detalhes técnicos
 
-- Estado novo: `createdList: GuestList | null`, `copied: boolean`, `timeError: boolean`
-- Validação horário: `/^([01]\d|2[0-3]):[0-5]\d$/`
-- Máscara: ao digitar, manter só dígitos, inserir `:` após 2 dígitos, limitar a 5 chars
-- Cálculo de presets baseados em `eventTime` (formato `HH:MM:SS` ou `HH:MM`): subtrair minutos via Date helper local
-- Manter mesma chamada `createList.mutateAsync({ event_id, name, valid_until_time, max_guests })` — schema do banco intocado
-- Reset ao fechar: limpar `name`, `validUntilTime`, `maxGuests`, `createdList`, `copied`
-- `EventListsTab` lê `event` (já tem via context? — se não, fazer lookup leve via prop opcional; passar somente se já disponível, senão omitir e os atalhos inteligentes simplesmente não aparecem)
-
-## Acessibilidade / responsivo
-
-- Labels associados via `htmlFor`
-- Foco automático no campo Nome ao abrir
-- Em mobile (`< 640px`): chips de preset quebram em grid 4 colunas; modal permanece `sm:max-w-md`
-- aria-invalid no input de horário quando inválido
+- Estado novo: `timeTouched: boolean` (controla quando exibir erro de validação)
+- Reuso: continuar usando `useGuestListMutations`, mesmo schema (`name`, `valid_until_time`, `max_guests`)
+- Popover do horário: substituir `TimeSelect` por lista custom inline (`<div role="listbox">`) com auto-scroll via `useEffect` + `scrollIntoView({ block: 'center' })`
+- Não criar arquivos novos
+- Manter responsividade `sm:max-w-md`; em mobile (390px) o popover do horário usa `w-[calc(100vw-3rem)]` se necessário
 
 ## Fora de escopo
 
-- Não mexer em `useGuestLists`, schema, RLS, edge functions
-- Não mexer em `GuestListEntriesManager`, `EventListsTab` (além de passar 1-2 props)
-- Não tocar em auth, pagamentos, checkout
+- Schema/RLS/edge functions
+- Outros componentes de lista (`GuestListEntriesManager`, `EventListsTab` — exceto eventual consumo futuro do callback)
+- Auth, pagamentos, checkout
+- Tema global
 
 ## Checklist de validação
 
-1. Abrir "Nova Lista" → modal premium com 3 seções visíveis
-2. Digitar nome → contador atualiza, helper visível
-3. Campo horário aceita digitação com máscara HH:MM e mostra erro se inválido
-4. Clicar ícone relógio → abre popover com slots 15min
-5. Clicar preset (ex: 22:00) → preenche horário
-6. Se evento tem horário: chips "Início do evento", "1h antes" aparecem e funcionam
-7. Limite vazio → "Deixe em branco para ilimitado"; preenchido → "Máximo de N convidados"
-8. Resumo no rodapé reflete em tempo real
-9. Botão "Criar lista" desabilitado até nome + horário válidos
-10. Após criar → tela de sucesso com link, botão "Copiar link" funciona (vira Check)
-11. "Criar outra lista" reseta form; "Concluir" fecha
-12. Lista aparece corretamente na grid após fechar
+1. Abrir modal → header com ícone, 3 seções numeradas com divisores
+2. Clicar em qualquer parte do input de horário → abre popover com lista de horários
+3. Lista do popover faz auto-scroll para o horário atual
+4. Selecionar horário no popover preenche e fecha
+5. Digitar horário inválido NÃO mostra erro até sair do campo
+6. Presets do evento aparecem em linha separada com label "Sugestões do evento"
+7. Bloco de compartilhamento agora é uma única linha leve
+8. Resumo do rodapé mostra 3 pílulas com ícones (nome/horário/limite)
+9. Botão final lê "Criar e gerar link"
+10. Após criar, tela de sucesso mantém Copiar link e oferece "Abrir gerenciamento da lista"
+11. Em mobile (390px) tudo permanece legível, sem overflow horizontal
+12. Nenhum outro arquivo foi modificado
