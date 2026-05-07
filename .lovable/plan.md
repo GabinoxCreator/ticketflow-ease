@@ -1,99 +1,96 @@
 ## Contexto
 
-O `AddGuestListDialog` já foi reescrito anteriormente com 3 seções, time picker com máscara, presets, resumo dinâmico e tela de sucesso. Esta nova rodada é de **refinamento visual e de UX** sobre a base existente, focando nos pontos que ainda podem incomodar no uso real.
+A tela atual de login do colaborador (`/colaborador`) está com card escuro sobre fundo claro, criando contraste estranho e visual datado. Como é uma área interna (portaria/operação), o login deve ser **simples, claro e direto** — sem textos extras, sem badge decorativo grande, sem hierarquia pesada.
 
-## Arquivos a alterar
+## Objetivo
 
-- `src/components/producer/AddGuestListDialog.tsx` — refinamento (sem reescrita total)
-- Nenhum outro arquivo precisa ser tocado (props `eventTime` já chegam via `EventListsTab`)
+Login limpo, em tons claros, alinhado ao padrão moderno do FestPag, otimizado para uso rápido em mobile (390px).
 
-## Refinamentos propostos
+## Arquivo único alterado
 
-### 1. Campo de horário — mais "picker", menos "input solto"
+- `src/pages/colaborador/ColaboradorLogin.tsx`
 
-Hoje: input HH:MM + botão relógio que abre Popover com Select padrão. Funciona, mas o popover usa um Select shadcn (gera dois cliques para escolher).
+Nada mais é tocado (sem mexer em auth logic, contexto, ou outras telas do colaborador).
 
-Mudar para:
-- **Trigger único do picker:** o **input inteiro** vira clicável e abre o popover, além de continuar editável por teclado. Visual: input "premium" com borda mais marcada, ícone Clock à esquerda, chevron sutil à direita.
-- **Conteúdo do popover:** grid de horários ao invés de Select aninhado.
-  - Coluna esquerda: lista vertical scrollável com horários de 30 em 30min (00:00 → 23:30), `max-h-56 overflow-y-auto`
-  - Item selecionado destacado com `bg-primary/15 text-primary`
-  - Auto-scroll para o horário atual ao abrir
-- **Validação visual mais suave:** trocar borda verde permanente por:
-  - borda neutra quando válido (sem "verde insistente")
-  - borda destrutiva + ícone `AlertCircle` à direita SOMENTE quando inválido E o campo já foi tocado (evita erro no estado inicial)
-- **Presets reorganizados em 2 linhas claras:**
-  - Linha 1 (atalhos do evento, se `eventTime`): `Início do evento` · `1h antes` · `2h antes` — chips destacados em primary outline
-  - Linha 2 (genéricos): `18:00` · `20:00` · `22:00` · `23:59` — chips neutros
-  - Label pequeno acima de cada linha: "Sugestões do evento" / "Horários comuns"
+## Direção visual
 
-### 2. Hierarquia visual do modal
+**Paleta clara:**
+- Fundo da página: `bg-white` com sutil gradient `from-white via-slate-50 to-indigo-50/40`
+- Card: `bg-white` com `border border-slate-200/80` e `shadow-xl shadow-indigo-500/5` (sombra colorida discreta para dar premium feel)
+- Inputs: `bg-slate-50` borda `border-slate-200`, focus ring primary
+- Texto: `text-slate-900` títulos, `text-slate-500` auxiliar
 
-- Aumentar o espaçamento entre seções (`space-y-6` em vez de `space-y-5`)
-- Labels de seção com **número** e linha divisória sutil:
-  ```
-  ─── 1 · IDENTIFICAÇÃO ───────────
-  ```
-  Implementar com flex + `<span>` + `<div className="h-px flex-1 bg-border/60" />`
-- Header do dialog com ícone temático à esquerda do título (`Users` em círculo `bg-primary/10`)
+**Sem dark card:** o card fica claro mesmo em dark mode (forçar `bg-white text-slate-900`) — é uma tela operacional de uso em ambientes claros (portaria, ingresso).
 
-### 3. Bloco de compartilhamento mais leve
+## Estrutura proposta (minimalista)
 
-Hoje ocupa 3 linhas. Reduzir para uma linha compacta:
-- Texto único: `LinkIcon` + "Um link público será gerado automaticamente após criar"
-- `text-xs text-muted-foreground` em uma única linha, sem caixa com borda dashed
-- Remove a sensação de "campo editável"
+```text
+┌─────────────────────────────────┐
+│                                 │
+│         [logo festpag]          │  ← logo h-10
+│      Acesso do colaborador      │  ← text-sm slate-500
+│                                 │
+│   ┌───────────────────────┐     │
+│   │  Usuário              │     │
+│   │  [ portaria01      ]  │     │
+│   │                       │     │
+│   │  Senha                │     │
+│   │  [ ••••••••     👁  ] │     │
+│   │                       │     │
+│   │  [    Entrar    →   ] │     │  ← botão primary h-12
+│   └───────────────────────┘     │
+│                                 │
+│   Problemas? Fale com o produtor│  ← text-xs muted
+│                                 │
+└─────────────────────────────────┘
+```
 
-### 4. Resumo do rodapé — mais visual
+## Mudanças concretas
 
-- Trocar texto inline por **3 mini-pílulas** lado a lado (nome | horário | limite), cada uma com ícone próprio (`Tag`, `Clock`, `Users`)
-- Quando o campo correspondente está vazio/inválido, pílula fica em estado muted "—"
-- Visual de cartão `bg-muted/30 rounded-lg p-3`
+1. **Remover** o badge "Área do Colaborador" grande com ícone shield (informação redundante).
+2. **Remover** o título "Entrar para operar" + descrição longa do CardHeader. Substituir por uma linha sutil acima do card: `Acesso do colaborador` (text-sm, slate-500), abaixo do logo.
+3. **Card claro** com padding generoso (`p-6 sm:p-7`), bordas arredondadas `rounded-2xl`, sem CardHeader/CardTitle pesados.
+4. **Labels** menores (`text-xs font-semibold uppercase tracking-wide text-slate-600`) acima de cada input — estilo moderno.
+5. **Inputs** altos (`h-12`), fundo `bg-slate-50/70`, borda neutra, focus com ring primary fino.
+6. **Botão Entrar:** h-12, gradient sutil `from-primary to-indigo-600`, ícone seta direita, texto bold.
+7. **Erro:** alert inline mais discreto — fundo `bg-red-50`, borda `border-red-200`, ícone `AlertCircle` pequeno.
+8. **Footer:** linha única `text-xs text-slate-400` — "Problemas para acessar? Fale com o produtor do evento."
+9. **Loading:** ao enviar, botão mostra spinner + "Validando…" (mais profissional que "Entrando...").
 
-### 5. Limite de convidados
+## Microcopy enxuto
 
-- Quando preenchido, mostrar pílula sutil verde "Máximo de N" abaixo do input em vez de só texto
-- Quando vazio, manter "Deixe em branco para ilimitado" mais discreto (`text-xs text-muted-foreground`)
-
-### 6. Tela de sucesso — incluir botão "Gerenciar lista"
-
-Hoje tem: Copiar link / Criar outra / Concluir.
-Adicionar ação principal:
-- **"Abrir gerenciamento da lista"** (variant outline) — fecha o modal e o `EventListsTab` foca/abre essa lista. Implementação mínima: callback `onListCreated?: (list) => void` no dialog; se `EventListsTab` não consumir agora, o botão simplesmente fecha o modal (degradação suave). **Sem alterações em outros arquivos nesta rodada** — apenas preparar o callback como noop por padrão.
-
-### 7. Microcopy
-
-- Header: "Nova lista de cortesia" → manter, mas subtítulo: **"Configure quem pode entrar e até quando o link funciona."**
-- Placeholder do nome: "VIP, Imprensa, Aniversariantes…"
-- Helper do horário: **"Horário máximo, na data do evento, em que novos convidados podem se inscrever."**
-- Botão final: "Criar lista" → **"Criar e gerar link"** (mais ação, menos abstrato)
+- Logo + subtítulo: `Acesso do colaborador`
+- Label usuário: `Usuário`
+- Placeholder usuário: `seu_usuario`
+- Label senha: `Senha`
+- Placeholder senha: `••••••••`
+- Botão: `Entrar`
+- Footer: `Problemas para acessar? Fale com o produtor do evento.`
 
 ## Detalhes técnicos
 
-- Estado novo: `timeTouched: boolean` (controla quando exibir erro de validação)
-- Reuso: continuar usando `useGuestListMutations`, mesmo schema (`name`, `valid_until_time`, `max_guests`)
-- Popover do horário: substituir `TimeSelect` por lista custom inline (`<div role="listbox">`) com auto-scroll via `useEffect` + `scrollIntoView({ block: 'center' })`
-- Não criar arquivos novos
-- Manter responsividade `sm:max-w-md`; em mobile (390px) o popover do horário usa `w-[calc(100vw-3rem)]` se necessário
+- Manter estrutura React igual (mesmo `useColaboradorAuth().login`, mesmo redirect).
+- Usar tokens semânticos `text-primary`, `bg-primary`, mas para o fundo claro forçar `bg-white` e neutros `slate-*` (essa tela é especificamente clara, não segue dark theme).
+- `motion.div` mantido para fade-in suave.
+- Garantir responsivo em 390px: max-w-sm, padding lateral adequado.
+- Acessibilidade: labels com `htmlFor`, autoComplete preservado, `aria-label` no toggle de senha.
 
 ## Fora de escopo
 
-- Schema/RLS/edge functions
-- Outros componentes de lista (`GuestListEntriesManager`, `EventListsTab` — exceto eventual consumo futuro do callback)
-- Auth, pagamentos, checkout
-- Tema global
+- Lógica de autenticação
+- Outras telas do colaborador (eventos, evento, scanner) — já foram refinadas anteriormente
+- Backend, RLS, edge functions
+- Tema global do app (alteração só nesta página)
 
 ## Checklist de validação
 
-1. Abrir modal → header com ícone, 3 seções numeradas com divisores
-2. Clicar em qualquer parte do input de horário → abre popover com lista de horários
-3. Lista do popover faz auto-scroll para o horário atual
-4. Selecionar horário no popover preenche e fecha
-5. Digitar horário inválido NÃO mostra erro até sair do campo
-6. Presets do evento aparecem em linha separada com label "Sugestões do evento"
-7. Bloco de compartilhamento agora é uma única linha leve
-8. Resumo do rodapé mostra 3 pílulas com ícones (nome/horário/limite)
-9. Botão final lê "Criar e gerar link"
-10. Após criar, tela de sucesso mantém Copiar link e oferece "Abrir gerenciamento da lista"
-11. Em mobile (390px) tudo permanece legível, sem overflow horizontal
-12. Nenhum outro arquivo foi modificado
+1. Tela com fundo branco/claro suave, sem áreas escuras
+2. Logo FestPag centralizado no topo com subtítulo discreto
+3. Card claro, sombra suave, bordas arredondadas
+4. Apenas 2 campos: Usuário e Senha
+5. Botão Entrar grande (h-12) destacado em roxo
+6. Toggle de senha funciona (olho)
+7. Erro aparece em alert claro acima dos campos
+8. Footer com 1 linha discreta
+9. Em 390px nada estoura, tudo respira
+10. Visual coerente com o padrão moderno do FestPag
