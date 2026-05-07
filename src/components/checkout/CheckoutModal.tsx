@@ -4,6 +4,7 @@ import { X, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
+import { CheckoutStepCPF } from './CheckoutStepCPF';
 import { CheckoutStepPayment } from './CheckoutStepPayment';
 import { CheckoutStepCard } from './CheckoutStepCard';
 import { CheckoutStepPix } from './CheckoutStepPix';
@@ -15,8 +16,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { validateCPF, unformatCPF } from '@/utils/cpfValidator';
 
-type CheckoutStep = 'form' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
+type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
 interface CartItem {
   lotId: string;
