@@ -245,27 +245,47 @@ const MinhaConta = () => {
                       </p>
                     </div>
 
-                    {/* CPF (read-only) */}
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="cpf"
-                        className="text-xs uppercase tracking-wider text-muted-foreground"
-                      >
-                        CPF
-                      </Label>
-                      <div className="relative group">
-                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="cpf"
-                          value={profile?.cpf ? formatCPF(profile.cpf) : 'Não informado'}
-                          className="pl-10 bg-muted/30 border-border/30 cursor-not-allowed"
-                          disabled
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground/80 leading-relaxed">
-                        O CPF não pode ser alterado. Entre em contato com o suporte se houver erro.
-                      </p>
-                    </div>
+                    {/* CPF — editable only when not yet set */}
+                    {(() => {
+                      const cpfLocked = !!profile?.cpf && validateCPF(profile.cpf);
+                      return (
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="cpf"
+                            className="text-xs uppercase tracking-wider text-muted-foreground"
+                          >
+                            CPF
+                          </Label>
+                          <div className="relative group">
+                            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                              id="cpf"
+                              inputMode="numeric"
+                              maxLength={14}
+                              placeholder="000.000.000-00"
+                              {...register('cpf')}
+                              value={cpfValue || ''}
+                              onChange={(e) => setValue('cpf', formatCPF(e.target.value), { shouldDirty: true, shouldValidate: true })}
+                              className={cn(
+                                'pl-10 transition-all',
+                                cpfLocked
+                                  ? 'bg-muted/30 border-border/30 cursor-not-allowed'
+                                  : 'bg-secondary/30 border-border/50 focus-visible:border-primary/50 focus-visible:bg-secondary/50'
+                              )}
+                              disabled={cpfLocked}
+                            />
+                          </div>
+                          {errors.cpf && (
+                            <p className="text-sm text-destructive">{errors.cpf.message}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground/80 leading-relaxed">
+                            {cpfLocked
+                              ? 'O CPF já está salvo. Entre em contato com o suporte se houver erro.'
+                              : 'Informe seu CPF para agilizar suas próximas compras.'}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     {/* WhatsApp */}
                     <div className="space-y-2">
