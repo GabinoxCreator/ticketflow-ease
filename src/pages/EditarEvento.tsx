@@ -45,6 +45,7 @@ import {
 import { useEvent, useEvents } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const eventSchema = z.object({
   title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres').max(100),
@@ -111,9 +112,9 @@ export default function EditarEvento() {
         title: event.title,
         description: event.description || '',
         date: parseISO(event.date),
-        time: event.time,
+        time: (event.time || '').slice(0, 5),
         end_date: event.end_date ? parseISO(event.end_date) : null,
-        end_time: event.end_time || '',
+        end_time: (event.end_time || '').slice(0, 5),
         venue: event.venue,
         city: event.city,
         state: event.state,
@@ -225,7 +226,7 @@ export default function EditarEvento() {
           </TabsList>
 
           <TabsContent value="info">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit, () => toast.error('Verifique os campos obrigatórios destacados'))} className="space-y-6">
               {/* Basic Info */}
               <Card>
                 <CardHeader>
@@ -276,13 +277,15 @@ export default function EditarEvento() {
                           />
                         </PopoverContent>
                       </Popover>
+                      {errors.date && <p className="text-sm text-destructive">{errors.date.message as string}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label>Horário de Início *</Label>
                       <TimeSelect
                         value={watchedValues.time || ''}
-                        onChange={(v) => setValue('time', v, { shouldDirty: true })}
+                        onChange={(v) => setValue('time', v, { shouldDirty: true, shouldValidate: true })}
                       />
+                      {errors.time && <p className="text-sm text-destructive">{errors.time.message}</p>}
                     </div>
                   </div>
 
@@ -337,11 +340,11 @@ export default function EditarEvento() {
                     <div className="space-y-2">
                       <Label>Estado *</Label>
                       <Select
-                        value={watchedValues.state}
-                        onValueChange={(value) => setValue('state', value, { shouldDirty: true })}
+                        value={watchedValues.state || ''}
+                        onValueChange={(value) => setValue('state', value, { shouldDirty: true, shouldValidate: true })}
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="UF" />
                         </SelectTrigger>
                         <SelectContent>
                           {states.map((s) => (
@@ -349,6 +352,7 @@ export default function EditarEvento() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {errors.state && <p className="text-sm text-destructive">{errors.state.message}</p>}
                     </div>
                   </div>
 
