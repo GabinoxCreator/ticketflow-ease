@@ -133,6 +133,7 @@ export default function ColaboradorQRScanner({
 
   useEffect(() => {
     if (!open) return;
+    if (result) return; // don't (re)start while showing result
     let mounted = true;
     const containerId = 'colaborador-qr-reader';
 
@@ -161,7 +162,15 @@ export default function ColaboradorQRScanner({
         scannerRef.current = null;
       }
     };
-  }, [open, onScan]);
+  }, [open, onScan, result]);
+
+  // Stop camera as soon as a result appears (prevents iOS black-screenshot artifact)
+  useEffect(() => {
+    if (result && scannerRef.current) {
+      scannerRef.current.stop().catch(() => {});
+      scannerRef.current = null;
+    }
+  }, [result]);
 
   if (!open) return null;
 
