@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
+import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,12 @@ const logStep = (step: string, details?: any) => {
   console.log(`[PROCESS-CARD-PAYMENT] ${step}${detailsStr}`);
 };
 
+const json = (body: any, status = 200) =>
+  new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  });
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -42,6 +49,19 @@ serve(async (req) => {
     const mercadopagoToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mercadopagoToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN is not set');
 
+    // Auth required
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
+    const token = authHeader.replace('Bearer ', '');
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: claimsData, error: cErr } = await userClient.auth.getClaims(token);
+    if (cErr || !claimsData?.claims?.sub) return json({ error: 'Unauthorized' }, 401);
+    const userId: string = claimsData.claims.sub;
+
     supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -52,7 +72,17 @@ serve(async (req) => {
     const { eventId, items, customerName, customerEmail, customerPhone, customerCPF,
             cardToken, paymentMethodId, issuerId, installments, couponId } = body;
 
-    logStep('Request received', { eventId, itemsCount: items.length, customerEmail, paymentMethodId });
+    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, paymentMethodId, userId });
+
+    // CPF gate BEFORE any reservation
+    const cleanCPF = unformatCPF(customerCPF);
+    if (!validateCPF(cleanCPF)) {
+      return json({ error: 'invalid_cpf', message: 'CPF inválido. Verifique e tente novamente.' }, 400);
+    }
+
+    if (!eventId || !Array.isArray(items) || items.length === 0 || !cardToken) {
+      return json({ error: 'invalid_request' }, 400);
+    }
 
     // Validate event
     const { data: event, error: eventError } = await supabaseClient
@@ -112,15 +142,6 @@ serve(async (req) => {
     }
     const finalAmount = Math.max(0.01, totalAmount - discountAmount);
 
-    // Auth (optional)
-    let userId: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: userData } = await supabaseClient.auth.getUser(token);
-      userId = userData.user?.id || null;
-    }
-
     const expiresAtIso = new Date(Date.now() + CARD_EXPIRATION_MINUTES * 60 * 1000).toISOString();
 
     // Create order pending
@@ -175,7 +196,7 @@ serve(async (req) => {
       description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
       installments,
       payment_method_id: paymentMethodId,
-      payer: { email: customerEmail, identification: { type: 'CPF', number: customerCPF } },
+      payer: { email: customerEmail, identification: { type: 'CPF', number: cleanCPF } },
       external_reference: order.id,
     };
     if (issuerId) mpBody.issuer_id = parseInt(issuerId);
@@ -193,85 +214,37 @@ serve(async (req) => {
     logStep('MP payment response', { status: mpPayment.status, statusDetail: mpPayment.status_detail, id: mpPayment.id });
 
     if (mpPayment.status === 'approved') {
-      // Confirm sale atomically per lot
-      let allConfirmed = true;
-      for (const item of lineItems) {
-        const { data: ok, error: confErr } = await supabaseClient
-          .rpc('confirm_lot_sale', { _lot_id: item.lotId, _qty: item.quantity });
-        if (confErr || !ok) {
-          allConfirmed = false;
-          logStep('confirm_lot_sale FAILED — possible double-confirm or missing reservation', { lotId: item.lotId, qty: item.quantity, confErr });
-        }
-      }
-
-      // Mark order paid + tickets valid (idempotent)
+      // Persist mp_payment_id BEFORE reconciliation so RPC can find it
       await supabaseClient
         .from('orders')
-        .update({
-          status: 'paid',
-          payment_method: `card:${mpPayment.id}`,
-          mp_payment_id: String(mpPayment.id),
-          expires_at: null,
-        })
+        .update({ mp_payment_id: String(mpPayment.id) })
         .eq('id', order.id);
-      await supabaseClient
-        .from('tickets')
-        .update({ status: 'valid' })
-        .eq('order_id', order.id);
 
-      // Reservations are now consumed by confirm_lot_sale
-      reservedSoFar.length = 0;
-
-      // Coupon increment
-      if (appliedCouponId) {
-        const { data: c } = await supabaseClient
-          .from('event_coupons').select('uses_count').eq('id', appliedCouponId).maybeSingle();
-        if (c) {
-          await supabaseClient.from('event_coupons')
-            .update({ uses_count: (c.uses_count || 0) + 1 })
-            .eq('id', appliedCouponId);
-        }
-      }
-
-      if (!allConfirmed) {
-        logStep('Order paid but inventory mismatch detected — manual review needed', { orderId: order.id });
-      }
-
-      // Post-payment confirmation email — awaited but never throws.
+      // Centralised, transactional reconciliation
       try {
-        const emailResult = await sendOrderConfirmationEmailSafe(supabaseClient, {
+        await applyOrderApproved(supabaseClient, {
           orderId: order.id,
+          mpPaymentId: String(mpPayment.id),
           source: 'card_inline',
         });
-        logStep('order_email_result', emailResult);
-      } catch (e) {
-        // Defensive: helper should never throw, but never let email break payment.
-        logStep('order_email_unexpected', { e: String(e) });
+      } catch (e: any) {
+        logStep('applyOrderApproved error', { e: String(e) });
+        // Order may be partially settled — keep reservation alive (helper logged audit_log)
       }
 
-      return new Response(
-        JSON.stringify({ status: 'approved', orderId: order.id, paymentId: mpPayment.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
-    } else if (mpPayment.status === 'in_process' || mpPayment.status === 'pending') {
-      // Payment in review
-      await supabaseClient
-        .from('orders')
-        .update({
-          payment_method: `card:${mpPayment.id}`,
-          mp_payment_id: String(mpPayment.id),
-        })
-        .eq('id', order.id);
-
-      // Don't release — order remains pending with reservation alive
       reservedSoFar.length = 0;
 
-      return new Response(
-        JSON.stringify({ status: 'in_process', orderId: order.id, paymentId: mpPayment.id }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return json({ status: 'approved', orderId: order.id, paymentId: mpPayment.id });
+    } else if (mpPayment.status === 'in_process' || mpPayment.status === 'pending') {
+      await supabaseClient
+        .from('orders')
+        .update({ mp_payment_id: String(mpPayment.id) })
+        .eq('id', order.id);
+
+      reservedSoFar.length = 0;
+
+      return json({ status: 'in_process', orderId: order.id, paymentId: mpPayment.id });
     } else {
-      // Rejected — release stock, mark order as failed (preserve traceability), delete tickets
       logStep('Payment rejected', { statusDetail: mpPayment.status_detail });
 
       for (const item of lineItems) {
@@ -286,20 +259,17 @@ serve(async (req) => {
         .from('orders')
         .update({
           status: 'failed',
-          payment_method: `card:${mpPayment.id || 'unknown'}`,
           mp_payment_id: mpPayment.id ? String(mpPayment.id) : null,
           expires_at: new Date().toISOString(),
         })
         .eq('id', order.id);
 
-      return new Response(
-        JSON.stringify({
-          error: 'Pagamento não aprovado',
-          errorCode: mpPayment.status_detail || 'unknown',
-          status: 'rejected',
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+      return json({
+        error: 'Pagamento não aprovado',
+        errorCode: mpPayment.status_detail || 'unknown',
+        status: 'rejected',
+        orderId: order.id,
+      });
     }
   } catch (error: any) {
     logStep('ERROR', { message: error.message });
@@ -312,9 +282,6 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return json({ error: error.message }, 500);
   }
 });
