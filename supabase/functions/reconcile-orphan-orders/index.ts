@@ -52,6 +52,7 @@ serve(async (req) => {
     rejected_marked_failed: 0,
     still_in_process: 0,
     inventory_corrections: 0,
+    paid_tickets_reconciled: 0,
     errors: 0,
     items: [] as any[],
   };
