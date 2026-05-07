@@ -127,6 +127,7 @@ export default function ColaboradorQRScanner({
     const last = recentScans.current.get(code);
     if (last && now - last < DEBOUNCE_MS) return;
     recentScans.current.set(code, now);
+    if (navigator.vibrate) navigator.vibrate(50);
     validateTicket(code);
   }, [validateTicket]);
 
