@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard } from 'lucide-react';
-import { formatCPF } from '@/utils/cpfValidator';
+import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
 import Header from '@/components/Header';
@@ -25,18 +25,25 @@ const profileSchema = z.object({
   nome_completo: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100, 'Nome muito longo'),
   whatsapp: z.string().min(10, 'WhatsApp inválido').max(20, 'WhatsApp inválido'),
   email: z.string().email('Email inválido'),
+  cpf: z.string().refine((v) => {
+    const d = unformatCPF(v || '');
+    return d.length === 0 || validateCPF(d);
+  }, 'CPF inválido'),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 const MinhaConta = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
+    reset,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -44,8 +51,23 @@ const MinhaConta = () => {
       nome_completo: profile?.nome_completo || '',
       whatsapp: profile?.whatsapp || '',
       email: profile?.email || '',
+      cpf: profile?.cpf ? formatCPF(profile.cpf) : '',
     },
   });
+
+  const cpfValue = watch('cpf');
+
+  // Sync form when profile loads/changes
+  React.useEffect(() => {
+    if (profile) {
+      reset({
+        nome_completo: profile.nome_completo || '',
+        whatsapp: profile.whatsapp || '',
+        email: profile.email || '',
+        cpf: profile.cpf ? formatCPF(profile.cpf) : '',
+      });
+    }
+  }, [profile, reset]);
 
   const getInitials = (name: string) => {
     return name
@@ -61,16 +83,24 @@ const MinhaConta = () => {
 
     setIsUpdating(true);
     try {
+      const cpfDigits = unformatCPF(data.cpf || '');
+      const update: Record<string, unknown> = {
+        nome_completo: data.nome_completo,
+        whatsapp: data.whatsapp,
+      };
+      // Only set CPF if currently empty in profile, or if it actually changed
+      if (cpfDigits.length === 11) {
+        update.cpf = cpfDigits;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          nome_completo: data.nome_completo,
-          whatsapp: data.whatsapp,
-        })
+        .update(update)
         .eq('id', user.id);
 
       if (error) throw error;
 
+      await refreshProfile();
       toast.success('Perfil atualizado com sucesso!');
     } catch (error: any) {
       toast.error(`Erro ao atualizar perfil: ${error.message}`);
