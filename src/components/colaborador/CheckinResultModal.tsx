@@ -73,15 +73,32 @@ export default function CheckinResultModal({
   result,
   onClose,
   onNext,
-  autoCloseSuccessMs = 1800,
+  autoCloseSuccessMs = 5000,
 }: CheckinResultModalProps) {
+  const [secondsLeft, setSecondsLeft] = useState(0);
+
   useEffect(() => {
     if (!result) return;
     if (result.type === 'success' && autoCloseSuccessMs > 0) {
+      const totalSec = Math.ceil(autoCloseSuccessMs / 1000);
+      setSecondsLeft(totalSec);
+      const interval = setInterval(() => {
+        setSecondsLeft((s) => (s > 1 ? s - 1 : 0));
+      }, 1000);
       const t = setTimeout(() => onClose(), autoCloseSuccessMs);
-      return () => clearTimeout(t);
+      return () => {
+        clearTimeout(t);
+        clearInterval(interval);
+      };
     }
   }, [result, autoCloseSuccessMs, onClose]);
+
+  const isSuccess = result?.type === 'success';
+  const totalSec = Math.ceil(autoCloseSuccessMs / 1000);
+  const ringCircumference = 2 * Math.PI * 46;
+  const ringProgress = isSuccess
+    ? ringCircumference * (1 - secondsLeft / totalSec)
+    : 0;
 
   return (
     <AnimatePresence>
@@ -114,12 +131,42 @@ export default function CheckinResultModal({
                 initial={{ scale: 0.4, rotate: -10 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', damping: 12, stiffness: 200 }}
-                className="mx-auto w-24 h-24 rounded-full bg-white/20 flex items-center justify-center mb-5"
+                className="relative mx-auto w-28 h-28 flex items-center justify-center mb-5"
               >
-                {(() => {
-                  const Icon = config[result.type].icon;
-                  return <Icon className="w-14 h-14" strokeWidth={2.5} />;
-                })()}
+                {isSuccess && (
+                  <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="46"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.25)"
+                      strokeWidth="4"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="46"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeDasharray={ringCircumference}
+                      strokeDashoffset={ringProgress}
+                      style={{ transition: 'stroke-dashoffset 1s linear' }}
+                    />
+                  </svg>
+                )}
+                <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center relative">
+                  {isSuccess && secondsLeft > 0 ? (
+                    <span className="text-5xl font-extrabold tabular-nums">{secondsLeft}</span>
+                  ) : (
+                    (() => {
+                      const Icon = config[result.type].icon;
+                      return <Icon className="w-14 h-14" strokeWidth={2.5} />;
+                    })()
+                  )}
+                </div>
               </motion.div>
 
               <h2 className="text-2xl font-extrabold leading-tight mb-1">
@@ -151,7 +198,14 @@ export default function CheckinResultModal({
                 </div>
               )}
 
-              {onNext ? (
+              {isSuccess ? (
+                <button
+                  onClick={onClose}
+                  className="text-white/80 hover:text-white text-sm font-medium underline-offset-2 hover:underline"
+                >
+                  Fechar agora
+                </button>
+              ) : onNext ? (
                 <Button
                   onClick={() => {
                     onClose();
