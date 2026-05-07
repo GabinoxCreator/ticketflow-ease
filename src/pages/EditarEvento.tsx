@@ -226,7 +226,7 @@ export default function EditarEvento() {
           </TabsList>
 
           <TabsContent value="info">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit, () => toast.error('Verifique os campos obrigatórios destacados'))} className="space-y-6">
               {/* Basic Info */}
               <Card>
                 <CardHeader>
