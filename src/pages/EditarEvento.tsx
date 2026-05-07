@@ -45,6 +45,7 @@ import {
 import { useEvent, useEvents } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const eventSchema = z.object({
   title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres').max(100),
