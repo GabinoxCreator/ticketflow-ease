@@ -208,29 +208,36 @@ export default function ColaboradorQRTab({
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
           <form onSubmit={handleSearch} className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-900">Busca manual</p>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Busca manual</p>
+                <p className="text-[11px] text-slate-500">Para quando o QR não funciona</p>
+              </div>
               <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
                 Sem QR
               </span>
             </div>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Nome, código, email ou telefone"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-11 bg-slate-50 border-slate-200 focus:bg-white"
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={isSearching || !searchQuery.trim()}
-                className="h-11 px-4"
-              >
-                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              </Button>
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Input
+                placeholder="Nome, código, email ou telefone"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-11 h-12 text-base bg-slate-50 border-slate-200 focus:bg-white"
+                inputMode="search"
+                autoComplete="off"
+              />
             </div>
+            <Button
+              type="submit"
+              disabled={isSearching || !searchQuery.trim()}
+              className="w-full h-12 text-base font-semibold gap-2"
+            >
+              {isSearching ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Buscando…</>
+              ) : (
+                <><Search className="w-5 h-5" /> Buscar ingresso</>
+              )}
+            </Button>
           </form>
         </div>
 
