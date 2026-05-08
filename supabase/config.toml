@@ -78,3 +78,9 @@ verify_jwt = true
 [functions.health-snapshot]
 verify_jwt = false
 
+# Legacy redirect-style MP checkout. Neutralized in Parte 2.2 — returns 410.
+# Kept deployable only so the old URL doesn't 404 unexpectedly while we
+# confirm no client still calls it. Do NOT re-enable the old logic.
+[functions.create-mercadopago-preference]
+verify_jwt = true
+
