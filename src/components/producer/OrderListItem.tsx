@@ -74,33 +74,9 @@ export function OrderListItem({ order, onUpdateStatus }: OrderListItemProps) {
           )}
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {order.status === 'pending' && (
-              <DropdownMenuItem onClick={() => onUpdateStatus(order.id, 'paid')}>
-                Marcar como Pago
-              </DropdownMenuItem>
-            )}
-            {order.status === 'paid' && (
-              <DropdownMenuItem onClick={() => onUpdateStatus(order.id, 'refunded')}>
-                Reembolsar
-              </DropdownMenuItem>
-            )}
-            {(order.status === 'pending' || order.status === 'paid') && (
-              <DropdownMenuItem 
-                onClick={() => onUpdateStatus(order.id, 'cancelled')}
-                className="text-destructive"
-              >
-                Cancelar Pedido
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Manual status mutation disabled in Parte 2.1 — these transitions
+            must come from server-side flows (webhook MP, cron de expiração,
+            reconciliação). Reativar exige endpoint dedicado com auditoria. */}
       </div>
     </div>
   );
