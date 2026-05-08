@@ -37,6 +37,11 @@ export default function ColaboradorQRScanner({
     isProcessing.current = true;
     setValidating(true);
 
+    // Pause the scanner immediately so it stops trying to read while we validate
+    if (scannerRef.current) {
+      try { await scannerRef.current.pause(true); } catch {}
+    }
+
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-validate-ticket`,
