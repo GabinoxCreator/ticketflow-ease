@@ -181,6 +181,14 @@ export default function ColaboradorQRScanner({
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Hide html5-qrcode default UI chrome — keep only the live <video>, our custom frame is the single visual frame */}
+      <style>{`
+        #colaborador-qr-reader { border: none !important; padding: 0 !important; }
+        #colaborador-qr-reader > div:not(:has(video)) { display: none !important; }
+        #colaborador-qr-reader img { display: none !important; }
+        #colaborador-qr-reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
+      `}</style>
+
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
         <div className="text-white">
@@ -197,7 +205,7 @@ export default function ColaboradorQRScanner({
       </div>
 
       {/* Scanner */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden">
         <div id="colaborador-qr-reader" className="w-full h-full" />
 
         {/* Solid backdrop while showing result — avoids iOS black screenshot over live <video> */}
