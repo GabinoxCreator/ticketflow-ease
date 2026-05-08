@@ -50,12 +50,10 @@ async function applyExpired(supabase: any, order: OrderRow) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // Cron-only: shared secret (env OR vault — vault is source of truth)
-  const envCronSecret = Deno.env.get('CRON_SECRET');
+  // Cron-only: shared secret. Vault is the single source of truth.
   const provided = req.headers.get('x-cron-secret') ?? req.headers.get('X-Cron-Secret');
-  let authorized = !!(provided && envCronSecret && provided === envCronSecret);
-
-  if (!authorized && provided) {
+  let authorized = false;
+  if (provided) {
     try {
       const sb = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
