@@ -43,8 +43,22 @@ async function ticketCountsByLot(supabase: any, orderId: string) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  // dry_run contract: SAFE BY DEFAULT.
+  // Only executes mutations when an explicit `dry_run=false` is passed
+  // (via querystring OR JSON body). Any other input → dry-run.
   const url = new URL(req.url);
-  const dryRun = url.searchParams.get('dry_run') === 'true';
+  let dryRunSignal: string | null = url.searchParams.get('dry_run');
+  if (dryRunSignal === null && (req.method === 'POST' || req.method === 'PUT')) {
+    try {
+      const cloned = req.clone();
+      const body = await cloned.json().catch(() => null);
+      if (body && typeof body.dry_run !== 'undefined') {
+        dryRunSignal = String(body.dry_run);
+      }
+    } catch (_) { /* ignore */ }
+  }
+  const dryRun = dryRunSignal !== 'false';
+  log('mode', { dryRun, dryRunSignal });
   const stats = {
     scanned: 0,
     approved_recovered: 0,
