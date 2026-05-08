@@ -104,6 +104,15 @@ serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Audit who triggered this run and in what mode (esp. real execution)
+    await supabase.from('audit_logs').insert({
+      actor_id: userId,
+      action: dryRun ? 'admin_reconcile_dry_run_started' : 'admin_reconcile_real_run_started',
+      target_type: 'system',
+      target_id: SYSTEM_USER_ID,
+      metadata: { dryRun, source: 'reconcile-orphan-orders' },
+    });
+
     const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mpToken) throw new Error('MERCADOPAGO_ACCESS_TOKEN missing');
 
