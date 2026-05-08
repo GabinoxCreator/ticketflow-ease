@@ -50,18 +50,50 @@ async function applyExpired(supabase: any, order: OrderRow) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // Cron-only: shared secret. Vault is the single source of truth.
+  // Two authorized paths:
+  //  1) Cron: shared secret via X-Cron-Secret header (vault-validated)
+  //  2) Admin manual: Bearer JWT with admin role
   const provided = req.headers.get('x-cron-secret') ?? req.headers.get('X-Cron-Secret');
+  const authHeader = req.headers.get('Authorization');
   let authorized = false;
+  let invocationSource: 'cron' | 'admin_manual' = 'cron';
+  let adminUserId: string | null = null;
+
+  const adminClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    { auth: { persistSession: false } },
+  );
+
   if (provided) {
     try {
-      const sb = createClient(
+      const { data: vaultSecret } = await adminClient.rpc('get_cron_secret');
+      if (vaultSecret && provided === vaultSecret) {
+        authorized = true;
+        invocationSource = 'cron';
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!authorized && authHeader?.startsWith('Bearer ')) {
+    try {
+      const userClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-        { auth: { persistSession: false } },
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } },
       );
-      const { data: vaultSecret } = await sb.rpc('get_cron_secret');
-      if (vaultSecret && provided === vaultSecret) authorized = true;
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData } = await userClient.auth.getClaims(token);
+      const userId = claimsData?.claims?.sub;
+      if (userId) {
+        const { data: roles } = await adminClient
+          .from('user_roles').select('role').eq('user_id', userId);
+        if (roles?.some((r: any) => r.role === 'admin')) {
+          authorized = true;
+          invocationSource = 'admin_manual';
+          adminUserId = userId;
+        }
+      }
     } catch (_) { /* ignore */ }
   }
 
@@ -75,12 +107,18 @@ serve(async (req) => {
   const startedAt = new Date().toISOString();
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } },
-    );
+    const supabase = adminClient;
     const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+
+    if (invocationSource === 'admin_manual' && adminUserId) {
+      await supabase.from('audit_logs').insert({
+        actor_id: adminUserId,
+        action: 'admin_manual_expire_run_started',
+        target_type: 'system',
+        target_id: SYSTEM_USER_ID,
+        metadata: { source: 'expire-pending-orders' },
+      });
+    }
 
     const { data: candidates, error } = await supabase
       .from('orders')
@@ -163,9 +201,9 @@ serve(async (req) => {
       }
     }
 
-    console.log('[EXPIRE-RUN]', JSON.stringify({ ts: startedAt, ...stats }));
+    console.log('[EXPIRE-RUN]', JSON.stringify({ ts: startedAt, source: invocationSource, ...stats }));
 
-    return new Response(JSON.stringify({ ok: true, stats }), {
+    return new Response(JSON.stringify({ ok: true, source: invocationSource, stats }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
     });
   } catch (e: any) {

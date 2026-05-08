@@ -1,19 +1,12 @@
-import { MoreHorizontal, Mail, Phone } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Mail, Phone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Order } from '@/hooks/useEventOrders';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface OrderListItemProps {
   order: Order;
-  onUpdateStatus: (orderId: string, status: Order['status']) => void;
+  onUpdateStatus?: (orderId: string, status: Order['status']) => void;
 }
 
 export function OrderListItem({ order, onUpdateStatus }: OrderListItemProps) {
@@ -74,33 +67,9 @@ export function OrderListItem({ order, onUpdateStatus }: OrderListItemProps) {
           )}
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {order.status === 'pending' && (
-              <DropdownMenuItem onClick={() => onUpdateStatus(order.id, 'paid')}>
-                Marcar como Pago
-              </DropdownMenuItem>
-            )}
-            {order.status === 'paid' && (
-              <DropdownMenuItem onClick={() => onUpdateStatus(order.id, 'refunded')}>
-                Reembolsar
-              </DropdownMenuItem>
-            )}
-            {(order.status === 'pending' || order.status === 'paid') && (
-              <DropdownMenuItem 
-                onClick={() => onUpdateStatus(order.id, 'cancelled')}
-                className="text-destructive"
-              >
-                Cancelar Pedido
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Manual status mutation disabled in Parte 2.1 — these transitions
+            must come from server-side flows (webhook MP, cron de expiração,
+            reconciliação). Reativar exige endpoint dedicado com auditoria. */}
       </div>
     </div>
   );

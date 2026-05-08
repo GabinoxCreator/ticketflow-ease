@@ -36,24 +36,20 @@ export function useEventOrders(eventId: string | undefined) {
     enabled: !!eventId,
   });
 
+  // SAFETY (Parte 2.1): manual mutation of orders.status from the client is
+  // disabled. Transitions to paid/refunded/cancelled/failed/expired affect
+  // tickets and inventory and MUST go through server-side flows
+  // (mercadopago-webhook, expire-pending-orders, reconcile-orphan-orders).
+  // Re-enabling requires a dedicated server-side endpoint with audit.
   const updateOrderStatus = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: Order['status'] }) => {
-      const { data, error } = await supabase
-        .from('orders')
-        .update({ status })
-        .eq('id', orderId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['event-orders', eventId] });
-      toast.success('Status do pedido atualizado!');
+    mutationFn: async (_args: { orderId: string; status: Order['status'] }) => {
+      throw new Error(
+        'Alteração manual do status do pedido está desabilitada. ' +
+        'Use os fluxos automáticos (webhook, expiração, reconciliação).'
+      );
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao atualizar pedido: ${error.message}`);
+      toast.error(error.message);
     },
   });
 
