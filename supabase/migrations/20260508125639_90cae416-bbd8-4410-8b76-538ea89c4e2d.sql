@@ -1,0 +1,1 @@
+SELECT public.apply_order_approved('31f885d6-25de-43a3-bca0-9be70475717d'::uuid, '');
