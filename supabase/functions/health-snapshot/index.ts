@@ -17,15 +17,27 @@ const worstSeverity = (a: Severity, b: Severity): Severity => {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Auth: cron secret OR admin JWT
-  const cronSecret = Deno.env.get("CRON_SECRET");
+  // Auth: cron secret (env OR vault — vault is source of truth) OR admin JWT
+  const envCronSecret = Deno.env.get("CRON_SECRET");
   const provided = req.headers.get("X-Cron-Secret");
   const authHeader = req.headers.get("Authorization");
 
   let isAuthorized = false;
-  if (cronSecret && provided === cronSecret) {
+  if (provided && envCronSecret && provided === envCronSecret) {
     isAuthorized = true;
-  } else if (authHeader?.startsWith("Bearer ")) {
+  }
+  if (!isAuthorized && provided) {
+    try {
+      const supaSvc = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        { auth: { persistSession: false } }
+      );
+      const { data: vaultSecret } = await supaSvc.rpc("get_cron_secret");
+      if (vaultSecret && provided === vaultSecret) isAuthorized = true;
+    } catch (_) { /* ignore */ }
+  }
+  if (!isAuthorized && authHeader?.startsWith("Bearer ")) {
     const supaAuth = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
