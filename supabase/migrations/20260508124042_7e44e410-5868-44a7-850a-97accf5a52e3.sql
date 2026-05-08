@@ -1,15 +1,21 @@
+-- IDEMPOTENT 2026-05-08
+-- Originally regenerated CRON_SECRET on every replay. Now: only creates the
+-- vault entry if it does not exist, so remix/restore preserves the secret.
+-- Vault is the single source of truth — both cron jobs and edge functions
+-- read from vault.decrypted_secrets via public.get_cron_secret().
 
--- 1) Generate a fresh CRON_SECRET and (re)store it in vault
+-- 1) Ensure CRON_SECRET exists in vault (no-op if already present)
 DO $$
 DECLARE
-  _new_secret text := encode(gen_random_bytes(32), 'hex');
   _existing_id uuid;
 BEGIN
   SELECT id INTO _existing_id FROM vault.secrets WHERE name = 'CRON_SECRET';
   IF _existing_id IS NULL THEN
-    PERFORM vault.create_secret(_new_secret, 'CRON_SECRET', 'Shared secret used by pg_cron jobs to authenticate against edge functions');
-  ELSE
-    PERFORM vault.update_secret(_existing_id, _new_secret, 'CRON_SECRET', 'Shared secret used by pg_cron jobs to authenticate against edge functions');
+    PERFORM vault.create_secret(
+      encode(gen_random_bytes(32), 'hex'),
+      'CRON_SECRET',
+      'Shared secret used by pg_cron jobs to authenticate against edge functions'
+    );
   END IF;
 END $$;
 
@@ -49,9 +55,3 @@ SELECT cron.schedule(
   );
   $job$
 );
-
--- 3) Echo the new value so the operator can paste it into the edge env CRON_SECRET
-SELECT decrypted_secret AS cron_secret_value_to_paste_into_env
-FROM vault.decrypted_secrets
-WHERE name = 'CRON_SECRET'
-LIMIT 1;

@@ -17,16 +17,12 @@ const worstSeverity = (a: Severity, b: Severity): Severity => {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Auth: cron secret (env OR vault — vault is source of truth) OR admin JWT
-  const envCronSecret = Deno.env.get("CRON_SECRET");
+  // Auth: cron secret (vault is the single source of truth) OR admin JWT
   const provided = req.headers.get("X-Cron-Secret");
   const authHeader = req.headers.get("Authorization");
 
   let isAuthorized = false;
-  if (provided && envCronSecret && provided === envCronSecret) {
-    isAuthorized = true;
-  }
-  if (!isAuthorized && provided) {
+  if (provided) {
     try {
       const supaSvc = createClient(
         Deno.env.get("SUPABASE_URL")!,
