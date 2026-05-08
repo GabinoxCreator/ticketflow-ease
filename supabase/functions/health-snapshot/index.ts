@@ -157,10 +157,13 @@ Deno.serve(async (req) => {
     let reservationDrift = 0;
     if (lots) {
       for (const lot of lots) {
-        const { count: validCount } = await supa
+        // Confirmed sale = ticket no longer pending and not cancelled.
+        // 'used' tickets remain confirmed sales — ignoring them caused false
+        // critical drift alerts during live event check-in.
+        const { count: confirmedCount } = await supa
           .from("tickets").select("id", { count: "exact", head: true })
-          .eq("lot_id", lot.id).eq("status", "valid");
-        if ((validCount ?? 0) !== (lot.sold_quantity ?? 0)) confirmedDrift++;
+          .eq("lot_id", lot.id).in("status", ["valid", "used"]);
+        if ((confirmedCount ?? 0) !== (lot.sold_quantity ?? 0)) confirmedDrift++;
 
         // reservation drift: pending tickets in non-expired pending orders
         const { data: pendingTix } = await supa
