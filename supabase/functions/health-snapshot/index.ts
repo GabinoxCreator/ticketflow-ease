@@ -211,6 +211,8 @@ Deno.serve(async (req) => {
         last_status: cronLastStatus,
         runs_last_hour: cronRunsLastHour,
         failed_last_hour: cronFailedLastHour,
+        telemetry_available: cronTelemetryAvailable,
+        telemetry_error: cronTelemetryError,
         severity: cronSev,
       },
       inventory: {
