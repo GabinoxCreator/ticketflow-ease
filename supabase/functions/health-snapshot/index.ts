@@ -256,6 +256,16 @@ Deno.serve(async (req) => {
         body: `${confirmedDrift} lotes com sold_quantity divergente de tickets válidos`,
       });
     }
+    if (cronSev === "crit") {
+      const ageMin = cronLastRun
+        ? Math.floor((Date.now() - new Date(cronLastRun).getTime()) / 60000)
+        : null;
+      alertsToFire.push({
+        key: "cron_stalled:crit",
+        subject: "[FestPag] Alerta crítico: cron parado",
+        body: `last_run_at=${cronLastRun ?? "n/a"} (${ageMin ?? "?"} min), failed_last_hour=${cronFailedLastHour}, telemetry_available=${cronTelemetryAvailable}`,
+      });
+    }
 
     for (const alert of alertsToFire) {
       const { data: throttle } = await supa
