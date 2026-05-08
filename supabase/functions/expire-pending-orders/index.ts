@@ -107,12 +107,18 @@ serve(async (req) => {
   const startedAt = new Date().toISOString();
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } },
-    );
+    const supabase = adminClient;
     const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+
+    if (invocationSource === 'admin_manual' && adminUserId) {
+      await supabase.from('audit_logs').insert({
+        actor_id: adminUserId,
+        action: 'admin_manual_expire_run_started',
+        target_type: 'system',
+        target_id: SYSTEM_USER_ID,
+        metadata: { source: 'expire-pending-orders' },
+      });
+    }
 
     const { data: candidates, error } = await supabase
       .from('orders')
