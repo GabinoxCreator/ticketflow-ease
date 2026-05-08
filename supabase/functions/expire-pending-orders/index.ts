@@ -201,9 +201,9 @@ serve(async (req) => {
       }
     }
 
-    console.log('[EXPIRE-RUN]', JSON.stringify({ ts: startedAt, ...stats }));
+    console.log('[EXPIRE-RUN]', JSON.stringify({ ts: startedAt, source: invocationSource, ...stats }));
 
-    return new Response(JSON.stringify({ ok: true, stats }), {
+    return new Response(JSON.stringify({ ok: true, source: invocationSource, stats }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
     });
   } catch (e: any) {
