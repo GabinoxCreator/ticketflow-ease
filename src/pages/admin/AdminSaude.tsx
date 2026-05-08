@@ -109,27 +109,45 @@ export default function AdminSaude() {
     });
   };
 
+  // Contract: dry_run is sent via QUERYSTRING (canonical). Backend also
+  // accepts JSON body for compatibility, but only `dry_run=false` triggers
+  // real execution — anything else is a safe dry-run.
+  const invokeFn = async (name: string, query: string) => {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess.session?.access_token;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}${query}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+      body: '{}',
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+    return json;
+  };
+
   const runReconcileDryRun = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("reconcile-orphan-orders", {
-        body: { dry_run: true },
-      });
-      if (error) throw error;
-      await logAudit("manual_reconcile_dry_run", { result: data });
-      toast({ title: "Dry run concluído", description: JSON.stringify(data).slice(0, 200) });
+      const data = await invokeFn('reconcile-orphan-orders', '?dry_run=true');
+      await logAudit('manual_reconcile_dry_run', { result: data, dry_run: true });
+      toast({ title: 'Dry run concluído (sem mutação)', description: JSON.stringify(data).slice(0, 200) });
     } catch (e: any) {
-      toast({ title: "Erro", description: e.message, variant: "destructive" });
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
     }
   };
 
   const runForceExpire = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("expire-pending-orders", { body: {} });
-      if (error) throw error;
-      await logAudit("manual_expire_run", { result: data });
-      toast({ title: "Varredura executada", description: JSON.stringify(data).slice(0, 200) });
+      // Admin manual path: backend authoriza por JWT admin (não por X-Cron-Secret)
+      const data = await invokeFn('expire-pending-orders', '');
+      await logAudit('manual_expire_run', { result: data });
+      toast({ title: 'Varredura executada', description: JSON.stringify(data).slice(0, 200) });
     } catch (e: any) {
-      toast({ title: "Erro", description: e.message, variant: "destructive" });
+      toast({ title: 'Erro', description: e.message, variant: 'destructive' });
     }
   };
 
