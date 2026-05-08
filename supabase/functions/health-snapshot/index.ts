@@ -114,17 +114,39 @@ Deno.serve(async (req) => {
     let cronLastStatus: string | null = null;
     let cronRunsLastHour = 0;
     let cronFailedLastHour = 0;
+    let cronTelemetryAvailable = false;
+    let cronTelemetryError: string | null = null;
     try {
-      const { data: cronData } = await supa.rpc("read_cron_runs" as any).maybeSingle();
-      // fallback: we don't have a wrapper; try direct query via raw not available. skip if fails.
-      if (cronData) { /* noop */ }
-    } catch (_) { /* ignore */ }
+      const { data: cronData, error: cronErr } = await supa.rpc("get_cron_health" as any);
+      if (cronErr) {
+        cronTelemetryError = cronErr.message ?? "rpc_error";
+      } else if (cronData && typeof cronData === "object") {
+        const d = cronData as any;
+        cronLastRun = d.last_run_at ?? null;
+        cronLastStatus = d.last_status ?? null;
+        cronRunsLastHour = Number(d.runs_last_hour ?? 0);
+        cronFailedLastHour = Number(d.failed_last_hour ?? 0);
+        cronTelemetryAvailable = !d.error;
+        if (d.error) cronTelemetryError = String(d.error);
+      }
+    } catch (e: any) {
+      cronTelemetryError = e?.message ?? "exception";
+    }
 
     let cronSev: Severity = "ok";
-    // Without direct cron access, infer from expire-pending side effects: if no expired in 1h AND pending > 0, warn
-    if (cronLastRun) {
+    if (!cronTelemetryAvailable) {
+      // Be honest: if we cannot measure cron, do not fake "ok".
+      cronSev = "warn";
+    } else if (cronLastRun) {
       const ageMin = (Date.now() - new Date(cronLastRun).getTime()) / 60000;
       if (ageMin > 5) cronSev = "crit";
+      else if (ageMin > 2) cronSev = "warn";
+      if (cronFailedLastHour > 0) {
+        cronSev = worstSeverity(cronSev, cronFailedLastHour > 5 ? "crit" : "warn");
+      }
+    } else {
+      // Telemetry available but no recent runs at all -> critical
+      cronSev = "crit";
     }
 
     // ===== INVENTORY =====
