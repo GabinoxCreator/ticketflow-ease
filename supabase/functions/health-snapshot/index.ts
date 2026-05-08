@@ -17,8 +17,10 @@ const worstSeverity = (a: Severity, b: Severity): Severity => {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Auth: cron secret (vault is the single source of truth) OR admin JWT
-  const provided = req.headers.get("X-Cron-Secret");
+  // Auth: cron secret (vault is the single source of truth) OR admin JWT.
+  // Accept both casings, aligned with expire-pending-orders.
+  const provided =
+    req.headers.get("x-cron-secret") ?? req.headers.get("X-Cron-Secret");
   const authHeader = req.headers.get("Authorization");
 
   let isAuthorized = false;
