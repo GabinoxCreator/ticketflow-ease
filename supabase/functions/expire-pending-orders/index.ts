@@ -50,10 +50,24 @@ async function applyExpired(supabase: any, order: OrderRow) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  // Cron-only: shared secret
-  const cronSecret = Deno.env.get('CRON_SECRET');
+  // Cron-only: shared secret (env OR vault — vault is source of truth)
+  const envCronSecret = Deno.env.get('CRON_SECRET');
   const provided = req.headers.get('x-cron-secret') ?? req.headers.get('X-Cron-Secret');
-  if (!cronSecret || provided !== cronSecret) {
+  let authorized = !!(provided && envCronSecret && provided === envCronSecret);
+
+  if (!authorized && provided) {
+    try {
+      const sb = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+        { auth: { persistSession: false } },
+      );
+      const { data: vaultSecret } = await sb.rpc('get_cron_secret');
+      if (vaultSecret && provided === vaultSecret) authorized = true;
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!authorized) {
     return new Response(JSON.stringify({ error: 'Forbidden' }), {
       status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
