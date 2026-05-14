@@ -8,13 +8,10 @@ const Footer = () => {
   const footerLinks = {
     plataforma: [
       { label: 'Para Produtores', href: '/area-do-produtor' },
-      { label: 'Preços', href: '/precos' },
-      { label: 'Blog', href: '/blog' },
+      { label: 'Para Consumidores', href: '/' },
     ],
     suporte: [
       { label: 'Central de Ajuda', href: '/ajuda' },
-      { label: 'Contato', href: '/contato' },
-      { label: 'FAQ', href: '/faq' },
       { label: 'Termos de Uso', href: '/termos' },
     ],
     legal: [
