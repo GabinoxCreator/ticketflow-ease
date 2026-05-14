@@ -29,6 +29,7 @@ import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosDeUso from "./pages/TermosDeUso";
+import PoliticaReembolso from "./pages/PoliticaReembolso";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
@@ -72,6 +73,7 @@ const App = () => (
                 <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
                 <Route path="/termos" element={<TermosDeUso />} />
+                <Route path="/reembolso" element={<PoliticaReembolso />} />
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
