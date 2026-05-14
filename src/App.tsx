@@ -30,6 +30,7 @@ import GuestListPublicForm from "./pages/GuestListPublicForm";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosDeUso from "./pages/TermosDeUso";
 import PoliticaReembolso from "./pages/PoliticaReembolso";
+import CentralDeAjuda from "./pages/CentralDeAjuda";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
@@ -74,6 +75,7 @@ const App = () => (
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
                 <Route path="/termos" element={<TermosDeUso />} />
                 <Route path="/reembolso" element={<PoliticaReembolso />} />
+                <Route path="/ajuda" element={<CentralDeAjuda />} />
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
