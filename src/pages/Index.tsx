@@ -66,6 +66,12 @@ const Index = () => {
           name="description"
           content="A plataforma completa para comprar ingressos para festas, shows, festivais e eventos. Pagamento rápido e seguro!"
         />
+        <meta property="og:title" content="FestPag - Compre Ingressos para Eventos" />
+        <meta property="og:description" content="A plataforma completa para comprar ingressos para festas, shows, festivais e eventos. Pagamento rápido e seguro!" />
+        <meta property="og:url" content="https://festpag.com.br/" />
+        <meta name="twitter:title" content="FestPag - Compre Ingressos para Eventos" />
+        <meta name="twitter:description" content="A plataforma completa para comprar ingressos para festas, shows, festivais e eventos. Pagamento rápido e seguro!" />
+        <link rel="canonical" href="https://festpag.com.br/" />
       </Helmet>
 
       <div className="min-h-screen bg-background">
