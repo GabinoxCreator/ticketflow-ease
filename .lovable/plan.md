@@ -1,39 +1,52 @@
-# Corrigir tela preta ao printar confirmação de check-in
+## Diagnóstico
 
-## Problema
+O erro `new row violates row-level security policy` no upload do banner vem da policy de INSERT do bucket `event-images`:
 
-Quando o ingresso é validado com sucesso, o modal verde aparece **sobreposto à câmera** (que continua rodando atrás). Em iOS, o stream de vídeo da câmera **não é capturado em screenshots por segurança do sistema** — então o print sai todo preto, mesmo com o modal verde visível na tela.
+```
+((bucket_id = 'event-images') AND has_role(auth.uid(), 'produtor'))
+```
 
-## Causa
+Ou seja, **só usuários com role `produtor` em `user_roles` conseguem fazer upload**. Hoje no banco só 3 usuários têm essa role (os owners das organizações). Quem cai fora:
 
-No `ColaboradorQRScanner.tsx`, ao validar com sucesso:
-1. `setValidating(false)` esconde o overlay de "Validando…"
-2. `setResult(r)` mostra o `CheckinResultModal` (que tem fundo `bg-black/70`)
-3. Mas o `<div id="colaborador-qr-reader">` com o `<video>` da câmera continua ativo atrás
-4. iOS substitui o vídeo por preto no screenshot → fundo todo preto
+1. **Admin** (ex: `gabinox54037@gmail.com`, que pelo avatar "G" no print é provavelmente o usuário logado) — admin tem bypass global por RLS, mas a policy só checa `produtor`, então o admin é barrado no Storage.
+2. **Membros de organização que não são owner** (`producer_members.role` ≠ owner). Pelo modelo de organizações, qualquer membro `active` deveria poder operar como produtor, mas só o owner ganhou a role `produtor` em `user_roles`.
+3. As policies de UPDATE/DELETE/SELECT do bucket nem checam ownership do arquivo — estão abertas demais (qualquer um do bucket pode mexer). É um bug de segurança lateral que vale corrigir no mesmo bloco.
 
-## Solução
+## Causa raiz
 
-Garantir um **fundo sólido opaco** atrás do modal de resultado quando há resultado, e parar a câmera para liberar recurso e evitar artefato.
+A policy de upload está acoplada a uma role legada (`produtor` em `user_roles`) que não cobre nem admins (bypass global) nem membros não-owner de organizações de produtor.
 
-### `src/components/colaborador/ColaboradorQRScanner.tsx`
+## Plano de correção
 
-1. Quando `result` está setado, renderizar uma **camada de fundo sólida** (`bg-slate-950`) cobrindo o scanner — assim o screenshot captura essa cor sólida atrás do modal verde, não o preto do vídeo.
-2. Parar o scanner (`scannerRef.current.stop()`) assim que `result` for definido — economiza bateria e remove o `<video>` problemático.
-3. Reiniciar o scanner quando `result` voltar a `null` (modal fechado).
+Escopo: **apenas** as policies do bucket `event-images` em `storage.objects`. Sem mexer em código de frontend, hooks ou edge functions — o `useImageUpload` já está correto.
 
-Mudança concreta:
-- Adicionar `useEffect([result])` que para a câmera quando `result !== null` e reinicia quando volta a `null`.
-- Adicionar uma `<div className="absolute inset-0 bg-slate-950 z-20" />` quando `result` está ativo (atrás do modal mas acima do `<video>`).
+### Migration (uma única)
 
-## Fora de escopo
+1. **DROP** das 4 policies atuais do `event-images`.
+2. **Recriar** com regras corretas:
 
-- Lógica de validação, edge functions, regras de check-in
-- Outros estados (busca manual já não tem esse problema, pois não há câmera ativa)
+   - **SELECT (público):** mantém `bucket_id = 'event-images'` (bucket é público).
+   - **INSERT:** permite se autenticado **e** (`has_role(auth.uid(),'admin')` **ou** `has_role(auth.uid(),'produtor')` **ou** existe linha em `producer_members` com `user_id = auth.uid()` e `status='active'`).
+   - **UPDATE:** mesma regra do INSERT (em `USING` e `WITH CHECK`), mais o admin global.
+   - **DELETE:** mesma regra do INSERT.
 
-## Validação manual
+3. As policies passam a usar funções `SECURITY DEFINER` já existentes (`has_role`) — sem risco de recursão.
 
-1. Escanear um QR válido no celular → modal verde aparece.
-2. Tirar print da tela → o screenshot deve mostrar o **modal verde sobre fundo escuro sólido**, não tela toda preta.
-3. Fechar o modal → câmera reinicia normalmente e volta a escanear.
-4. Mesma validação para estados de erro (já utilizado, fora da janela, etc.).
+### Validação manual
+
+1. Logado como admin (`gabinox…`) em `/produtor/criar-evento` → upload do banner deve funcionar.
+2. Logado como produtor owner → upload continua funcionando (regressão).
+3. Logado como cliente comum (sem nenhuma role de produtor/admin/membro) → upload deve falhar com 403/RLS (segurança preservada).
+4. Após criar o evento, trocar a imagem (UPDATE) e remover (DELETE) — devem funcionar para produtor/admin.
+5. Health check: nada na app fora do fluxo de upload de imagem precisa mudar.
+
+### Riscos
+
+- Baixo. A mudança é isolada em policies de Storage.
+- Não toca em `events`, `event_lots`, `orders`, `tickets`, `inventário` — sem risco de drift.
+- Bucket continua público para SELECT (já era), então URLs antigas continuam acessíveis.
+
+### Fora de escopo
+
+- Não vou normalizar `user_roles` para incluir todos os membros não-owner — isso é uma decisão de modelagem maior. A policy passa a aceitar `producer_members.active` direto, que é suficiente.
+- Não vou mexer em outros buckets.
