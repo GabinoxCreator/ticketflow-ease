@@ -1,52 +1,39 @@
-## Diagnóstico
+## Objetivo
 
-O erro `new row violates row-level security policy` no upload do banner vem da policy de INSERT do bucket `event-images`:
+Reorganizar visualmente o bloco **Quando** da etapa 2 do wizard de criação de evento (`/produtor/criar-evento`) para seguir o padrão da referência: dois sub-blocos rotulados **INÍCIO** e **FIM**, cada um com sua própria linha contendo data + horário lado a lado. Bloco **Onde** fica intacto.
 
-```
-((bucket_id = 'event-images') AND has_role(auth.uid(), 'produtor'))
-```
+## Arquivo
 
-Ou seja, **só usuários com role `produtor` em `user_roles` conseguem fazer upload**. Hoje no banco só 3 usuários têm essa role (os owners das organizações). Quem cai fora:
+- `src/pages/CriarEvento.tsx` (apenas o JSX do `currentStep === 2` na seção "Quando", linhas ~385–452)
 
-1. **Admin** (ex: `gabinox54037@gmail.com`, que pelo avatar "G" no print é provavelmente o usuário logado) — admin tem bypass global por RLS, mas a policy só checa `produtor`, então o admin é barrado no Storage.
-2. **Membros de organização que não são owner** (`producer_members.role` ≠ owner). Pelo modelo de organizações, qualquer membro `active` deveria poder operar como produtor, mas só o owner ganhou a role `produtor` em `user_roles`.
-3. As policies de UPDATE/DELETE/SELECT do bucket nem checam ownership do arquivo — estão abertas demais (qualquer um do bucket pode mexer). É um bug de segurança lateral que vale corrigir no mesmo bloco.
+## Mudanças
 
-## Causa raiz
+1. Remover o título único `Quando` + o grid de 4 colunas atual.
+2. Criar dois sub-blocos:
+   - **SectionLabel "INÍCIO"** → grid 2 colunas (`sm:grid-cols-2`) com:
+     - Data de Início (Popover + Calendar — mantém componente atual)
+     - Horário de Início (`TimeSelect` — mantém)
+   - **SectionLabel "FIM"** → mesma estrutura para Data de Fim e Horário de Fim.
+3. Manter:
+   - Toda a lógica de estado (`startDate`, `startTime`, `endDate`, `endTime`)
+   - Validações e mensagens de erro
+   - Regra de `filteredEndTimeOptions` quando data fim = data início
+   - Badge de "Duração" abaixo
+4. Não alterar o componente `TimeSelect` — o seletor de hora + minuto já existe no projeto e é exibido em um único campo (não vou desmembrar em dois selects separados como na referência, pois o componente atual já cumpre a função em uma UX equivalente).
+5. Bloco **Onde** (Local/Cidade/Estado/Endereço) permanece exatamente como está.
+6. Não tocar em `EditarEvento.tsx` (escopo é só criação, conforme pedido).
 
-A policy de upload está acoplada a uma role legada (`produtor` em `user_roles`) que não cobre nem admins (bypass global) nem membros não-owner de organizações de produtor.
+## Fora de escopo
 
-## Plano de correção
+- Não vou trocar o tema (continua dark Indigo/Magenta — não vou copiar o tema claro/verde da referência).
+- Não vou reescrever `TimeSelect` em dois dropdowns separados (hora/minuto). Se quiser esse desmembramento depois, abrimos bloco específico.
+- Sem mudanças em validação, persistência, ou no passo 3/4.
 
-Escopo: **apenas** as policies do bucket `event-images` em `storage.objects`. Sem mexer em código de frontend, hooks ou edge functions — o `useImageUpload` já está correto.
+## Validação manual
 
-### Migration (uma única)
-
-1. **DROP** das 4 policies atuais do `event-images`.
-2. **Recriar** com regras corretas:
-
-   - **SELECT (público):** mantém `bucket_id = 'event-images'` (bucket é público).
-   - **INSERT:** permite se autenticado **e** (`has_role(auth.uid(),'admin')` **ou** `has_role(auth.uid(),'produtor')` **ou** existe linha em `producer_members` com `user_id = auth.uid()` e `status='active'`).
-   - **UPDATE:** mesma regra do INSERT (em `USING` e `WITH CHECK`), mais o admin global.
-   - **DELETE:** mesma regra do INSERT.
-
-3. As policies passam a usar funções `SECURITY DEFINER` já existentes (`has_role`) — sem risco de recursão.
-
-### Validação manual
-
-1. Logado como admin (`gabinox…`) em `/produtor/criar-evento` → upload do banner deve funcionar.
-2. Logado como produtor owner → upload continua funcionando (regressão).
-3. Logado como cliente comum (sem nenhuma role de produtor/admin/membro) → upload deve falhar com 403/RLS (segurança preservada).
-4. Após criar o evento, trocar a imagem (UPDATE) e remover (DELETE) — devem funcionar para produtor/admin.
-5. Health check: nada na app fora do fluxo de upload de imagem precisa mudar.
-
-### Riscos
-
-- Baixo. A mudança é isolada em policies de Storage.
-- Não toca em `events`, `event_lots`, `orders`, `tickets`, `inventário` — sem risco de drift.
-- Bucket continua público para SELECT (já era), então URLs antigas continuam acessíveis.
-
-### Fora de escopo
-
-- Não vou normalizar `user_roles` para incluir todos os membros não-owner — isso é uma decisão de modelagem maior. A policy passa a aceitar `producer_members.active` direto, que é suficiente.
-- Não vou mexer em outros buckets.
+1. Abrir `/produtor/criar-evento`, ir para a etapa 2.
+2. Conferir layout: rótulo "INÍCIO" com data + hora; abaixo rótulo "FIM" com data + hora.
+3. Selecionar data de início → calendário de fim respeita disabled.
+4. Selecionar mesma data início/fim → horários de fim ≤ início devem sumir do select.
+5. Badge de duração aparece corretamente.
+6. Bloco "Onde" intacto. Botão "Próximo" continua funcionando.

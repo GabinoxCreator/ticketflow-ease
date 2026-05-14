@@ -382,10 +382,10 @@ export default function CriarEvento() {
             <div className="p-6 md:p-8">
               <StepHeader icon={stepMeta[1].icon} title={stepMeta[1].title} subtitle={stepMeta[1].subtitle} />
 
-              <SectionLabel>Quando</SectionLabel>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-3">
+              <SectionLabel>Início *</SectionLabel>
+              <div className="grid gap-4 sm:grid-cols-2 mb-6">
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Data de Início *</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Data de Início</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -396,7 +396,7 @@ export default function CriarEvento() {
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                        {startDate ? <span className="font-medium text-foreground">{format(startDate, 'dd/MM/yyyy')}</span> : 'Selecione'}
+                        {startDate ? <span className="font-medium text-foreground">{format(startDate, 'dd/MM/yyyy')}</span> : 'Selecione a data'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -407,13 +407,16 @@ export default function CriarEvento() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Horário de Início *</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Horário de Início</Label>
                   <TimeSelect value={startTime} onChange={setStartTime} placeholder="Selecione" />
                   {errors.startTime && <p className="text-xs text-destructive">{errors.startTime}</p>}
                 </div>
+              </div>
 
+              <SectionLabel>Fim *</SectionLabel>
+              <div className="grid gap-4 sm:grid-cols-2 mb-3">
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Data de Fim *</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Data de Fim</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -424,7 +427,7 @@ export default function CriarEvento() {
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                        {endDate ? <span className="font-medium text-foreground">{format(endDate, 'dd/MM/yyyy')}</span> : 'Selecione'}
+                        {endDate ? <span className="font-medium text-foreground">{format(endDate, 'dd/MM/yyyy')}</span> : 'Selecione a data'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -445,7 +448,7 @@ export default function CriarEvento() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Horário de Fim *</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">Horário de Fim</Label>
                   <TimeSelect value={endTime} onChange={setEndTime} placeholder="Selecione" options={filteredEndTimeOptions} />
                   {errors.endTime && <p className="text-xs text-destructive">{errors.endTime}</p>}
                 </div>
