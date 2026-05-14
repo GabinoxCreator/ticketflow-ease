@@ -1,34 +1,31 @@
-## Causa
+# Ajustes no Rodapé (Footer)
 
-A policy `INSERT` da tabela `events` exige `producer_id = auth.uid() AND has_role(auth.uid(), 'produtor')`. Sua conta `gabinox54037@gmail.com` tem role `admin` (não `produtor`), por isso o insert é bloqueado pelo RLS quando você clica em "Criar evento" / "Salvar como rascunho". O mesmo padrão se repete em `event_lots`, `event_coupons` e `guest_lists` (todas exigem `producer_id = auth.uid()`).
+Vamos limpar os links do rodapé em `src/components/Footer.tsx` para refletir apenas o que está em uso hoje.
 
-Já existe a regra na memória do projeto: **admins devem bypassar RLS globalmente**. Falta aplicar isso nessas 4 tabelas.
+## Mudanças
 
-## Plano de correção
+**Coluna "Plataforma":**
+- Remover: Preços, Blog
+- Manter: Para Produtores (`/area-do-produtor`)
+- Adicionar: Para Consumidores → aponta para `/` (home, onde ficam os eventos)
 
-Migração SQL adicionando policies de admin global (ALL = SELECT/INSERT/UPDATE/DELETE) usando `has_role(auth.uid(), 'admin')`:
+**Coluna "Suporte":**
+- Remover: Contato, FAQ
+- Manter: Central de Ajuda (`/ajuda`) e Termos de Uso (`/termos`)
 
-1. **`events`** — policy `Admins podem gerenciar todos os eventos` (ALL)
-2. **`event_lots`** — policy `Admins podem gerenciar todos os lotes` (ALL)
-3. **`event_coupons`** — policy `Admins podem gerenciar todos os cupons` (ALL)
-4. **`guest_lists`** — policy `Admins podem gerenciar todas as listas` (ALL)
+**Barra inferior (legal):**
+- Manter: Política de Privacidade (`/privacidade`), Política de Reembolso (`/reembolso`), Termos de Uso (`/termos`)
+- Sem alterações de conteúdo aqui — só vamos garantir que os links continuem.
 
-Cada uma com `USING (has_role(auth.uid(), 'admin'))` e `WITH CHECK (has_role(auth.uid(), 'admin'))`.
+## Próximos passos (após aprovar este ajuste)
 
-## Detalhes técnicos
+Depois desta limpeza, restarão duas páginas a criar em conversas seguintes:
+1. **Central de Ajuda** (`/ajuda`)
+2. **Política de Reembolso** (`/reembolso`)
 
-- Como as policies do Postgres são aditivas (OR entre elas), as policies de `produtor` continuam intactas — produtores comuns seguem funcionando exatamente como hoje.
-- Admin poderá criar evento informando qualquer `producer_id` (inclusive o próprio `auth.uid()`). O front já envia `producer_id: user.id` em `useEvents.createEvent`, então funciona sem mudança de código.
-- Não mexe em código React, apenas RLS no banco.
+Ambas hoje apontam para rotas que ainda não existem. Vamos criá-las juntos depois, conforme você pediu.
 
-## Fora de escopo
+## Escopo
 
-- Não vou criar um perfil de produtor para a conta admin (você pediu acesso administrativo, não duplicar role).
-- Não vou alterar o wizard de criação nem `useEvents`.
-- Outras tabelas (orders, tickets, etc.) já têm bypass admin ou não são tocadas no fluxo de criação de evento — não mexo agora.
-
-## Validação
-
-1. Recarregar `/produtor/criar-evento`, completar o wizard e clicar "Criar evento" → deve criar sem erro de RLS.
-2. Testar "Salvar como rascunho" → idem.
-3. Conferir no `/admin/produtores` ou no dashboard se o evento aparece.
+- Apenas `src/components/Footer.tsx`.
+- Sem mexer em rotas, backend ou outras páginas neste momento.
