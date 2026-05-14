@@ -29,6 +29,7 @@ import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
 import TermosDeUso from "./pages/TermosDeUso";
+import PoliticaReembolso from "./pages/PoliticaReembolso";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
