@@ -73,6 +73,7 @@ const App = () => (
                 <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
                 <Route path="/termos" element={<TermosDeUso />} />
+                <Route path="/reembolso" element={<PoliticaReembolso />} />
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
