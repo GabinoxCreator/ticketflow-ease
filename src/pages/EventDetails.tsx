@@ -208,6 +208,15 @@ const EventDetails = () => {
       <Helmet>
         <title>{event.title} - FestPag</title>
         <meta name="description" content={event.short_description || event.description || ''} />
+        <meta property="og:title" content={`${event.title} - FestPag`} />
+        <meta property="og:description" content={event.short_description || event.description || `Garanta seu ingresso para ${event.title} em ${event.city}.`} />
+        <meta property="og:type" content="event" />
+        <meta property="og:url" content={`https://festpag.com.br/evento/${event.id}`} />
+        {event.image_url && <meta property="og:image" content={event.image_url} />}
+        <meta name="twitter:title" content={`${event.title} - FestPag`} />
+        <meta name="twitter:description" content={event.short_description || event.description || `Garanta seu ingresso para ${event.title} em ${event.city}.`} />
+        {event.image_url && <meta name="twitter:image" content={event.image_url} />}
+        <link rel="canonical" href={`https://festpag.com.br/evento/${event.id}`} />
       </Helmet>
 
       <div className="min-h-screen bg-background">
