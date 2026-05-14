@@ -75,6 +75,7 @@ const App = () => (
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
                 <Route path="/termos" element={<TermosDeUso />} />
                 <Route path="/reembolso" element={<PoliticaReembolso />} />
+                <Route path="/ajuda" element={<CentralDeAjuda />} />
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
