@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -102,6 +102,24 @@ export default function EditarEvento() {
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  const formValues = useMemo(() => {
+    if (!event) return undefined;
+    return {
+      title: event.title ?? '',
+      description: event.description ?? '',
+      date: event.date ? parseISO(`${event.date}T12:00:00`) : (undefined as any),
+      time: event.time ? event.time.slice(0, 5) : '',
+      end_date: event.end_date ? parseISO(`${event.end_date}T12:00:00`) : null,
+      end_time: event.end_time ? event.end_time.slice(0, 5) : '',
+      venue: event.venue ?? '',
+      city: event.city ?? '',
+      state: event.state ?? '',
+      address: event.address ?? '',
+      is_hot: !!event.is_hot,
+      status: event.status,
+    } as EventFormData;
+  }, [event]);
+
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -116,30 +134,16 @@ export default function EditarEvento() {
       is_hot: false,
       status: 'draft',
     },
+    values: formValues,
+    resetOptions: { keepDirtyValues: true },
   });
 
   const { register, handleSubmit, formState: { errors, isDirty }, watch, setValue, reset } = form;
   const watchedValues = watch();
 
   useEffect(() => {
-    if (event) {
-      reset({
-        title: event.title,
-        description: event.description || '',
-        date: event.date ? parseISO(`${event.date}T12:00:00`) : undefined as any,
-        time: event.time ? event.time.slice(0, 5) : '',
-        end_date: event.end_date ? parseISO(`${event.end_date}T12:00:00`) : null,
-        end_time: event.end_time ? event.end_time.slice(0, 5) : '',
-        venue: event.venue || '',
-        city: event.city || '',
-        state: event.state || '',
-        address: event.address || '',
-        is_hot: !!event.is_hot,
-        status: event.status,
-      });
-      setImageUrl(event.image_url || undefined);
-    }
-  }, [event, reset]);
+    if (event?.image_url) setImageUrl(event.image_url);
+  }, [event?.image_url]);
 
   const onInvalid = (errs: FieldErrors<EventFormData>) => {
     const keys = Object.keys(errs);
@@ -220,7 +224,7 @@ export default function EditarEvento() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/produtor/eventos/${id}`)}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>

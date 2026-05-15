@@ -1,75 +1,82 @@
-# Mostrar quais campos estão bloqueando o salvamento
+# Editor de evento: corrigir campos zerados e botão voltar
 
-## Problema
+## Problema 1 — Campos resetam ao abrir editar
 
-Em `EditarEvento.tsx` linha 229:
+`src/pages/EditarEvento.tsx` carrega o evento e chama `reset(...)` num `useEffect`. Os campos com input nativo (`title`, `description`, `venue`, `city`, `address`) recebem o valor via `register` + DOM e funcionam.
 
-```ts
-<form onSubmit={handleSubmit(onSubmit, () => toast.error('Verifique os campos obrigatórios destacados'))}>
-```
+Já os campos controlados via `watchedValues.X` + Radix `<Select>` (**Horário de início**, **Horário de fim**, **Estado**, **Status**) ficam **vazios** porque o `watch()` no primeiro render devolve os `defaultValues` (`status: 'draft'`, demais `''`) e o Radix Select já fixa esse valor no trigger antes do `reset` rodar. Quando o reset acontece, o `value` do Select muda para a string nova mas o trigger não re-renderiza com o item correspondente porque os `SelectItem` não mudam de identidade.
 
-O `onInvalid` dispara um toast genérico, mas só renderiza erro inline em **6 campos** (title, date, time, venue, city, state). Se a validação falhar em qualquer outro campo (`end_date`, `end_time`, `address`, `is_hot`, `status`, `description`) ou se algum erro vier do `reset` desincronizado (ex.: `time` salvo como string vazia, `date` inválida vinda do `parseISO`), o usuário vê o toast e nada em vermelho — exatamente o sintoma da captura.
+Confirmado pelo banco: o evento tem `time=17:00:00`, `end_time=23:30:00`, `state=SP`, `status=published` — dados válidos, encaixam nas opções (TimeSelect tem grade de 15 min, 17:00 e 23:30 existem).
 
-Mais provável neste caso: o `event.date` ou `event.time` voltou nulo/vazio do banco para o título recém-criado, e o `parseISO`/`slice` produziu valor inválido sem feedback visual.
+### Correção
 
-## Correção
-
-### 1. Toast com nomes dos campos inválidos
-
-Mapear cada chave do schema para um label em PT-BR e listar no toast:
+Trocar o padrão `useEffect + reset` por `useForm({ values })` (RHF ≥ 7.43): a prop `values` mantém o form **sincronizado** com a fonte externa toda vez que `event` mudar, e dispara re-render dos controlled fields corretamente.
 
 ```ts
-const FIELD_LABELS: Record<string, string> = {
-  title: 'Título',
-  description: 'Descrição',
-  date: 'Data de início',
-  time: 'Horário',
-  end_date: 'Data de término',
-  end_time: 'Horário de término',
-  venue: 'Local',
-  city: 'Cidade',
-  state: 'Estado',
-  address: 'Endereço',
-  is_hot: 'Destaque',
-  status: 'Status',
-};
+const formValues = useMemo(() => {
+  if (!event) return undefined;
+  return {
+    title: event.title ?? '',
+    description: event.description ?? '',
+    date: event.date ? parseISO(`${event.date}T12:00:00`) : undefined as any,
+    time: event.time ? event.time.slice(0, 5) : '',
+    end_date: event.end_date ? parseISO(`${event.end_date}T12:00:00`) : null,
+    end_time: event.end_time ? event.end_time.slice(0, 5) : '',
+    venue: event.venue ?? '',
+    city: event.city ?? '',
+    state: event.state ?? '',
+    address: event.address ?? '',
+    is_hot: !!event.is_hot,
+    status: event.status,
+  };
+}, [event]);
 
-const onInvalid = (errs: FieldErrors<EventFormData>) => {
-  const fields = Object.keys(errs).map(k => FIELD_LABELS[k] ?? k);
-  toast.error('Corrija os campos:', { description: fields.join(', ') });
-  // foca o primeiro
-  const first = Object.keys(errs)[0];
-  if (first) {
-    document.getElementById(first)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-};
+const form = useForm<EventFormData>({
+  resolver: zodResolver(eventSchema),
+  defaultValues: { /* mesmos placeholders de hoje */ },
+  values: formValues,           // <— sincroniza quando o evento chegar
+  resetOptions: { keepDirtyValues: true },
+});
 ```
 
-### 2. Render de erro nos campos hoje "mudos"
+Remover o `useEffect` que chamava `reset(...)` (passa a ser redundante e pode reverter edições do usuário). O `setImageUrl(event.image_url)` migra para um `useEffect` separado (só seta uma vez).
 
-Adicionar `{errors.end_date && ...}` e `{errors.end_time && ...}` abaixo dos respectivos inputs (linhas ~290–315) e `{errors.status && ...}` abaixo do `Select` de status (linha ~402). Mesmo padrão `<p className="text-sm text-destructive">`.
+## Problema 2 — Botão voltar leva para a lista de todos os eventos
 
-### 3. Sanitizar reset
+Linha ~223:
 
-No `useEffect` que faz `reset(...)` (linha 109):
+```tsx
+<Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')}>
+  <ArrowLeft />
+</Button>
+```
 
-- `time: event.time ? event.time.slice(0, 5) : ''` — já está, mas garantir que string vazia não passe no `min(1)`. Se `event.time` vier vazio, manter vazio (form força produtor a preencher antes de salvar — comportamento correto, agora visível).
-- `date: event.date ? parseISO(event.date) : undefined` — evita `Invalid Date` silencioso.
-- `end_date: event.end_date ? parseISO(event.end_date) : null`.
+Deve voltar para o **dashboard do evento** que está sendo editado: `/produtor/eventos/:id`.
+
+### Correção
+
+```tsx
+<Button variant="ghost" size="icon" onClick={() => navigate(`/produtor/eventos/${id}`)}>
+  <ArrowLeft />
+</Button>
+```
+
+Manter o botão "Voltar para Meus Eventos" do estado de evento-não-encontrado (linha 205) apontando pra `/produtor/eventos` — esse caso não tem evento contextual.
+
+`onSuccess` do delete (linha 185) também segue indo pra `/produtor/eventos` (correto: o evento foi excluído).
 
 ## O que NÃO muda
 
-- Schema zod (regras continuam iguais).
-- Mutation / API.
-- Banco.
+- Schema zod, mutation, banco.
+- Comportamento do `LotManager`, `ImageUpload`, `TimeSelect`.
+- Estilos.
 
 ## Arquivos tocados
 
-- `src/pages/EditarEvento.tsx`
+- `src/pages/EditarEvento.tsx` (apenas)
 
 ## Validação manual
 
-1. Abrir o evento problemático em `/produtor/editar-evento/:id` e clicar em **Salvar**.
-2. Toast deve listar exatamente o(s) campo(s) com problema (ex.: "Horário de término").
-3. A página rola até o campo e mostra mensagem em vermelho embaixo dele.
-4. Após corrigir, salvar funciona normalmente.
+1. `/produtor/eventos/:id` → clicar **Editar** → todos os campos pré-preenchidos, incluindo Horário de Início, Horário de Fim, Estado (UF) e Status.
+2. Alterar a descrição e clicar **Salvar Alterações** → salva sem perder Horário/Estado/Status.
+3. Clicar na seta **Voltar** → volta para `/produtor/eventos/:id` (não para a lista).
