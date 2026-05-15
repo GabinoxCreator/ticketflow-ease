@@ -126,20 +126,33 @@ export default function EditarEvento() {
       reset({
         title: event.title,
         description: event.description || '',
-        date: parseISO(event.date),
-        time: (event.time || '').slice(0, 5),
-        end_date: event.end_date ? parseISO(event.end_date) : null,
-        end_time: (event.end_time || '').slice(0, 5),
-        venue: event.venue,
-        city: event.city,
-        state: event.state,
+        date: event.date ? parseISO(`${event.date}T12:00:00`) : undefined as any,
+        time: event.time ? event.time.slice(0, 5) : '',
+        end_date: event.end_date ? parseISO(`${event.end_date}T12:00:00`) : null,
+        end_time: event.end_time ? event.end_time.slice(0, 5) : '',
+        venue: event.venue || '',
+        city: event.city || '',
+        state: event.state || '',
         address: event.address || '',
-        is_hot: event.is_hot,
+        is_hot: !!event.is_hot,
         status: event.status,
       });
       setImageUrl(event.image_url || undefined);
     }
   }, [event, reset]);
+
+  const onInvalid = (errs: FieldErrors<EventFormData>) => {
+    const keys = Object.keys(errs);
+    const fields = keys.map((k) => FIELD_LABELS[k] ?? k);
+    toast.error('Corrija os campos destacados', {
+      description: fields.length ? fields.join(', ') : undefined,
+    });
+    const first = keys[0];
+    if (first) {
+      const el = document.getElementById(first) || document.querySelector(`[name="${first}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const onSubmit = async (data: EventFormData) => {
     if (!id) return;
