@@ -342,6 +342,7 @@ export default function EditarEvento() {
                           />
                         </PopoverContent>
                       </Popover>
+                      {errors.end_date && <p className="text-sm text-destructive">{errors.end_date.message as string}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label>Horário de Fim</Label>
@@ -350,6 +351,7 @@ export default function EditarEvento() {
                         onChange={(v) => setValue('end_time', v, { shouldDirty: true })}
                         placeholder="Selecione (opcional)"
                       />
+                      {errors.end_time && <p className="text-sm text-destructive">{errors.end_time.message}</p>}
                     </div>
                   </div>
 
