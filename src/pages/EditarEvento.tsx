@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
@@ -77,6 +77,21 @@ const statusOptions = [
   { value: 'finished', label: 'Finalizado' },
 ];
 
+const FIELD_LABELS: Record<string, string> = {
+  title: 'Título',
+  description: 'Descrição',
+  date: 'Data de início',
+  time: 'Horário de início',
+  end_date: 'Data de término',
+  end_time: 'Horário de término',
+  venue: 'Local',
+  city: 'Cidade',
+  state: 'Estado',
+  address: 'Endereço',
+  is_hot: 'Destaque',
+  status: 'Status',
+};
+
 export default function EditarEvento() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -111,20 +126,33 @@ export default function EditarEvento() {
       reset({
         title: event.title,
         description: event.description || '',
-        date: parseISO(event.date),
-        time: (event.time || '').slice(0, 5),
-        end_date: event.end_date ? parseISO(event.end_date) : null,
-        end_time: (event.end_time || '').slice(0, 5),
-        venue: event.venue,
-        city: event.city,
-        state: event.state,
+        date: event.date ? parseISO(`${event.date}T12:00:00`) : undefined as any,
+        time: event.time ? event.time.slice(0, 5) : '',
+        end_date: event.end_date ? parseISO(`${event.end_date}T12:00:00`) : null,
+        end_time: event.end_time ? event.end_time.slice(0, 5) : '',
+        venue: event.venue || '',
+        city: event.city || '',
+        state: event.state || '',
         address: event.address || '',
-        is_hot: event.is_hot,
+        is_hot: !!event.is_hot,
         status: event.status,
       });
       setImageUrl(event.image_url || undefined);
     }
   }, [event, reset]);
+
+  const onInvalid = (errs: FieldErrors<EventFormData>) => {
+    const keys = Object.keys(errs);
+    const fields = keys.map((k) => FIELD_LABELS[k] ?? k);
+    toast.error('Corrija os campos destacados', {
+      description: fields.length ? fields.join(', ') : undefined,
+    });
+    const first = keys[0];
+    if (first) {
+      const el = document.getElementById(first) || document.querySelector(`[name="${first}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const onSubmit = async (data: EventFormData) => {
     if (!id) return;
@@ -226,7 +254,7 @@ export default function EditarEvento() {
           </TabsList>
 
           <TabsContent value="info">
-            <form onSubmit={handleSubmit(onSubmit, () => toast.error('Verifique os campos obrigatórios destacados'))} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
               {/* Basic Info */}
               <Card>
                 <CardHeader>
@@ -314,6 +342,7 @@ export default function EditarEvento() {
                           />
                         </PopoverContent>
                       </Popover>
+                      {errors.end_date && <p className="text-sm text-destructive">{errors.end_date.message as string}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label>Horário de Fim</Label>
@@ -322,6 +351,7 @@ export default function EditarEvento() {
                         onChange={(v) => setValue('end_time', v, { shouldDirty: true })}
                         placeholder="Selecione (opcional)"
                       />
+                      {errors.end_time && <p className="text-sm text-destructive">{errors.end_time.message}</p>}
                     </div>
                   </div>
 
@@ -399,6 +429,7 @@ export default function EditarEvento() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
                     </div>
                   </div>
                 </CardContent>
