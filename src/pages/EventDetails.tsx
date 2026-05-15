@@ -17,6 +17,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
@@ -585,6 +586,14 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
   const available = lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0);
   const isSoldOut = available === 0;
 
+  const realPct = lot.total_quantity > 0 ? (lot.sold_quantity / lot.total_quantity) * 100 : 0;
+  const fakePct = lot.fake_scarcity_enabled ? (lot.fake_scarcity_percentage || 0) : 0;
+  const shownPct = Math.max(0, Math.min(100, Math.max(realPct, fakePct)));
+
+  const isCritical = !isSoldOut && (shownPct >= 90 || available <= 10);
+  const isWarning = !isSoldOut && !isCritical && shownPct >= 70;
+  const showProgress = !isSoldOut && (lot.fake_scarcity_enabled || shownPct >= 70);
+
   return (
     <div
       className={cn(
@@ -600,10 +609,16 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
             {isSoldOut && (
               <Badge variant="secondary" className="text-xs">Esgotado</Badge>
             )}
-            {!isSoldOut && available < 50 && (
+            {isCritical && (
               <Badge variant="destructive" className="text-xs gap-1">
                 <AlertCircle className="w-3 h-3" />
-                Últimos
+                Últimas unidades
+              </Badge>
+            )}
+            {isWarning && (
+              <Badge variant="secondary" className="text-xs gap-1 bg-orange-500/20 text-orange-400 border-orange-500/30">
+                <AlertCircle className="w-3 h-3" />
+                Quase esgotado
               </Badge>
             )}
           </div>
@@ -622,6 +637,24 @@ const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps)
               {formatPrice(lot.price)}
             </span>
           </div>
+
+          {showProgress && (
+            <div className="mt-3 space-y-1">
+              <Progress
+                value={shownPct}
+                className={cn(
+                  'h-1.5',
+                  isCritical && '[&>div]:bg-destructive'
+                )}
+              />
+              <p className={cn(
+                'text-xs',
+                isCritical ? 'text-destructive' : 'text-muted-foreground'
+              )}>
+                {Math.round(shownPct)}% vendido
+              </p>
+            </div>
+          )}
         </div>
 
         {!isSoldOut && (
