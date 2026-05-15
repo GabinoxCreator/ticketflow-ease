@@ -77,6 +77,21 @@ const statusOptions = [
   { value: 'finished', label: 'Finalizado' },
 ];
 
+const FIELD_LABELS: Record<string, string> = {
+  title: 'Título',
+  description: 'Descrição',
+  date: 'Data de início',
+  time: 'Horário de início',
+  end_date: 'Data de término',
+  end_time: 'Horário de término',
+  venue: 'Local',
+  city: 'Cidade',
+  state: 'Estado',
+  address: 'Endereço',
+  is_hot: 'Destaque',
+  status: 'Status',
+};
+
 export default function EditarEvento() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
