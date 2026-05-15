@@ -224,7 +224,7 @@ export default function EditarEvento() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/produtor/eventos')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/produtor/eventos/${id}`)}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
