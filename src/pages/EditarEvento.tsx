@@ -48,7 +48,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const eventSchema = z.object({
-  title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres').max(100),
+  title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres').max(150, 'O título deve ter no máximo 150 caracteres'),
   description: z.string().optional(),
   date: z.date({ required_error: 'Selecione uma data' }),
   time: z.string().min(1, 'Informe o horário'),
