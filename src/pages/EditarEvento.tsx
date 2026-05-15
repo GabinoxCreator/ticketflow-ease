@@ -429,6 +429,7 @@ export default function EditarEvento() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
                     </div>
                   </div>
                 </CardContent>
