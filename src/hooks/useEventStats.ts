@@ -15,12 +15,29 @@ export function useEventStats(eventId: string | undefined) {
     const actualAvailable = totalQuantity - paidTicketsCount;
     const conversionRate = totalQuantity > 0 ? ((paidTicketsCount / totalQuantity) * 100).toFixed(1) : '0';
 
-    // Group sales by lot - only paid tickets
+    // Map orderId -> total ticket count (for per-ticket revenue share)
+    const ticketsPerOrder = new Map<string, number>();
+    (tickets || []).forEach(t => {
+      if (t.status === 'valid' || t.status === 'used') {
+        ticketsPerOrder.set(t.order_id, (ticketsPerOrder.get(t.order_id) || 0) + 1);
+      }
+    });
+    const orderTotalById = new Map<string, number>();
+    (paidOrders || []).forEach(o => {
+      orderTotalById.set(o.id, Number(o.total_amount));
+    });
+
+    // Group sales by lot - revenue from actual paid amounts (historic price)
     const salesByLot = lots?.map(lot => {
       const lotTickets = paidTickets.filter(t => t.lot_id === lot.id);
-      const lotRevenue = lotTickets.length * Number(lot.price);
+      const lotRevenue = lotTickets.reduce((sum, t) => {
+        const orderTotal = orderTotalById.get(t.order_id);
+        const count = ticketsPerOrder.get(t.order_id) || 0;
+        if (orderTotal == null || count === 0) return sum;
+        return sum + orderTotal / count;
+      }, 0);
       const progress = lot.total_quantity > 0 ? (lotTickets.length / lot.total_quantity) * 100 : 0;
-      
+
       return {
         id: lot.id,
         name: lot.name,
