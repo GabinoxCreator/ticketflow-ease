@@ -22,7 +22,9 @@ import {
   Upload,
   Trash2,
   ImageIcon,
+  LineChart,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
