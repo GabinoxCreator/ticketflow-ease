@@ -54,7 +54,9 @@ export function CheckoutStepPayment({
     return new Date(safe).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
-  const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0));
+  const SERVICE_FEE_RATE = 0.10;
+  const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+  const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
