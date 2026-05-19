@@ -161,6 +161,7 @@ serve(async (req) => {
         customer_phone: customerPhone || null,
         total_amount: finalAmount,
         discount_amount: discountAmount,
+        service_fee_amount: serviceFee,
         coupon_id: appliedCouponId,
         payment_method: 'pix',
         status: 'pending',
