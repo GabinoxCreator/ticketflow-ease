@@ -26,6 +26,7 @@ import { CheckoutModal } from '@/components/checkout/CheckoutModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
 
 const getAnonymousId = () => {
