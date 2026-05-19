@@ -389,10 +389,10 @@ export default function ProducerSettings() {
               </section>
             )}
 
-            {producerProfileId && <Separator />}
+            {effectiveProducerId && <Separator />}
 
             {/* TRACKEAMENTO */}
-            {producerProfileId && (
+            {effectiveProducerId && (
               <section className="space-y-5">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center">
