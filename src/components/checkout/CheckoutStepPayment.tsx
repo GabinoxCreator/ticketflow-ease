@@ -188,18 +188,24 @@ export function CheckoutStepPayment({
           )}
         </div>
 
-        {appliedCoupon && (
-          <div className="relative space-y-1 pt-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span className="text-muted-foreground line-through tabular-nums">{formatPrice(totalAmount)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-emerald-400">Desconto</span>
-              <span className="text-emerald-400 tabular-nums">−{formatPrice(appliedCoupon.discountAmount)}</span>
-            </div>
+        <div className="relative space-y-1 pt-1">
+          {appliedCoupon && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground line-through tabular-nums">{formatPrice(totalAmount)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-emerald-400">Desconto</span>
+                <span className="text-emerald-400 tabular-nums">−{formatPrice(appliedCoupon.discountAmount)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Taxa de serviço (10%)</span>
+            <span className="text-muted-foreground tabular-nums">+ {formatPrice(serviceFee)}</span>
           </div>
-        )}
+        </div>
 
         {/* Total destacado */}
         <div className="relative flex justify-between items-center rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 px-4 py-3 shadow-lg shadow-primary/10">
