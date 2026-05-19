@@ -1,45 +1,37 @@
-Adicionar taxa de serviço de 10% cobrada do cliente final no checkout.
+## Problema
 
-**Regra da taxa:** sempre 10% sobre o **subtotal original dos ingressos** (preço × quantidade). Cupons e descontos NÃO afetam a taxa — só descontam o valor do ingresso.
+A taxa de 10% aparece no resumo do pedido (R$ 22,00), mas o modal de pagamento PIX e a tela de Cartão de Crédito mostram apenas R$ 20,00 — sem a taxa. As edge functions já cobram corretamente, mas o valor exibido na UI está errado.
 
-Exemplo: 1 ingresso R$ 20 + cupom −R$ 5
-- Subtotal: R$ 20,00
-- Desconto: −R$ 5,00
-- Taxa de serviço (10% sobre R$ 20): R$ 2,00
-- **Total: R$ 17,00**
+## Causa
 
-## Banco
-- Migration: adicionar `service_fee_amount NUMERIC NOT NULL DEFAULT 0` em `orders`. Vendas anteriores ficam com 0 (preservadas).
+Em `src/components/checkout/CheckoutModal.tsx` (linha 76):
 
-## Frontend — CheckoutStepPayment.tsx
-- `subtotal = soma(price × quantity)`
-- `serviceFee = round(subtotal * 0.10, 2)` — calculado sempre sobre o subtotal, independente do cupom
-- `finalAmount = subtotal − desconto + serviceFee`
-- Adicionar linha "Taxa de serviço (10%)  + R$ X,XX" no card de resumo, acima do Total
-- Total destacado passa a mostrar o finalAmount com a taxa
-- Remover "Sem taxas" do texto do botão PIX
+```ts
+const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0));
+```
 
-## Edge Functions (create-mercadopago-pix, process-card-payment)
-- Calcular `subtotal` antes do desconto
-- `serviceFee = round(subtotal * 0.10, 2)` (sempre sobre subtotal)
-- `chargedAmount = subtotal − discount + serviceFee` → enviado ao Mercado Pago como `transaction_amount` e salvo em `orders.total_amount`
-- Persistir `service_fee_amount` no insert de `orders`
+Esse `finalAmount` é passado para `CheckoutStepPix` e `CheckoutStepCard` e exibido no QR PIX e no botão do cartão. Ele não inclui a taxa de serviço de 10%.
 
-## Hooks de receita (para não inflar receita do produtor com a taxa)
-- `useEventStats.ts`: usar `(order.total_amount − order.service_fee_amount)` ao ratear receita por ticket
-- `useEventOrders.ts`: `totalRevenue` baseado em `total_amount − service_fee_amount`
-- `useProducerFinance.ts`: idem
+## Correção
 
-Pedidos antigos têm `service_fee_amount = 0` → seguem aparecendo exatamente como hoje.
+Em `src/components/checkout/CheckoutModal.tsx`:
 
-## Constante
-`SERVICE_FEE_RATE = 0.10` replicada no componente de checkout e nas edge functions. Arredondamento: `Math.round(x*100)/100`.
+1. Adicionar constante `SERVICE_FEE_RATE = 0.10` no topo.
+2. Recalcular `finalAmount` para incluir a taxa sobre `totalAmount` original (taxa não sofre cupom):
 
-## Arquivos
-- nova migration SQL
-- src/components/checkout/CheckoutStepPayment.tsx
-- supabase/functions/create-mercadopago-pix/index.ts
-- supabase/functions/process-card-payment/index.ts
-- src/hooks/useEventStats.ts
-- src/hooks/useEventOrders.ts
-- src/hooks/useProducerFinance.ts
+```ts
+const SERVICE_FEE_RATE = 0.10;
+const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
+```
+
+Isso faz com que:
+- Modal PIX exiba "VALOR A PAGAR R$ 22,00" (alinhado com a edge function que já cobra R$ 22,00).
+- Botão de Cartão de Crédito mostre o valor correto com taxa.
+- `CheckoutStepPayment` continua mostrando "Taxa de serviço (10%)" no resumo (já está correto).
+
+Nenhuma mudança nas edge functions é necessária — elas já calculam corretamente.
+
+## Arquivo alterado
+
+- `src/components/checkout/CheckoutModal.tsx` (1 edição, ~2 linhas)

@@ -73,7 +73,9 @@ export function CheckoutModal({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [pixData, setPixData] = useState<{ code: string; expiresAt: Date } | null>(null);
 
-  const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0));
+  const SERVICE_FEE_RATE = 0.10;
+  const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+  const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
   useEffect(() => {
     if (isOpen) {
