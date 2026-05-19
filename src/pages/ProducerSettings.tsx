@@ -204,8 +204,40 @@ export default function ProducerSettings() {
         <Card className="rounded-2xl border-border/60 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-pink-500" />
           <CardContent className="p-6 sm:p-8 space-y-10">
+            {/* ADMIN: seletor de produtora */}
+            {isAdmin && (
+              <section className="space-y-3 p-5 rounded-xl bg-red-500/5 border border-red-500/30">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      Gerenciando produtora
+                      <Badge variant="destructive" className="text-[10px]">Admin</Badge>
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Selecione qual produtora você quer configurar.
+                    </p>
+                  </div>
+                </div>
+                <Select
+                  value={selectedProducerId || ''}
+                  onValueChange={(v) => setSelectedProducerId(v)}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Selecione uma produtora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(adminProducers || []).map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.brand_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+            )}
+
             {/* PRODUTORA */}
-            {producerProfileId && (
+            {effectiveProducerId && (
               <section className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center">
