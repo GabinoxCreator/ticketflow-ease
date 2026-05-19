@@ -131,7 +131,9 @@ export default function ProducerSettings() {
               document: document || null,
               email: orgEmail || null,
               phone: orgPhone || null,
-              })
+              meta_pixel_id: metaPixelId.trim() || null,
+              tracking_enabled: trackingEnabled,
+              } as any)
               .eq('id', producerProfileId),
           ),
         );
