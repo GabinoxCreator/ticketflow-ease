@@ -28,9 +28,12 @@ import { Switch } from '@/components/ui/switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ProducerSettings() {
-  const { profile, user, producerProfileId } = useAuth();
+  const { profile, user, producerProfileId, userRole } = useAuth();
+  const isAdmin = userRole === 'admin';
+  const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { uploadImage, deleteImage, isUploading } = useImageUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,19 +56,40 @@ export default function ProducerSettings() {
 
   const [saving, setSaving] = useState(false);
 
-  const { data: producerProfile } = useQuery({
-    queryKey: ['producer-profile', producerProfileId],
+  const effectiveProducerId = isAdmin ? selectedProducerId : producerProfileId;
+
+  const { data: adminProducers } = useQuery({
+    queryKey: ['admin-all-producers'],
     queryFn: async () => {
-      if (!producerProfileId) return null;
+      const { data, error } = await supabase
+        .from('producer_profiles')
+        .select('id, brand_name, logo_url')
+        .order('brand_name', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isAdmin,
+  });
+
+  useEffect(() => {
+    if (isAdmin && !selectedProducerId && adminProducers && adminProducers.length > 0) {
+      setSelectedProducerId(adminProducers[0].id);
+    }
+  }, [isAdmin, adminProducers, selectedProducerId]);
+
+  const { data: producerProfile } = useQuery({
+    queryKey: ['producer-profile', effectiveProducerId],
+    queryFn: async () => {
+      if (!effectiveProducerId) return null;
       const { data, error } = await supabase
         .from('producer_profiles')
         .select('*')
-        .eq('id', producerProfileId)
+        .eq('id', effectiveProducerId)
         .single();
       if (error) throw error;
       return data;
     },
-    enabled: !!producerProfileId,
+    enabled: !!effectiveProducerId,
   });
 
   useEffect(() => {
@@ -119,7 +143,7 @@ export default function ProducerSettings() {
         ),
       ];
 
-      if (producerProfileId) {
+      if (effectiveProducerId) {
         tasks.push(
           Promise.resolve(
             supabase
@@ -134,7 +158,7 @@ export default function ProducerSettings() {
               meta_pixel_id: metaPixelId.trim() || null,
               tracking_enabled: trackingEnabled,
               } as any)
-              .eq('id', producerProfileId),
+              .eq('id', effectiveProducerId),
           ),
         );
       }
@@ -180,8 +204,40 @@ export default function ProducerSettings() {
         <Card className="rounded-2xl border-border/60 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-pink-500" />
           <CardContent className="p-6 sm:p-8 space-y-10">
+            {/* ADMIN: seletor de produtora */}
+            {isAdmin && (
+              <section className="space-y-3 p-5 rounded-xl bg-red-500/5 border border-red-500/30">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      Gerenciando produtora
+                      <Badge variant="destructive" className="text-[10px]">Admin</Badge>
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Selecione qual produtora você quer configurar.
+                    </p>
+                  </div>
+                </div>
+                <Select
+                  value={selectedProducerId || ''}
+                  onValueChange={(v) => setSelectedProducerId(v)}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Selecione uma produtora" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(adminProducers || []).map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.brand_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+            )}
+
             {/* PRODUTORA */}
-            {producerProfileId && (
+            {effectiveProducerId && (
               <section className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center">
@@ -333,10 +389,10 @@ export default function ProducerSettings() {
               </section>
             )}
 
-            {producerProfileId && <Separator />}
+            {effectiveProducerId && <Separator />}
 
             {/* TRACKEAMENTO */}
-            {producerProfileId && (
+            {effectiveProducerId && (
               <section className="space-y-5">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center">
