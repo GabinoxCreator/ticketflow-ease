@@ -83,6 +83,8 @@ export default function ProducerSettings() {
       setDocument(producerProfile.document || '');
       setOrgEmail(producerProfile.email || '');
       setOrgPhone(producerProfile.phone || '');
+      setMetaPixelId((producerProfile as any).meta_pixel_id || '');
+      setTrackingEnabled(!!(producerProfile as any).tracking_enabled);
     }
   }, [producerProfile]);
 
