@@ -24,7 +24,8 @@ export function useEventStats(eventId: string | undefined) {
     });
     const orderTotalById = new Map<string, number>();
     (paidOrders || []).forEach(o => {
-      orderTotalById.set(o.id, Number(o.total_amount));
+      // Net of platform service fee — fee belongs to platform, not producer revenue
+      orderTotalById.set(o.id, Number(o.total_amount) - Number((o as any).service_fee_amount || 0));
     });
 
     // Group sales by lot - revenue from actual paid amounts (historic price)
