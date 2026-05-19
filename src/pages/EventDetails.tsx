@@ -107,6 +107,22 @@ const EventDetails = () => {
     }
   }, [id, liked]);
 
+  const pixelId: string | null =
+    (event as any)?.producer_profiles?.tracking_enabled
+      ? ((event as any)?.producer_profiles?.meta_pixel_id || null)
+      : null;
+
+  useEffect(() => {
+    if (!pixelId || !event) return;
+    trackPageView(pixelId);
+    trackViewContent(pixelId, {
+      content_ids: [event.id],
+      content_name: event.title,
+      content_type: 'product',
+      currency: 'BRL',
+    });
+  }, [pixelId, event?.id]);
+
   const isLoading = eventLoading || lotsLoading;
 
   if (isLoading) {
@@ -178,21 +194,6 @@ const EventDetails = () => {
 
   const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
 
-  const pixelId: string | null =
-    (event as any)?.producer_profiles?.tracking_enabled
-      ? ((event as any)?.producer_profiles?.meta_pixel_id || null)
-      : null;
-
-  useEffect(() => {
-    if (!pixelId || !event) return;
-    trackPageView(pixelId);
-    trackViewContent(pixelId, {
-      content_ids: [event.id],
-      content_name: event.title,
-      content_type: 'product',
-      currency: 'BRL',
-    });
-  }, [pixelId, event?.id]);
 
   const fireInitiateCheckout = () => {
     if (!pixelId) return;
