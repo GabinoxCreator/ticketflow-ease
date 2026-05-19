@@ -26,6 +26,7 @@ import { CheckoutModal } from '@/components/checkout/CheckoutModal';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
 
 const getAnonymousId = () => {
@@ -177,6 +178,33 @@ const EventDetails = () => {
 
   const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
 
+  const pixelId: string | null =
+    (event as any)?.producer_profiles?.tracking_enabled
+      ? ((event as any)?.producer_profiles?.meta_pixel_id || null)
+      : null;
+
+  useEffect(() => {
+    if (!pixelId || !event) return;
+    trackPageView(pixelId);
+    trackViewContent(pixelId, {
+      content_ids: [event.id],
+      content_name: event.title,
+      content_type: 'product',
+      currency: 'BRL',
+    });
+  }, [pixelId, event?.id]);
+
+  const fireInitiateCheckout = () => {
+    if (!pixelId) return;
+    trackInitiateCheckout(pixelId, {
+      content_ids: Object.keys(selectedLots),
+      content_name: event?.title,
+      num_items: totalTickets,
+      value: totalAmount,
+      currency: 'BRL',
+    });
+  };
+
   const handleCheckout = () => {
     if (totalTickets === 0) {
       toast.error('Selecione pelo menos um ingresso');
@@ -185,12 +213,14 @@ const EventDetails = () => {
     if (!user) {
       setIsAuthModalOpen(true);
     } else {
+      fireInitiateCheckout();
       setIsCheckoutOpen(true);
     }
   };
 
   const handleAuthenticated = () => {
     setIsAuthModalOpen(false);
+    fireInitiateCheckout();
     setIsCheckoutOpen(true);
   };
 

@@ -1138,11 +1138,13 @@ export type Database = {
           id: string
           legal_name: string | null
           logo_url: string | null
+          meta_pixel_id: string | null
           owner_user_id: string
           phone: string | null
           platform_fee_percent: number
           slug: string | null
           status: string
+          tracking_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -1154,11 +1156,13 @@ export type Database = {
           id?: string
           legal_name?: string | null
           logo_url?: string | null
+          meta_pixel_id?: string | null
           owner_user_id: string
           phone?: string | null
           platform_fee_percent?: number
           slug?: string | null
           status?: string
+          tracking_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -1170,11 +1174,13 @@ export type Database = {
           id?: string
           legal_name?: string | null
           logo_url?: string | null
+          meta_pixel_id?: string | null
           owner_user_id?: string
           phone?: string | null
           platform_fee_percent?: number
           slug?: string | null
           status?: string
+          tracking_enabled?: boolean
           updated_at?: string
         }
         Relationships: []

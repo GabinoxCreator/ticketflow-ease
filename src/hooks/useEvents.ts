@@ -188,7 +188,7 @@ export function useEvent(id: string | undefined) {
       
       const { data, error } = await supabase
         .from('events')
-        .select('*, producer_profiles ( brand_name, logo_url )')
+        .select('*, producer_profiles ( brand_name, logo_url, meta_pixel_id, tracking_enabled )')
         .eq('id', id)
         .maybeSingle();
 

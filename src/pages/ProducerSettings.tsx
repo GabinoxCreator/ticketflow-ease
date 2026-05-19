@@ -22,7 +22,9 @@ import {
   Upload,
   Trash2,
   ImageIcon,
+  LineChart,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
@@ -44,6 +46,10 @@ export default function ProducerSettings() {
   const [document, setDocument] = useState('');
   const [orgEmail, setOrgEmail] = useState('');
   const [orgPhone, setOrgPhone] = useState('');
+
+  // Tracking
+  const [metaPixelId, setMetaPixelId] = useState('');
+  const [trackingEnabled, setTrackingEnabled] = useState(false);
 
   const [saving, setSaving] = useState(false);
 
@@ -77,6 +83,8 @@ export default function ProducerSettings() {
       setDocument(producerProfile.document || '');
       setOrgEmail(producerProfile.email || '');
       setOrgPhone(producerProfile.phone || '');
+      setMetaPixelId((producerProfile as any).meta_pixel_id || '');
+      setTrackingEnabled(!!(producerProfile as any).tracking_enabled);
     }
   }, [producerProfile]);
 
@@ -123,7 +131,9 @@ export default function ProducerSettings() {
               document: document || null,
               email: orgEmail || null,
               phone: orgPhone || null,
-              })
+              meta_pixel_id: metaPixelId.trim() || null,
+              tracking_enabled: trackingEnabled,
+              } as any)
               .eq('id', producerProfileId),
           ),
         );
@@ -323,7 +333,60 @@ export default function ProducerSettings() {
               </section>
             )}
 
+            {producerProfileId && <Separator />}
+
+            {/* TRACKEAMENTO */}
+            {producerProfileId && (
+              <section className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20 flex items-center justify-center">
+                    <LineChart className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-semibold">Trackeamento</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Configure o Meta Pixel para rastrear conversões das suas campanhas no Facebook e Instagram Ads.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-xl bg-primary/5 border border-primary/20 space-y-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <Label htmlFor="trackingEnabled" className="text-sm font-semibold">
+                        Ativar rastreamento
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Quando ativo, eventos como visualização e início de checkout são enviados para o Meta Pixel desta produtora.
+                      </p>
+                    </div>
+                    <Switch
+                      id="trackingEnabled"
+                      checked={trackingEnabled}
+                      onCheckedChange={setTrackingEnabled}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="metaPixelId">Meta Pixel ID</Label>
+                    <Input
+                      id="metaPixelId"
+                      value={metaPixelId}
+                      onChange={(e) => setMetaPixelId(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="Ex: 1234567890123456"
+                      inputMode="numeric"
+                      disabled={!trackingEnabled}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Encontre no Gerenciador de Eventos do Meta. Apenas números.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
             <Separator />
+
 
             {/* DADOS PESSOAIS */}
             <section className="space-y-5">
