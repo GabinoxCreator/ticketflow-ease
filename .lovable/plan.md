@@ -1,28 +1,45 @@
-## Objetivo
+## Problema
 
-Admin global (`gabinox54037@gmail.com`) precisa enxergar e editar as seções **Produtora** e **Trackeamento** em `/produtor/configuracoes`, escolhendo qual produtora está gerenciando.
+No card de "Eventos Ativos" (`EventListItem`), a receita exibida é calculada como:
 
-## Mudanças
+```
+revenue = Σ (lot.sold_quantity × lot.price_atual)
+```
 
-### 1. `src/pages/ProducerSettings.tsx`
+Para o evento "Lançamento Audiovisual…":
+- 19 ingressos vendidos × R$ 20 (preço atual do lote) = **R$ 380** (exibido)
+- Receita real dos pedidos pagos: **R$ 266** (11 pedidos `paid`)
 
-- Adicionar `useUserRole`/checagem via `userRole === 'admin'`.
-- Se `userRole === 'admin'`:
-  - Buscar lista de produtoras: `supabase.from('producer_profiles').select('id, brand_name, logo_url').order('brand_name')`. RLS já permite (`Admins can view all producer_profiles`).
-  - Renderizar um seletor (Select shadcn) no topo do card "Configurações da Conta", logo abaixo do header, com label "Gerenciando produtora" e badge "Admin".
-  - Estado local `selectedProducerId` (default: primeira da lista).
-  - Trocar `producerProfileId` por `effectiveProducerId = userRole === 'admin' ? selectedProducerId : producerProfileId` em todos os pontos da página (query de `producer_profile`, condicional de render das seções Produtora/Trackeamento, update).
-  - Ao trocar de produtora, recarregar dados (queryKey passa a usar `effectiveProducerId`).
-- Para produtor normal: comportamento inalterado.
+A diferença vem de cupons, descontos e/ou mudanças de preço de lote ao longo do tempo. O cálculo atual ignora tudo isso e só multiplica quantidade × preço atual.
 
-### 2. Sem mudanças de schema/RLS
+## Solução
 
-- `Admins can view all producer_profiles` (SELECT) e `Admins can update producer_profiles` (UPDATE) já existem. O fluxo de salvamento funciona via RLS de admin.
+Trocar a fonte da receita para a **soma real de `total_amount` dos pedidos com status `paid`** do evento, que é o padrão usado em outras telas do produtor (FestPag — "Order Status: Paid orders use 'paid'").
+
+### Arquivos alterados
+
+**1. `src/hooks/useEvents.ts`**
+- No `useEvents()`, após buscar os eventos, fazer uma segunda query agregada:
+  ```ts
+  supabase
+    .from('orders')
+    .select('event_id, total_amount')
+    .eq('status', 'paid')
+    .in('event_id', eventIds)
+  ```
+- Agrupar por `event_id` no client e anexar `paid_revenue: number` em cada evento retornado.
+- Atualizar a interface `Event` para incluir `paid_revenue?: number`.
+
+**2. `src/components/producer/EventListItem.tsx`**
+- Substituir o cálculo local de `revenue` por `event.paid_revenue ?? 0`.
+- Manter `sold`, `capacity` e `occupancy` como estão (vêm de `event_lots` e refletem inventário, não dinheiro).
+
+### Fora de escopo
+- Não mexer em `EventDashboardHeader` / `EventOverviewTab` (essas já usam `useEventStats`/queries próprias — verificar rapidamente na implementação, mas só ajustar se reproduzirem o mesmo bug).
+- Não tocar em tracking, RLS, ou checkout.
 
 ## Validação manual
-
-1. Logar como admin → ir em `/produtor/configuracoes` → ver o seletor de produtora no topo.
-2. Selecionar uma produtora → seções "Produtora" e "Trackeamento" aparecem com dados dela.
-3. Ativar tracking, salvar Pixel ID, clicar em "Salvar Configurações" → toast de sucesso.
-4. Trocar para outra produtora → dados recarregam corretamente.
-5. Logar como produtor normal → seletor não aparece, comportamento idêntico ao atual.
+1. Abrir `/produtor/dashboard` com a conta admin/produtor atual.
+2. Card do evento "Lançamento Audiovisual…" deve mostrar **R$ 266** (não R$ 380).
+3. `19/100 vendidos` e `19% Ocupação` permanecem iguais.
+4. Eventos sem pedidos pagos mostram **R$ 0**.

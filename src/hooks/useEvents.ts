@@ -34,6 +34,7 @@ export interface Event {
     reserved_quantity?: number;
     is_active?: boolean;
   }>;
+  paid_revenue?: number;
 }
 
 export interface EventFormData {
