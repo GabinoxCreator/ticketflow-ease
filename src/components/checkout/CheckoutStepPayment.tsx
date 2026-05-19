@@ -249,7 +249,7 @@ export function CheckoutStepPayment({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-base">PIX</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Aprovação imediata · Sem taxas</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Aprovação imediata</p>
           </div>
           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
         </button>
