@@ -47,6 +47,10 @@ export default function ProducerSettings() {
   const [orgEmail, setOrgEmail] = useState('');
   const [orgPhone, setOrgPhone] = useState('');
 
+  // Tracking
+  const [metaPixelId, setMetaPixelId] = useState('');
+  const [trackingEnabled, setTrackingEnabled] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   const { data: producerProfile } = useQuery({
