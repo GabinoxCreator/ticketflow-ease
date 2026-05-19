@@ -1,31 +1,45 @@
-## Problema
+Adicionar taxa de serviço de 10% cobrada do cliente final no checkout.
 
-Na aba **Visão Geral** do evento, o card "Vendas por Lote" mostra a receita do lote como `quantidade vendida × preço atual do lote`. Como o preço do lote foi alterado (de R$ 1 para R$ 20), os 8 ingressos vendidos aparecem como R$ 160, mas a receita real é R$ 46 (preço cobrado na época das compras).
+**Regra da taxa:** sempre 10% sobre o **subtotal original dos ingressos** (preço × quantidade). Cupons e descontos NÃO afetam a taxa — só descontam o valor do ingresso.
 
-A "Receita Total" no topo já está correta (R$ 46), porque vem de `orders.total_amount`. O bug é só no cálculo por lote.
+Exemplo: 1 ingresso R$ 20 + cupom −R$ 5
+- Subtotal: R$ 20,00
+- Desconto: −R$ 5,00
+- Taxa de serviço (10% sobre R$ 20): R$ 2,00
+- **Total: R$ 17,00**
 
-## Causa
+## Banco
+- Migration: adicionar `service_fee_amount NUMERIC NOT NULL DEFAULT 0` em `orders`. Vendas anteriores ficam com 0 (preservadas).
 
-`src/hooks/useEventStats.ts` calcula:
+## Frontend — CheckoutStepPayment.tsx
+- `subtotal = soma(price × quantity)`
+- `serviceFee = round(subtotal * 0.10, 2)` — calculado sempre sobre o subtotal, independente do cupom
+- `finalAmount = subtotal − desconto + serviceFee`
+- Adicionar linha "Taxa de serviço (10%)  + R$ X,XX" no card de resumo, acima do Total
+- Total destacado passa a mostrar o finalAmount com a taxa
+- Remover "Sem taxas" do texto do botão PIX
 
-```ts
-const lotRevenue = lotTickets.length * Number(lot.price);
-```
+## Edge Functions (create-mercadopago-pix, process-card-payment)
+- Calcular `subtotal` antes do desconto
+- `serviceFee = round(subtotal * 0.10, 2)` (sempre sobre subtotal)
+- `chargedAmount = subtotal − discount + serviceFee` → enviado ao Mercado Pago como `transaction_amount` e salvo em `orders.total_amount`
+- Persistir `service_fee_amount` no insert de `orders`
 
-Isto ignora o preço histórico que o cliente realmente pagou.
+## Hooks de receita (para não inflar receita do produtor com a taxa)
+- `useEventStats.ts`: usar `(order.total_amount − order.service_fee_amount)` ao ratear receita por ticket
+- `useEventOrders.ts`: `totalRevenue` baseado em `total_amount − service_fee_amount`
+- `useProducerFinance.ts`: idem
 
-## Correção
+Pedidos antigos têm `service_fee_amount = 0` → seguem aparecendo exatamente como hoje.
 
-Calcular a receita de cada lote a partir dos **pedidos pagos**, não do preço atual:
+## Constante
+`SERVICE_FEE_RATE = 0.10` replicada no componente de checkout e nas edge functions. Arredondamento: `Math.round(x*100)/100`.
 
-1. Para cada `order` pago, dividir `order.total_amount` pela quantidade de tickets daquela order → valor pago por ticket.
-2. Para cada ticket pago (`valid` ou `used`), somar esse valor no lote do ticket (`ticket.lot_id`).
-3. Usar essa soma como `revenue` em `salesByLot`.
-
-Isto reflete o valor realmente cobrado, independentemente de alterações futuras no preço do lote, e mantém consistência com a "Receita Total".
-
-### Arquivo alterado
-
-- `src/hooks/useEventStats.ts` — substituir `lotRevenue = lotTickets.length * Number(lot.price)` pelo cálculo agregado a partir de `paidOrders` + `tickets`.
-
-Nenhum outro arquivo precisa ser tocado (a aba "Ingressos"/lotes que mostra preço unitário e progresso continua usando o preço atual, o que está correto para exibir o preço de venda atual).
+## Arquivos
+- nova migration SQL
+- src/components/checkout/CheckoutStepPayment.tsx
+- supabase/functions/create-mercadopago-pix/index.ts
+- supabase/functions/process-card-payment/index.ts
+- src/hooks/useEventStats.ts
+- src/hooks/useEventOrders.ts
+- src/hooks/useProducerFinance.ts

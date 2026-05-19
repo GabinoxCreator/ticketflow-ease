@@ -793,6 +793,7 @@ export type Database = {
           id: string
           mp_payment_id: string | null
           payment_method: string | null
+          service_fee_amount: number
           status: string
           total_amount: number
           updated_at: string
@@ -810,6 +811,7 @@ export type Database = {
           id?: string
           mp_payment_id?: string | null
           payment_method?: string | null
+          service_fee_amount?: number
           status?: string
           total_amount?: number
           updated_at?: string
@@ -827,6 +829,7 @@ export type Database = {
           id?: string
           mp_payment_id?: string | null
           payment_method?: string | null
+          service_fee_amount?: number
           status?: string
           total_amount?: number
           updated_at?: string

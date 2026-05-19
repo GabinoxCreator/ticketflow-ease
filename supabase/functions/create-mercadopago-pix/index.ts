@@ -19,6 +19,7 @@ interface PixRequest {
 }
 
 const PIX_EXPIRATION_MINUTES = 30;
+const SERVICE_FEE_RATE = 0.10;
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -145,7 +146,8 @@ serve(async (req) => {
         appliedCouponId = coupon.id;
       }
     }
-    const finalAmount = Math.max(0.01, totalAmount - discountAmount);
+    const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+    const finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
 
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60 * 1000).toISOString();
 
@@ -159,6 +161,7 @@ serve(async (req) => {
         customer_phone: customerPhone || null,
         total_amount: finalAmount,
         discount_amount: discountAmount,
+        service_fee_amount: serviceFee,
         coupon_id: appliedCouponId,
         payment_method: 'pix',
         status: 'pending',

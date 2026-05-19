@@ -24,7 +24,8 @@ export function useEventStats(eventId: string | undefined) {
     });
     const orderTotalById = new Map<string, number>();
     (paidOrders || []).forEach(o => {
-      orderTotalById.set(o.id, Number(o.total_amount));
+      // Net of platform service fee — fee belongs to platform, not producer revenue
+      orderTotalById.set(o.id, Number(o.total_amount) - Number((o as any).service_fee_amount || 0));
     });
 
     // Group sales by lot - revenue from actual paid amounts (historic price)
@@ -70,7 +71,7 @@ export function useEventStats(eventId: string | undefined) {
       return {
         date: day,
         label: new Date(day).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
-        revenue: dayOrders.reduce((sum, order) => sum + Number(order.total_amount), 0),
+        revenue: dayOrders.reduce((sum, order) => sum + (Number(order.total_amount) - Number((order as any).service_fee_amount || 0)), 0),
         tickets: dayTickets.length,
       };
     });

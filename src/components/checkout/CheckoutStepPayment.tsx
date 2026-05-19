@@ -54,7 +54,9 @@ export function CheckoutStepPayment({
     return new Date(safe).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
-  const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0));
+  const SERVICE_FEE_RATE = 0.10;
+  const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+  const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -186,18 +188,24 @@ export function CheckoutStepPayment({
           )}
         </div>
 
-        {appliedCoupon && (
-          <div className="relative space-y-1 pt-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span className="text-muted-foreground line-through tabular-nums">{formatPrice(totalAmount)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-emerald-400">Desconto</span>
-              <span className="text-emerald-400 tabular-nums">−{formatPrice(appliedCoupon.discountAmount)}</span>
-            </div>
+        <div className="relative space-y-1 pt-1">
+          {appliedCoupon && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground line-through tabular-nums">{formatPrice(totalAmount)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-emerald-400">Desconto</span>
+                <span className="text-emerald-400 tabular-nums">−{formatPrice(appliedCoupon.discountAmount)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground">Taxa de serviço (10%)</span>
+            <span className="text-muted-foreground tabular-nums">+ {formatPrice(serviceFee)}</span>
           </div>
-        )}
+        </div>
 
         {/* Total destacado */}
         <div className="relative flex justify-between items-center rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 px-4 py-3 shadow-lg shadow-primary/10">
@@ -241,7 +249,7 @@ export function CheckoutStepPayment({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-base">PIX</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Aprovação imediata · Sem taxas</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Aprovação imediata</p>
           </div>
           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
         </button>
