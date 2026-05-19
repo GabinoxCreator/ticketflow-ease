@@ -34,6 +34,7 @@ export interface Event {
     reserved_quantity?: number;
     is_active?: boolean;
   }>;
+  paid_revenue?: number;
 }
 
 export interface EventFormData {
@@ -75,7 +76,27 @@ export function useEvents() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Event[];
+
+      const eventsList = (data || []) as Event[];
+      const eventIds = eventsList.map(e => e.id);
+
+      if (eventIds.length > 0) {
+        const { data: paidOrders } = await supabase
+          .from('orders')
+          .select('event_id, total_amount')
+          .eq('status', 'paid')
+          .in('event_id', eventIds);
+
+        const revenueByEvent = new Map<string, number>();
+        (paidOrders || []).forEach((o: any) => {
+          revenueByEvent.set(o.event_id, (revenueByEvent.get(o.event_id) || 0) + Number(o.total_amount || 0));
+        });
+        eventsList.forEach(e => {
+          e.paid_revenue = revenueByEvent.get(e.id) || 0;
+        });
+      }
+
+      return eventsList;
     },
     enabled: !!user,
   });

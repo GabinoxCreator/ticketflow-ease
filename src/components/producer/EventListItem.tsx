@@ -73,10 +73,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   const lots = event.event_lots ?? [];
   const sold = lots.reduce((s, l) => s + (l.sold_quantity || 0), 0);
   const capacity = lots.reduce((s, l) => s + (l.total_quantity || 0), 0);
-  const revenue = lots.reduce(
-    (s, l) => s + (l.sold_quantity || 0) * Number(l.price || 0),
-    0,
-  );
+  const revenue = event.paid_revenue ?? 0;
   const occupancy = capacity > 0 ? Math.min(100, (sold / capacity) * 100) : 0;
 
   return (
