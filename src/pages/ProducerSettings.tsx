@@ -143,7 +143,7 @@ export default function ProducerSettings() {
         ),
       ];
 
-      if (producerProfileId) {
+      if (effectiveProducerId) {
         tasks.push(
           Promise.resolve(
             supabase
@@ -158,7 +158,7 @@ export default function ProducerSettings() {
               meta_pixel_id: metaPixelId.trim() || null,
               tracking_enabled: trackingEnabled,
               } as any)
-              .eq('id', producerProfileId),
+              .eq('id', effectiveProducerId),
           ),
         );
       }
