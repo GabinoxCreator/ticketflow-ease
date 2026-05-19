@@ -10,6 +10,7 @@ export interface Order {
   customer_email: string;
   customer_phone: string | null;
   total_amount: number;
+  service_fee_amount?: number;
   status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'failed' | 'expired' | 'charged_back';
   payment_method: string | null;
   created_at: string;
