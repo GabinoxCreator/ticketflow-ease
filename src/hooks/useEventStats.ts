@@ -71,7 +71,7 @@ export function useEventStats(eventId: string | undefined) {
       return {
         date: day,
         label: new Date(day).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
-        revenue: dayOrders.reduce((sum, order) => sum + Number(order.total_amount), 0),
+        revenue: dayOrders.reduce((sum, order) => sum + (Number(order.total_amount) - Number((order as any).service_fee_amount || 0)), 0),
         tickets: dayTickets.length,
       };
     });
