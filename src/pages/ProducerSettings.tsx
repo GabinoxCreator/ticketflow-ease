@@ -28,9 +28,12 @@ import { Switch } from '@/components/ui/switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ProducerSettings() {
-  const { profile, user, producerProfileId } = useAuth();
+  const { profile, user, producerProfileId, userRole } = useAuth();
+  const isAdmin = userRole === 'admin';
+  const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { uploadImage, deleteImage, isUploading } = useImageUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
