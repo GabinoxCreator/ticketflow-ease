@@ -19,6 +19,7 @@ interface PixRequest {
 }
 
 const PIX_EXPIRATION_MINUTES = 30;
+const SERVICE_FEE_RATE = 0.10;
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
