@@ -56,19 +56,40 @@ export default function ProducerSettings() {
 
   const [saving, setSaving] = useState(false);
 
-  const { data: producerProfile } = useQuery({
-    queryKey: ['producer-profile', producerProfileId],
+  const effectiveProducerId = isAdmin ? selectedProducerId : producerProfileId;
+
+  const { data: adminProducers } = useQuery({
+    queryKey: ['admin-all-producers'],
     queryFn: async () => {
-      if (!producerProfileId) return null;
+      const { data, error } = await supabase
+        .from('producer_profiles')
+        .select('id, brand_name, logo_url')
+        .order('brand_name', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isAdmin,
+  });
+
+  useEffect(() => {
+    if (isAdmin && !selectedProducerId && adminProducers && adminProducers.length > 0) {
+      setSelectedProducerId(adminProducers[0].id);
+    }
+  }, [isAdmin, adminProducers, selectedProducerId]);
+
+  const { data: producerProfile } = useQuery({
+    queryKey: ['producer-profile', effectiveProducerId],
+    queryFn: async () => {
+      if (!effectiveProducerId) return null;
       const { data, error } = await supabase
         .from('producer_profiles')
         .select('*')
-        .eq('id', producerProfileId)
+        .eq('id', effectiveProducerId)
         .single();
       if (error) throw error;
       return data;
     },
-    enabled: !!producerProfileId,
+    enabled: !!effectiveProducerId,
   });
 
   useEffect(() => {
