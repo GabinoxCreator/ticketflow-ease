@@ -96,13 +96,14 @@ export function useProducerFinance() {
       if (eventIds.length > 0) {
         const { data: orders } = await supabase
           .from('orders')
-          .select('event_id, total_amount, status')
+          .select('event_id, total_amount, service_fee_amount, status')
           .in('event_id', eventIds)
           .in('status', ['paid', 'completed']);
-        (orders || []).forEach((o) => {
+        (orders || []).forEach((o: any) => {
+          const net = Number(o.total_amount || 0) - Number(o.service_fee_amount || 0);
           ordersByEvent.set(
             o.event_id,
-            (ordersByEvent.get(o.event_id) || 0) + Number(o.total_amount || 0)
+            (ordersByEvent.get(o.event_id) || 0) + net
           );
         });
       }
