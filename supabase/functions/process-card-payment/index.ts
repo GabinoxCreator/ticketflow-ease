@@ -141,7 +141,8 @@ serve(async (req) => {
         appliedCouponId = coupon.id;
       }
     }
-    const finalAmount = Math.max(0.01, totalAmount - discountAmount);
+    const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+    const finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
 
     const expiresAtIso = new Date(Date.now() + CARD_EXPIRATION_MINUTES * 60 * 1000).toISOString();
 
@@ -155,6 +156,7 @@ serve(async (req) => {
         customer_phone: customerPhone || null,
         total_amount: finalAmount,
         discount_amount: discountAmount,
+        service_fee_amount: serviceFee,
         coupon_id: appliedCouponId,
         payment_method: 'card',
         status: 'pending',
