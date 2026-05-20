@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Clock, Flame } from 'lucide-react';
+import { MapPin, Clock, Flame, CalendarDays } from 'lucide-react';
 import { EventData, categoryLabels } from '@/data/mockEvents';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
