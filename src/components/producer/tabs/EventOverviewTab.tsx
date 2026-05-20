@@ -14,6 +14,7 @@ interface SalesByLot {
 
 interface EventOverviewTabProps {
   eventId: string;
+  eventSlug?: string | null;
   totalRevenue: number;
   ticketsSold: number;
   ticketsAvailable: number;
