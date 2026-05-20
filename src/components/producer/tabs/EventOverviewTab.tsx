@@ -35,6 +35,7 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 
 export function EventOverviewTab({
   eventId,
+  eventSlug,
   totalRevenue,
   ticketsSold,
   ticketsAvailable,
