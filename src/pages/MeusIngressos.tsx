@@ -183,7 +183,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
               <div className="absolute bottom-0 left-0 right-0 p-4">
                 <h3
                   className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
-                  onClick={() => navigate(`/evento/${ticket.event.id}`)}
+                  onClick={() => navigate(`/evento/${ticket.event.slug ?? ticket.event.id}`)}
                 >
                   {ticket.event.title}
                 </h3>
