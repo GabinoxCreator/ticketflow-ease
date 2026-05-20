@@ -49,7 +49,7 @@ export function useUserTickets() {
           status,
           validated_at,
           created_at,
-          event:events(id, title, date, time, end_date, end_time, venue, city, state, image_url),
+          event:events(id, slug, title, date, time, end_date, end_time, venue, city, state, image_url),
           lot:event_lots(name, price)
         `)
         .eq('user_id', user.id)
