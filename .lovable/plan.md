@@ -1,45 +1,46 @@
-## Problema
+# Banner do evento sumiu — diagnóstico e correção
 
-No card de "Eventos Ativos" (`EventListItem`), a receita exibida é calculada como:
+## O que aconteceu
+
+O evento "Lançamento Audiovisual Feliz no Simples Miguel Lourenço…" tem `image_url` apontando para:
 
 ```
-revenue = Σ (lot.sold_quantity × lot.price_atual)
+.../event-images/events/1779309004256-tdl0v6tfpch.png
 ```
 
-Para o evento "Lançamento Audiovisual…":
-- 19 ingressos vendidos × R$ 20 (preço atual do lote) = **R$ 380** (exibido)
-- Receita real dos pedidos pagos: **R$ 266** (11 pedidos `paid`)
+Esse arquivo **não existe** no storage (retorna 404). Por isso o card aparece "vazio" no topo — o `<img>` quebra e mostra apenas o alt text (o título) sobre o fundo do card. O arquivo anterior do mesmo produtor, `events/1779308948804-romwigxxxi.png` (subido ~55s antes), continua no bucket.
 
-A diferença vem de cupons, descontos e/ou mudanças de preço de lote ao longo do tempo. O cálculo atual ignora tudo isso e só multiplica quantidade × preço atual.
+Provavelmente houve uma troca de imagem em que o segundo upload falhou silenciosamente (rede ou erro temporário), mas a URL "publicUrl" foi salva no banco mesmo assim — `supabase.storage.getPublicUrl()` devolve uma URL formatada independente de o arquivo existir.
 
-## Solução
+## Correções
 
-Trocar a fonte da receita para a **soma real de `total_amount` dos pedidos com status `paid`** do evento, que é o padrão usado em outras telas do produtor (FestPag — "Order Status: Paid orders use 'paid'").
+### 1. Restaurar o banner do evento (dado)
 
-### Arquivos alterados
+Migration de UPDATE para apontar o evento ao último arquivo válido daquele produtor:
 
-**1. `src/hooks/useEvents.ts`**
-- No `useEvents()`, após buscar os eventos, fazer uma segunda query agregada:
-  ```ts
-  supabase
-    .from('orders')
-    .select('event_id, total_amount')
-    .eq('status', 'paid')
-    .in('event_id', eventIds)
-  ```
-- Agrupar por `event_id` no client e anexar `paid_revenue: number` em cada evento retornado.
-- Atualizar a interface `Event` para incluir `paid_revenue?: number`.
+```sql
+update public.events
+set image_url = 'https://nsrromaqysgoxqvqagdm.supabase.co/storage/v1/object/public/event-images/events/1779308948804-romwigxxxi.png'
+where id = '61d0b7dc-e789-4f81-b72f-e2567eee995b';
+```
 
-**2. `src/components/producer/EventListItem.tsx`**
-- Substituir o cálculo local de `revenue` por `event.paid_revenue ?? 0`.
-- Manter `sold`, `capacity` e `occupancy` como estão (vêm de `event_lots` e refletem inventário, não dinheiro).
+(Se a imagem antiga não for a desejada, basta o usuário fazer um novo upload em "Editar Evento".)
 
-### Fora de escopo
-- Não mexer em `EventDashboardHeader` / `EventOverviewTab` (essas já usam `useEventStats`/queries próprias — verificar rapidamente na implementação, mas só ajustar se reproduzirem o mesmo bug).
-- Não tocar em tracking, RLS, ou checkout.
+### 2. Fallback visual no card público (`src/components/EventCard.tsx`)
+
+Adicionar `onError` no `<img>` para, quando a URL quebrar, esconder o `<img>` e mostrar o gradiente/placeholder já existente em outros componentes. Assim, mesmo que uma URL fique órfã, o card não fica "destruído".
+
+### 3. Endurecer o upload (`src/hooks/useImageUpload.ts`)
+
+Após o `upload` bem-sucedido, fazer um `fetch` HEAD na `publicUrl` antes de retornar. Se 404, descartar a URL e mostrar erro. Isso evita salvar URLs órfãs no banco no futuro.
+
+## Fora do escopo
+
+- Não vamos mexer em RLS de storage (políticas atuais permitem produtor/admin).
+- Não vamos limpar outros eventos sem confirmação — só esse específico.
 
 ## Validação manual
-1. Abrir `/produtor/dashboard` com a conta admin/produtor atual.
-2. Card do evento "Lançamento Audiovisual…" deve mostrar **R$ 266** (não R$ 380).
-3. `19/100 vendidos` e `19% Ocupação` permanecem iguais.
-4. Eventos sem pedidos pagos mostram **R$ 0**.
+
+- Home volta a mostrar o banner do evento.
+- Em `Editar Evento`, trocar imagem por uma inválida (forçar erro) mostra toast e **não** salva URL no formulário.
+- Card de evento com URL quebrada cai no placeholder com gradiente em vez de mostrar o título sobreposto.
