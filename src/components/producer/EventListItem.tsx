@@ -230,7 +230,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/evento/${event.id}`)}
+                onClick={() => navigate(`/evento/${event.slug ?? event.id}`)}
                 className="h-8 text-xs hover:bg-primary/10"
               >
                 <Eye className="w-3.5 h-3.5 mr-1.5" />

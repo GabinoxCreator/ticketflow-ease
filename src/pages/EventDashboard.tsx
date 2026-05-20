@@ -107,6 +107,7 @@ export default function EventDashboard() {
         <TabsContent value="overview">
           <EventOverviewTab
             eventId={event.id}
+            eventSlug={event.slug ?? null}
             totalRevenue={stats.totalRevenue}
             ticketsSold={stats.totalTicketsSold}
             ticketsAvailable={stats.totalTicketsAvailable}

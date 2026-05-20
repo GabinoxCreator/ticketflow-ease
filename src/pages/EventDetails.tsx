@@ -54,9 +54,10 @@ interface EventLot {
 }
 
 const EventDetails = () => {
-  const { id } = useParams<{ id: string }>();
-  const { data: event, isLoading: eventLoading } = useEvent(id);
-  const { lots, isLoading: lotsLoading } = useEventLots(id);
+  const { id: slugOrId } = useParams<{ id: string }>();
+  const { data: event, isLoading: eventLoading } = useEvent(slugOrId);
+  const eventId: string | undefined = (event as any)?.id;
+  const { lots, isLoading: lotsLoading } = useEventLots(eventId);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -65,47 +66,47 @@ const EventDetails = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!id) return;
+    if (!eventId) return;
     const anonymousId = getAnonymousId();
-    
+
     const fetchLikes = async () => {
       const { count } = await supabase
         .from('event_likes' as any)
         .select('*', { count: 'exact', head: true })
-        .eq('event_id', id);
+        .eq('event_id', eventId);
       setLikeCount(count || 0);
 
       const { data } = await supabase
         .from('event_likes' as any)
         .select('id')
-        .eq('event_id', id)
+        .eq('event_id', eventId)
         .eq('anonymous_id', anonymousId)
         .maybeSingle();
       setLiked(!!data);
     };
     fetchLikes();
-  }, [id]);
+  }, [eventId]);
 
   const handleLike = useCallback(async () => {
-    if (!id) return;
+    if (!eventId) return;
     const anonymousId = getAnonymousId();
-    
+
     if (liked) {
       setLiked(false);
       setLikeCount(prev => Math.max(0, prev - 1));
       await supabase
         .from('event_likes' as any)
         .delete()
-        .eq('event_id', id)
+        .eq('event_id', eventId)
         .eq('anonymous_id', anonymousId);
     } else {
       setLiked(true);
       setLikeCount(prev => prev + 1);
       await supabase
         .from('event_likes' as any)
-        .insert({ event_id: id, anonymous_id: anonymousId } as any);
+        .insert({ event_id: eventId, anonymous_id: anonymousId } as any);
     }
-  }, [id, liked]);
+  }, [eventId, liked]);
 
   const pixelId: string | null =
     (event as any)?.producer_profiles?.tracking_enabled
@@ -243,12 +244,12 @@ const EventDetails = () => {
         <meta property="og:title" content={`${event.title} - FestPag`} />
         <meta property="og:description" content={event.short_description || event.description || `Garanta seu ingresso para ${event.title} em ${event.city}.`} />
         <meta property="og:type" content="event" />
-        <meta property="og:url" content={`https://festpag.com.br/evento/${event.id}`} />
+        <meta property="og:url" content={`https://festpag.com.br/evento/${event.slug ?? event.id}`} />
         {event.image_url && <meta property="og:image" content={event.image_url} />}
         <meta name="twitter:title" content={`${event.title} - FestPag`} />
         <meta name="twitter:description" content={event.short_description || event.description || `Garanta seu ingresso para ${event.title} em ${event.city}.`} />
         {event.image_url && <meta name="twitter:image" content={event.image_url} />}
-        <link rel="canonical" href={`https://festpag.com.br/evento/${event.id}`} />
+        <link rel="canonical" href={`https://festpag.com.br/evento/${event.slug ?? event.id}`} />
       </Helmet>
 
       <div className="min-h-screen bg-background">
@@ -593,7 +594,7 @@ const EventDetails = () => {
         <CheckoutModal
           isOpen={isCheckoutOpen}
           onClose={() => setIsCheckoutOpen(false)}
-          eventId={id || ''}
+          eventId={eventId || ''}
           eventTitle={event.title}
           eventDate={event.date}
           eventTime={event.time}

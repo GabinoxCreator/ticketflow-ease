@@ -2,6 +2,7 @@ export type EventCategory = 'festa' | 'show' | 'teatro' | 'festival' | 'balada';
 
 export interface EventData {
   id: string;
+  slug?: string | null;
   title: string;
   description: string;
   shortDescription: string;

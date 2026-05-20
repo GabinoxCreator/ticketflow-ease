@@ -240,7 +240,7 @@ export default function EditarEvento() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(`/evento/${id}`)}>
+            <Button variant="outline" onClick={() => navigate(`/evento/${(event as any).slug ?? id}`)}>
               <Eye className="w-4 h-4 mr-2" />
               Visualizar
             </Button>

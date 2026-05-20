@@ -14,6 +14,7 @@ interface SalesByLot {
 
 interface EventOverviewTabProps {
   eventId: string;
+  eventSlug?: string | null;
   totalRevenue: number;
   ticketsSold: number;
   ticketsAvailable: number;
@@ -34,6 +35,7 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 
 export function EventOverviewTab({
   eventId,
+  eventSlug,
   totalRevenue,
   ticketsSold,
   ticketsAvailable,
@@ -82,7 +84,7 @@ export function EventOverviewTab({
     { label: 'Participantes', icon: Users, onClick: () => onTabChange('participants') },
     { label: 'Check-in', icon: QrCode, onClick: () => onTabChange('checkin') },
     { label: 'Portaria', icon: Download, onClick: () => onTabChange('doorsales') },
-    { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventId}`, '_blank') },
+    { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventSlug ?? eventId}`, '_blank') },
     { label: 'Listas', icon: BarChart3, onClick: () => onTabChange('lists') },
   ];
 

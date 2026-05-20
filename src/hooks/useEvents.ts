@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 export interface Event {
   id: string;
   producer_id: string;
+  slug?: string | null;
   title: string;
   description: string | null;
   short_description: string | null;
@@ -201,22 +202,36 @@ export function useEvents() {
   };
 }
 
-export function useEvent(id: string | undefined) {
+export function useEvent(idOrSlug: string | undefined) {
   return useQuery({
-    queryKey: ['event', id],
+    queryKey: ['event', idOrSlug],
     queryFn: async () => {
-      if (!id) return null;
-      
-      const { data, error } = await supabase
+      if (!idOrSlug) return null;
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+      const select = '*, producer_profiles ( brand_name, logo_url, meta_pixel_id, tracking_enabled )';
+
+      // Try slug first (most public URLs), fall back to id (legacy/UUID links)
+      let { data, error } = await supabase
         .from('events')
-        .select('*, producer_profiles ( brand_name, logo_url, meta_pixel_id, tracking_enabled )')
-        .eq('id', id)
+        .select(select)
+        .eq(isUuid ? 'id' : 'slug', idOrSlug)
         .maybeSingle();
+
+      if (!data && !error) {
+        const fallback = await supabase
+          .from('events')
+          .select(select)
+          .eq(isUuid ? 'slug' : 'id', idOrSlug)
+          .maybeSingle();
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) throw error;
       return data as any;
     },
-    enabled: !!id,
+    enabled: !!idOrSlug,
   });
 }
 

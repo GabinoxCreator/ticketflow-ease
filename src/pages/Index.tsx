@@ -27,6 +27,7 @@ const Index = () => {
 
       return {
         id: event.id,
+        slug: event.slug ?? null,
         title: event.title,
         description: event.description || '',
         shortDescription: event.short_description || '',
