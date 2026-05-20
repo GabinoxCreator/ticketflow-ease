@@ -84,7 +84,7 @@ export function EventOverviewTab({
     { label: 'Participantes', icon: Users, onClick: () => onTabChange('participants') },
     { label: 'Check-in', icon: QrCode, onClick: () => onTabChange('checkin') },
     { label: 'Portaria', icon: Download, onClick: () => onTabChange('doorsales') },
-    { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventId}`, '_blank') },
+    { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventSlug ?? eventId}`, '_blank') },
     { label: 'Listas', icon: BarChart3, onClick: () => onTabChange('lists') },
   ];
 
