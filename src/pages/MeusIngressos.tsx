@@ -133,7 +133,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
     const shareData = {
       title: `Ingresso — ${ticket.event.title}`,
       text: `Meu ingresso para ${ticket.event.title} em ${formatDate(ticket.event.date)} às ${formatTime(ticket.event.time)}.`,
-      url: window.location.origin + `/evento/${ticket.event.id}`,
+      url: window.location.origin + `/evento/${ticket.event.slug ?? ticket.event.id}`,
     };
     try {
       if (navigator.share) {
