@@ -243,12 +243,12 @@ const EventDetails = () => {
         <meta property="og:title" content={`${event.title} - FestPag`} />
         <meta property="og:description" content={event.short_description || event.description || `Garanta seu ingresso para ${event.title} em ${event.city}.`} />
         <meta property="og:type" content="event" />
-        <meta property="og:url" content={`https://festpag.com.br/evento/${event.id}`} />
+        <meta property="og:url" content={`https://festpag.com.br/evento/${event.slug ?? event.id}`} />
         {event.image_url && <meta property="og:image" content={event.image_url} />}
         <meta name="twitter:title" content={`${event.title} - FestPag`} />
         <meta name="twitter:description" content={event.short_description || event.description || `Garanta seu ingresso para ${event.title} em ${event.city}.`} />
         {event.image_url && <meta name="twitter:image" content={event.image_url} />}
-        <link rel="canonical" href={`https://festpag.com.br/evento/${event.id}`} />
+        <link rel="canonical" href={`https://festpag.com.br/evento/${event.slug ?? event.id}`} />
       </Helmet>
 
       <div className="min-h-screen bg-background">
