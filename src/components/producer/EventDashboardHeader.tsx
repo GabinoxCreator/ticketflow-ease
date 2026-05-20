@@ -92,7 +92,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/evento/${event.id}`, '_blank')}
+            onClick={() => window.open(`/evento/${event.slug ?? event.id}`, '_blank')}
             className="rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
           >
             <ExternalLink className="h-4 w-4 mr-2" />
