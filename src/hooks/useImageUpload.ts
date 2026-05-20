@@ -47,6 +47,17 @@ export function useImageUpload() {
         .from('event-images')
         .getPublicUrl(filePath);
 
+      // Verify the file is actually reachable before returning the URL
+      try {
+        const head = await fetch(urlData.publicUrl, { method: 'HEAD', cache: 'no-store' });
+        if (!head.ok) {
+          throw new Error(`Arquivo enviado mas não acessível (HTTP ${head.status}).`);
+        }
+      } catch (verifyErr: any) {
+        toast.error(`Falha ao confirmar upload: ${verifyErr.message || verifyErr}`);
+        return null;
+      }
+
       setProgress(100);
 
       return urlData.publicUrl;

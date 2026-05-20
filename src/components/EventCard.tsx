@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Clock, Flame } from 'lucide-react';
+import { MapPin, Clock, Flame, CalendarDays } from 'lucide-react';
 import { EventData, categoryLabels } from '@/data/mockEvents';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,7 @@ const categoryColorMap: Record<string, string> = {
 };
 
 const EventCard = ({ event, index = 0 }: EventCardProps) => {
+  const [imgFailed, setImgFailed] = useState(false);
   const formatDate = (dateString: string) => {
     const date = new Date(dateString + 'T12:00:00');
     return date.toLocaleDateString('pt-BR', {
@@ -44,11 +46,18 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
         <article className="relative bg-card rounded-2xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10">
           {/* Image */}
           <div className="relative aspect-[16/10] overflow-hidden">
-            <img
-              src={event.imageUrl}
-              alt={event.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
+            {event.imageUrl && !imgFailed ? (
+              <img
+                src={event.imageUrl}
+                alt={event.title}
+                onError={() => setImgFailed(true)}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-primary/30 via-primary/10 to-accent/30 flex items-center justify-center">
+                <CalendarDays className="w-12 h-12 text-primary/60" />
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
             
             {/* Category Badge */}
