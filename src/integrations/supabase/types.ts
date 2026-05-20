@@ -524,6 +524,7 @@ export type Database = {
           producer_id: string
           producer_profile_id: string | null
           short_description: string | null
+          slug: string | null
           state: string
           status: string
           time: string
@@ -548,6 +549,7 @@ export type Database = {
           producer_id: string
           producer_profile_id?: string | null
           short_description?: string | null
+          slug?: string | null
           state: string
           status?: string
           time: string
@@ -572,6 +574,7 @@ export type Database = {
           producer_id?: string
           producer_profile_id?: string | null
           short_description?: string | null
+          slug?: string | null
           state?: string
           status?: string
           time?: string
@@ -1420,6 +1423,8 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      slugify: { Args: { _input: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role: "cliente" | "produtor" | "admin"
