@@ -13,6 +13,7 @@ export interface UserTicket {
   created_at: string;
   event: {
     id: string;
+    slug: string | null;
     title: string;
     date: string;
     time: string;
