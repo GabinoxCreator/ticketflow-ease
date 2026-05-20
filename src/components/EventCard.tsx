@@ -42,7 +42,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
     >
-      <Link to={`/evento/${event.id}`} className="block group">
+      <Link to={`/evento/${event.slug ?? event.id}`} className="block group">
         <article className="relative bg-card rounded-2xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10">
           {/* Image */}
           <div className="relative aspect-[16/10] overflow-hidden">
