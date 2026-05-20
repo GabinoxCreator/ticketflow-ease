@@ -135,7 +135,7 @@ export function EventDataTab({ event }: EventDataTabProps) {
             <Button onClick={() => navigate(`/produtor/editar-evento/${event.id}`)}>
               Editar Evento
             </Button>
-            <Button variant="outline" onClick={() => window.open(`/evento/${event.id}`, '_blank')}>
+            <Button variant="outline" onClick={() => window.open(`/evento/${event.slug ?? event.id}`, '_blank')}>
               Ver Página Pública
             </Button>
           </div>
