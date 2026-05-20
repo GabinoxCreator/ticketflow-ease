@@ -593,7 +593,7 @@ const EventDetails = () => {
         <CheckoutModal
           isOpen={isCheckoutOpen}
           onClose={() => setIsCheckoutOpen(false)}
-          eventId={id || ''}
+          eventId={eventId || ''}
           eventTitle={event.title}
           eventDate={event.date}
           eventTime={event.time}
