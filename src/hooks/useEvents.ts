@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 export interface Event {
   id: string;
   producer_id: string;
+  slug?: string | null;
   title: string;
   description: string | null;
   short_description: string | null;
