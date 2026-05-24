@@ -48,7 +48,9 @@ export default function ColaboradorListasTab({
             id,
             name,
             status,
-            checked_in_at
+            checked_in_at,
+            created_at,
+            added_by
           )
         `)
         .eq('event_id', eventId)
