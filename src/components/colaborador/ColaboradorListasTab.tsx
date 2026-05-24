@@ -86,6 +86,33 @@ export default function ColaboradorListasTab({
     onCheckinDone();
   };
 
+  const openList = async (list: GuestList) => {
+    setOpeningListId(list.id);
+    try {
+      const fresh = await fetchEntriesForList(list.id);
+      setSelectedList({ ...list, entries: fresh });
+      // atualiza também a lista no card
+      setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, entries: fresh } : l)));
+    } catch (e) {
+      console.error('Error fetching list entries:', e);
+      toast.error('Erro ao carregar convidados');
+      setSelectedList(list);
+    } finally {
+      setOpeningListId(null);
+    }
+  };
+
+  const refreshSelectedList = async () => {
+    if (!selectedList) return;
+    try {
+      const fresh = await fetchEntriesForList(selectedList.id);
+      setSelectedList({ ...selectedList, entries: fresh });
+      setLists((prev) => prev.map((l) => (l.id === selectedList.id ? { ...l, entries: fresh } : l)));
+    } catch {
+      toast.error('Erro ao atualizar lista');
+    }
+  };
+
   if (selectedList) {
     return (
       <ColaboradorListaDetalhe
@@ -98,11 +125,13 @@ export default function ColaboradorListasTab({
           setSelectedList(null);
           fetchLists();
         }}
+        onRefresh={refreshSelectedList}
         onSessionExpired={onSessionExpired}
         onCheckinDone={handleCheckinDone}
       />
     );
   }
+
 
   if (isLoading) {
     return (
