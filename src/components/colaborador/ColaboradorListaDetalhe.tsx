@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, Search, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, CheckCircle2, Clock, Loader2, AlertCircle, User, Calendar, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { buildWindowMessage } from '@/lib/checkinWindow';
 import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
@@ -13,6 +13,8 @@ interface GuestEntry {
   name: string;
   status: string;
   checked_in_at: string | null;
+  created_at?: string;
+  added_by?: string;
 }
 
 interface ColaboradorListaDetalheProps {
@@ -40,6 +42,7 @@ export default function ColaboradorListaDetalhe({
   const [validatingId, setValidatingId] = useState<string | null>(null);
   const [localEntries, setLocalEntries] = useState(entries);
   const [result, setResult] = useState<CheckinResultData | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<GuestEntry | null>(null);
 
   const pendingCount = localEntries.filter(e => e.status === 'pending').length;
   const checkedInCount = localEntries.filter(e => e.status === 'checked_in').length;
@@ -47,6 +50,14 @@ export default function ColaboradorListaDetalhe({
   const filtered = searchQuery
     ? localEntries.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : localEntries;
+
+  const formatDate = (iso?: string | null) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  };
 
   const handleEntrada = async (entry: GuestEntry) => {
     if (entry.status === 'checked_in') return;
@@ -75,6 +86,7 @@ export default function ColaboradorListaDetalhe({
       if (data.session_expired) { onSessionExpired(); return; }
 
       if (data.success) {
+        setSelectedEntry(null);
         setResult({
           type: 'success',
           message: 'Convidado liberado!',
@@ -91,12 +103,14 @@ export default function ColaboradorListaDetalhe({
         );
         onCheckinDone();
       } else if (data.reason === 'before_window' || data.reason === 'after_window') {
+        setSelectedEntry(null);
         setResult({
           type: 'window_closed',
           message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
           holderName: entry.name,
         });
       } else if (data.error?.includes('já fez check-in')) {
+        setSelectedEntry(null);
         setResult({
           type: 'already_used',
           message: 'Este convidado já entrou.',
@@ -106,6 +120,7 @@ export default function ColaboradorListaDetalhe({
           prev.map(e => e.id === entry.id ? { ...e, status: 'checked_in' } : e)
         );
       } else {
+        setSelectedEntry(null);
         setResult({
           type: 'error',
           message: data.error || 'Erro ao registrar entrada',
@@ -119,6 +134,8 @@ export default function ColaboradorListaDetalhe({
     }
   };
 
+  const selectedIsCheckedIn = selectedEntry?.status === 'checked_in';
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -130,6 +147,17 @@ export default function ColaboradorListaDetalhe({
           <h3 className="font-bold">{listName}</h3>
           <p className="text-sm text-muted-foreground">
             {pendingCount} pendente(s) • {checkedInCount} check-in(s)
+          </p>
+        </div>
+      </div>
+
+      {/* Aviso de instruções */}
+      <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="text-sm text-amber-900">
+          <p className="font-semibold mb-0.5">Como confirmar o nome na lista</p>
+          <p className="text-amber-800 leading-snug">
+            Peça o nome completo ao convidado, localize na lista abaixo, toque no nome para abrir os detalhes e confirme o check-in. Confira sempre antes de liberar a entrada.
           </p>
         </div>
       </div>
@@ -155,51 +183,146 @@ export default function ColaboradorListaDetalhe({
           {filtered.map((entry) => {
             const isCheckedIn = entry.status === 'checked_in';
             return (
-              <Card key={entry.id}>
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium truncate">{entry.name}</h4>
-                        {isCheckedIn ? (
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Entrou
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">
-                            <Clock className="w-3 h-3 mr-1" />
-                            Pendente
-                          </Badge>
-                        )}
-                      </div>
-                      {isCheckedIn && entry.checked_in_at && (
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(entry.checked_in_at).toLocaleString('pt-BR')}
-                        </p>
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => setSelectedEntry(entry)}
+                className="w-full text-left rounded-xl border border-slate-200 bg-white p-3 shadow-sm hover:border-primary/40 hover:shadow-md active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-semibold text-slate-900 truncate">{entry.name}</h4>
+                      {isCheckedIn ? (
+                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Entrou
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pendente
+                        </Badge>
                       )}
                     </div>
-                    {!isCheckedIn && (
-                      <Button
-                        size="sm"
-                        className="flex-shrink-0"
-                        disabled={validatingId === entry.id}
-                        onClick={() => handleEntrada(entry)}
-                      >
-                        {validatingId === entry.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          'Entrada'
-                        )}
-                      </Button>
+                    {isCheckedIn && entry.checked_in_at && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Check-in em {formatDate(entry.checked_in_at)}
+                      </p>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </button>
             );
           })}
         </div>
       )}
+
+      {/* Modal de detalhes */}
+      <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
+        <DialogContent className="max-w-md">
+          {selectedEntry && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">Detalhes do convidado</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                {/* Nome + status */}
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-900 text-lg leading-tight break-words">
+                        {selectedEntry.name}
+                      </p>
+                      <div className="mt-1.5">
+                        {selectedIsCheckedIn ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-0">
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Entrou
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">
+                            <Clock className="w-3 h-3 mr-1" /> Pendente
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2.5">
+                    <Tag className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-slate-500 text-xs">Lista</p>
+                      <p className="text-slate-900 font-medium break-words">{listName}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <Calendar className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-slate-500 text-xs">Inscrito em</p>
+                      <p className="text-slate-900 font-medium">{formatDate(selectedEntry.created_at)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <User className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-slate-500 text-xs">Origem</p>
+                      <p className="text-slate-900 font-medium">
+                        {selectedEntry.added_by === 'public' ? 'Inscrição pelo link público' : 'Adicionado pelo produtor'}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedIsCheckedIn && selectedEntry.checked_in_at && (
+                    <div className="flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-slate-500 text-xs">Check-in em</p>
+                        <p className="text-slate-900 font-medium">{formatDate(selectedEntry.checked_in_at)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter className="flex-col sm:flex-col gap-2">
+                {selectedIsCheckedIn ? (
+                  <>
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800 text-center">
+                      Convidado já liberado
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setSelectedEntry(null)}
+                    >
+                      Fechar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="w-full h-12 text-base bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={validatingId === selectedEntry.id}
+                    onClick={() => handleEntrada(selectedEntry)}
+                  >
+                    {validatingId === selectedEntry.id ? (
+                      <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Confirmando...</>
+                    ) : (
+                      <><CheckCircle2 className="w-5 h-5 mr-2" /> Confirmar check-in</>
+                    )}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <CheckinResultModal result={result} onClose={() => setResult(null)} />
     </div>
