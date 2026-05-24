@@ -5,6 +5,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ColaboradorListaDetalhe from './ColaboradorListaDetalhe';
 
+async function fetchEntriesForList(listId: string) {
+  const { data, error } = await supabase
+    .from('guest_list_entries')
+    .select('id, name, status, checked_in_at, created_at, added_by')
+    .eq('guest_list_id', listId)
+    .order('name', { ascending: true })
+    .limit(5000);
+  if (error) throw error;
+  return data || [];
+}
+
 interface GuestList {
   id: string;
   name: string;
