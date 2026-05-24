@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Camera, Search, Loader2, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import ColaboradorQRScanner from './ColaboradorQRScanner';
 import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
 import { buildWindowMessage } from '@/lib/checkinWindow';
 
-interface SearchResult {
+interface TicketRow {
   id: string;
   ticket_code: string;
   holder_name: string;
@@ -28,6 +28,9 @@ interface ColaboradorQRTabProps {
   onCheckinDone: () => void;
 }
 
+const normalize = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
 export default function ColaboradorQRTab({
   eventId,
   collaboratorId,
@@ -37,78 +40,65 @@ export default function ColaboradorQRTab({
 }: ColaboradorQRTabProps) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [allTickets, setAllTickets] = useState<TicketRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [validatingId, setValidatingId] = useState<string | null>(null);
   const [manualResult, setManualResult] = useState<CheckinResultData | null>(null);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = searchQuery.trim();
-    if (!query) return;
-
-    setIsSearching(true);
-    setSearchResults([]);
-
+  const loadTickets = useCallback(async () => {
     try {
-      // If looks like a ticket code (alphanumeric, short), search by code
-      const isCode = /^[a-f0-9-]{6,}$/i.test(query);
-
-      if (isCode) {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-validate-ticket`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              ticket_code: query,
-              event_id: eventId,
-              collaborator_id: collaboratorId,
-              session_token: sessionToken,
-              action: 'check',
-            }),
-          }
-        );
-        const data = await response.json();
-        if (data.session_expired) { onSessionExpired(); return; }
-        if (data.ticket) {
-          setSearchResults([data.ticket]);
-        } else {
-          setSearchResults([]);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-list-tickets`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            event_id: eventId,
+            collaborator_id: collaboratorId,
+            session_token: sessionToken,
+          }),
         }
-      } else {
-        // Search by name/email/phone
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-search-tickets`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              query,
-              event_id: eventId,
-              collaborator_id: collaboratorId,
-              session_token: sessionToken,
-            }),
-          }
-        );
-        const data = await response.json();
-        if (data.session_expired) { onSessionExpired(); return; }
-        setSearchResults(data.tickets || []);
-      }
+      );
+      const data = await response.json();
+      if (data.session_expired) { onSessionExpired(); return; }
+      setAllTickets(data.tickets || []);
     } catch {
-      toast.error('Erro ao buscar');
+      toast.error('Erro ao carregar ingressos');
     } finally {
-      setIsSearching(false);
+      setIsLoading(false);
     }
-  };
+  }, [eventId, collaboratorId, sessionToken, onSessionExpired]);
 
-  const handleManualCheckin = async (ticket: SearchResult) => {
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
+
+  const filteredSorted = useMemo(() => {
+    const q = normalize(searchQuery.trim());
+    const filtered = q
+      ? allTickets.filter(t =>
+          normalize(t.holder_name).includes(q) ||
+          normalize(t.holder_email || '').includes(q) ||
+          normalize(t.holder_phone || '').includes(q) ||
+          t.ticket_code.toLowerCase().includes(q)
+        )
+      : allTickets;
+    return [...filtered].sort((a, b) => {
+      if (a.status !== b.status) return a.status === 'valid' ? -1 : 1;
+      if (a.status === 'used') {
+        return (b.validated_at || '').localeCompare(a.validated_at || '');
+      }
+      return a.holder_name.localeCompare(b.holder_name);
+    });
+  }, [allTickets, searchQuery]);
+
+  const validCount = allTickets.filter(t => t.status === 'valid').length;
+  const usedCount = allTickets.filter(t => t.status === 'used').length;
+
+  const handleManualCheckin = async (ticket: TicketRow) => {
     if (ticket.status !== 'valid') return;
     setValidatingId(ticket.id);
 
@@ -144,7 +134,7 @@ export default function ColaboradorQRTab({
           ticketCode: ticket.ticket_code,
         });
         if (navigator.vibrate) navigator.vibrate(200);
-        setSearchResults(prev =>
+        setAllTickets(prev =>
           prev.map(t =>
             t.id === ticket.id ? { ...t, status: 'used', validated_at: new Date().toISOString() } : t
           )
@@ -163,6 +153,9 @@ export default function ColaboradorQRTab({
           holderName: ticket.holder_name,
           lotName: ticket.lot_name,
         });
+        setAllTickets(prev =>
+          prev.map(t => t.id === ticket.id ? { ...t, status: 'used' } : t)
+        );
       } else {
         setManualResult({
           type: 'error',
@@ -178,8 +171,8 @@ export default function ColaboradorQRTab({
   };
 
   const statusConfig: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-    valid: { label: 'Válido', color: 'bg-green-500/10 text-green-600', icon: CheckCircle2 },
-    used: { label: 'Utilizado', color: 'bg-yellow-500/10 text-yellow-600', icon: AlertCircle },
+    valid: { label: 'Aguardando', color: 'bg-green-500/10 text-green-600', icon: CheckCircle2 },
+    used: { label: 'Validado', color: 'bg-slate-500/10 text-slate-600', icon: AlertCircle },
     pending: { label: 'Pendente', color: 'bg-orange-500/10 text-orange-600', icon: AlertCircle },
     cancelled: { label: 'Cancelado', color: 'bg-red-500/10 text-red-600', icon: XCircle },
   };
@@ -204,54 +197,59 @@ export default function ColaboradorQRTab({
           </div>
         </button>
 
-        {/* Manual search */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <form onSubmit={handleSearch} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-900">Busca manual</p>
-                <p className="text-[11px] text-slate-500">Para quando o QR não funciona</p>
-              </div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                Sem QR
-              </span>
+        {/* Filter */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Lista de ingressos</p>
+              <p className="text-[11px] text-slate-500">
+                {validCount} aguardando · {usedCount} validados
+              </p>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <Input
-                placeholder="Nome, código, email ou telefone"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 h-12 text-base bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:bg-white"
-                inputMode="search"
-                autoComplete="off"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={isSearching || !searchQuery.trim()}
-              className="w-full h-12 text-base font-semibold gap-2"
-            >
-              {isSearching ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> Buscando…</>
-              ) : (
-                <><Search className="w-5 h-5" /> Buscar ingresso</>
-              )}
-            </Button>
-          </form>
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+              Filtrar
+            </span>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Input
+              placeholder="Nome, código, email ou telefone"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-11 h-12 text-base bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:bg-white"
+              inputMode="search"
+              autoComplete="off"
+            />
+          </div>
         </div>
 
-        {/* Search results */}
-        {searchResults.length > 0 && (
+        {/* List */}
+        {isLoading ? (
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+            <p className="text-sm text-muted-foreground mt-2">Carregando ingressos...</p>
+          </div>
+        ) : filteredSorted.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Search className="w-8 h-8 mx-auto opacity-50 mb-2" />
+            <p className="text-sm">
+              {searchQuery ? 'Nenhum resultado encontrado' : 'Nenhum ingresso vendido ainda'}
+            </p>
+          </div>
+        ) : (
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-              {searchResults.length} resultado(s)
+              {filteredSorted.length} {filteredSorted.length === 1 ? 'ingresso' : 'ingressos'}
             </p>
-            {searchResults.map((ticket) => {
+            {filteredSorted.map((ticket) => {
               const conf = statusConfig[ticket.status] || statusConfig.valid;
               const StatusIcon = conf.icon;
+              const isUsed = ticket.status === 'used';
               return (
-                <Card key={ticket.id} className="border-slate-200 dark:border-slate-800">
+                <Card
+                  key={ticket.id}
+                  className={`border-slate-200 dark:border-slate-800 ${isUsed ? 'opacity-60' : ''}`}
+                >
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -291,33 +289,23 @@ export default function ColaboradorQRTab({
             })}
           </div>
         )}
-
-        {isSearching && (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-            <p className="text-sm text-muted-foreground mt-2">Buscando...</p>
-          </div>
-        )}
-
-        {!isSearching && searchResults.length === 0 && searchQuery && (
-          <div className="text-center py-6 text-muted-foreground">
-            <Search className="w-8 h-8 mx-auto opacity-50 mb-2" />
-            <p className="text-sm">Nenhum resultado encontrado</p>
-          </div>
-        )}
       </div>
 
       <ColaboradorQRScanner
         open={scannerOpen}
         onClose={() => {
           setScannerOpen(false);
+          loadTickets();
           onCheckinDone();
         }}
         eventId={eventId}
         collaboratorId={collaboratorId}
         sessionToken={sessionToken}
         onSessionExpired={onSessionExpired}
-        onCheckinDone={onCheckinDone}
+        onCheckinDone={() => {
+          loadTickets();
+          onCheckinDone();
+        }}
       />
 
       <CheckinResultModal
@@ -327,4 +315,3 @@ export default function ColaboradorQRTab({
     </>
   );
 }
-
