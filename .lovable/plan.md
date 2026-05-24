@@ -1,31 +1,16 @@
-## Fix: travamento ao copiar PIX no checkout
-
-### Sintomas
-Ao clicar em "Copiar código PIX" no modal de pagamento, a tela congela por vários segundos antes de copiar e voltar a responder.
+## Fix: erro "Edge Function returned non-2xx" ao entrar na lista pública
 
 ### Causa
-O `CheckoutStepPix.tsx` tem três problemas combinados que travam a UI/main thread:
+Bug de fuso UTC-3 ao parsear a data do evento (`YYYY-MM-DD`) sem o sufixo `T12:00:00`. Em UTC-3 a data desliza um dia para trás, e a Edge Function `public-guest-list-signup` conclui que "o evento já passou" → retorna `400`. O mesmo bug faz o card exibir o dia anterior ao real.
 
-1. **Polling sem trava de concorrência** (`setInterval` a cada 5s chamando `check-mercadopago-payment`). Se a Edge Function/Mercado Pago demora (rede, cold start), as chamadas se empilham. Cada resposta dispara re-render do componente inteiro — incluindo o `QRCodeSVG` (que recalcula o SVG do PIX a cada render) — bloqueando o thread no exato momento em que o usuário clica em copiar.
-2. **`navigator.clipboard.writeText` sem fallback**. Em alguns navegadores (WebView do Instagram/Facebook, Safari sem foco) a Promise fica pendente até obter foco, dando a sensação de "travado". Não há fallback para `document.execCommand('copy')`.
-3. **`QRCodeSVG` não memoizado** — re-renderiza sempre que `copied`/`isChecking` mudam.
+### Correção
 
-### Correção (somente frontend, sem mudanças de backend)
+**`supabase/functions/public-guest-list-signup/index.ts`** (linha 56)
+- Trocar `new Date(eventData.date)` por `new Date(\`${eventData.date}T12:00:00-03:00\`)` para fixar a data no fuso de São Paulo e evitar o shift.
 
-**`src/components/checkout/CheckoutStepPix.tsx`**
-- Memoizar o QR Code: extrair `<QRCodeSVG>` num componente `React.memo` (ou usar `useMemo` no elemento) para que mudanças de estado não o recalculem.
-- Adicionar guarda de concorrência no polling:
-  - `useRef<boolean>` `inFlightRef` — se já está rodando, pula a iteração.
-  - Cancelar com `AbortController` no unmount.
-  - Trocar `setInterval` por loop assíncrono com `setTimeout` recursivo para nunca empilhar.
-- Substituir `handleCopy` por uma versão não bloqueante:
-  - Mostrar feedback **imediatamente** (`setCopied(true)` + toast) antes de aguardar o clipboard.
-  - Tentar `navigator.clipboard.writeText` dentro de `try/catch` curto; em caso de Promise pendurada/erro, cair no fallback com `<textarea>` temporário + `document.execCommand('copy')`.
-  - Não usar `await` no handler principal — disparar como fire-and-forget para o React não segurar o clique.
+**`src/pages/GuestListPublicForm.tsx`**
+- Linha 214 e linha 258: `new Date(listData.event.date)` → `new Date(\`${listData.event.date}T12:00:00\`)` para que o card mostre a data correta.
+- Linha 150 já está correta (`T12:00:00`), manter.
 
-**`src/components/checkout/CheckoutModal.tsx`** (apenas `checkPaymentStatus`)
-- Adicionar um timeout suave de ~6s no `supabase.functions.invoke` via `Promise.race`, retornando `false` em caso de timeout para evitar que uma chamada lenta segure o próximo tick do polling.
-
-### O que NÃO muda
-- Sem alteração na Edge Function `check-mercadopago-payment`, no fluxo PIX do Mercado Pago, no schema, nas RLS ou nas demais etapas do checkout.
-- Visual idêntico — só performance e robustez do botão.
+### Sem mudanças
+- Sem alteração de schema, RLS, fluxo de inscrição ou lógica de rate limit. Só o parsing de data.

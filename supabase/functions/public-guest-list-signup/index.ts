@@ -53,7 +53,7 @@ serve(async (req) => {
 
     const eventData: any = Array.isArray(list.event) ? list.event[0] : list.event;
     const now = new Date();
-    const eventDate = new Date(eventData.date);
+    const eventDate = new Date(`${eventData.date}T12:00:00-03:00`);
     const [hours, minutes] = list.valid_until_time.split(':').map(Number);
     const validUntil = new Date(eventDate);
     validUntil.setHours(hours, minutes, 0, 0);

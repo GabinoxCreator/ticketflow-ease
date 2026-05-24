@@ -211,7 +211,7 @@ export default function GuestListPublicForm() {
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center justify-center gap-2">
               <Calendar className="h-4 w-4" />
-              {format(new Date(listData.event.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {format(new Date(`${listData.event.date}T12:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </div>
             <div className="flex items-center justify-center gap-2">
               <Clock className="h-4 w-4" />
@@ -255,7 +255,7 @@ export default function GuestListPublicForm() {
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="h-4 w-4" />
-              {format(new Date(listData.event.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {listData.event.time.slice(0, 5)}
+              {format(new Date(`${listData.event.date}T12:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {listData.event.time.slice(0, 5)}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <MapPin className="h-4 w-4" />
