@@ -147,7 +147,7 @@ export default function GuestListPublicForm() {
     
     // Check if current time is before valid_until_time on event date
     const now = new Date();
-    const eventDate = new Date(listData.event.date);
+    const eventDate = new Date(`${listData.event.date}T12:00:00`);
     const [hours, minutes] = listData.valid_until_time.split(':').map(Number);
     
     const validUntil = new Date(eventDate);
