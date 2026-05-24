@@ -87,6 +87,7 @@ serve(async (req) => {
 
     if (!collaborator) {
       console.log('Collaborator not found or inactive');
+      await consumeFailure();
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
