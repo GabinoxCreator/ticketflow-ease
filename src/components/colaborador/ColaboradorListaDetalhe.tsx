@@ -152,14 +152,9 @@ export default function ColaboradorListaDetalhe({
       </div>
 
       {/* Aviso de instruções */}
-      <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-sm text-amber-900">
-          <p className="font-semibold mb-0.5">Como confirmar o nome na lista</p>
-          <p className="text-amber-800 leading-snug">
-            Peça o nome completo ao convidado, localize na lista abaixo, toque no nome para abrir os detalhes e confirme o check-in. Confira sempre antes de liberar a entrada.
-          </p>
-        </div>
+      <div className="flex items-center gap-2 rounded-md border border-amber-100 bg-amber-50/60 px-2.5 py-2 text-xs text-amber-800">
+        <AlertCircle className="w-4 h-4 shrink-0" />
+        <p>Clique no nome, confira os dados e toque em Confirmar check-in.</p>
       </div>
 
       {/* Search */}
