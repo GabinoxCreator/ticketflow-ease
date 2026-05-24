@@ -265,6 +265,8 @@ serve(async (req) => {
       qrCodeBase64: pixInfo?.qr_code_base64 || '',
       expiresAt,
       paymentId: mpPayment.id,
+      amount: finalAmount,
+      serviceFeeAmount: serviceFee,
     });
   } catch (error: any) {
     logStep('ERROR', { message: error.message });

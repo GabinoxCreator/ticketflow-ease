@@ -72,12 +72,16 @@ export function CheckoutModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
-  const [pixData, setPixData] = useState<{ code: string; expiresAt: Date } | null>(null);
+  const [pixData, setPixData] = useState<{ code: string; expiresAt: Date; amount?: number } | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'pix' | 'card' | null>(null);
 
   const { fees } = useEventFees(eventId);
-  // O finalAmount calculado aqui é usado no fluxo de Cartão; PIX recalcula no backend.
-  const serviceFee = computeFee(totalAmount, fees.cardPercent, fees.cardFixed);
+  const activePercent = selectedMethod === 'pix' ? fees.pixPercent : fees.cardPercent;
+  const activeFixed = selectedMethod === 'pix' ? fees.pixFixed : fees.cardFixed;
+  const serviceFee = computeFee(totalAmount, activePercent, activeFixed);
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
+  const pixDisplayAmount = pixData?.amount ?? finalAmount;
+
 
   useEffect(() => {
     if (isOpen) {
@@ -116,7 +120,11 @@ export function CheckoutModal({
       if (error) throw error;
       setOrderId(data.orderId);
       if (data.paymentId) setPaymentId(String(data.paymentId));
-      setPixData({ code: data.pixCode, expiresAt: new Date(data.expiresAt) });
+      setPixData({
+        code: data.pixCode,
+        expiresAt: new Date(data.expiresAt),
+        amount: typeof data.amount === 'number' ? data.amount : undefined,
+      });
       setStep('pix');
     } catch (error: any) {
       console.error('Payment error:', error);
@@ -126,7 +134,9 @@ export function CheckoutModal({
     }
   }, [eventId, items, customerData, appliedCoupon]);
 
+
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
+    setSelectedMethod(method);
     const cpfDigits = unformatCPF(customerData.cpf);
     if (!validateCPF(cpfDigits)) {
       setPendingMethod(method);
@@ -139,6 +149,7 @@ export function CheckoutModal({
     }
     await startPix(cpfDigits);
   };
+
 
   const handleCpfContinue = async (cpfDigits: string, name: string, email: string) => {
     setCustomerData((prev) => ({ ...prev, cpf: cpfDigits, name, email }));
@@ -325,7 +336,8 @@ export function CheckoutModal({
               <CheckoutStepPix
                 key="pix"
                 pixCode={pixData.code}
-                totalAmount={finalAmount}
+                totalAmount={pixDisplayAmount}
+
                 expiresAt={pixData.expiresAt}
                 onExpire={handleExpire}
                 onPaymentConfirmed={() => setStep('awaiting')}
