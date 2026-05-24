@@ -84,3 +84,9 @@ verify_jwt = false
 [functions.create-mercadopago-preference]
 verify_jwt = true
 
+
+[functions.collaborator-register-door-sale]
+verify_jwt = false
+
+[functions.collaborator-door-sales-report]
+verify_jwt = false

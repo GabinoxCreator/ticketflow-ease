@@ -6,15 +6,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useColaboradorAuth } from '@/contexts/ColaboradorAuthContext';
-import ColaboradorBottomNav from '@/components/colaborador/ColaboradorBottomNav';
+import ColaboradorBottomNav, { ColaboradorTab } from '@/components/colaborador/ColaboradorBottomNav';
 import ColaboradorQRTab from '@/components/colaborador/ColaboradorQRTab';
 import ColaboradorListasTab from '@/components/colaborador/ColaboradorListasTab';
+import ColaboradorVenderTab from '@/components/colaborador/ColaboradorVenderTab';
+import ColaboradorRelatoriosTab from '@/components/colaborador/ColaboradorRelatoriosTab';
 
 export default function ColaboradorEvento() {
   const navigate = useNavigate();
   const { id: eventId } = useParams<{ id: string }>();
   const { collaborator, events, session, logout } = useColaboradorAuth();
-  const [activeTab, setActiveTab] = useState<'qr' | 'listas'>('qr');
+  const [activeTab, setActiveTab] = useState<ColaboradorTab>('qr');
   const [stats, setStats] = useState({ checkins: 0, pending: 0, total: 0 });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -171,7 +173,7 @@ export default function ColaboradorEvento() {
 
       {/* Tab content */}
       <div className="max-w-lg mx-auto px-4 py-2">
-        {activeTab === 'qr' ? (
+        {activeTab === 'qr' && (
           <ColaboradorQRTab
             eventId={eventId!}
             collaboratorId={collaborator.id}
@@ -179,13 +181,30 @@ export default function ColaboradorEvento() {
             onSessionExpired={handleSessionExpired}
             onCheckinDone={fetchStats}
           />
-        ) : (
+        )}
+        {activeTab === 'listas' && (
           <ColaboradorListasTab
             eventId={eventId!}
             collaboratorId={collaborator.id}
             sessionToken={session.token}
             onSessionExpired={handleSessionExpired}
             onCheckinDone={fetchStats}
+          />
+        )}
+        {activeTab === 'vender' && (
+          <ColaboradorVenderTab
+            eventId={eventId!}
+            collaboratorId={collaborator.id}
+            sessionToken={session.token}
+            onSessionExpired={handleSessionExpired}
+          />
+        )}
+        {activeTab === 'relatorios' && (
+          <ColaboradorRelatoriosTab
+            eventId={eventId!}
+            collaboratorId={collaborator.id}
+            sessionToken={session.token}
+            onSessionExpired={handleSessionExpired}
           />
         )}
       </div>
