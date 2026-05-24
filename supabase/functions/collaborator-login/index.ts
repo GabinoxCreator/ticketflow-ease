@@ -111,6 +111,7 @@ serve(async (req) => {
 
     if (!credentials) {
       console.log('No credentials found for collaborator');
+      await consumeFailure();
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
