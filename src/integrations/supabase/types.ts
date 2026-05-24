@@ -470,6 +470,7 @@ export type Database = {
           group_ticket_quantity: number
           id: string
           is_active: boolean | null
+          manually_sold_out: boolean
           name: string
           original_price: number | null
           price: number
@@ -492,6 +493,7 @@ export type Database = {
           group_ticket_quantity?: number
           id?: string
           is_active?: boolean | null
+          manually_sold_out?: boolean
           name: string
           original_price?: number | null
           price: number
@@ -514,6 +516,7 @@ export type Database = {
           group_ticket_quantity?: number
           id?: string
           is_active?: boolean | null
+          manually_sold_out?: boolean
           name?: string
           original_price?: number | null
           price?: number
