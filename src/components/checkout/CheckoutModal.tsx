@@ -126,12 +126,14 @@ export function CheckoutModal({
         amount: typeof data.amount === 'number' ? data.amount : undefined,
       });
       setStep('pix');
-
+    } catch (error: any) {
+      console.error('Payment error:', error);
       toast.error(error.message || 'Erro ao processar pagamento');
     } finally {
       setIsProcessing(false);
     }
   }, [eventId, items, customerData, appliedCoupon]);
+
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
     const cpfDigits = unformatCPF(customerData.cpf);
