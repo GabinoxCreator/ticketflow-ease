@@ -1,26 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function validateSession(supabase: any, collaboratorId: string, sessionToken: string) {
-  if (!sessionToken) return { valid: false };
-  const { data: session } = await supabase
-    .from('collaborator_sessions')
-    .select('session_token_hash, expires_at')
-    .eq('collaborator_id', collaboratorId)
-    .single();
-  if (!session) return { valid: false };
-  if (new Date(session.expires_at) < new Date()) return { valid: false };
-  try {
-    if (!compareSync(sessionToken, session.session_token_hash)) return { valid: false };
-  } catch { return { valid: false }; }
-  return { valid: true };
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -36,11 +22,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const sess = await validateSession(supabase, collaborator_id, session_token);
-    if (!sess.valid) {
-      return new Response(JSON.stringify({ error: 'Sessão inválida', session_expired: true }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    const sess = await validateCollaboratorSession(supabase, collaborator_id, session_token);
+    if (!sess.valid) return sessionErrorResponse(sess, corsHeaders);
+
 
     const { data: access } = await supabase
       .from('collaborator_events')

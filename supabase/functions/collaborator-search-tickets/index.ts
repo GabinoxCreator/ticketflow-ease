@@ -1,38 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function validateCollaboratorSession(
-  supabase: any,
-  collaboratorId: string,
-  sessionToken: string
-): Promise<{ valid: boolean; error?: string }> {
-  if (!sessionToken) return { valid: false, error: 'Token de sessão não fornecido' };
-
-  const { data: session, error: sessionError } = await supabase
-    .from('collaborator_sessions')
-    .select('session_token_hash, expires_at')
-    .eq('collaborator_id', collaboratorId)
-    .single();
-
-  if (sessionError || !session) return { valid: false, error: 'Sessão não encontrada. Faça login novamente.' };
-  if (new Date(session.expires_at) < new Date()) return { valid: false, error: 'Sessão expirada. Faça login novamente.' };
-
-  try {
-    if (!compareSync(sessionToken, session.session_token_hash)) {
-      return { valid: false, error: 'Token de sessão inválido. Faça login novamente.' };
-    }
-  } catch {
-    return { valid: false, error: 'Erro ao verificar sessão' };
-  }
-
-  return { valid: true };
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -54,12 +28,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const sessionValidation = await validateCollaboratorSession(supabase, collaborator_id, session_token);
-    if (!sessionValidation.valid) {
-      return new Response(
-        JSON.stringify({ error: sessionValidation.error, session_expired: true }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (!sessionValidation.valid) return sessionErrorResponse(sessionValidation, corsHeaders);
+
 
     // Verify collaborator access
     const { data: access } = await supabase
