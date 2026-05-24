@@ -23,6 +23,7 @@ export interface EventLot {
   group_ticket_quantity: number;
   sales_start_type: string;
   starts_after_lot_id: string | null;
+  manually_sold_out: boolean;
 }
 
 export interface LotFormData {
@@ -41,6 +42,7 @@ export interface LotFormData {
   group_ticket_quantity?: number;
   sales_start_type?: string;
   starts_after_lot_id?: string | null;
+  manually_sold_out?: boolean;
 }
 
 export function useEventLots(eventId: string | undefined) {

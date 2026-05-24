@@ -616,7 +616,7 @@ interface LotCardProps {
 
 const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps) => {
   const available = lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0);
-  const isSoldOut = available === 0;
+  const isSoldOut = available === 0 || (lot as any).manually_sold_out === true;
 
   const realPct = lot.total_quantity > 0 ? (lot.sold_quantity / lot.total_quantity) * 100 : 0;
   const fakePct = lot.fake_scarcity_enabled ? (lot.fake_scarcity_percentage || 0) : 0;

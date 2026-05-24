@@ -1,20 +1,30 @@
-## Ajustes no modal de check-in da lista
+## Botão "Esgotar" no card do ingresso
 
-**Arquivo:** `src/components/colaborador/ColaboradorListaDetalhe.tsx`
+### O que muda
 
-### 1. Modal claro (independente do tema global)
-- `DialogContent`: `bg-white text-slate-900 border-slate-200`
-- Título: `text-slate-900`
-- Textos secundários: `text-slate-500` / `text-slate-600`
-- Card com nome do convidado: `bg-slate-50 border-slate-200`, ícone com `bg-indigo-50 text-indigo-600`
-- Botão "Fechar": `border-slate-200 text-slate-700 hover:bg-slate-50`
-- Botão "Confirmar check-in": mantém verde de sucesso
+No card de cada ingresso (lote) na aba **Ingressos** do dashboard do produtor, além do botão de editar/excluir, adicionar um botão para **marcar como Esgotado** manualmente. Ao ativar:
 
-### 2. Aviso mais sutil
-Substituir o bloco amber atual por uma linha discreta acima da lista:
-> "Clique no nome, confira os dados e toque em Confirmar check-in."
+- O card do produtor mostra a tag "Esgotado" e o botão vira "Reativar vendas".
+- Na página pública do evento, o lote aparece com badge **Esgotado** e o seletor de quantidade é desabilitado.
+- O backend bloqueia novas reservas desse lote (mesmo se ainda houver estoque), evitando vendas acidentais.
 
-Estilo: `bg-amber-50/60 border border-amber-100 text-amber-800 text-xs p-2.5 rounded-md`, ícone pequeno (`w-4 h-4`).
+Sem novo modal: clique único alterna o estado, com `toast` de confirmação.
 
-### 3. Sem mudanças de lógica
-Busca, listagem, chamada à edge function `collaborator-validate-guest-entry`, schema e demais abas (QR, Vender, Relatórios) permanecem iguais.
+### Banco de dados
+
+Adicionar coluna `manually_sold_out boolean NOT NULL DEFAULT false` em `public.event_lots`.
+
+Atualizar a função `reserve_lot_quantity` para também exigir `manually_sold_out = false` — assim o checkout/colaborador não conseguem reservar um lote esgotado manualmente.
+
+### Frontend
+
+- `src/hooks/useEventLots.ts`: incluir `manually_sold_out` em `EventLot` e em `LotFormData`.
+- `src/components/producer/LotManager.tsx` (card do lote, ~linha 203-247):
+  - Adicionar botão de ícone (ex: `Ban` / `CheckCircle2`) entre editar e excluir.
+  - Texto/tooltip: "Marcar como esgotado" ou "Reativar vendas".
+  - Ao clicar, chama `onUpdate(lot.id, { manually_sold_out: !lot.manually_sold_out })`.
+  - Mostrar badge "Esgotado" no card quando `manually_sold_out` for `true`.
+- `src/pages/EventDetails.tsx` (~linha 619): `isSoldOut = available === 0 || lot.manually_sold_out`.
+- `src/components/colaborador/ColaboradorVenderModal.tsx`: respeitar `manually_sold_out` ao calcular disponibilidade (mostra "Esgotado").
+
+Sem alteração em RLS, ordens, ingressos já vendidos, ou relatórios — apenas controle visual e bloqueio de novas reservas.

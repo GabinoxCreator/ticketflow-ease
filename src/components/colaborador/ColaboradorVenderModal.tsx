@@ -140,7 +140,7 @@ export default function ColaboradorVenderModal({
                         {activeLots.map(lot => {
                           const av = lot.total_quantity - lot.sold_quantity - lot.reserved_quantity;
                           const selected = lot.id === lotId;
-                          const soldOut = av <= 0;
+                          const soldOut = av <= 0 || (lot as any).manually_sold_out === true;
                           return (
                             <button
                               key={lot.id}

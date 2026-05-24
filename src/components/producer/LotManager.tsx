@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Edit2, Trash2, Flame, Users, Clock } from 'lucide-react';
+import { Plus, Edit, Edit2, Trash2, Flame, Users, Clock, Ban, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -200,14 +200,26 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {sectorLots.map((lot) => (
-                    <Card key={lot.id} className={cn('bg-background', !lot.is_active && 'opacity-60')}>
+                    <Card key={lot.id} className={cn('bg-background', (!lot.is_active || lot.manually_sold_out) && 'opacity-60')}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">
-                          <div>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <CardTitle className="text-base">{lot.name}</CardTitle>
-                            {!lot.is_active && <span className="text-xs text-muted-foreground">Inativo</span>}
+                            {lot.manually_sold_out && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30">Esgotado</span>
+                            )}
+                            {!lot.is_active && !lot.manually_sold_out && <span className="text-xs text-muted-foreground">Inativo</span>}
                           </div>
                           <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={cn("h-8 w-8", lot.manually_sold_out ? "text-emerald-500 hover:text-emerald-500" : "text-orange-500 hover:text-orange-500")}
+                              title={lot.manually_sold_out ? 'Reativar vendas' : 'Marcar como esgotado'}
+                              onClick={() => onUpdate(lot.id, { manually_sold_out: !lot.manually_sold_out })}
+                            >
+                              {lot.manually_sold_out ? <CheckCircle2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(lot)}>
                               <Edit className="w-4 h-4" />
                             </Button>
