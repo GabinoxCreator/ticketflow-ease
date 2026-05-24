@@ -163,8 +163,9 @@ export default function ColaboradorListasTab({
         return (
           <button
             key={list.id}
-            onClick={() => setSelectedList(list)}
-            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all"
+            onClick={() => openList(list)}
+            disabled={openingListId === list.id}
+            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all disabled:opacity-60"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
