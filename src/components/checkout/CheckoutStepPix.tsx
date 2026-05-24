@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, CheckCircle2, RefreshCw, Clock, Smartphone, ScanLine, BadgeCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -15,6 +15,32 @@ interface CheckoutStepPixProps {
   checkPaymentStatus: () => Promise<boolean>;
 }
 
+// Memoized QR — heavy SVG generation, must not re-render on parent state changes
+const PixQrCode = memo(({ value }: { value: string }) => (
+  <QRCodeSVG value={value} size={200} level="M" includeMargin={false} />
+));
+PixQrCode.displayName = 'PixQrCode';
+
+function copyToClipboardFallback(text: string): boolean {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export function CheckoutStepPix({
   pixCode,
   totalAmount,
@@ -29,29 +55,55 @@ export function CheckoutStepPix({
   const formatPrice = (p: number) =>
     p.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  // Polling com guarda de concorrência + setTimeout recursivo (nunca empilha)
   useEffect(() => {
-    const interval = setInterval(async () => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+
+    const tick = async () => {
+      if (cancelled) return;
+      if (inFlight) {
+        timeoutId = setTimeout(tick, 5000);
+        return;
+      }
+      inFlight = true;
       try {
         const isPaid = await checkPaymentStatus();
+        if (cancelled) return;
         if (isPaid) {
-          clearInterval(interval);
           onPaymentConfirmed();
+          return;
         }
       } catch (error) {
         console.error('Error checking payment status:', error);
+      } finally {
+        inFlight = false;
       }
-    }, 5000);
-    return () => clearInterval(interval);
+      if (!cancelled) timeoutId = setTimeout(tick, 5000);
+    };
+
+    timeoutId = setTimeout(tick, 5000);
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [checkPaymentStatus, onPaymentConfirmed]);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(pixCode);
-      setCopied(true);
-      toast.success('Código PIX copiado!');
-      setTimeout(() => setCopied(false), 3000);
-    } catch {
-      toast.error('Erro ao copiar código');
+  const handleCopy = () => {
+    // UI otimista — não bloqueia o clique aguardando o clipboard
+    setCopied(true);
+    toast.success('Código PIX copiado!');
+    setTimeout(() => setCopied(false), 3000);
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(pixCode).catch(() => {
+        if (!copyToClipboardFallback(pixCode)) {
+          toast.error('Não foi possível copiar. Selecione o código manualmente.');
+        }
+      });
+    } else if (!copyToClipboardFallback(pixCode)) {
+      toast.error('Não foi possível copiar. Selecione o código manualmente.');
     }
   };
 
