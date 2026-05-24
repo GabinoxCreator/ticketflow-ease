@@ -336,7 +336,8 @@ export function CheckoutModal({
               <CheckoutStepPix
                 key="pix"
                 pixCode={pixData.code}
-                totalAmount={finalAmount}
+                totalAmount={pixDisplayAmount}
+
                 expiresAt={pixData.expiresAt}
                 onExpire={handleExpire}
                 onPaymentConfirmed={() => setStep('awaiting')}
