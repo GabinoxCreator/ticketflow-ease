@@ -1,16 +1,26 @@
-## Fix: erro "Edge Function returned non-2xx" ao entrar na lista pública
+Você tem razão: o horário não passou. O bug está na função da lista pública.
 
-### Causa
-Bug de fuso UTC-3 ao parsear a data do evento (`YYYY-MM-DD`) sem o sufixo `T12:00:00`. Em UTC-3 a data desliza um dia para trás, e a Edge Function `public-guest-list-signup` conclui que "o evento já passou" → retorna `400`. O mesmo bug faz o card exibir o dia anterior ao real.
+A função cria a data do evento em Brasília, mas depois usa `setHours(18:00)` no ambiente do servidor, que roda em UTC. Com isso, **18:00 de Brasília vira 15:00 de Brasília** na validação, e a lista aparece expirada antes da hora.
 
-### Correção
+Plano de correção:
 
-**`supabase/functions/public-guest-list-signup/index.ts`** (linha 56)
-- Trocar `new Date(eventData.date)` por `new Date(\`${eventData.date}T12:00:00-03:00\`)` para fixar a data no fuso de São Paulo e evitar o shift.
+1. **Corrigir a validação no backend**
+   - Em `public-guest-list-signup`, trocar a montagem do prazo para usar diretamente:
+     - data do evento
+     - horário limite da lista
+     - fuso `-03:00`
+   - Exemplo lógico: `2026-05-24T18:00:00-03:00`.
+   - Assim, 18h será realmente 18h no horário de Brasília.
 
-**`src/pages/GuestListPublicForm.tsx`**
-- Linha 214 e linha 258: `new Date(listData.event.date)` → `new Date(\`${listData.event.date}T12:00:00\`)` para que o card mostre a data correta.
-- Linha 150 já está correta (`T12:00:00`), manter.
+2. **Corrigir a validação visual no formulário**
+   - Aplicar a mesma lógica no formulário público para o botão e mensagens da tela.
+   - Evitar que o frontend mostre lista expirada por diferença de fuso.
 
-### Sem mudanças
-- Sem alteração de schema, RLS, fluxo de inscrição ou lógica de rate limit. Só o parsing de data.
+3. **Melhorar a mensagem de erro exibida**
+   - Em vez de mostrar “Edge Function returned a non-2xx status code”, exibir a mensagem real da função, como:
+     - “O prazo para inscrição expirou”
+     - “Esta lista está cheia”
+     - “Esta lista está fechada”
+
+4. **Validar com o link atual**
+   - Testar novamente a lista `8ut45u7v` para confirmar que às 16h ela ainda aceita cadastro até 18h.

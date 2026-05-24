@@ -53,19 +53,19 @@ serve(async (req) => {
 
     const eventData: any = Array.isArray(list.event) ? list.event[0] : list.event;
     const now = new Date();
-    const eventDate = new Date(`${eventData.date}T12:00:00-03:00`);
-    const [hours, minutes] = list.valid_until_time.split(':').map(Number);
-    const validUntil = new Date(eventDate);
-    validUntil.setHours(hours, minutes, 0, 0);
+    // Build deadline directly in Brasília time (UTC-3) to avoid server timezone shifts
+    const timePart = (list.valid_until_time || '18:00').slice(0, 5);
+    const validUntil = new Date(`${eventData.date}T${timePart}:00-03:00`);
+    // End of event day in Brasília time (used to detect "evento já passou")
+    const endOfEventDay = new Date(`${eventData.date}T23:59:59-03:00`);
 
-    if (now.toDateString() === eventDate.toDateString()) {
-      if (now >= validUntil) {
-        return new Response(
-          JSON.stringify({ error: 'O prazo para inscrição expirou' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } else if (eventDate < now) {
+    if (now > validUntil && now <= endOfEventDay) {
+      return new Response(
+        JSON.stringify({ error: 'O prazo para inscrição expirou' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (now > endOfEventDay) {
       return new Response(
         JSON.stringify({ error: 'Este evento já passou' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
