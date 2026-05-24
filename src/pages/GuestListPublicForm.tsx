@@ -123,12 +123,20 @@ export default function GuestListPublicForm() {
         body: { slug, name: guestName.trim() },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Erro ao inscrever');
-      }
-
+      // Edge function returns error JSON even on non-2xx — prefer the actual message
       if (response.data?.error) {
         throw new Error(response.data.error);
+      }
+      if (response.error) {
+        // Try to read error body from FunctionsHttpError
+        const ctx = (response.error as any)?.context;
+        try {
+          const body = await ctx?.json?.();
+          if (body?.error) throw new Error(body.error);
+        } catch (parseErr: any) {
+          if (parseErr?.message) throw parseErr;
+        }
+        throw new Error(response.error.message || 'Erro ao inscrever');
       }
 
       setIsSuccess(true);
