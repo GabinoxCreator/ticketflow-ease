@@ -293,7 +293,7 @@ export default function ColaboradorListaDetalhe({
                     </div>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full border-slate-200 text-slate-700 hover:bg-slate-50"
                       onClick={() => setSelectedEntry(null)}
                     >
                       Fechar
