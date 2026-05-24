@@ -82,7 +82,15 @@ export function ColaboradorAuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (!response.ok) {
-        return { success: false, error: data.error || 'Erro ao fazer login' };
+        const retryS = Number(data?.retry_after_seconds) || 0;
+        const mins = Math.max(1, Math.ceil(retryS / 60));
+        let friendly = data?.error || 'Erro ao fazer login';
+        if (data?.error === 'rate_limited') {
+          friendly = `Muitas tentativas de login. Tente novamente em ${mins} ${mins === 1 ? 'minuto' : 'minutos'}.`;
+        } else if (data?.error === 'rate_limit_unavailable') {
+          friendly = 'Serviço de login indisponível no momento. Tente novamente em instantes.';
+        }
+        return { success: false, error: friendly };
       }
 
       setCollaborator(data.collaborator);

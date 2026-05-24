@@ -1,0 +1,1 @@
+DELETE FROM public.auth_rate_limits WHERE bucket_key LIKE 'login:user:%' OR bucket_key LIKE 'login:ip:%';

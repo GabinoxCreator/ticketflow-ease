@@ -31,14 +31,43 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Rate limit
+    // Rate limit: PEEK only — don't increment on success.
+    // We consume an attempt only on failed login below.
     const ip = getClientIp(req);
     const userBucket = `login:user:${String(username).trim().toLowerCase()}`;
     const ipBucket = `login:ip:${ip}`;
-    const rlUser = await checkRateLimit(supabase, userBucket, 5, 900, 900);
-    if (!rlUser.allowed) return rateLimitResponse(rlUser, corsHeaders);
-    const rlIp = await checkRateLimit(supabase, ipBucket, 20, 900, 900);
-    if (!rlIp.allowed) return rateLimitResponse(rlIp, corsHeaders);
+    const USER_MAX = 10;
+    const IP_MAX = 20;
+    const WINDOW_S = 900;
+    const BLOCK_S = 900;
+
+    const peek = async (bucket: string) => {
+      const { data } = await supabase
+        .from('auth_rate_limits')
+        .select('blocked_until')
+        .eq('bucket_key', bucket)
+        .maybeSingle();
+      const until = data?.blocked_until ? new Date(data.blocked_until) : null;
+      if (until && until > new Date()) {
+        const retry = Math.max(1, Math.ceil((until.getTime() - Date.now()) / 1000));
+        return { blocked: true, retry };
+      }
+      return { blocked: false, retry: 0 };
+    };
+
+    const peekUser = await peek(userBucket);
+    if (peekUser.blocked) return rateLimitResponse({ allowed: false, retryAfter: peekUser.retry }, corsHeaders);
+    const peekIp = await peek(ipBucket);
+    if (peekIp.blocked) return rateLimitResponse({ allowed: false, retryAfter: peekIp.retry }, corsHeaders);
+
+    const consumeFailure = async () => {
+      try {
+        await checkRateLimit(supabase, userBucket, USER_MAX, WINDOW_S, BLOCK_S);
+        await checkRateLimit(supabase, ipBucket, IP_MAX, WINDOW_S, BLOCK_S);
+      } catch (e) {
+        console.error('consumeFailure error', e);
+      }
+    };
 
     // Find collaborator by username
     const { data: collaborator, error: findError } = await supabase
@@ -58,6 +87,7 @@ serve(async (req) => {
 
     if (!collaborator) {
       console.log('Collaborator not found or inactive');
+      await consumeFailure();
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -81,6 +111,7 @@ serve(async (req) => {
 
     if (!credentials) {
       console.log('No credentials found for collaborator');
+      await consumeFailure();
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -109,6 +140,7 @@ serve(async (req) => {
 
     if (!isValidPassword) {
       console.log('Invalid password');
+      await consumeFailure();
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
