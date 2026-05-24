@@ -153,7 +153,7 @@ export function CheckoutStepPix({
           {/* Borda gradient */}
           <div className="relative p-[2px] rounded-3xl bg-gradient-to-br from-primary via-accent to-primary shadow-2xl shadow-primary/20">
             <div className="bg-white p-4 rounded-[22px]">
-              <QRCodeSVG value={pixCode} size={200} level="M" includeMargin={false} />
+              <PixQrCode value={pixCode} />
             </div>
           </div>
           {/* Corner brackets */}
