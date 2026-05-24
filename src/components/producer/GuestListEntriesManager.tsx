@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGuestListEntries, useGuestListMutations, GuestListEntry } from '@/hooks/useGuestLists';
-import { 
-  Plus, 
-  Search, 
-  Trash2, 
-  CheckCircle, 
-  Clock, 
+import { BulkAddGuestsDialog } from '@/components/producer/BulkAddGuestsDialog';
+import {
+  Plus,
+  Search,
+  Trash2,
+  CheckCircle,
+  Clock,
   XCircle,
-  User
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -23,33 +24,14 @@ interface GuestListEntriesManagerProps {
 }
 
 export function GuestListEntriesManager({ listId }: GuestListEntriesManagerProps) {
-  const [newGuestName, setNewGuestName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const { data: entries, isLoading } = useGuestListEntries(listId);
-  const { addEntry, updateEntryStatus, deleteEntry } = useGuestListMutations();
+  const { updateEntryStatus, deleteEntry } = useGuestListMutations();
 
-  const handleAddGuest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newGuestName.trim()) {
-      toast.error('Digite o nome do convidado');
-      return;
-    }
 
-    setIsAdding(true);
 
-    try {
-      await addEntry.mutateAsync({ listId, name: newGuestName.trim() });
-      toast.success('Convidado adicionado!');
-      setNewGuestName('');
-    } catch (error) {
-      toast.error('Erro ao adicionar convidado');
-    } finally {
-      setIsAdding(false);
-    }
-  };
 
   const handleCheckIn = async (entry: GuestListEntry) => {
     try {
@@ -126,26 +108,16 @@ export function GuestListEntriesManager({ listId }: GuestListEntriesManagerProps
         </Card>
       </div>
 
-      {/* Add Guest Form */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Adicionar Convidado</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddGuest} className="flex gap-2">
-            <Input
-              placeholder="Nome do convidado"
-              value={newGuestName}
-              onChange={(e) => setNewGuestName(e.target.value)}
-              disabled={isAdding}
-            />
-            <Button type="submit" disabled={isAdding}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Bulk Add Button */}
+      <div className="flex justify-end">
+        <Button onClick={() => setBulkOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Adicionar Convidados
+        </Button>
+      </div>
+
+      <BulkAddGuestsDialog listId={listId} open={bulkOpen} onOpenChange={setBulkOpen} />
+
 
       {/* Search */}
       <div className="relative">

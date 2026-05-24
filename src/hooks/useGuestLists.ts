@@ -164,6 +164,27 @@ export function useGuestListMutations() {
     },
   });
 
+  const addEntriesBulk = useMutation({
+    mutationFn: async ({ listId, names }: { listId: string; names: string[] }) => {
+      if (names.length === 0) return [];
+      const rows = names.map((name) => ({
+        guest_list_id: listId,
+        name,
+        added_by: 'producer' as const,
+      }));
+      const { data, error } = await supabase
+        .from('guest_list_entries')
+        .insert(rows)
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['guest-list-entries', variables.listId] });
+      queryClient.invalidateQueries({ queryKey: ['guest-lists'] });
+    },
+  });
+
   const updateEntryStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'pending' | 'checked_in' | 'no_show' }) => {
       const updateData: { status: string; checked_in_at?: string | null } = { status };
@@ -208,6 +229,7 @@ export function useGuestListMutations() {
     updateList,
     deleteList,
     addEntry,
+    addEntriesBulk,
     updateEntryStatus,
     deleteEntry,
   };
