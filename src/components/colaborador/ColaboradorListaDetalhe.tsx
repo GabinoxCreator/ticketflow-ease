@@ -215,19 +215,19 @@ export default function ColaboradorListaDetalhe({
 
       {/* Modal de detalhes */}
       <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white text-slate-900 border-slate-200">
           {selectedEntry && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl">Detalhes do convidado</DialogTitle>
+                <DialogTitle className="text-xl text-slate-900">Detalhes do convidado</DialogTitle>
               </DialogHeader>
 
               <div className="space-y-3">
                 {/* Nome + status */}
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <User className="w-5 h-5 text-primary" />
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                      <User className="w-5 h-5 text-indigo-600" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-slate-900 text-lg leading-tight break-words">
