@@ -1,26 +1,45 @@
-Você tem razão: o horário não passou. O bug está na função da lista pública.
+## Problema
 
-A função cria a data do evento em Brasília, mas depois usa `setHours(18:00)` no ambiente do servidor, que roda em UTC. Com isso, **18:00 de Brasília vira 15:00 de Brasília** na validação, e a lista aparece expirada antes da hora.
+No painel do colaborador (desktop), ao clicar no card de uma lista de convidados, os nomes não aparecem. No celular (mesmo login) funciona normalmente.
 
-Plano de correção:
+## Diagnóstico provável
 
-1. **Corrigir a validação no backend**
-   - Em `public-guest-list-signup`, trocar a montagem do prazo para usar diretamente:
-     - data do evento
-     - horário limite da lista
-     - fuso `-03:00`
-   - Exemplo lógico: `2026-05-24T18:00:00-03:00`.
-   - Assim, 18h será realmente 18h no horário de Brasília.
+`ColaboradorListaDetalhe.tsx` recebe `entries` como prop e usa:
 
-2. **Corrigir a validação visual no formulário**
-   - Aplicar a mesma lógica no formulário público para o botão e mensagens da tela.
-   - Evitar que o frontend mostre lista expirada por diferença de fuso.
+```ts
+const [localEntries, setLocalEntries] = useState(entries);
+```
 
-3. **Melhorar a mensagem de erro exibida**
-   - Em vez de mostrar “Edge Function returned a non-2xx status code”, exibir a mensagem real da função, como:
-     - “O prazo para inscrição expirou”
-     - “Esta lista está cheia”
-     - “Esta lista está fechada”
+Como `useState(entries)` só lê o valor na montagem, se a busca inicial em `ColaboradorListasTab` retornou a lista com `guest_list_entries` vazio (por timing ou cache do PostgREST com JOIN aninhado) e o componente já foi montado, os nomes nunca aparecem mesmo que existam no banco. No celular o fetch pode estar retornando completo por ser uma segunda visita.
 
-4. **Validar com o link atual**
-   - Testar novamente a lista `8ut45u7v` para confirmar que às 16h ela ainda aceita cadastro até 18h.
+Além disso, hoje não há refetch ao abrir uma lista — confiamos 100% no payload inicial do JOIN aninhado `guest_lists(... guest_list_entries(...))`, que pode falhar parcialmente em listas grandes (282 convidados no exemplo) por limite de 1000 linhas do PostgREST quando combinado com várias listas.
+
+## Plano
+
+### 1. Refetch dedicado das entradas ao abrir uma lista
+Em `src/components/colaborador/ColaboradorListasTab.tsx`:
+- Ao clicar num card, antes de abrir o detalhe, fazer um `SELECT` direto em `guest_list_entries` filtrando por `guest_list_id` (sem JOIN aninhado). Isso garante todos os nomes mesmo em listas grandes.
+- Mostrar um loader curto enquanto busca.
+- Passar essas entradas frescas para `ColaboradorListaDetalhe`.
+
+### 2. Sincronizar prop → estado em `ColaboradorListaDetalhe`
+Em `src/components/colaborador/ColaboradorListaDetalhe.tsx`:
+- Substituir `useState(entries)` por estado que sincroniza com a prop via `useEffect([entries])`, garantindo que mudanças no array vindo do pai sejam refletidas.
+
+### 3. Mensagem clara quando a lista vier vazia
+Se após o refetch a lista realmente não tem nomes, mostrar "Nenhum convidado cadastrado ainda" em vez de área em branco (hoje cai no filtro e diz "Nenhum convidado encontrado", confunde com busca).
+
+### 4. Botão de atualizar dentro do detalhe
+Adicionar um pequeno botão "Atualizar" no cabeçalho do detalhe que refaz o fetch das entradas dessa lista. Útil em caixa quando entram inscrições novas.
+
+### 5. Validação
+- Abrir a mesma lista no preview desktop logado como colaborador.
+- Confirmar que os 282 nomes aparecem.
+- Conferir busca, click no nome e check-in continuam funcionando.
+
+## Arquivos a alterar
+
+- `src/components/colaborador/ColaboradorListasTab.tsx`
+- `src/components/colaborador/ColaboradorListaDetalhe.tsx`
+
+Sem mudanças no banco ou em edge functions.

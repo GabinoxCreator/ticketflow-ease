@@ -5,6 +5,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ColaboradorListaDetalhe from './ColaboradorListaDetalhe';
 
+async function fetchEntriesForList(listId: string) {
+  const { data, error } = await supabase
+    .from('guest_list_entries')
+    .select('id, name, status, checked_in_at, created_at, added_by')
+    .eq('guest_list_id', listId)
+    .order('name', { ascending: true })
+    .limit(5000);
+  if (error) throw error;
+  return data || [];
+}
+
 interface GuestList {
   id: string;
   name: string;
@@ -36,35 +47,27 @@ export default function ColaboradorListasTab({
   const [lists, setLists] = useState<GuestList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedList, setSelectedList] = useState<GuestList | null>(null);
+  const [openingListId, setOpeningListId] = useState<string | null>(null);
 
   const fetchLists = async () => {
     try {
-      const { data, error } = await supabase
+      // Busca listas + contagens separadas (sem JOIN aninhado pesado)
+      const { data: listsData, error: listsError } = await supabase
         .from('guest_lists')
-        .select(`
-          id,
-          name,
-          guest_list_entries (
-            id,
-            name,
-            status,
-            checked_in_at,
-            created_at,
-            added_by
-          )
-        `)
+        .select('id, name')
         .eq('event_id', eventId)
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (listsError) throw listsError;
 
-      const formatted: GuestList[] = (data || []).map(list => ({
-        id: list.id,
-        name: list.name,
-        entries: list.guest_list_entries || [],
-      }));
+      const results: GuestList[] = await Promise.all(
+        (listsData || []).map(async (l) => {
+          const entries = await fetchEntriesForList(l.id).catch(() => []);
+          return { id: l.id, name: l.name, entries };
+        })
+      );
 
-      setLists(formatted);
+      setLists(results);
     } catch (error) {
       console.error('Error fetching lists:', error);
       toast.error('Erro ao carregar listas');
@@ -73,6 +76,7 @@ export default function ColaboradorListasTab({
     }
   };
 
+
   useEffect(() => {
     fetchLists();
   }, [eventId]);
@@ -80,6 +84,33 @@ export default function ColaboradorListasTab({
   const handleCheckinDone = () => {
     fetchLists();
     onCheckinDone();
+  };
+
+  const openList = async (list: GuestList) => {
+    setOpeningListId(list.id);
+    try {
+      const fresh = await fetchEntriesForList(list.id);
+      setSelectedList({ ...list, entries: fresh });
+      // atualiza também a lista no card
+      setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, entries: fresh } : l)));
+    } catch (e) {
+      console.error('Error fetching list entries:', e);
+      toast.error('Erro ao carregar convidados');
+      setSelectedList(list);
+    } finally {
+      setOpeningListId(null);
+    }
+  };
+
+  const refreshSelectedList = async () => {
+    if (!selectedList) return;
+    try {
+      const fresh = await fetchEntriesForList(selectedList.id);
+      setSelectedList({ ...selectedList, entries: fresh });
+      setLists((prev) => prev.map((l) => (l.id === selectedList.id ? { ...l, entries: fresh } : l)));
+    } catch {
+      toast.error('Erro ao atualizar lista');
+    }
   };
 
   if (selectedList) {
@@ -94,11 +125,13 @@ export default function ColaboradorListasTab({
           setSelectedList(null);
           fetchLists();
         }}
+        onRefresh={refreshSelectedList}
         onSessionExpired={onSessionExpired}
         onCheckinDone={handleCheckinDone}
       />
     );
   }
+
 
   if (isLoading) {
     return (
@@ -130,8 +163,9 @@ export default function ColaboradorListasTab({
         return (
           <button
             key={list.id}
-            onClick={() => setSelectedList(list)}
-            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all"
+            onClick={() => openList(list)}
+            disabled={openingListId === list.id}
+            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all disabled:opacity-60"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
