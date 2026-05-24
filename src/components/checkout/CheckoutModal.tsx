@@ -186,10 +186,14 @@ export function CheckoutModal({
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
     try {
-      const { data, error } = await supabase.functions.invoke('check-mercadopago-payment', {
+      const invokePromise = supabase.functions.invoke('check-mercadopago-payment', {
         body: { orderId, paymentId },
       });
-      if (error) throw error;
+      const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 6000)
+      );
+      const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
+      if (error) return false;
       return data?.paid === true;
     } catch (error) {
       console.error('Error checking payment status:', error);
