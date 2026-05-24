@@ -1,14 +1,18 @@
-import { QrCode, List } from 'lucide-react';
+import { QrCode, List, ShoppingBag, BarChart3 } from 'lucide-react';
+
+export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios';
 
 interface ColaboradorBottomNavProps {
-  activeTab: 'qr' | 'listas';
-  onTabChange: (tab: 'qr' | 'listas') => void;
+  activeTab: ColaboradorTab;
+  onTabChange: (tab: ColaboradorTab) => void;
 }
 
 export default function ColaboradorBottomNav({ activeTab, onTabChange }: ColaboradorBottomNavProps) {
-  const tabs: Array<{ id: 'qr' | 'listas'; label: string; Icon: typeof QrCode }> = [
+  const tabs: Array<{ id: ColaboradorTab; label: string; Icon: typeof QrCode }> = [
     { id: 'qr', label: 'Check-in', Icon: QrCode },
     { id: 'listas', label: 'Listas', Icon: List },
+    { id: 'vender', label: 'Vender', Icon: ShoppingBag },
+    { id: 'relatorios', label: 'Relatórios', Icon: BarChart3 },
   ];
 
   return (
@@ -37,7 +41,7 @@ export default function ColaboradorBottomNav({ activeTab, onTabChange }: Colabor
               >
                 <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
               </div>
-              <span className={`text-[11px] font-bold ${active ? '' : 'font-semibold'}`}>{label}</span>
+              <span className={`text-[10px] font-bold ${active ? '' : 'font-semibold'}`}>{label}</span>
             </button>
           );
         })}
