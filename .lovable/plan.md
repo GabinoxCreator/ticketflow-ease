@@ -1,44 +1,51 @@
-# URL amigável de evento (slug em vez de UUID)
-
 ## Objetivo
+Permitir que **você (admin geral)** configure a taxa da plataforma **por evento e por meio de pagamento** (PIX e/ou Cartão), substituindo o padrão de 10%. Caso da Feijuca da Ana: PIX com 0%. Cartão segue 10%.
 
-Trocar URLs públicas como `/evento/61d0b7dc-e789-4f81-b72f-e2567eee995b` por algo como `/evento/lancamento-audiovisual-feliz-no-simples` — usando o nome do evento. Links antigos com UUID continuam funcionando para não quebrar nada já compartilhado/indexado.
+A UI fica dentro do painel do produtor (na página do evento), mas o card só aparece para usuários com role `admin`. Produtores normais não veem nem editam.
 
-## O que muda
+---
 
-### Banco
-- Adicionar coluna `slug TEXT UNIQUE` em `public.events`.
-- Backfill: gerar slug a partir do `title` para todos os eventos existentes (lowercase, sem acento, espaços/símbolos viram `-`, colisões recebem sufixo curto baseado no id).
-- Trigger `BEFORE INSERT/UPDATE` em `events` que: se `slug` veio nulo OU `title` mudou e o usuário não enviou slug manual, regenera o slug e garante unicidade. Eventos publicados ficam estáveis (não regerar slug se já existe).
+## Banco de dados (migration)
 
-### Backend / leitura
-- Em `useEvent(idOrSlug)` (hook que alimenta `EventDetails`), passar a buscar primeiro por `slug = param`, e se não achar, cair em `id = param`. Garante compatibilidade com URLs UUID antigas.
+Nova tabela `event_fee_overrides`:
+- `event_id` (FK lógico events.id)
+- `payment_method` ∈ `pix` | `card` (uma linha por método)
+- `fee_percent` numeric (ex.: 0, 5, 10)
+- `fee_fixed` numeric default 0
+- `notes` text
+- `created_by`, `created_at`, `updated_at`
+- UNIQUE (event_id, payment_method)
 
-### Frontend
-- Toda navegação pública para `/evento/...` passa a usar `event.slug ?? event.id`:
-  - `src/components/EventCard.tsx`
-  - `src/components/producer/EventListItem.tsx`
-  - `src/components/producer/EventDashboardHeader.tsx`
-  - `src/components/producer/tabs/EventDataTab.tsx`
-  - `src/components/producer/tabs/EventOverviewTab.tsx`
-  - `src/pages/EditarEvento.tsx`
-  - `src/pages/MeusIngressos.tsx` (link + share)
-  - `src/pages/EventDetails.tsx` (canonical e `og:url`)
-- Rota `/evento/:id` continua igual em `App.tsx` — o parâmetro vira "id ou slug".
-- Rotas internas de produtor (`/produtor/eventos/:id`) e colaborador (`/colaborador/evento/:id`) **continuam usando UUID** — são backoffice, mudança não agrega valor e dá menos risco.
+RLS:
+- SELECT: admin OU produtor dono do evento (para o checkout/cliente conseguir ler, criar policy pública de SELECT — taxa não é dado sensível, e o checkout precisa calcular).
+- INSERT/UPDATE/DELETE: **apenas admin** (`has_role(auth.uid(),'admin')`).
 
-### Tipos
-- Adicionar `slug: string | null` na interface `Event` em `src/hooks/useEvents.ts` e nos hooks que tipam evento. (O `src/integrations/supabase/types.ts` regenera sozinho após a migration.)
+Função helper `get_event_fee(_event_id uuid, _method text)` retornando `(fee_percent, fee_fixed)` — usa override se existir, senão 10% / 0.
 
-## Fora do escopo
+## Edge functions (cálculo da taxa real cobrada)
+- `supabase/functions/create-mercadopago-pix/index.ts`: trocar constante `SERVICE_FEE_RATE = 0.10` por consulta a `event_fee_overrides` (método `pix`) com fallback 10%.
+- `supabase/functions/process-card-payment/index.ts`: idem, método `card`.
 
-- Não vamos criar rotas de redirect 301 (não há servidor próprio; a tabela `events` resolve isso já que o ID antigo continua funcionando).
-- Não vamos adicionar UI para editar slug manualmente neste passo — fica automático a partir do título. Posso adicionar depois se quiser.
-- Não mexer em rotas de admin, colaborador ou dashboard do produtor.
+## Frontend — Checkout
+- `src/components/checkout/CheckoutStepPayment.tsx`: hoje calcula uma taxa única exibida no resumo. Passar a buscar overrides do evento (hook novo `useEventFees(eventId)`) e calcular a taxa de acordo com o método selecionado. Como o resumo é mostrado antes da escolha, exibimos a menor (ou um range) e recomputamos ao escolher PIX/Cartão.
+- `src/components/checkout/CheckoutModal.tsx`: usar o valor de taxa retornado pelo hook em vez de `0.10` fixo.
+
+## Frontend — Painel do produtor (admin-only)
+- Novo componente `src/components/producer/AdminFeeOverrideCard.tsx`:
+  - Mostra dois inputs: **Taxa PIX (%)** e **Taxa Cartão (%)** + campo opcional fee_fixed.
+  - Botões "Salvar" para cada método; "Remover override" volta ao padrão 10%.
+  - Aviso visual "Visível apenas para Admin da plataforma".
+- Inserir o card em `src/components/producer/tabs/EventOverviewTab.tsx` (ou em uma nova aba "Taxas") condicionado a `userRole === 'admin'` via `useAuth()`.
+- Hook `src/hooks/useEventFeeOverrides.ts` com CRUD via Supabase client.
+
+## Fora de escopo
+- Override por organização/produtor inteiro (já existe `producer_fee_overrides`, não mexer).
+- Histórico/auditoria detalhada além do já registrado em `audit_logs`.
+- Aplicar retroativamente a pedidos já criados.
 
 ## Validação manual
-
-- Criar um evento novo → URL pública vira `/evento/<slug-do-titulo>`.
-- Editar o título → slug regenera (se ainda for único).
-- Acessar URL antiga com UUID → carrega o mesmo evento normalmente.
-- Dois eventos com mesmo título → segundo recebe sufixo curto para evitar colisão.
+1. Logar como admin → abrir Feijuca da Ana no painel do produtor → setar PIX = 0% → salvar.
+2. Abrir checkout do evento como cliente → escolher PIX → resumo mostra taxa R$ 0,00; total = subtotal.
+3. Escolher Cartão → taxa volta a 10%.
+4. Logar como produtor (não-admin) → o card de override **não aparece**.
+5. Outros eventos continuam com 10% em ambos os métodos.

@@ -393,6 +393,42 @@ export type Database = {
           },
         ]
       }
+      event_fee_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_id: string
+          fee_fixed: number
+          fee_percent: number
+          id: string
+          notes: string | null
+          payment_method: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          fee_fixed?: number
+          fee_percent?: number
+          id?: string
+          notes?: string | null
+          payment_method: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          fee_fixed?: number
+          fee_percent?: number
+          id?: string
+          notes?: string | null
+          payment_method?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_likes: {
         Row: {
           anonymous_id: string
@@ -1391,6 +1427,13 @@ export type Database = {
       }
       get_cron_health: { Args: never; Returns: Json }
       get_cron_secret: { Args: never; Returns: string }
+      get_event_fee: {
+        Args: { _event_id: string; _method: string }
+        Returns: {
+          fee_fixed: number
+          fee_percent: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
