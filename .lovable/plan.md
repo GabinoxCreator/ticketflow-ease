@@ -1,30 +1,31 @@
-## Botão "Esgotar" no card do ingresso
+## Fix: travamento ao copiar PIX no checkout
 
-### O que muda
+### Sintomas
+Ao clicar em "Copiar código PIX" no modal de pagamento, a tela congela por vários segundos antes de copiar e voltar a responder.
 
-No card de cada ingresso (lote) na aba **Ingressos** do dashboard do produtor, além do botão de editar/excluir, adicionar um botão para **marcar como Esgotado** manualmente. Ao ativar:
+### Causa
+O `CheckoutStepPix.tsx` tem três problemas combinados que travam a UI/main thread:
 
-- O card do produtor mostra a tag "Esgotado" e o botão vira "Reativar vendas".
-- Na página pública do evento, o lote aparece com badge **Esgotado** e o seletor de quantidade é desabilitado.
-- O backend bloqueia novas reservas desse lote (mesmo se ainda houver estoque), evitando vendas acidentais.
+1. **Polling sem trava de concorrência** (`setInterval` a cada 5s chamando `check-mercadopago-payment`). Se a Edge Function/Mercado Pago demora (rede, cold start), as chamadas se empilham. Cada resposta dispara re-render do componente inteiro — incluindo o `QRCodeSVG` (que recalcula o SVG do PIX a cada render) — bloqueando o thread no exato momento em que o usuário clica em copiar.
+2. **`navigator.clipboard.writeText` sem fallback**. Em alguns navegadores (WebView do Instagram/Facebook, Safari sem foco) a Promise fica pendente até obter foco, dando a sensação de "travado". Não há fallback para `document.execCommand('copy')`.
+3. **`QRCodeSVG` não memoizado** — re-renderiza sempre que `copied`/`isChecking` mudam.
 
-Sem novo modal: clique único alterna o estado, com `toast` de confirmação.
+### Correção (somente frontend, sem mudanças de backend)
 
-### Banco de dados
+**`src/components/checkout/CheckoutStepPix.tsx`**
+- Memoizar o QR Code: extrair `<QRCodeSVG>` num componente `React.memo` (ou usar `useMemo` no elemento) para que mudanças de estado não o recalculem.
+- Adicionar guarda de concorrência no polling:
+  - `useRef<boolean>` `inFlightRef` — se já está rodando, pula a iteração.
+  - Cancelar com `AbortController` no unmount.
+  - Trocar `setInterval` por loop assíncrono com `setTimeout` recursivo para nunca empilhar.
+- Substituir `handleCopy` por uma versão não bloqueante:
+  - Mostrar feedback **imediatamente** (`setCopied(true)` + toast) antes de aguardar o clipboard.
+  - Tentar `navigator.clipboard.writeText` dentro de `try/catch` curto; em caso de Promise pendurada/erro, cair no fallback com `<textarea>` temporário + `document.execCommand('copy')`.
+  - Não usar `await` no handler principal — disparar como fire-and-forget para o React não segurar o clique.
 
-Adicionar coluna `manually_sold_out boolean NOT NULL DEFAULT false` em `public.event_lots`.
+**`src/components/checkout/CheckoutModal.tsx`** (apenas `checkPaymentStatus`)
+- Adicionar um timeout suave de ~6s no `supabase.functions.invoke` via `Promise.race`, retornando `false` em caso de timeout para evitar que uma chamada lenta segure o próximo tick do polling.
 
-Atualizar a função `reserve_lot_quantity` para também exigir `manually_sold_out = false` — assim o checkout/colaborador não conseguem reservar um lote esgotado manualmente.
-
-### Frontend
-
-- `src/hooks/useEventLots.ts`: incluir `manually_sold_out` em `EventLot` e em `LotFormData`.
-- `src/components/producer/LotManager.tsx` (card do lote, ~linha 203-247):
-  - Adicionar botão de ícone (ex: `Ban` / `CheckCircle2`) entre editar e excluir.
-  - Texto/tooltip: "Marcar como esgotado" ou "Reativar vendas".
-  - Ao clicar, chama `onUpdate(lot.id, { manually_sold_out: !lot.manually_sold_out })`.
-  - Mostrar badge "Esgotado" no card quando `manually_sold_out` for `true`.
-- `src/pages/EventDetails.tsx` (~linha 619): `isSoldOut = available === 0 || lot.manually_sold_out`.
-- `src/components/colaborador/ColaboradorVenderModal.tsx`: respeitar `manually_sold_out` ao calcular disponibilidade (mostra "Esgotado").
-
-Sem alteração em RLS, ordens, ingressos já vendidos, ou relatórios — apenas controle visual e bloqueio de novas reservas.
+### O que NÃO muda
+- Sem alteração na Edge Function `check-mercadopago-payment`, no fluxo PIX do Mercado Pago, no schema, nas RLS ou nas demais etapas do checkout.
+- Visual idêntico — só performance e robustez do botão.
