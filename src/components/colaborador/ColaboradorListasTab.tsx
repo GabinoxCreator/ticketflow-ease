@@ -47,25 +47,34 @@ export default function ColaboradorListasTab({
   const [lists, setLists] = useState<GuestList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedList, setSelectedList] = useState<GuestList | null>(null);
+  const [openingListId, setOpeningListId] = useState<string | null>(null);
 
   const fetchLists = async () => {
     try {
-      const { data, error } = await supabase
+      // Busca listas + contagens separadas (sem JOIN aninhado pesado)
+      const { data: listsData, error: listsError } = await supabase
         .from('guest_lists')
-        .select(`
-          id,
-          name,
-          guest_list_entries (
-            id,
-            name,
-            status,
-            checked_in_at,
-            created_at,
-            added_by
-          )
-        `)
+        .select('id, name')
         .eq('event_id', eventId)
         .eq('is_active', true);
+
+      if (listsError) throw listsError;
+
+      const results: GuestList[] = await Promise.all(
+        (listsData || []).map(async (l) => {
+          const entries = await fetchEntriesForList(l.id).catch(() => []);
+          return { id: l.id, name: l.name, entries };
+        })
+      );
+
+      setLists(results);
+    } catch (error) {
+      console.error('Error fetching lists:', error);
+      toast.error('Erro ao carregar listas');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
       if (error) throw error;
 
