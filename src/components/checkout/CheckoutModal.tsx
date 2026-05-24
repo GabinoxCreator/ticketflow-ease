@@ -136,6 +136,7 @@ export function CheckoutModal({
 
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
+    setSelectedMethod(method);
     const cpfDigits = unformatCPF(customerData.cpf);
     if (!validateCPF(cpfDigits)) {
       setPendingMethod(method);
@@ -148,6 +149,7 @@ export function CheckoutModal({
     }
     await startPix(cpfDigits);
   };
+
 
   const handleCpfContinue = async (cpfDigits: string, name: string, email: string) => {
     setCustomerData((prev) => ({ ...prev, cpf: cpfDigits, name, email }));
