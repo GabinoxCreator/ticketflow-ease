@@ -1,45 +1,60 @@
-## Problema
+## Problema (confirmado no banco)
 
-No painel do colaborador (desktop), ao clicar no card de uma lista de convidados, os nomes não aparecem. No celular (mesmo login) funciona normalmente.
+No painel do colaborador, tanto os **contadores no topo** (Entraram / Aguardando / Total) quanto os **nomes dentro das listas** aparecem zerados no desktop. No banco do evento `61d0b7dc...` existem:
 
-## Diagnóstico provável
+- Lista Convidados Miguel Lourenço — 26 entradas
+- Lista Mulher Free Até ás 18h — 77 entradas
+- Lista do Made — 0 entradas
+- E ingressos (`tickets`) também devem entrar na conta de Entraram/Aguardando/Total.
 
-`ColaboradorListaDetalhe.tsx` recebe `entries` como prop e usa:
+A causa é a mesma RLS: as policies de SELECT em `guest_list_entries`, `guest_lists` e `tickets` exigem `auth.uid() = events.producer_id`. Como o colaborador entra via sessão customizada (não é um auth user), todo SELECT direto do client roda anônimo e devolve 0. O celular só "funcionou" antes porque estava logado como produtor — colaborador puro sempre veria zero.
 
-```ts
-const [localEntries, setLocalEntries] = useState(entries);
-```
+## Solução
 
-Como `useState(entries)` só lê o valor na montagem, se a busca inicial em `ColaboradorListasTab` retornou a lista com `guest_list_entries` vazio (por timing ou cache do PostgREST com JOIN aninhado) e o componente já foi montado, os nomes nunca aparecem mesmo que existam no banco. No celular o fetch pode estar retornando completo por ser uma segunda visita.
+Criar **duas Edge Functions** que validam o `session_token` do colaborador (mesmo padrão de `collaborator-validate-guest-entry`) e usam service role para bypassar RLS:
 
-Além disso, hoje não há refetch ao abrir uma lista — confiamos 100% no payload inicial do JOIN aninhado `guest_lists(... guest_list_entries(...))`, que pode falhar parcialmente em listas grandes (282 convidados no exemplo) por limite de 1000 linhas do PostgREST quando combinado com várias listas.
+1. **`collaborator-event-stats`** — retorna os contadores agregados (Entraram, Aguardando, Total) somando ingressos + entradas de listas.
+2. **`collaborator-list-guests`** — retorna listas ativas do evento + entradas de cada lista.
 
 ## Plano
 
-### 1. Refetch dedicado das entradas ao abrir uma lista
-Em `src/components/colaborador/ColaboradorListasTab.tsx`:
-- Ao clicar num card, antes de abrir o detalhe, fazer um `SELECT` direto em `guest_list_entries` filtrando por `guest_list_id` (sem JOIN aninhado). Isso garante todos os nomes mesmo em listas grandes.
-- Mostrar um loader curto enquanto busca.
-- Passar essas entradas frescas para `ColaboradorListaDetalhe`.
+### 1. Nova Edge Function `collaborator-event-stats`
+- Input: `event_id`, `collaborator_id`, `session_token`.
+- Valida sessão e vínculo com o evento (lança `session_expired` quando for o caso).
+- Com service role:
+  - `tickets`: conta `used` (entraram) e `valid` (aguardando) para o `event_id`.
+  - `guest_list_entries`: conta `checked_in` (entraram) e `pending` (aguardando) das listas ativas do evento.
+- Retorna `{ checkins, pending, total }` somando os dois mundos. Mantém a fórmula atual de `total`.
 
-### 2. Sincronizar prop → estado em `ColaboradorListaDetalhe`
-Em `src/components/colaborador/ColaboradorListaDetalhe.tsx`:
-- Substituir `useState(entries)` por estado que sincroniza com a prop via `useEffect([entries])`, garantindo que mudanças no array vindo do pai sejam refletidas.
+### 2. Nova Edge Function `collaborator-list-guests`
+- Input: `event_id`, `collaborator_id`, `session_token`.
+- Valida sessão e vínculo com o evento.
+- Com service role busca `guest_lists` ativas + `guest_list_entries` (id, name, status, checked_in_at, created_at, added_by), ordenadas por nome (limite alto, ex. 10000).
+- Retorna `{ lists: [{ id, name, entries: [...] }] }`.
 
-### 3. Mensagem clara quando a lista vier vazia
-Se após o refetch a lista realmente não tem nomes, mostrar "Nenhum convidado cadastrado ainda" em vez de área em branco (hoje cai no filtro e diz "Nenhum convidado encontrado", confunde com busca).
+### 3. `src/pages/colaborador/ColaboradorEvento.tsx`
+- Substituir o `fetchStats` para chamar `collaborator-event-stats` via `fetch` com `session_token`.
+- Tratar `session_expired` chamando `handleSessionExpired()`.
 
-### 4. Botão de atualizar dentro do detalhe
-Adicionar um pequeno botão "Atualizar" no cabeçalho do detalhe que refaz o fetch das entradas dessa lista. Útil em caixa quando entram inscrições novas.
+### 4. `src/components/colaborador/ColaboradorListasTab.tsx`
+- Trocar o uso atual de `supabase.from('guest_lists')` / `fetchEntriesForList` por uma chamada única à `collaborator-list-guests`.
+- `openList` e `refreshSelectedList` rechamam a function (ou apenas atualizam local a partir do payload retornado).
+- Tratar `session_expired`.
 
-### 5. Validação
-- Abrir a mesma lista no preview desktop logado como colaborador.
-- Confirmar que os 282 nomes aparecem.
-- Conferir busca, click no nome e check-in continuam funcionando.
+### 5. `src/components/colaborador/ColaboradorListaDetalhe.tsx`
+- Sem mudanças (já sincroniza prop → estado e tem botão Atualizar).
 
-## Arquivos a alterar
+### 6. Validação
+- Logar como colaborador no desktop no evento `61d0b7dc...`.
+- Conferir que aparecem 3 listas, abrindo as 26 e 77 entradas corretamente.
+- Conferir Entraram / Aguardando / Total batendo com a soma de ingressos + listas.
+- Fazer 1 check-in via QR e via lista e confirmar que os contadores sobem ao tocar Atualizar.
 
-- `src/components/colaborador/ColaboradorListasTab.tsx`
-- `src/components/colaborador/ColaboradorListaDetalhe.tsx`
+## Arquivos
 
-Sem mudanças no banco ou em edge functions.
+- `supabase/functions/collaborator-event-stats/index.ts` (novo)
+- `supabase/functions/collaborator-list-guests/index.ts` (novo)
+- `src/pages/colaborador/ColaboradorEvento.tsx` (refator de `fetchStats`)
+- `src/components/colaborador/ColaboradorListasTab.tsx` (refator de fetch)
+
+Sem mudanças em RLS, schema ou config.toml.

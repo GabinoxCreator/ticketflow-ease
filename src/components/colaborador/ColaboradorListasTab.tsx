@@ -1,32 +1,22 @@
 import { useState, useEffect } from 'react';
 import { List, Users, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ColaboradorListaDetalhe from './ColaboradorListaDetalhe';
 
-async function fetchEntriesForList(listId: string) {
-  const { data, error } = await supabase
-    .from('guest_list_entries')
-    .select('id, name, status, checked_in_at, created_at, added_by')
-    .eq('guest_list_id', listId)
-    .order('name', { ascending: true })
-    .limit(5000);
-  if (error) throw error;
-  return data || [];
+interface GuestEntry {
+  id: string;
+  name: string;
+  status: string;
+  checked_in_at: string | null;
+  created_at: string;
+  added_by: string;
 }
 
 interface GuestList {
   id: string;
   name: string;
-  entries: {
-    id: string;
-    name: string;
-    status: string;
-    checked_in_at: string | null;
-    created_at: string;
-    added_by: string;
-  }[];
+  entries: GuestEntry[];
 }
 
 interface ColaboradorListasTabProps {
@@ -46,39 +36,42 @@ export default function ColaboradorListasTab({
 }: ColaboradorListasTabProps) {
   const [lists, setLists] = useState<GuestList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedList, setSelectedList] = useState<GuestList | null>(null);
-  const [openingListId, setOpeningListId] = useState<string | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
-  const fetchLists = async () => {
+  const fetchLists = async (): Promise<GuestList[] | null> => {
     try {
-      // Busca listas + contagens separadas (sem JOIN aninhado pesado)
-      const { data: listsData, error: listsError } = await supabase
-        .from('guest_lists')
-        .select('id, name')
-        .eq('event_id', eventId)
-        .eq('is_active', true);
-
-      if (listsError) throw listsError;
-
-      const results: GuestList[] = await Promise.all(
-        (listsData || []).map(async (l) => {
-          const entries = await fetchEntriesForList(l.id).catch(() => []);
-          return { id: l.id, name: l.name, entries };
-        })
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-list-guests`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            event_id: eventId,
+            collaborator_id: collaboratorId,
+            session_token: sessionToken,
+          }),
+        }
       );
-
-      setLists(results);
+      const data = await response.json();
+      if (data.session_expired) { onSessionExpired(); return null; }
+      const fetched: GuestList[] = data.lists || [];
+      setLists(fetched);
+      return fetched;
     } catch (error) {
       console.error('Error fetching lists:', error);
       toast.error('Erro ao carregar listas');
+      return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-
   useEffect(() => {
     fetchLists();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const handleCheckinDone = () => {
@@ -86,32 +79,11 @@ export default function ColaboradorListasTab({
     onCheckinDone();
   };
 
-  const openList = async (list: GuestList) => {
-    setOpeningListId(list.id);
-    try {
-      const fresh = await fetchEntriesForList(list.id);
-      setSelectedList({ ...list, entries: fresh });
-      // atualiza também a lista no card
-      setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, entries: fresh } : l)));
-    } catch (e) {
-      console.error('Error fetching list entries:', e);
-      toast.error('Erro ao carregar convidados');
-      setSelectedList(list);
-    } finally {
-      setOpeningListId(null);
-    }
+  const refreshSelectedList = async () => {
+    await fetchLists();
   };
 
-  const refreshSelectedList = async () => {
-    if (!selectedList) return;
-    try {
-      const fresh = await fetchEntriesForList(selectedList.id);
-      setSelectedList({ ...selectedList, entries: fresh });
-      setLists((prev) => prev.map((l) => (l.id === selectedList.id ? { ...l, entries: fresh } : l)));
-    } catch {
-      toast.error('Erro ao atualizar lista');
-    }
-  };
+  const selectedList = selectedListId ? lists.find(l => l.id === selectedListId) || null : null;
 
   if (selectedList) {
     return (
@@ -122,7 +94,7 @@ export default function ColaboradorListasTab({
         collaboratorId={collaboratorId}
         sessionToken={sessionToken}
         onBack={() => {
-          setSelectedList(null);
+          setSelectedListId(null);
           fetchLists();
         }}
         onRefresh={refreshSelectedList}
@@ -131,7 +103,6 @@ export default function ColaboradorListasTab({
       />
     );
   }
-
 
   if (isLoading) {
     return (
@@ -163,9 +134,8 @@ export default function ColaboradorListasTab({
         return (
           <button
             key={list.id}
-            onClick={() => openList(list)}
-            disabled={openingListId === list.id}
-            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all disabled:opacity-60"
+            onClick={() => setSelectedListId(list.id)}
+            className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-primary/40 active:scale-[0.99] transition-all"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">

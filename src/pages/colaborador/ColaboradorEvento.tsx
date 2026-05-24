@@ -23,38 +23,29 @@ export default function ColaboradorEvento() {
   const event = events.find(e => e.id === eventId);
 
   const fetchStats = async () => {
-    if (!eventId) return;
+    if (!eventId || !collaborator || !session) return;
     setRefreshing(true);
     try {
-      const { data: tickets } = await supabase
-        .from('tickets')
-        .select('status')
-        .eq('event_id', eventId)
-        .in('status', ['valid', 'used']);
-
-      const ticketCheckins = tickets?.filter(t => t.status === 'used').length || 0;
-      const ticketPending = tickets?.filter(t => t.status === 'valid').length || 0;
-
-      const { data: lists } = await supabase
-        .from('guest_lists')
-        .select('guest_list_entries(status)')
-        .eq('event_id', eventId)
-        .eq('is_active', true);
-
-      let guestCheckins = 0;
-      let guestPending = 0;
-      lists?.forEach((list: any) => {
-        list.guest_list_entries?.forEach((e: any) => {
-          if (e.status === 'checked_in') guestCheckins++;
-          else if (e.status === 'pending') guestPending++;
-        });
-      });
-
-      setStats({
-        checkins: ticketCheckins + guestCheckins,
-        pending: ticketPending + guestPending,
-        total: (tickets?.length || 0) + guestCheckins + guestPending,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-event-stats`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            event_id: eventId,
+            collaborator_id: collaborator.id,
+            session_token: session.token,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (data.session_expired) { handleSessionExpired(); return; }
+      if (typeof data.checkins === 'number') {
+        setStats({ checkins: data.checkins, pending: data.pending, total: data.total });
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
