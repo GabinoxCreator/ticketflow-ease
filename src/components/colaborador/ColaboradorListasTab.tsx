@@ -76,22 +76,6 @@ export default function ColaboradorListasTab({
     }
   };
 
-      if (error) throw error;
-
-      const formatted: GuestList[] = (data || []).map(list => ({
-        id: list.id,
-        name: list.name,
-        entries: list.guest_list_entries || [],
-      }));
-
-      setLists(formatted);
-    } catch (error) {
-      console.error('Error fetching lists:', error);
-      toast.error('Erro ao carregar listas');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchLists();
