@@ -144,22 +144,15 @@ export default function GuestListPublicForm() {
     if (!listData) return false;
     if (!listData.is_active) return false;
     if (listData.max_guests && listData.entries_count >= listData.max_guests) return false;
-    
-    // Check if current time is before valid_until_time on event date
-    const now = new Date();
-    const eventDate = new Date(`${listData.event.date}T12:00:00`);
-    const [hours, minutes] = listData.valid_until_time.split(':').map(Number);
-    
-    const validUntil = new Date(eventDate);
-    validUntil.setHours(hours, minutes, 0, 0);
 
-    // If event is today, check time
-    if (now.toDateString() === eventDate.toDateString()) {
-      return now < validUntil;
-    }
-    
-    // If event is in the future, list is valid
-    return eventDate > now;
+    // Build deadline in Brasília time (UTC-3) to avoid timezone shifts
+    const now = new Date();
+    const timePart = (listData.valid_until_time || '18:00').slice(0, 5);
+    const validUntil = new Date(`${listData.event.date}T${timePart}:00-03:00`);
+    const endOfEventDay = new Date(`${listData.event.date}T23:59:59-03:00`);
+
+    if (now > endOfEventDay) return false;
+    return now < validUntil;
   };
 
   if (isLoading) {
