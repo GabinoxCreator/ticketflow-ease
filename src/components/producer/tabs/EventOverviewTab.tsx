@@ -1,6 +1,7 @@
 import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, Download, QrCode, Eye, BarChart3 } from 'lucide-react';
 import { SalesChart } from '@/components/producer/SalesChart';
 import { LotSummaryCard } from '@/components/producer/LotSummaryCard';
+import { AdminFeeOverrideCard } from '@/components/producer/AdminFeeOverrideCard';
 
 interface SalesByLot {
   id: string;
@@ -172,6 +173,9 @@ export function EventOverviewTab({
           )}
         </div>
       </GlassCard>
+
+      {/* Admin-only: per-event fee override */}
+      <AdminFeeOverrideCard eventId={eventId} />
     </div>
   );
 }

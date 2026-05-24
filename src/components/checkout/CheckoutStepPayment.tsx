@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useEventFees, computeFee } from '@/hooks/useEventFees';
 import type { AppliedCoupon } from './CheckoutModal';
 
 interface CartItem {
@@ -54,8 +55,15 @@ export function CheckoutStepPayment({
     return new Date(safe).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
-  const SERVICE_FEE_RATE = 0.10;
-  const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+  const { fees } = useEventFees(eventId);
+  // Mostra a menor taxa entre PIX e Cartão no resumo (atualiza ao selecionar método).
+  const previewMethod: 'pix' | 'card' =
+    selecting === 'card' ? 'card' :
+    selecting === 'pix' ? 'pix' :
+    (fees.pixPercent <= fees.cardPercent ? 'pix' : 'card');
+  const feePercent = previewMethod === 'pix' ? fees.pixPercent : fees.cardPercent;
+  const feeFixed = previewMethod === 'pix' ? fees.pixFixed : fees.cardFixed;
+  const serviceFee = computeFee(totalAmount, feePercent, feeFixed);
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
   const handleApplyCoupon = async () => {
@@ -202,8 +210,10 @@ export function CheckoutStepPayment({
             </>
           )}
           <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">Taxa de serviço (10%)</span>
-            <span className="text-muted-foreground tabular-nums">+ {formatPrice(serviceFee)}</span>
+            <span className="text-muted-foreground">
+              Taxa de serviço{feeFixed > 0 ? '' : ` (${feePercent}%)`}
+            </span>
+            <span className="text-muted-foreground tabular-nums">{serviceFee > 0 ? `+ ${formatPrice(serviceFee)}` : 'Grátis'}</span>
           </div>
         </div>
 
