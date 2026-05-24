@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { compareSync, hashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { hashToken } from "../_shared/collaboratorSession.ts";
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -140,8 +142,10 @@ serve(async (req) => {
     const sessionToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // Hash the token before storing (so even if DB is compromised, tokens are safe)
-    const tokenHash = hashSync(sessionToken);
+    // Hash the token with SHA-256 (fast, deterministic, no WASM) before storing.
+    // Old bcrypt-hashed sessions remain valid via fallback in validateCollaboratorSession.
+    const tokenHash = await hashToken(sessionToken);
+
 
     // Store session in database (upsert to handle existing sessions)
     const { error: sessionError } = await supabase
