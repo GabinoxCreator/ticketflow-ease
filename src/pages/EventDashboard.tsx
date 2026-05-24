@@ -14,9 +14,10 @@ import { useEvent } from '@/hooks/useEvents';
 import { EventCheckinTab } from '@/components/producer/tabs/EventCheckinTab';
 import { EventDoorSalesTab } from '@/components/producer/tabs/EventDoorSalesTab';
 import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
+import { EventFinanceiroTab } from '@/components/producer/tabs/EventFinanceiroTab';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +69,7 @@ export default function EventDashboard() {
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'checkin', label: 'Check-in', icon: ScanLine },
     { value: 'doorsales', label: 'Portaria', icon: DollarSign },
+    { value: 'financeiro', label: 'Financeiro', icon: Wallet },
     { value: 'lists', label: 'Listas', icon: Gift },
     { value: 'coupons', label: 'Cupons', icon: Tag },
   ];
@@ -141,6 +143,11 @@ export default function EventDashboard() {
         <TabsContent value="doorsales">
           <EventDoorSalesTab eventId={event.id} />
         </TabsContent>
+
+        <TabsContent value="financeiro">
+          <EventFinanceiroTab eventId={event.id} />
+        </TabsContent>
+
 
         <TabsContent value="lists">
           <EventListsTab eventId={event.id} eventTime={event.time} />
