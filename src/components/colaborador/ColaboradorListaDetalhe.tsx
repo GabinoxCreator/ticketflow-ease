@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Search, CheckCircle2, Clock, Loader2, AlertCircle, User, Calendar, Tag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Search, CheckCircle2, Clock, Loader2, AlertCircle, User, Calendar, Tag, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,7 @@ interface ColaboradorListaDetalheProps {
   collaboratorId: string;
   sessionToken: string;
   onBack: () => void;
+  onRefresh?: () => Promise<void> | void;
   onSessionExpired: () => void;
   onCheckinDone: () => void;
 }
@@ -35,14 +36,21 @@ export default function ColaboradorListaDetalhe({
   collaboratorId,
   sessionToken,
   onBack,
+  onRefresh,
   onSessionExpired,
   onCheckinDone,
 }: ColaboradorListaDetalheProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [validatingId, setValidatingId] = useState<string | null>(null);
   const [localEntries, setLocalEntries] = useState(entries);
+  const [refreshing, setRefreshing] = useState(false);
   const [result, setResult] = useState<CheckinResultData | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<GuestEntry | null>(null);
+
+  // Sincroniza com mudanças vindas da prop (refetch externo)
+  useEffect(() => {
+    setLocalEntries(entries);
+  }, [entries]);
 
   const pendingCount = localEntries.filter(e => e.status === 'pending').length;
   const checkedInCount = localEntries.filter(e => e.status === 'checked_in').length;
@@ -50,6 +58,13 @@ export default function ColaboradorListaDetalhe({
   const filtered = searchQuery
     ? localEntries.filter(e => e.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : localEntries;
+
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    try { await onRefresh(); } finally { setRefreshing(false); }
+  };
+
 
   const formatDate = (iso?: string | null) => {
     if (!iso) return '—';
