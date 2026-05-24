@@ -222,7 +222,7 @@ export default function ColaboradorQRTab({
                 placeholder="Nome, código, email ou telefone"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 h-12 text-base bg-slate-50 border-slate-200 focus:bg-white"
+                className="pl-11 h-12 text-base bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:bg-white"
                 inputMode="search"
                 autoComplete="off"
               />
