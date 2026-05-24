@@ -1,112 +1,65 @@
-# Vendas na Portaria (Colaborador) + Financeiro por Evento
+# Repaginar Vender + Relatórios (Colaborador)
 
-Escopo dividido em 3 blocos. Tudo reaproveita a tabela `door_sales` que já existe (atualmente usada na aba "Portaria" do produtor).
+Escopo restrito: **só** o modal "Venda na Portaria" (`ColaboradorVenderModal.tsx`) + aba "Vender" (`ColaboradorVenderTab.tsx`) + aba "Relatórios" (`ColaboradorRelatoriosTab.tsx`). Nada fora disso muda.
 
----
+## 1. Nova paleta — claro com acentos coloridos
 
-## Bloco 1 — Aba "Vender" no Colaborador
+- Fundo geral: branco / `slate-50`
+- Cards e superfícies: branco com bordas suaves `slate-200` e sombra leve
+- Texto principal: `slate-900`, secundário: `slate-500`
+- Acentos pastéis preservando a leitura atual:
+  - Entraram → verde pastel (`emerald-50` bg / `emerald-600` texto)
+  - Aguardando → âmbar pastel (`amber-50` / `amber-600`)
+  - Total → roxo pastel (`violet-50` / `violet-600`)
+  - CTA "Nova Venda" → verde sólido `emerald-600` (mantém destaque)
+  - Vendas / Total R$ → verde pastel
+- "Últimas vendas" deixa de ser bloco escuro: vira card branco com bordas e itens em linha.
 
-**Onde:** bottom nav de `/colaborador/check-in/:eventId` (`ColaboradorBottomNav`).
+## 2. Modal Venda na Portaria — UX
 
-**Adicionar 2 abas novas** ao bottom nav: `Vender` (ShoppingBag) e `Relatórios` (BarChart3). Total passa a ser 4: Check-in · Listas · Vender · Relatórios.
+**Resumo fixo no topo (sticky)** em ambos os passos:
 
-**Fluxo "Vender" (modal em 2 passos, igual aos prints enviados):**
+```text
+┌──────────────────────────────────┐
+│ Ingresso Antecipado   Qtd: 2     │
+│                       R$ 60,00   │
+└──────────────────────────────────┘
+```
 
-1. **Passo 1 — Lote + Quantidade**
-   - Lista lotes ativos do evento com preço e disponíveis (`total_quantity - sold_quantity - reserved_quantity`).
-   - Stepper de quantidade (− / input / +), máx = disponível.
-   - Botão "Continuar" libera com lote selecionado.
+**Passo 1 — Lote + Quantidade (mesma tela):**
+- Lista de lotes em cards selecionáveis (radio visual)
+- Bloco de Quantidade:
+  - Botão `−` e `+` grandes (h-14 w-14, ícones 24px)
+  - Input central grande (text-2xl, h-14)
+  - **Atalhos rápidos:** chips `1` `2` `5` `10` abaixo do input
+  - Validação: respeita `disponíveis` do lote
+- Botão "Continuar" full-width, alto (h-12)
 
-2. **Passo 2 — Meio de pagamento**
-   - 4 cards grandes (grid 2x2): **PIX**, **Dinheiro**, **Cartão Débito**, **Cartão Crédito**.
-   - Mostra resumo `Nx Lote — R$ total`.
-   - "Confirmar Venda" registra via Edge Function nova `collaborator-register-door-sale`.
+**Passo 2 — Pagamento:**
+- Resumo fixo continua visível
+- Grid 2x2 de meios de pagamento com ícones grandes e fundo claro, borda destacada no selecionado
+- Botões "Voltar" + "Confirmar Venda" em rodapé
 
-**Edge Function nova `collaborator-register-door-sale`:**
-- Valida `sessionToken` do colaborador (mesmo padrão das outras edge functions de colaborador).
-- Confere que o colaborador está vinculado ao evento (`collaborator_events`).
-- Insere em `door_sales` com `operator_id = collaborator.id` e payment_method ∈ {pix, dinheiro, cartao_debito, cartao_credito}.
-- Retorna a venda criada para feedback visual.
+**Feedback de sucesso:**
+- Ao confirmar: substitui conteúdo do modal por tela de sucesso (check verde grande + "Venda registrada!" + valor + meio de pagamento) por ~1,5s
+- Toast sonner `toast.success` complementar
+- Depois fecha o modal e atualiza KPIs
 
-**RLS:** a INSERT policy atual de `door_sales` exige produtor dono. Vamos manter — a função roda com service role, então não precisa mexer em RLS.
+## 3. Aba Relatórios
 
----
+- Mesma paleta clara
+- KPI cards brancos com ícone colorido em círculo pastel
+- Breakdowns (por lote / método / operador) viram tabelas/listas em cards brancos com divisórias `slate-100`
+- Badges de método de pagamento em cores pastéis (PIX verde, Dinheiro âmbar, Débito azul, Crédito violeta)
 
-## Bloco 2 — Aba "Relatórios" no Colaborador
+## Arquivos a editar
 
-Tela mobile-first com cards (igual print 3):
-
-- **KPIs topo (grid 2x2):** Ingressos vendidos · Valor Total · Vendas (transações) · Ticket Médio.
-- **Por Lote:** lista cada lote com qtd e R$ vendido na portaria.
-- **Por Meio de Pagamento:** PIX, Dinheiro, Débito, Crédito — qtd + R$.
-- **Por Operador:** quanto cada colaborador (incluindo o atual) vendeu.
-
-**Edge Function nova `collaborator-door-sales-report`:**
-- Valida sessão; checa vínculo ao evento.
-- Retorna door_sales agregadas (por lote, por método, por operador) + nomes dos colaboradores via `collaborators`.
-- Hook `useColaboradorDoorSalesReport(eventId, sessionToken)`.
-
----
-
-## Bloco 3 — Aba "Financeiro" por Evento (Produtor)
-
-Hoje só existe lista de eventos em `/produtor/financeiro` e a página `FinanceiroEvento` mostra "Balanço Disponível + Transferências". Vamos **adicionar uma aba "Financeiro" dentro do dashboard do evento** (`/produtor/eventos/:id`, ao lado de Dados/Ingressos/Listas/Cupons/Pedidos/Participantes/Portaria/Check-in) com a estrutura do print 5:
-
-**Seção 1 — 3 cards topo:**
-- **Vendas Totais** = soma `orders.total_amount` (paid).
-- **Repasse ao Produtor** = vendas − taxa de conveniência (sem subtrair taxas MP — esse valor é o que o produtor recebe).
-- **Seu Lucro (Plataforma)** = taxa de conveniência arrecadada − taxas MP. *Renderizado só pra admin/dono — discutir abaixo.*
-
-**Seção 2 — Ingressos:**
-- Ingressos vendidos `X / capacidade total` (somando `total_quantity` dos lotes do evento).
-- Valor arrecadado.
-- Breakdown por método: PIX (R$ X · N vendas), Cartão (R$ X · N vendas).
-
-**Seção 3 — Resumo de Pagamentos (taxas MP reais):**
-- Total Bruto.
-- PIX: bruto + Taxa MP real (vinda da diferença `total_amount - net_received` se disponível) e valor descontado.
-- Cartão: idem.
-- "Total Taxas Mercado Pago" e "Valor Líquido após MP".
-
-   ⚠ Hoje não temos `mp_fee` salvo nos pedidos. Vamos:
-   - Aplicar **estimativa fixa configurável** por método (PIX ~0,99%, Cartão ~4,98%) lida de `platform_settings` (nova key `mp_fee_estimates`), com fallback hardcoded.
-   - Marcar visualmente como "estimativa" até começarmos a salvar a taxa real (fora deste escopo).
-
-**Seção 4 — Taxa de Conveniência:**
-- Taxa Bruta (10% sobre subtotal, do `service_fee_amount`).
-- Taxa MP Descontada.
-- Taxa Líquida (lucro da plataforma).
-
-**Seção 5 — Vendas na Portaria (Apenas conferência):**
-- Quantidade total e valor de referência (`door_sales`).
-- Aviso explícito: **"Estes valores não são contabilizados na receita. Servem apenas para controle de caixa."**
-- Breakdown por método (PIX / Dinheiro / Débito / Crédito) e por operador.
-
----
-
-## Decisão a confirmar antes da execução
-
-No seu print, **vendas na portaria são "apenas conferência"** (não entram na receita), mas você falou que "isso contabiliza na receita". Vou seguir o padrão do print (não contabiliza), porque misturar tornaria a conciliação financeira inconsistente — door_sales não passam pelo MP, não geram ticket nem nota. Se preferir contabilizar, é só me avisar que adiciono uma coluna separada "Receita Portaria" nos KPIs sem misturar com a receita online.
-
----
+- `src/components/colaborador/ColaboradorVenderModal.tsx` — refactor completo do JSX e cores, adicionar resumo sticky, atalhos, tela de sucesso
+- `src/components/colaborador/ColaboradorVenderTab.tsx` — repaint dos cards/KPIs/CTA
+- `src/components/colaborador/ColaboradorRelatoriosTab.tsx` — repaint dos cards/listas/badges
 
 ## Detalhes técnicos
 
-- **Arquivos novos:**
-  - `src/components/colaborador/ColaboradorVenderTab.tsx`
-  - `src/components/colaborador/ColaboradorVenderModal.tsx` (2 passos)
-  - `src/components/colaborador/ColaboradorRelatoriosTab.tsx`
-  - `src/hooks/useColaboradorDoorSales.ts`
-  - `src/components/producer/tabs/EventFinanceiroTab.tsx`
-  - `supabase/functions/collaborator-register-door-sale/index.ts`
-  - `supabase/functions/collaborator-door-sales-report/index.ts`
-
-- **Arquivos alterados:**
-  - `src/components/colaborador/ColaboradorBottomNav.tsx` — 4 tabs.
-  - `src/pages/colaborador/ColaboradorEvento.tsx` — render condicional das novas abas.
-  - `src/pages/EventDashboard.tsx` — nova tab "Financeiro".
-  - Remover (ou esconder) `EventDoorSalesTab` do produtor? **Não** — mantém pra produtor seguir podendo registrar manualmente.
-
-- **Migração SQL:** opcional, apenas se o trigger `handle_door_sale_lot_update` ainda não permitir `operator_id` ser o ID de um colaborador (não-UUID de `auth.users`). Verifico antes de executar; se precisar, removo o NOT NULL/FK ou adiciono coluna `collaborator_id`.
-
-- **Memória de projeto:** após implementar, salvo regra em `mem://features/collaborator-door-sales` para vínculo colaborador → operador.
+- Cores aplicadas via classes Tailwind diretas (`bg-white`, `bg-emerald-50`, `text-emerald-700`, `border-slate-200`) — exceção pontual ao design system porque essas duas abas terão visual próprio claro, sem afetar o resto do app (que segue dark).
+- Sem mudanças em hooks, edge functions ou banco.
+- Mantém comportamento atual de inventário e validação.
