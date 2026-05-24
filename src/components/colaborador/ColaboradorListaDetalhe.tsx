@@ -158,12 +158,24 @@ export default function ColaboradorListaDetalhe({
         <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div>
-          <h3 className="font-bold">{listName}</h3>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold truncate">{listName}</h3>
           <p className="text-sm text-muted-foreground">
             {pendingCount} pendente(s) • {checkedInCount} check-in(s)
           </p>
         </div>
+        {onRefresh && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-label="Atualizar lista"
+            className="shrink-0"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
       </div>
 
       {/* Aviso de instruções */}
@@ -184,9 +196,13 @@ export default function ColaboradorListaDetalhe({
       </div>
 
       {/* Entries */}
-      {filtered.length === 0 ? (
+      {localEntries.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          <p className="text-sm">Nenhum convidado encontrado</p>
+          <p className="text-sm">Nenhum convidado cadastrado ainda</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">Nenhum convidado encontrado para "{searchQuery}"</p>
         </div>
       ) : (
         <div className="space-y-2">
