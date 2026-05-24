@@ -1,65 +1,41 @@
-# Repaginar Vender + Relatórios (Colaborador)
+## Melhorar UX da aba Listas (Colaborador)
 
-Escopo restrito: **só** o modal "Venda na Portaria" (`ColaboradorVenderModal.tsx`) + aba "Vender" (`ColaboradorVenderTab.tsx`) + aba "Relatórios" (`ColaboradorRelatoriosTab.tsx`). Nada fora disso muda.
+### O que muda
+Hoje cada convidado aparece num card com um botão "Entrada" à direita. Vamos transformar o card inteiro (com o nome) em um item clicável que abre um modal com os detalhes do convidado e o botão de check-in dentro do modal.
 
-## 1. Nova paleta — claro com acentos coloridos
+### 1. Card do convidado (lista)
+- Remover o botão "Entrada" do card.
+- O card inteiro vira clicável (`button` acessível) → abre o modal.
+- Mantém: nome, badge de status (Pendente / Entrou) e horário do check-in quando já entrou.
+- Convidados que já fizeram check-in continuam clicáveis (para conferir o horário), mas o modal mostra estado "Já entrou" em vez do botão de confirmar.
 
-- Fundo geral: branco / `slate-50`
-- Cards e superfícies: branco com bordas suaves `slate-200` e sombra leve
-- Texto principal: `slate-900`, secundário: `slate-500`
-- Acentos pastéis preservando a leitura atual:
-  - Entraram → verde pastel (`emerald-50` bg / `emerald-600` texto)
-  - Aguardando → âmbar pastel (`amber-50` / `amber-600`)
-  - Total → roxo pastel (`violet-50` / `violet-600`)
-  - CTA "Nova Venda" → verde sólido `emerald-600` (mantém destaque)
-  - Vendas / Total R$ → verde pastel
-- "Últimas vendas" deixa de ser bloco escuro: vira card branco com bordas e itens em linha.
+### 2. Aviso fixo antes da lista
+Logo acima da busca/lista, adicionar um bloco de atenção em tom âmbar com ícone de alerta:
 
-## 2. Modal Venda na Portaria — UX
+> **Como confirmar o nome na lista**  
+> Peça o nome completo ao convidado, localize na lista abaixo, toque no nome para abrir os detalhes e confirme o check-in. Confira sempre o nome antes de liberar a entrada.
 
-**Resumo fixo no topo (sticky)** em ambos os passos:
+### 3. Modal de detalhes do convidado
+- Abre ao clicar no card. Fecha clicando no X, clicando fora ou com ESC (comportamento padrão do Dialog do shadcn).
+- Conteúdo:
+  - Nome do convidado (destaque)
+  - Status atual (Pendente / Entrou)
+  - Lista a que pertence (nome da lista)
+  - "Inscrito em": data/hora do `created_at`
+  - "Origem": "Inscrição pública" (added_by=public) ou "Adicionado pelo produtor" (added_by=producer)
+  - Se já entrou: "Check-in em": data/hora do `checked_in_at`
+- Rodapé:
+  - Pendente → botão grande **Confirmar check-in** (verde, full-width)
+  - Já entrou → mensagem "Convidado já liberado" + botão "Fechar"
 
-```text
-┌──────────────────────────────────┐
-│ Ingresso Antecipado   Qtd: 2     │
-│                       R$ 60,00   │
-└──────────────────────────────────┘
-```
+### 4. Observação sobre telefone/email
+A tabela `guest_list_entries` hoje guarda apenas `name`, `added_by`, `status`, `checked_in_at`, `created_at`. Não há telefone/email coletados. O modal vai exibir só o que existe (nome, origem, data de inscrição, status). Não vou alterar o schema neste passo — se quiser passar a coletar telefone/email no formulário público, abrimos isso depois como tarefa separada.
 
-**Passo 1 — Lote + Quantidade (mesma tela):**
-- Lista de lotes em cards selecionáveis (radio visual)
-- Bloco de Quantidade:
-  - Botão `−` e `+` grandes (h-14 w-14, ícones 24px)
-  - Input central grande (text-2xl, h-14)
-  - **Atalhos rápidos:** chips `1` `2` `5` `10` abaixo do input
-  - Validação: respeita `disponíveis` do lote
-- Botão "Continuar" full-width, alto (h-12)
+### Arquivos afetados
+- `src/components/colaborador/ColaboradorListaDetalhe.tsx` — remove botão inline, adiciona aviso, abre modal ao clicar no nome, move ação de check-in para dentro do modal.
+- (sem mudanças em hooks, edge functions ou banco)
 
-**Passo 2 — Pagamento:**
-- Resumo fixo continua visível
-- Grid 2x2 de meios de pagamento com ícones grandes e fundo claro, borda destacada no selecionado
-- Botões "Voltar" + "Confirmar Venda" em rodapé
-
-**Feedback de sucesso:**
-- Ao confirmar: substitui conteúdo do modal por tela de sucesso (check verde grande + "Venda registrada!" + valor + meio de pagamento) por ~1,5s
-- Toast sonner `toast.success` complementar
-- Depois fecha o modal e atualiza KPIs
-
-## 3. Aba Relatórios
-
-- Mesma paleta clara
-- KPI cards brancos com ícone colorido em círculo pastel
-- Breakdowns (por lote / método / operador) viram tabelas/listas em cards brancos com divisórias `slate-100`
-- Badges de método de pagamento em cores pastéis (PIX verde, Dinheiro âmbar, Débito azul, Crédito violeta)
-
-## Arquivos a editar
-
-- `src/components/colaborador/ColaboradorVenderModal.tsx` — refactor completo do JSX e cores, adicionar resumo sticky, atalhos, tela de sucesso
-- `src/components/colaborador/ColaboradorVenderTab.tsx` — repaint dos cards/KPIs/CTA
-- `src/components/colaborador/ColaboradorRelatoriosTab.tsx` — repaint dos cards/listas/badges
-
-## Detalhes técnicos
-
-- Cores aplicadas via classes Tailwind diretas (`bg-white`, `bg-emerald-50`, `text-emerald-700`, `border-slate-200`) — exceção pontual ao design system porque essas duas abas terão visual próprio claro, sem afetar o resto do app (que segue dark).
-- Sem mudanças em hooks, edge functions ou banco.
-- Mantém comportamento atual de inventário e validação.
+### Fora do escopo
+- Não muda o fluxo de validação no backend (`collaborator-validate-guest-entry`).
+- Não altera schema do banco.
+- Não muda outras abas (Check-in QR, Vender, Relatórios).

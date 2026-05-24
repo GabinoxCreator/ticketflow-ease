@@ -13,6 +13,8 @@ interface GuestList {
     name: string;
     status: string;
     checked_in_at: string | null;
+    created_at: string;
+    added_by: string;
   }[];
 }
 
