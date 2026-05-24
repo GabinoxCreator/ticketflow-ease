@@ -140,6 +140,7 @@ serve(async (req) => {
 
     if (!isValidPassword) {
       console.log('Invalid password');
+      await consumeFailure();
       return new Response(
         JSON.stringify({ error: 'Usuário ou senha inválidos' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
