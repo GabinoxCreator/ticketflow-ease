@@ -19,7 +19,20 @@ interface PixRequest {
 }
 
 const PIX_EXPIRATION_MINUTES = 30;
-const SERVICE_FEE_RATE = 0.10;
+const DEFAULT_FEE_PERCENT = 10;
+
+async function resolveFee(client: any, eventId: string, method: 'pix' | 'card') {
+  const { data } = await client
+    .from('event_fee_overrides')
+    .select('fee_percent, fee_fixed')
+    .eq('event_id', eventId)
+    .eq('payment_method', method)
+    .maybeSingle();
+  return {
+    percent: data ? Number(data.fee_percent) : DEFAULT_FEE_PERCENT,
+    fixed: data ? Number(data.fee_fixed) : 0,
+  };
+}
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -146,7 +159,8 @@ serve(async (req) => {
         appliedCouponId = coupon.id;
       }
     }
-    const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+    const fee = await resolveFee(supabaseClient, eventId, 'pix');
+    const serviceFee = Math.max(0, Math.round((totalAmount * fee.percent / 100 + fee.fixed) * 100) / 100);
     const finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
 
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60 * 1000).toISOString();

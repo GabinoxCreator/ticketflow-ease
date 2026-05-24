@@ -17,6 +17,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { validateCPF, unformatCPF } from '@/utils/cpfValidator';
+import { useEventFees, computeFee } from '@/hooks/useEventFees';
 
 type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
@@ -73,8 +74,9 @@ export function CheckoutModal({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [pixData, setPixData] = useState<{ code: string; expiresAt: Date } | null>(null);
 
-  const SERVICE_FEE_RATE = 0.10;
-  const serviceFee = Math.round(totalAmount * SERVICE_FEE_RATE * 100) / 100;
+  const { fees } = useEventFees(eventId);
+  // O finalAmount calculado aqui é usado no fluxo de Cartão; PIX recalcula no backend.
+  const serviceFee = computeFee(totalAmount, fees.cardPercent, fees.cardFixed);
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
   useEffect(() => {
