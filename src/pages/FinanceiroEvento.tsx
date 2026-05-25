@@ -96,10 +96,20 @@ export default function FinanceiroEvento() {
                     <span className="text-muted-foreground">Receita Bruta</span>
                     <span className="font-medium">{formatBRL(event.gross)}</span>
                   </div>
+                  {event.grossManual > 0 && (
+                    <>
+                      <div className="flex justify-between pl-4 text-xs text-muted-foreground">
+                        <span>↳ Online</span>
+                        <span>{formatBRL(event.grossOnline)}</span>
+                      </div>
+                      <div className="flex justify-between pl-4 text-xs text-muted-foreground">
+                        <span>↳ Manual</span>
+                        <span>{formatBRL(event.grossManual)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Taxa Plataforma ({finance?.feeConfig.percent || 10}%)
-                    </span>
+                    <span className="text-muted-foreground">Taxa Plataforma</span>
                     <span className="font-medium text-destructive">- {formatBRL(event.fee)}</span>
                   </div>
                   <div className="flex justify-between border-t border-border pt-3">
