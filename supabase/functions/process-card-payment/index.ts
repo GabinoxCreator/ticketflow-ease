@@ -320,8 +320,9 @@ serve(async (req) => {
     } else if (mpPayment.status === 'in_process' || mpPayment.status === 'pending') {
       await supabaseClient
         .from('orders')
-        .update({ mp_payment_id: String(mpPayment.id) })
+        .update({ mp_payment_id: String(mpPayment.id), mp_status_detail: mpPayment.status_detail || null })
         .eq('id', order.id);
+
 
       reservedSoFar.length = 0;
 
