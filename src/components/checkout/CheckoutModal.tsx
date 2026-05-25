@@ -106,6 +106,8 @@ export function CheckoutModal({
   const startPix = useCallback(async (cpfDigits: string) => {
     setIsProcessing(true);
     try {
+      const deviceId = (window as any).MP_DEVICE_SESSION_ID || null;
+
       const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
         body: {
           eventId,
@@ -115,6 +117,7 @@ export function CheckoutModal({
           customerCPF: cpfDigits,
           customerPhone: customerData.phone,
           couponId: appliedCoupon?.couponId,
+          deviceId,
         },
       });
       if (error) throw error;

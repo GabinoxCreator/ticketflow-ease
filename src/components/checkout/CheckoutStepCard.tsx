@@ -219,6 +219,8 @@ export function CheckoutStepCard({
       });
       if (!tokenResult?.id) throw new Error('Erro ao tokenizar cartão');
 
+      const deviceId = (window as any).MP_DEVICE_SESSION_ID || null;
+
       const { data, error } = await supabase.functions.invoke('process-card-payment', {
         body: {
           eventId,
@@ -232,6 +234,7 @@ export function CheckoutStepCard({
           issuerId,
           installments: parseInt(installments),
           couponId,
+          deviceId,
         },
       });
 
