@@ -118,6 +118,34 @@ export default function Financeiro() {
                 </Card>
               </div>
 
+              {/* Composição da Receita Líquida (Online vs Manual) */}
+              {!financeLoading && finance && finance.totals.grossManual > 0 && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Receita Online</div>
+                      <div className="text-xl font-bold mt-1 break-words">
+                        {formatBRL(finance.totals.netOnline)}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Bruto {formatBRL(finance.totals.grossOnline)} · transações via Mercado Pago
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Receita Manual</div>
+                      <div className="text-xl font-bold mt-1 break-words">
+                        {formatBRL(finance.totals.netManual)}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Bruto {formatBRL(finance.totals.grossManual)} · vendas registradas pelo produtor
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
               {/* Tabs */}
               <Tabs defaultValue="por-evento" className="w-full">
                 <TabsList className="grid grid-cols-2 w-full sm:w-auto">
