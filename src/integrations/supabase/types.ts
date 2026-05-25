@@ -826,6 +826,7 @@ export type Database = {
         Row: {
           coupon_id: string | null
           created_at: string
+          customer_cpf: string | null
           customer_email: string
           customer_name: string
           customer_phone: string | null
@@ -833,8 +834,13 @@ export type Database = {
           event_id: string
           expires_at: string | null
           id: string
+          manual_fee_applied: boolean
+          manual_payment_method: string | null
+          manual_payment_note: string | null
+          manual_sold_by: string | null
           mp_payment_id: string | null
           payment_method: string | null
+          sale_origin: string
           service_fee_amount: number
           status: string
           total_amount: number
@@ -844,6 +850,7 @@ export type Database = {
         Insert: {
           coupon_id?: string | null
           created_at?: string
+          customer_cpf?: string | null
           customer_email: string
           customer_name: string
           customer_phone?: string | null
@@ -851,8 +858,13 @@ export type Database = {
           event_id: string
           expires_at?: string | null
           id?: string
+          manual_fee_applied?: boolean
+          manual_payment_method?: string | null
+          manual_payment_note?: string | null
+          manual_sold_by?: string | null
           mp_payment_id?: string | null
           payment_method?: string | null
+          sale_origin?: string
           service_fee_amount?: number
           status?: string
           total_amount?: number
@@ -862,6 +874,7 @@ export type Database = {
         Update: {
           coupon_id?: string | null
           created_at?: string
+          customer_cpf?: string | null
           customer_email?: string
           customer_name?: string
           customer_phone?: string | null
@@ -869,8 +882,13 @@ export type Database = {
           event_id?: string
           expires_at?: string | null
           id?: string
+          manual_fee_applied?: boolean
+          manual_payment_method?: string | null
+          manual_payment_note?: string | null
+          manual_sold_by?: string | null
           mp_payment_id?: string | null
           payment_method?: string | null
+          sale_origin?: string
           service_fee_amount?: number
           status?: string
           total_amount?: number
@@ -1408,6 +1426,10 @@ export type Database = {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
       }
+      cancel_manual_order: {
+        Args: { _actor: string; _order_id: string; _reason: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           _block_seconds: number
@@ -1460,6 +1482,15 @@ export type Database = {
       is_producer_member: {
         Args: { _producer_profile_id: string; _user_id: string }
         Returns: boolean
+      }
+      lookup_customer_by_cpf: {
+        Args: { _cpf: string; _event_id: string }
+        Returns: {
+          email: string
+          name: string
+          source: string
+          whatsapp: string
+        }[]
       }
       release_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
