@@ -5,7 +5,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-meli-session-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface CartItem { lotId: string; quantity: number; }
@@ -22,7 +22,9 @@ interface CardPaymentRequest {
   issuerId: string;
   installments: number;
   couponId?: string;
+  deviceId?: string;
 }
+
 
 const CARD_EXPIRATION_MINUTES = 20;
 const DEFAULT_FEE_PERCENT = 10;
