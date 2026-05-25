@@ -16,7 +16,7 @@ export interface Order {
   payment_method: string | null;
   created_at: string;
   updated_at: string;
-  sale_origin?: 'online' | 'manual';
+  sale_origin?: 'online' | 'manual' | 'courtesy';
   manual_payment_method?: string | null;
   manual_payment_note?: string | null;
   manual_sold_by?: string | null;
