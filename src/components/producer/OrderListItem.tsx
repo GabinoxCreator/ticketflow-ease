@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Phone, XCircle, Receipt } from 'lucide-react';
+import { Mail, Phone, XCircle, Receipt, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Order } from '@/hooks/useEventOrders';
