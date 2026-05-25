@@ -292,8 +292,9 @@ serve(async (req) => {
       // Persist mp_payment_id BEFORE reconciliation so RPC can find it
       await supabaseClient
         .from('orders')
-        .update({ mp_payment_id: String(mpPayment.id) })
+        .update({ mp_payment_id: String(mpPayment.id), mp_status_detail: mpPayment.status_detail || null })
         .eq('id', order.id);
+
 
       // Centralised, transactional reconciliation
       let reconciled = false;
