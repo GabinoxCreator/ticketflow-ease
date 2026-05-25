@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Phone, XCircle, Receipt } from 'lucide-react';
+import { Mail, Phone, XCircle, Receipt, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Order } from '@/hooks/useEventOrders';
@@ -25,6 +25,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 export function OrderListItem({ order }: OrderListItemProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const isManual = order.sale_origin === 'manual';
+  const isCourtesy = order.sale_origin === 'courtesy';
   const canCancel = isManual && (order.status === 'paid' || order.status === 'completed');
 
   const getStatusBadge = () => {
@@ -62,6 +63,11 @@ export function OrderListItem({ order }: OrderListItemProps) {
           {isManual && (
             <Badge className="bg-primary/15 text-primary border border-primary/30 hover:bg-primary/20">
               <Receipt className="h-3 w-3 mr-1" /> Manual
+            </Badge>
+          )}
+          {isCourtesy && (
+            <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">
+              <Gift className="h-3 w-3 mr-1" /> Cortesia
             </Badge>
           )}
         </div>

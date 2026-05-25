@@ -91,7 +91,9 @@ export function EventFinanceiroTab({ eventId }: Props) {
   });
 
   const stats = useMemo(() => {
-    const allOrders = data?.orders || [];
+    const allOrdersRaw = data?.orders || [];
+    // Cortesias (sale_origin='courtesy') NÃO entram em receita nem em estatísticas financeiras
+    const allOrders = allOrdersRaw.filter(o => o.sale_origin !== 'courtesy');
     const doorSales = data?.doorSales || [];
 
     // Partition: online (null/'online') vs manual

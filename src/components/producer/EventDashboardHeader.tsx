@@ -6,6 +6,7 @@ import { Event, useEvents } from '@/hooks/useEvents';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ManualSaleButton } from '@/components/producer/ManualSaleButton';
+import { CourtesyTicketsButton } from '@/components/producer/admin/CourtesyTicketsButton';
 
 interface EventDashboardHeaderProps {
   event: Event;
@@ -100,6 +101,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
             Ver Página
           </Button>
           <ManualSaleButton event={event} label="+ Venda Manual" />
+          <CourtesyTicketsButton event={event} />
         </div>
       </div>
 
