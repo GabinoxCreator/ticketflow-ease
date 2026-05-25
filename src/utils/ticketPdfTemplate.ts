@@ -275,18 +275,14 @@ export async function renderTicketPage(pdf: jsPDF, data: TicketPdfData) {
   y = frameY + frameSize + 6;
 
   /* -------------------- TICKET CODE ------------------------------- */
-  const fullCode = data.ticket.ticket_code;
+  const shortCode = data.ticket.ticket_code
+    .replace(/-/g, '')
+    .slice(0, 8)
+    .toUpperCase();
   pdf.setFont('courier', 'bold');
   pdf.setTextColor(...COLORS.textDark);
-  // Auto-fit: shrink if too wide for content area
-  let codeFont = 17;
-  pdf.setFontSize(codeFont);
-  let codeWithSpace = spaced(fullCode, '  ');
-  while (pdf.getTextWidth(codeWithSpace) > contentW - 4 && codeFont > 9) {
-    codeFont -= 1;
-    pdf.setFontSize(codeFont);
-  }
-  pdf.text(codeWithSpace, cx, y, { align: 'center' });
+  pdf.setFontSize(17);
+  pdf.text(spaced(shortCode, '  '), cx, y, { align: 'center' });
   pdf.setFont('helvetica', 'normal');
   y += 3.5;
   pdf.setFontSize(7);
@@ -307,8 +303,8 @@ export async function renderTicketPage(pdf: jsPDF, data: TicketPdfData) {
   pdf.roundedRect(gridX, gridY, gridW, gridH, 3, 3, 'F');
 
   const eventDate = new Date(data.event.date + 'T12:00:00');
-  const dateShort = toTitleCase(
-    format(eventDate, "EEE, dd/MM/yyyy", { locale: ptBR })
+  const dateLong = toTitleCase(
+    format(eventDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })
   );
   const timeStr = (data.event.time || '').slice(0, 5);
   const issued = data.issuedAt ?? new Date();
@@ -316,14 +312,14 @@ export async function renderTicketPage(pdf: jsPDF, data: TicketPdfData) {
   const issuedTime = format(issued, "HH:mm", { locale: ptBR });
 
   const cells: Array<{ label: string; v1: string; v2?: string }> = [
-    { label: 'DATA E HORÁRIO', v1: dateShort, v2: timeStr ? `Às ${timeStr}` : '' },
+    { label: 'DATA E HORÁRIO', v1: dateLong, v2: timeStr ? `às ${timeStr}` : '' },
     {
       label: 'LOCAL',
       v1: data.event.venue,
       v2: `${data.event.city}/${data.event.state}`,
     },
     { label: 'PORTADOR', v1: data.ticket.holder_name || '—' },
-    { label: 'EMITIDO EM', v1: issuedStr, v2: `Às ${issuedTime}` },
+    { label: 'EMITIDO EM', v1: issuedStr, v2: `às ${issuedTime}` },
   ];
 
   cells.forEach((cell, i) => {
