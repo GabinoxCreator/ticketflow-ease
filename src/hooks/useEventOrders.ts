@@ -9,12 +9,18 @@ export interface Order {
   customer_name: string;
   customer_email: string;
   customer_phone: string | null;
+  customer_cpf?: string | null;
   total_amount: number;
   service_fee_amount?: number;
   status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'failed' | 'expired' | 'charged_back';
   payment_method: string | null;
   created_at: string;
   updated_at: string;
+  sale_origin?: 'online' | 'manual';
+  manual_payment_method?: string | null;
+  manual_payment_note?: string | null;
+  manual_sold_by?: string | null;
+  manual_fee_applied?: boolean;
 }
 
 export function useEventOrders(eventId: string | undefined) {
