@@ -86,9 +86,16 @@ serve(async (req) => {
 
     const body = await req.json() as CardPaymentRequest;
     const { eventId, items, customerName, customerEmail, customerPhone, customerCPF,
-            cardToken, paymentMethodId, issuerId, installments, couponId } = body;
+            cardToken, paymentMethodId, issuerId, installments, couponId, deviceId } = body;
 
-    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, paymentMethodId, userId });
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-real-ip') ||
+      null;
+
+    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, paymentMethodId, userId, hasDeviceId: !!deviceId, hasIp: !!clientIp });
+
 
     // CPF gate BEFORE any reservation
     const cleanCPF = unformatCPF(customerCPF);
