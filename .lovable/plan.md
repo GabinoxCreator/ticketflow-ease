@@ -1,72 +1,51 @@
-## Objetivo
+# Redesign do PDF do Ingresso
 
-Adicionar um botão visível só para o admin (`userRole === 'admin'`) no dashboard do evento, que permite gerar N ingressos cortesia de um lote disponível, baixar os PDFs e contabilizar como "ingressos saídos" sem afetar a receita.
+## Resumo
 
-## Modelo de dados
+Substituir o layout dos dois geradores de PDF (`manualSaleTicketsPdf.ts` e `ticketPdf.ts`) pelo novo design — QR grande (~78mm), logo FestPag, badge de lote com gradiente, código monoespaçado, grid de info, card de orientações e footer discreto. Unificar tudo num template compartilhado para evitar drift.
 
-Usar o campo existente `orders.sale_origin` com um novo valor: `'courtesy'` (hoje só `'online'` e `'manual'`). Sem migração — é um campo `text`.
+## Arquivos
 
-- Order: `sale_origin='courtesy'`, `payment_method='courtesy'`, `status='paid'`, `total_amount=0`, `service_fee_amount=0`, `customer_*` preenchidos com dados informados no modal.
-- Tickets: criados com `status='valid'` (não passam por `pending`).
-- Estoque: `event_lots.sold_quantity` incrementado via `confirm_lot_sale` (após `reserve_lot_quantity`), igual ao fluxo pago — assim os ingressos aparecem em "Vendidos" e descontam da disponibilidade.
+**Novo:**
+- `src/utils/ticketPdfTemplate.ts` — função base `renderTicketPage(pdf, data)` com todo o desenho. Recebe dados normalizados (event, lot, ticket, holder, issuedAt, status opcional).
 
-## Exclusão da receita
+**Editados:**
+- `src/utils/manualSaleTicketsPdf.ts` — vira shim fino que normaliza `SimpleTicketForPdf/Event` e delega ao template. Mantém assinatura pública `generateManualSaleTicketsPDF(tickets, event)`.
+- `src/utils/ticketPdf.ts` — vira shim fino que normaliza `UserTicket` e delega ao template. Mantém `generateTicketPDF(ticket)`. Stamp `UTILIZADO`/`CANCELADO` sobre o QR é preservado (passado como flag opcional ao template).
 
-Atualizar as três queries de finanças/receita para ignorar `sale_origin='courtesy'`:
+**Inalterados:** call sites em `SuccessScreen.tsx`, `CourtesyTicketsButton.tsx`, `MeusIngressos.tsx`.
 
-- `src/hooks/useProducerFinance.ts` (partição online/manual)
-- `src/components/producer/tabs/EventFinanceiroTab.tsx`
-- Qualquer agregação de `total_amount` em `useEventStats` que conte cortesia como receita (auditar e filtrar)
+## Implementação do template
 
-Cortesias continuam aparecendo em **Pedidos** e **Participantes** com badge "Cortesia", e contam em `sold_quantity` do lote e em "Ingressos Vendidos" do dashboard.
+Construído com **jsPDF puro** (não html2canvas — a stack atual já é jsPDF e está estável). O HTML enviado serve como referência visual; cada bloco é traduzido para `pdf.rect/text/addImage`.
 
-## Edge Function nova
+**Ordem de desenho por página A4** (margens 12/14/8/14 mm):
 
-`supabase/functions/admin-generate-courtesy-tickets/index.ts` (verify_jwt=true, validação extra `has_role(uid,'admin')` server-side — não confiar no frontend).
+1. **Logo** — `addImage` de `src/assets/logo-festpag.png`, largura 44mm, centralizado. Pré-carrega 1x e cacheia em variável de módulo.
+2. **Tagline** "INGRESSO DIGITAL" — 7.5pt, letter-spacing simulado, cor `#8a8a8a`.
+3. **Linha sutil** `#ececec` separando header.
+4. **Nome do evento** — 20pt, cor `#2D1B69`, `drawBold`, `splitTextToSize` para wrap.
+5. **Badge do lote** — pill arredondado com gradiente (~60 faixas verticais interpolando `#4D7CFF → #9B5BFF → #FF5BC8`), texto branco 9.5pt.
+6. **QR Code** — 78mm × 78mm centralizado, frame branco com borda `#ececec`. `errorCorrectionLevel: 'H'`, `width: 600`.
+7. **Stamp opcional** — se `status` for `used`/`cancelled`, overlay translúcido sobre o QR com o label.
+8. **Código do ingresso** — `ticket_code` completo, monoespaçado (`courier`), 17pt, espaçado char-a-char para simular letter-spacing 5px. Label "CÓDIGO DO INGRESSO" 7pt abaixo.
+9. **Info grid 2×2** em card `#fafafa` arredondado — Data/Horário · Local · Portador · Emitido em.
+10. **Card de orientações** — `roundedRect` com borda tracejada `#d0c8e8`, fundo `#faf7ff`. Título 8.5pt `#6B3FCF`. 4 bullets fixos (círculos lilás 1.6mm).
+11. **Footer** — linha `#ececec`, "FestPag · festpag.com.br" à esquerda e "Plataforma de eventos" à direita.
 
-Input:
-```
-{ eventId, lotId, quantity, holderName, holderEmail, holderPhone? }
-```
+Quebra de página: `pdf.addPage()` entre ingressos (padrão já existente).
 
-Fluxo:
-1. Validar JWT + checar `has_role(user, 'admin')`.
-2. Validar evento e lote (ativo, pertence ao evento).
-3. `reserve_lot_quantity` → se ok, criar order cortesia → inserir N tickets `valid` → `confirm_lot_sale`.
-4. Em qualquer erro: `release_lot_quantity` e rollback da order.
-5. Retornar `{ orderId, tickets: [{id, lotName, holderName, qrPayload, ...}] }` com os dados que o `ticketPdf.ts` já consome.
+## Decisões
 
-## Frontend
+- **Sem `INGRESSO DIGITAL · VENDA MANUAL`** em lugar nenhum — substituído pela tagline neutra "INGRESSO DIGITAL". PDF unificado para online, manual e cortesia.
+- **Stamp UTILIZADO/CANCELADO** preservado em `ticketPdf.ts` (Meus Ingressos). Cortesia e venda manual sempre sem stamp.
+- **Logo:** usa `src/assets/logo-festpag.png` (já existe), convertido para base64 via `fetch + FileReader` e cacheado.
+- **Código completo** em vez do `slice(0, 8)` atual — UUID quebra em 2 linhas se necessário.
+- **Gradiente:** simulado por faixas verticais (técnica padrão jsPDF).
 
-**Componente novo**: `src/components/producer/admin/CourtesyTicketsButton.tsx` + `CourtesyTicketsModal.tsx`.
+## Validação
 
-- Renderizado em `EventDashboardHeader.tsx` (linha de ações ao lado de "Editar"/"Despublicar").
-- Visibilidade: `const { userRole } = useAuth(); if (userRole !== 'admin') return null;`
-- Modal:
-  - Select de lotes ativos do evento (label: "Pista — 23 disponíveis"), bloqueia lotes esgotados.
-  - Input numérico de quantidade (1 a min(50, disponível)).
-  - Nome do titular (default "Cortesia"), e-mail (default e-mail do admin logado), telefone opcional.
-  - Botão "Gerar e baixar PDF".
-- Ao sucesso: chama `generateTicketsPdf(tickets)` (reaproveita `src/utils/ticketPdf.ts` ou o multi-ticket usado pela venda manual) → dispara download → toast → invalida queries de orders/lots/stats.
-
-## Estilo
-
-Botão com tom admin (laranja/vermelho, alinhado a `mem://style/admin-panel-visual-distinction`) para deixar visualmente claro que é uma ação privilegiada, separada das ações normais do produtor.
-
-## Auditoria
-
-Inserir em `audit_logs` ação `courtesy_tickets_generated` com `{ event_id, lot_id, quantity, generated_by }` na própria edge function.
-
-## Detalhes técnicos
-
-- Não criar enum novo para `sale_origin` — manter `text` para não exigir migration agora.
-- `payment_method='courtesy'` é novo valor; verificar se algum CHECK constraint na tabela `orders` restringe (não há trigger/constraint visível no schema atual, mas confirmar antes de implementar).
-- PDF: usar o utilitário já existente que gera múltiplos ingressos numa venda manual (`src/utils/manualSaleTicketsPdf.ts`) para manter visual consistente.
-- Cortesias devem aparecer em `EventParticipantsTab` e `EventCheckinTab` normalmente (são tickets `valid`).
-- Em `EventOrdersTab`, mostrar badge "Cortesia" quando `sale_origin === 'courtesy'` (similar ao badge "Manual" hoje).
-
-## Fora do escopo
-
-- Cancelamento de cortesia (reaproveitar futuramente `cancel_manual_order` adaptado).
-- Reenvio por e-mail automático (admin baixa PDF manualmente).
-- UI para admin ver histórico separado de cortesias (filtro em Orders já basta).
+- Gerar cortesia (1, 3, 5 ingressos) — confirmar 1 página por ingresso.
+- Gerar via "Meus Ingressos" (valid, used, cancelled) — confirmar stamp só nos dois últimos.
+- Nome de evento de 60+ chars — confirmar wrap sem quebrar grid.
+- QR lido com app padrão de celular, da tela e impresso.
