@@ -65,6 +65,11 @@ export function OrderListItem({ order }: OrderListItemProps) {
               <Receipt className="h-3 w-3 mr-1" /> Manual
             </Badge>
           )}
+          {isCourtesy && (
+            <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">
+              <Gift className="h-3 w-3 mr-1" /> Cortesia
+            </Badge>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
