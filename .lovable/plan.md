@@ -1,76 +1,102 @@
-## Entrega B — Separação Online/Manual + Fix de Taxa Real
+# Fase 2 — Enriquecer `process-card-payment` com antifraude MP (versão final)
 
-### Bug confirmado na baseline
-`/produtor/financeiro/{evento}` mostra "Taxa Plataforma (10%) − R$ 1.034,00" sobre R$ 10.340 em PIX. Mas o PIX desse evento está configurado a **0%** em `event_fee_overrides`. Causa: `useProducerFinance.ts` recalcula `fee = gross * 10%` em vez de usar o `service_fee_amount` real já salvo em cada `order` (que é a fonte de verdade no momento da venda e já respeita overrides + `apply_fee` manual).
+URL do webhook: `${SUPABASE_URL}/functions/v1/mercadopago-webhook` (confirmada no painel).
 
-Esse fix entra junto da Entrega B porque é a mesma refatoração da soma de receita.
+## Alterações em `supabase/functions/process-card-payment/index.ts`
 
----
+### 1. CORS
+Adicionar `x-meli-session-id` em `Access-Control-Allow-Headers`.
 
-### 1. `src/hooks/useProducerFinance.ts` (fix + particionamento)
+### 2. Capturar IP do cliente
+```ts
+const clientIp =
+  req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+  req.headers.get('cf-connecting-ip') ||
+  req.headers.get('x-real-ip') ||
+  null;
+```
 
-**Mudança 1 — usar fee real do banco:**
-- Trocar o recálculo flat por soma direta de `service_fee_amount`:
-  - `gross += o.total_amount`
-  - `fee += o.service_fee_amount` (em vez de `gross * percent/100`)
-  - `net = gross - fee`
-- Remover dependência do `feeConfig.percent` no cálculo (mantém `feeConfig` exposto só pra exibição informativa).
+### 3. Aceitar `deviceId` no body
+`CardPaymentRequest` recebe `deviceId?: string`.
 
-**Mudança 2 — particionar por `sale_origin`:**
-- Adicionar `sale_origin` ao SELECT de orders.
-- Por evento, produzir 4 buckets adicionais:
-  - `grossOnline`, `feeOnline`, `netOnline`
-  - `grossManual`, `feeManual`, `netManual`
-- `gross/fee/net` totais permanecem = soma dos dois (zero regressão na soma).
-- Vendas canceladas continuam fora (filtro `status IN ('paid','completed')` mantido).
+### 4. Split de nome e telefone (com tratamento de DDI 55)
+```ts
+const nameParts = customerName.trim().split(/\s+/);
+const firstName = nameParts[0] || 'Cliente';
+const lastName = nameParts.slice(1).join(' ') || firstName;
 
-### 2. `src/pages/FinanceiroEvento.tsx`
+const phoneDigits = (customerPhone || '').replace(/\D/g, '');
+const localDigits = phoneDigits.length >= 12 && phoneDigits.startsWith('55')
+  ? phoneDigits.slice(2)
+  : phoneDigits;
+const areaCode = localDigits.length >= 10 ? localDigits.slice(0, 2) : '';
+const phoneNumber = localDigits.length >= 10 ? localDigits.slice(2) : '';
+```
 
-- Linha 101: trocar `Taxa Plataforma ({percent}%)` por `Taxa Plataforma` (sem hardcode do percent, já que cada venda pode ter taxa diferente por método/manual).
-- Adicionar quebra colapsável da Receita Bruta:
-  ```
-  Receita Bruta              R$ 10.340,00
-    ↳ Online                 R$ 10.340,00
-    ↳ Manual                 R$ 0,00
-  Taxa Plataforma            − R$ 0,00     (era −R$ 1.034 errado)
-  Receita Líquida            R$ 10.340,00  (era R$ 9.306 errado)
-  ```
+### 5. `mpBody` enriquecido
+```ts
+const mpBody: any = {
+  transaction_amount: Number(finalAmount.toFixed(2)),
+  token: cardToken,
+  description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
+  installments,
+  payment_method_id: paymentMethodId,
+  statement_descriptor: 'FESTPAG',
+  notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`,
+  external_reference: order.id,
+  payer: {
+    email: customerEmail,
+    first_name: firstName,
+    last_name: lastName,
+    identification: { type: 'CPF', number: cleanCPF },
+    ...(areaCode && phoneNumber ? { phone: { area_code: areaCode, number: phoneNumber } } : {}),
+  },
+  additional_info: {
+    ip_address: clientIp,
+    items: lineItems.map(i => ({
+      id: i.lotId,
+      title: i.lotName,
+      description: `${event.title} - ${i.lotName}`,
+      category_id: 'tickets',
+      quantity: i.quantity,
+      unit_price: Number(i.price.toFixed(2)),
+    })),
+    payer: {
+      first_name: firstName,
+      last_name: lastName,
+      registration_date: new Date().toISOString(),
+      ...(areaCode && phoneNumber ? { phone: { area_code: areaCode, number: phoneNumber } } : {}),
+    },
+  },
+};
+if (issuerId) mpBody.issuer_id = parseInt(issuerId);
+```
 
-### 3. `src/pages/Financeiro.tsx`
+### 6. Headers MP com Device ID
+```ts
+const mpHeaders: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${mercadopagoToken}`,
+  'X-Idempotency-Key': `card-${order.id}`,
+};
+if (deviceId) mpHeaders['X-meli-session-id'] = deviceId;
+```
 
-- Adicionar mini-bloco "Composição da Receita Líquida" acima dos 3 cards atuais:
-  - Card pequeno Online + card pequeno Manual.
-- 3 cards principais (Receita Líquida, Já Repassado, Disponível) ficam intocados — só o número agora vai bater com a realidade (PIX 0%).
+### 7. Persistir `mp_status_detail`
+Em todos os `update` de `orders` após resposta MP (approved, in_process/pending, rejected) incluir `mp_status_detail: mpPayment.status_detail || null`.
 
-### 4. `src/components/producer/tabs/EventFinanceiroTab.tsx`
+### 8. Log de debug
+```ts
+logStep('MP request enriched', {
+  hasDeviceId: !!deviceId,
+  hasIp: !!clientIp,
+  hasPhone: !!(areaCode && phoneNumber),
+  hasNotificationUrl: true,
+});
+```
 
-- Adicionar `sale_origin` ao SELECT.
-- Filtrar `grossOnline` para `sale_origin='online' || null` (manual nunca entra em estimativa MP).
-- Novo card "Vendas Manuais" entre "Ingressos" e "Vendas na Portaria":
-  - Breakdown por `manual_payment_method` (PIX, Dinheiro, Cartão Débito/Crédito, Transferência, Outro).
-  - Tooltip (HoverCard + ícone Info) com a redação:
-    > "Vendas registradas manualmente pelo produtor. O FestPag não processa esses pagamentos — apenas registra para emitir ingressos e somar na receita. Diferencia das vendas online (com transação no MP) e de vendas na portaria (não entram na receita)."
-- KPI "Vendas Totais" passa a mostrar `grossOnline + grossManual` com legenda "Online + Manual".
-- Resumo MP / Pagamentos online: usa só `grossOnline` (PIX/Cartão MP fees nunca incidem sobre manual). Já era o comportamento implícito, agora fica explícito com filtro `sale_origin`.
+## Não alterar
+Reserva de lotes, cupom, taxa, criação de tickets, `applyOrderApproved`, fluxo de rejeição/release. Apenas payload, headers e persistência de `mp_status_detail`.
 
-### 5. Smoke test pós-deploy (manual, sem código)
-
-Validar no evento `a8ceede6-...`:
-- [ ] `/produtor/financeiro/{evento}` → "Taxa Plataforma" agora = **R$ 0,00** (PIX 0%), "Receita Líquida" = R$ 10.340,00, "Disponível" = R$ 10.340,00.
-- [ ] `/produtor/financeiro` (lista) → totais Receita Líquida agregada bate; bloco Composição mostra Online R$ 10.340 / Manual R$ 0.
-- [ ] Aba Financeiro do evento → "Vendas Totais" = R$ 10.340 (Online + Manual), card "Vendas Manuais" mostra R$ 0,00, Resumo MP intocado.
-- [ ] Criar 1 venda manual de teste PIX com `apply_fee=true` → entra em `grossManual` e `feeManual`; NÃO entra em PIX online; NÃO entra em estimativa taxa MP.
-- [ ] Cancelar essa venda → some de tudo (status filter já cuida).
-
-### O que NÃO muda
-
-- Schema do banco (nenhuma migration).
-- Edge functions.
-- RLS.
-- Door sales (continua "apenas conferência").
-- Cálculo de payouts (continua sobre `net_amount`).
-- Cards principais do dashboard agregado.
-
-### Riscos
-
-- **Único risco real:** se algum order legado tem `service_fee_amount = NULL`, vai contar como 0 fee. Mitigação: `Number(o.service_fee_amount || 0)` (já é o padrão atual no `EventFinanceiroTab`). Se aparecer evento com fee 0 indevida, ajuste posterior em migration backfill — fora do escopo da B.
+## Após implementar
+Pausa antes da Fase 3. Mostro o arquivo alterado para revisão.

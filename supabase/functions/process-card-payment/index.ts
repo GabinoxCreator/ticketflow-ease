@@ -5,7 +5,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-meli-session-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface CartItem { lotId: string; quantity: number; }
@@ -22,7 +22,9 @@ interface CardPaymentRequest {
   issuerId: string;
   installments: number;
   couponId?: string;
+  deviceId?: string;
 }
+
 
 const CARD_EXPIRATION_MINUTES = 20;
 const DEFAULT_FEE_PERCENT = 10;
@@ -84,9 +86,16 @@ serve(async (req) => {
 
     const body = await req.json() as CardPaymentRequest;
     const { eventId, items, customerName, customerEmail, customerPhone, customerCPF,
-            cardToken, paymentMethodId, issuerId, installments, couponId } = body;
+            cardToken, paymentMethodId, issuerId, installments, couponId, deviceId } = body;
 
-    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, paymentMethodId, userId });
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-real-ip') ||
+      null;
+
+    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, paymentMethodId, userId, hasDeviceId: !!deviceId, hasIp: !!clientIp });
+
 
     // CPF gate BEFORE any reservation
     const cleanCPF = unformatCPF(customerCPF);
@@ -206,36 +215,86 @@ serve(async (req) => {
       throw new Error('Erro ao reservar ingressos');
     }
 
+    // Split name and phone for MP antifraud
+    const nameParts = (customerName || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || 'Cliente';
+    const lastName = nameParts.slice(1).join(' ') || firstName;
+
+    const phoneDigits = (customerPhone || '').replace(/\D/g, '');
+    const localDigits = phoneDigits.length >= 12 && phoneDigits.startsWith('55')
+      ? phoneDigits.slice(2)
+      : phoneDigits;
+    const areaCode = localDigits.length >= 10 ? localDigits.slice(0, 2) : '';
+    const phoneNumber = localDigits.length >= 10 ? localDigits.slice(2) : '';
+    const phoneObj = (areaCode && phoneNumber) ? { area_code: areaCode, number: phoneNumber } : null;
+
     // Process card via MP
     const mpBody: any = {
-      transaction_amount: finalAmount,
+      transaction_amount: Number(finalAmount.toFixed(2)),
       token: cardToken,
       description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
       installments,
       payment_method_id: paymentMethodId,
-      payer: { email: customerEmail, identification: { type: 'CPF', number: cleanCPF } },
+      statement_descriptor: 'FESTPAG',
+      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`,
       external_reference: order.id,
+      payer: {
+        email: customerEmail,
+        first_name: firstName,
+        last_name: lastName,
+        identification: { type: 'CPF', number: cleanCPF },
+        ...(phoneObj ? { phone: phoneObj } : {}),
+      },
+      additional_info: {
+        ip_address: clientIp,
+        items: lineItems.map(i => ({
+          id: i.lotId,
+          title: i.lotName,
+          description: `${event.title} - ${i.lotName}`,
+          category_id: 'tickets',
+          quantity: i.quantity,
+          unit_price: Number(i.price.toFixed(2)),
+        })),
+        payer: {
+          first_name: firstName,
+          last_name: lastName,
+          registration_date: new Date().toISOString(),
+          ...(phoneObj ? { phone: phoneObj } : {}),
+        },
+      },
     };
     if (issuerId) mpBody.issuer_id = parseInt(issuerId);
 
+    const mpHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${mercadopagoToken}`,
+      'X-Idempotency-Key': `card-${order.id}`,
+    };
+    if (deviceId) mpHeaders['X-meli-session-id'] = deviceId;
+
+    logStep('MP request enriched', {
+      hasDeviceId: !!deviceId,
+      hasIp: !!clientIp,
+      hasPhone: !!phoneObj,
+      hasNotificationUrl: true,
+    });
+
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${mercadopagoToken}`,
-        'X-Idempotency-Key': `card-${order.id}`,
-      },
+      headers: mpHeaders,
       body: JSON.stringify(mpBody),
     });
     const mpPayment = await mpResponse.json();
     logStep('MP payment response', { status: mpPayment.status, statusDetail: mpPayment.status_detail, id: mpPayment.id });
 
+
     if (mpPayment.status === 'approved') {
       // Persist mp_payment_id BEFORE reconciliation so RPC can find it
       await supabaseClient
         .from('orders')
-        .update({ mp_payment_id: String(mpPayment.id) })
+        .update({ mp_payment_id: String(mpPayment.id), mp_status_detail: mpPayment.status_detail || null })
         .eq('id', order.id);
+
 
       // Centralised, transactional reconciliation
       let reconciled = false;
@@ -261,8 +320,9 @@ serve(async (req) => {
     } else if (mpPayment.status === 'in_process' || mpPayment.status === 'pending') {
       await supabaseClient
         .from('orders')
-        .update({ mp_payment_id: String(mpPayment.id) })
+        .update({ mp_payment_id: String(mpPayment.id), mp_status_detail: mpPayment.status_detail || null })
         .eq('id', order.id);
+
 
       reservedSoFar.length = 0;
 
@@ -283,8 +343,10 @@ serve(async (req) => {
         .update({
           status: 'failed',
           mp_payment_id: mpPayment.id ? String(mpPayment.id) : null,
+          mp_status_detail: mpPayment.status_detail || null,
           expires_at: new Date().toISOString(),
         })
+
         .eq('id', order.id);
 
       return json({
