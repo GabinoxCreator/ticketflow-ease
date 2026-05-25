@@ -70,11 +70,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims?.sub) {
+    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+    if (userErr || !userData?.user?.id) {
+      logStep('Auth failed', { userErr: userErr?.message });
       return json({ error: 'Unauthorized' }, 401);
     }
-    const userId: string = claimsData.claims.sub;
+    const userId: string = userData.user.id;
 
     supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
