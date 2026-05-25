@@ -143,7 +143,7 @@ serve(async (req) => {
         payment_method: "courtesy",
         status: "pending",
         sale_origin: "courtesy",
-        manual_payment_method: "courtesy",
+        manual_payment_method: null,
         manual_payment_note: body.note ?? "Cortesia gerada pelo admin",
         manual_sold_by: userId,
         manual_fee_applied: false,
