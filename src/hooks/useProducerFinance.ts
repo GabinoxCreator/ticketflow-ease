@@ -117,6 +117,7 @@ export function useProducerFinance() {
           .in('event_id', eventIds)
           .in('status', ['paid', 'completed']);
         (orders || []).forEach((o: any) => {
+          if (o.sale_origin === 'courtesy') return; // cortesias não entram em receita
           const isManual = o.sale_origin === 'manual';
           const map = isManual ? manualByEvent : onlineByEvent;
           const cur = map.get(o.event_id) || { gross: 0, fee: 0 };
