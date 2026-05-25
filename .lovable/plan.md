@@ -1,58 +1,76 @@
-# Entrega A — Integração visual + deploy + smoke test
+## Entrega B — Separação Online/Manual + Fix de Taxa Real
 
-Escopo isolado: integrar UI da venda manual, sem tocar no financeiro. Financeiro fica para Entrega B.
+### Bug confirmado na baseline
+`/produtor/financeiro/{evento}` mostra "Taxa Plataforma (10%) − R$ 1.034,00" sobre R$ 10.340 em PIX. Mas o PIX desse evento está configurado a **0%** em `event_fee_overrides`. Causa: `useProducerFinance.ts` recalcula `fee = gross * 10%` em vez de usar o `service_fee_amount` real já salvo em cada `order` (que é a fonte de verdade no momento da venda e já respeita overrides + `apply_fee` manual).
 
-## 1. Header do evento
+Esse fix entra junto da Entrega B porque é a mesma refatoração da soma de receita.
 
-`src/components/producer/EventDashboardHeader.tsx`
-- Renderizar `<ManualSaleButton eventId={event.id} />` ao lado das ações existentes (Editar / Publicar).
-- Condicional: só mostra se `event.producer_id === user.id` (gate já existe no botão, mas reforçar no header).
+---
 
-## 2. Aba de pedidos (`EventOrdersTab.tsx`)
+### 1. `src/hooks/useProducerFinance.ts` (fix + particionamento)
 
-- Botão "+ Nova venda manual" no topo da aba (mesmo `<ManualSaleButton />`, variante secundária para não duplicar com header — decidir: deixar só no header OU só na aba. **Proposta: só no header**, e na aba apenas badge + cancelar, para evitar duplicação visual).
-- Badge `Manual` (cor accent) ao lado do nome do cliente quando `order.sale_origin === 'manual'`.
-- Botão "Cancelar venda" (ícone + tooltip) visível só quando `sale_origin === 'manual' && status === 'paid'`. Abre `<CancelManualSaleDialog />`.
-- Desabilitar botão durante a mutation (`isPending`).
+**Mudança 1 — usar fee real do banco:**
+- Trocar o recálculo flat por soma direta de `service_fee_amount`:
+  - `gross += o.total_amount`
+  - `fee += o.service_fee_amount` (em vez de `gross * percent/100`)
+  - `net = gross - fee`
+- Remover dependência do `feeConfig.percent` no cálculo (mantém `feeConfig` exposto só pra exibição informativa).
 
-## 3. `OrderListItem.tsx`
+**Mudança 2 — particionar por `sale_origin`:**
+- Adicionar `sale_origin` ao SELECT de orders.
+- Por evento, produzir 4 buckets adicionais:
+  - `grossOnline`, `feeOnline`, `netOnline`
+  - `grossManual`, `feeManual`, `netManual`
+- `gross/fee/net` totais permanecem = soma dos dois (zero regressão na soma).
+- Vendas canceladas continuam fora (filtro `status IN ('paid','completed')` mantido).
 
-- Quando `sale_origin === 'manual'`, exibir bloco extra com:
-  - `manual_payment_method` (Dinheiro/PIX/Cartão/Outro)
-  - `manual_payment_note` (se houver)
-  - `manual_fee_applied` → label "Taxa aplicada: Sim/Não"
-- Manter layout existente para vendas online.
+### 2. `src/pages/FinanceiroEvento.tsx`
 
-## 4. CSV export
+- Linha 101: trocar `Taxa Plataforma ({percent}%)` por `Taxa Plataforma` (sem hardcode do percent, já que cada venda pode ter taxa diferente por método/manual).
+- Adicionar quebra colapsável da Receita Bruta:
+  ```
+  Receita Bruta              R$ 10.340,00
+    ↳ Online                 R$ 10.340,00
+    ↳ Manual                 R$ 0,00
+  Taxa Plataforma            − R$ 0,00     (era −R$ 1.034 errado)
+  Receita Líquida            R$ 10.340,00  (era R$ 9.306 errado)
+  ```
 
-`src/utils/csvExport.ts` (ou equivalente que gera CSV de pedidos)
-- Adicionar colunas: `sale_origin`, `manual_payment_method`, `manual_fee_applied`, `manual_payment_note`.
-- (Sem `cancellation_reason` por enquanto — não capturamos motivo no cancel; manter campo fora do CSV nesta entrega.)
+### 3. `src/pages/Financeiro.tsx`
 
-## 5. Deploy edge functions
+- Adicionar mini-bloco "Composição da Receita Líquida" acima dos 3 cards atuais:
+  - Card pequeno Online + card pequeno Manual.
+- 3 cards principais (Receita Líquida, Já Repassado, Disponível) ficam intocados — só o número agora vai bater com a realidade (PIX 0%).
 
-- `producer-create-manual-sale`
-- `producer-cancel-manual-sale`
+### 4. `src/components/producer/tabs/EventFinanceiroTab.tsx`
 
-## 6. Smoke test (executado e reportado caso a caso)
+- Adicionar `sale_origin` ao SELECT.
+- Filtrar `grossOnline` para `sale_origin='online' || null` (manual nunca entra em estimativa MP).
+- Novo card "Vendas Manuais" entre "Ingressos" e "Vendas na Portaria":
+  - Breakdown por `manual_payment_method` (PIX, Dinheiro, Cartão Débito/Crédito, Transferência, Outro).
+  - Tooltip (HoverCard + ícone Info) com a redação:
+    > "Vendas registradas manualmente pelo produtor. O FestPag não processa esses pagamentos — apenas registra para emitir ingressos e somar na receita. Diferencia das vendas online (com transação no MP) e de vendas na portaria (não entram na receita)."
+- KPI "Vendas Totais" passa a mostrar `grossOnline + grossManual` com legenda "Online + Manual".
+- Resumo MP / Pagamentos online: usa só `grossOnline` (PIX/Cartão MP fees nunca incidem sobre manual). Já era o comportamento implícito, agora fica explícito com filtro `sale_origin`.
 
-Vou rodar como produtor dono do evento atual (`a8ceede6-37d8-4be4-8a60-f4539024f747`) e reportar resultado de cada item da sua lista, incluindo:
-- Verificações via `read_query` no banco para `orders`, `tickets`, `event_lots.sold_quantity`, `event_coupons.uses_count`, `audit_logs`.
-- Teste de gate de colaborador via `curl_edge_functions` com Authorization header de outro usuário → esperar 403.
+### 5. Smoke test pós-deploy (manual, sem código)
 
-## Fora de escopo (Entrega B)
+Validar no evento `a8ceede6-...`:
+- [ ] `/produtor/financeiro/{evento}` → "Taxa Plataforma" agora = **R$ 0,00** (PIX 0%), "Receita Líquida" = R$ 10.340,00, "Disponível" = R$ 10.340,00.
+- [ ] `/produtor/financeiro` (lista) → totais Receita Líquida agregada bate; bloco Composição mostra Online R$ 10.340 / Manual R$ 0.
+- [ ] Aba Financeiro do evento → "Vendas Totais" = R$ 10.340 (Online + Manual), card "Vendas Manuais" mostra R$ 0,00, Resumo MP intocado.
+- [ ] Criar 1 venda manual de teste PIX com `apply_fee=true` → entra em `grossManual` e `feeManual`; NÃO entra em PIX online; NÃO entra em estimativa taxa MP.
+- [ ] Cancelar essa venda → some de tudo (status filter já cuida).
 
-- `useProducerFinance` / cards de receita Online vs Manual.
-- Antes de começar B, envio screenshot do financeiro atual para baseline.
+### O que NÃO muda
 
-## Detalhes técnicos
+- Schema do banco (nenhuma migration).
+- Edge functions.
+- RLS.
+- Door sales (continua "apenas conferência").
+- Cálculo de payouts (continua sobre `net_amount`).
+- Cards principais do dashboard agregado.
 
-- Arquivos a editar: `EventDashboardHeader.tsx`, `EventOrdersTab.tsx`, `OrderListItem.tsx`, `csvExport.ts` (path exato a confirmar ao implementar).
-- Sem mudanças de banco ou edge function nesta entrega — só deploy do que já foi escrito.
-- Gate de visibilidade: `event.producer_id === user.id` (consistente com padrão existente).
+### Riscos
 
-## Ordem de execução
-
-1. Deploy edge functions (independente da UI).
-2. Editar 4 arquivos da UI.
-3. Smoke test + relatório.
+- **Único risco real:** se algum order legado tem `service_fee_amount = NULL`, vai contar como 0 fee. Mitigação: `Number(o.service_fee_amount || 0)` (já é o padrão atual no `EventFinanceiroTab`). Se aparecer evento com fee 0 indevida, ajuste posterior em migration backfill — fora do escopo da B.
