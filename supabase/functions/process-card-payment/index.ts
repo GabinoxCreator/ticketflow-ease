@@ -343,8 +343,10 @@ serve(async (req) => {
         .update({
           status: 'failed',
           mp_payment_id: mpPayment.id ? String(mpPayment.id) : null,
+          mp_status_detail: mpPayment.status_detail || null,
           expires_at: new Date().toISOString(),
         })
+
         .eq('id', order.id);
 
       return json({
