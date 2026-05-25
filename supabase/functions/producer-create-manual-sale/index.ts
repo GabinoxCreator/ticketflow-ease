@@ -215,7 +215,7 @@ serve(async (req) => {
     if (body.apply_fee) {
       const { data: feeRow } = await admin.rpc("get_event_fee", {
         _event_id: body.event_id,
-        _method: "pix",
+        _method: body.payment_method,
       });
       const fee = Array.isArray(feeRow) ? feeRow[0] : feeRow;
       const percent = Number(fee?.fee_percent ?? 10);
