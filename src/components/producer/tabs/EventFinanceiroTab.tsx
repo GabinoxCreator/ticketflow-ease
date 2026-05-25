@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, DollarSign, Banknote, TrendingUp, ShoppingBag, QrCode, CreditCard, Info } from 'lucide-react';
+import { Loader2, DollarSign, Banknote, TrendingUp, ShoppingBag, QrCode, CreditCard, Info, Hand } from 'lucide-react';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
 
@@ -15,8 +16,11 @@ const MP_FEE_CARD_PERCENT = 4.98;
 const METHOD_LABELS: Record<string, string> = {
   pix: 'PIX',
   dinheiro: 'Dinheiro',
+  cartao: 'Cartão',
   cartao_debito: 'Cartão Débito',
   cartao_credito: 'Cartão Crédito',
+  transferencia: 'Transferência',
+  outro: 'Outro',
 };
 
 interface Props {
@@ -29,6 +33,8 @@ interface OrderRow {
   service_fee_amount: number;
   payment_method: string | null;
   status: string;
+  sale_origin: string | null;
+  manual_payment_method: string | null;
 }
 
 interface DoorSaleRow {
@@ -48,7 +54,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
       const [ordersRes, doorRes] = await Promise.all([
         supabase
           .from('orders')
-          .select('id, total_amount, service_fee_amount, payment_method, status')
+          .select('id, total_amount, service_fee_amount, payment_method, status, sale_origin, manual_payment_method')
           .eq('event_id', eventId)
           .in('status', ['paid', 'completed']),
         supabase
@@ -85,17 +91,29 @@ export function EventFinanceiroTab({ eventId }: Props) {
   });
 
   const stats = useMemo(() => {
-    const orders = data?.orders || [];
+    const allOrders = data?.orders || [];
     const doorSales = data?.doorSales || [];
 
-    // Online sales
-    const grossOnline = orders.reduce((s, o) => s + Number(o.total_amount), 0);
-    const platformFee = orders.reduce((s, o) => s + Number(o.service_fee_amount || 0), 0);
-    const repasseProdutor = grossOnline - platformFee;
+    // Partition: online (null/'online') vs manual
+    const onlineOrders = allOrders.filter(o => (o.sale_origin || 'online') === 'online');
+    const manualOrders = allOrders.filter(o => o.sale_origin === 'manual');
 
-    // Method breakdown for online orders
+    // Online sales
+    const grossOnline = onlineOrders.reduce((s, o) => s + Number(o.total_amount), 0);
+    const platformFeeOnline = onlineOrders.reduce((s, o) => s + Number(o.service_fee_amount || 0), 0);
+
+    // Manual sales
+    const grossManual = manualOrders.reduce((s, o) => s + Number(o.total_amount), 0);
+    const platformFeeManual = manualOrders.reduce((s, o) => s + Number(o.service_fee_amount || 0), 0);
+
+    // Combined
+    const grossTotal = grossOnline + grossManual;
+    const platformFee = platformFeeOnline + platformFeeManual;
+    const repasseProdutor = grossTotal - platformFee;
+
+    // Method breakdown for ONLINE orders only
     const byMethodOnline = new Map<string, { qty: number; total: number }>();
-    orders.forEach(o => {
+    onlineOrders.forEach(o => {
       const key = (o.payment_method || 'desconhecido').toLowerCase();
       const k = key.includes('pix') ? 'pix' : (key.includes('card') || key.includes('cart')) ? 'cartao' : key;
       const cur = byMethodOnline.get(k) || { qty: 0, total: 0 };
@@ -106,12 +124,22 @@ export function EventFinanceiroTab({ eventId }: Props) {
     const pixOnline = byMethodOnline.get('pix') || { qty: 0, total: 0 };
     const cardOnline = byMethodOnline.get('cartao') || { qty: 0, total: 0 };
 
+    // MP fees apply ONLY to online sales
     const pixMpFee = +(pixOnline.total * MP_FEE_PIX_PERCENT / 100).toFixed(2);
     const cardMpFee = +(cardOnline.total * MP_FEE_CARD_PERCENT / 100).toFixed(2);
     const totalMpFee = +(pixMpFee + cardMpFee).toFixed(2);
 
     const liquidoAposMp = +(grossOnline - totalMpFee).toFixed(2);
     const lucroLiquido = +(platformFee - totalMpFee).toFixed(2);
+
+    // Method breakdown for MANUAL orders
+    const byMethodManual = new Map<string, { qty: number; total: number }>();
+    manualOrders.forEach(o => {
+      const k = (o.manual_payment_method || 'outro').toLowerCase();
+      const cur = byMethodManual.get(k) || { qty: 0, total: 0 };
+      cur.qty += 1; cur.total += Number(o.total_amount);
+      byMethodManual.set(k, cur);
+    });
 
     // Tickets sold (online)
     const ticketsSold = (lots || []).reduce((s, l) => s + Number(l.sold_quantity || 0), 0);
@@ -134,8 +162,11 @@ export function EventFinanceiroTab({ eventId }: Props) {
     });
 
     return {
-      grossOnline, platformFee, repasseProdutor,
+      grossOnline, grossManual, grossTotal,
+      platformFee, platformFeeOnline, platformFeeManual, repasseProdutor,
       pixOnline, cardOnline, pixMpFee, cardMpFee, totalMpFee, liquidoAposMp, lucroLiquido,
+      manualCount: manualOrders.length,
+      byMethodManual: Array.from(byMethodManual.entries()),
       ticketsSold, capacity,
       doorTotal, doorTickets,
       doorByMethod: Array.from(doorByMethod.entries()),
@@ -160,8 +191,10 @@ export function EventFinanceiroTab({ eventId }: Props) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
               <DollarSign className="w-4 h-4" /> Vendas Totais
             </div>
-            <div className="text-3xl font-bold mt-2 break-words">{formatBRL(stats.grossOnline)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Valor bruto recebido</p>
+            <div className="text-3xl font-bold mt-2 break-words">{formatBRL(stats.grossTotal)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Online {formatBRL(stats.grossOnline)} + Manual {formatBRL(stats.grossManual)}
+            </p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
@@ -195,33 +228,87 @@ export function EventFinanceiroTab({ eventId }: Props) {
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Valor Arrecadado</p>
-              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossOnline)}</p>
+              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossTotal)}</p>
             </div>
           </div>
           <div className="border-t pt-3 space-y-1.5 text-sm">
             <div className="flex items-center gap-2">
               <QrCode className="w-3.5 h-3.5 text-emerald-600" />
-              <span>PIX: <strong>{formatBRL(stats.pixOnline.total)}</strong> ({stats.pixOnline.qty} venda{stats.pixOnline.qty !== 1 ? 's' : ''})</span>
+              <span>PIX online: <strong>{formatBRL(stats.pixOnline.total)}</strong> ({stats.pixOnline.qty} venda{stats.pixOnline.qty !== 1 ? 's' : ''})</span>
             </div>
             <div className="flex items-center gap-2">
               <CreditCard className="w-3.5 h-3.5 text-blue-600" />
-              <span>Cartão: <strong>{formatBRL(stats.cardOnline.total)}</strong> ({stats.cardOnline.qty} venda{stats.cardOnline.qty !== 1 ? 's' : ''})</span>
+              <span>Cartão online: <strong>{formatBRL(stats.cardOnline.total)}</strong> ({stats.cardOnline.qty} venda{stats.cardOnline.qty !== 1 ? 's' : ''})</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Resumo Pagamentos (MP fees) */}
+      {/* Vendas Manuais */}
+      <Card className="border-indigo-200">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Hand className="w-4 h-4 text-indigo-600" /> Vendas Manuais
+              <HoverCard openDelay={150}>
+                <HoverCardTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="O que são vendas manuais">
+                    <Info className="w-3.5 h-3.5" />
+                  </button>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80 text-xs">
+                  Vendas registradas manualmente pelo produtor. O FestPag não processa
+                  esses pagamentos — apenas registra para emitir ingressos e somar na
+                  receita. Diferencia das vendas online (com transação no MP) e de
+                  vendas na portaria (não entram na receita).
+                </HoverCardContent>
+              </HoverCard>
+            </h3>
+            <span className="text-[10px] uppercase tracking-wide bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">
+              Entra na receita
+            </span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Total de Vendas Manuais</p>
+              <p className="text-2xl font-bold tabular-nums">{stats.manualCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Valor Bruto Manual</p>
+              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossManual)}</p>
+            </div>
+          </div>
+          {stats.byMethodManual.length > 0 ? (
+            <div className="border-t pt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Por Meio de Pagamento</p>
+              <div className="space-y-1.5">
+                {stats.byMethodManual.map(([method, v]) => (
+                  <div key={method} className="flex justify-between text-sm">
+                    <span>{METHOD_LABELS[method] || method}</span>
+                    <span className="tabular-nums">{v.qty}× · <strong>{formatBRL(v.total)}</strong></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground border-t pt-3">
+              Nenhuma venda manual registrada neste evento.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Resumo Pagamentos (MP fees) — somente vendas online */}
       <Card>
         <CardContent className="p-5 space-y-3">
           <h3 className="font-semibold flex items-center gap-2">
-            Resumo de Pagamentos
+            Resumo MP (Pagamentos Online)
             <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
               estimativa
             </span>
           </h3>
           <div>
-            <p className="text-xs text-muted-foreground">Total Bruto de Vendas</p>
+            <p className="text-xs text-muted-foreground">Total Bruto Online</p>
             <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossOnline)}</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4 pt-2">
@@ -243,7 +330,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
             <span className="text-destructive font-medium">− {formatBRL(stats.totalMpFee)}</span>
           </div>
           <div className="flex justify-between text-base font-semibold">
-            <span>Valor Líquido (após MP):</span>
+            <span>Valor Líquido Online (após MP):</span>
             <span className="text-emerald-600">{formatBRL(stats.liquidoAposMp)}</span>
           </div>
         </CardContent>
