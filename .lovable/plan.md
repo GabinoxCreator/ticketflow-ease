@@ -1,51 +1,39 @@
-# Redesign do PDF do Ingresso
+# Ajustes no `ticketPdfTemplate.ts` para bater com o exemplo
 
-## Resumo
+Comparando o PDF de exemplo (`ingresso_festpag_redesign-2.pdf`) com o que está saindo hoje (foto 2), o layout estrutural está correto — logo, tagline, título, badge gradiente, QR com moldura, grid 2×2, card de orientações, footer. As diferenças são pontuais, todas em `src/utils/ticketPdfTemplate.ts`.
 
-Substituir o layout dos dois geradores de PDF (`manualSaleTicketsPdf.ts` e `ticketPdf.ts`) pelo novo design — QR grande (~78mm), logo FestPag, badge de lote com gradiente, código monoespaçado, grid de info, card de orientações e footer discreto. Unificar tudo num template compartilhado para evitar drift.
+## Diferenças identificadas
 
-## Arquivos
+| Item | Hoje (foto 2) | Exemplo (alvo) |
+|---|---|---|
+| Código do ingresso | UUID inteiro `638df2fd-e820-4...` espalhado pela página inteira | `5D6B9746` — 8 caracteres em maiúsculo, centralizado e compacto |
+| Data | `Sex, 06/06/2026` (curto) | `Sábado, 25 de julho de 2026` (longo, Title-Case) |
+| Hora abaixo da data | `Às 13:00` | `às 13:00` (minúsculo) |
+| Horário emitido | `Às 13:12` | `às 13:12` (minúsculo) |
+| Badge de lote | `1º LOTE` | `LOTE AMIGO` — usar `data.lot.name` em UPPERCASE direto, sem prefixos |
 
-**Novo:**
-- `src/utils/ticketPdfTemplate.ts` — função base `renderTicketPage(pdf, data)` com todo o desenho. Recebe dados normalizados (event, lot, ticket, holder, issuedAt, status opcional).
+A foto 1 (Acrobat) também confirma que o exemplo mostra `INGRESSO DIGITAL`, título grande, badge gradiente arredondado, QR grande, código curto e grid — tudo presente no nosso template; só os 4 ajustes acima.
 
-**Editados:**
-- `src/utils/manualSaleTicketsPdf.ts` — vira shim fino que normaliza `SimpleTicketForPdf/Event` e delega ao template. Mantém assinatura pública `generateManualSaleTicketsPDF(tickets, event)`.
-- `src/utils/ticketPdf.ts` — vira shim fino que normaliza `UserTicket` e delega ao template. Mantém `generateTicketPDF(ticket)`. Stamp `UTILIZADO`/`CANCELADO` sobre o QR é preservado (passado como flag opcional ao template).
+## Mudanças
 
-**Inalterados:** call sites em `SuccessScreen.tsx`, `CourtesyTicketsButton.tsx`, `MeusIngressos.tsx`.
+Arquivo único: `src/utils/ticketPdfTemplate.ts`
 
-## Implementação do template
+1. **Código curto** (bloco "TICKET CODE", linhas ~277–295):
+   - Substituir o `fullCode` espaçado por `data.ticket.ticket_code.replace(/-/g, '').slice(0, 8).toUpperCase()` espaçado com `'  '`.
+   - Manter font Courier bold, tamanho fixo 17 (não precisa mais do auto-shrink, já é curto).
+   - O auto-fit loop pode ser removido.
 
-Construído com **jsPDF puro** (não html2canvas — a stack atual já é jsPDF e está estável). O HTML enviado serve como referência visual; cada bloco é traduzido para `pdf.rect/text/addImage`.
+2. **Data longa** (bloco "INFO GRID", linhas ~309–319):
+   - Trocar `format(eventDate, "EEE, dd/MM/yyyy", { locale: ptBR })` por `format(eventDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })` mantendo o `toTitleCase` para a primeira letra do dia.
+   - `v2` da célula DATA E HORÁRIO: trocar `Às ${timeStr}` por `às ${timeStr}`.
+   - `v2` da célula EMITIDO EM: trocar `Às ${issuedTime}` por `às ${issuedTime}`.
 
-**Ordem de desenho por página A4** (margens 12/14/8/14 mm):
-
-1. **Logo** — `addImage` de `src/assets/logo-festpag.png`, largura 44mm, centralizado. Pré-carrega 1x e cacheia em variável de módulo.
-2. **Tagline** "INGRESSO DIGITAL" — 7.5pt, letter-spacing simulado, cor `#8a8a8a`.
-3. **Linha sutil** `#ececec` separando header.
-4. **Nome do evento** — 20pt, cor `#2D1B69`, `drawBold`, `splitTextToSize` para wrap.
-5. **Badge do lote** — pill arredondado com gradiente (~60 faixas verticais interpolando `#4D7CFF → #9B5BFF → #FF5BC8`), texto branco 9.5pt.
-6. **QR Code** — 78mm × 78mm centralizado, frame branco com borda `#ececec`. `errorCorrectionLevel: 'H'`, `width: 600`.
-7. **Stamp opcional** — se `status` for `used`/`cancelled`, overlay translúcido sobre o QR com o label.
-8. **Código do ingresso** — `ticket_code` completo, monoespaçado (`courier`), 17pt, espaçado char-a-char para simular letter-spacing 5px. Label "CÓDIGO DO INGRESSO" 7pt abaixo.
-9. **Info grid 2×2** em card `#fafafa` arredondado — Data/Horário · Local · Portador · Emitido em.
-10. **Card de orientações** — `roundedRect` com borda tracejada `#d0c8e8`, fundo `#faf7ff`. Título 8.5pt `#6B3FCF`. 4 bullets fixos (círculos lilás 1.6mm).
-11. **Footer** — linha `#ececec`, "FestPag · festpag.com.br" à esquerda e "Plataforma de eventos" à direita.
-
-Quebra de página: `pdf.addPage()` entre ingressos (padrão já existente).
-
-## Decisões
-
-- **Sem `INGRESSO DIGITAL · VENDA MANUAL`** em lugar nenhum — substituído pela tagline neutra "INGRESSO DIGITAL". PDF unificado para online, manual e cortesia.
-- **Stamp UTILIZADO/CANCELADO** preservado em `ticketPdf.ts` (Meus Ingressos). Cortesia e venda manual sempre sem stamp.
-- **Logo:** usa `src/assets/logo-festpag.png` (já existe), convertido para base64 via `fetch + FileReader` e cacheado.
-- **Código completo** em vez do `slice(0, 8)` atual — UUID quebra em 2 linhas se necessário.
-- **Gradiente:** simulado por faixas verticais (técnica padrão jsPDF).
+3. **Badge sem prefixo** (linha 232): já é `data.lot.name.toUpperCase()` — verificar se vem como `"1º Lote"`. Se vier, o badge mostrará `1º LOTE`, que difere do exemplo (`LOTE AMIGO`). Isso depende do dado de entrada, não do template. **Sem mudança no template**; é fiel ao nome cadastrado do lote.
 
 ## Validação
 
-- Gerar cortesia (1, 3, 5 ingressos) — confirmar 1 página por ingresso.
-- Gerar via "Meus Ingressos" (valid, used, cancelled) — confirmar stamp só nos dois últimos.
-- Nome de evento de 60+ chars — confirmar wrap sem quebrar grid.
-- QR lido com app padrão de celular, da tela e impresso.
+- Gerar PDF de cortesia → confirmar código com 8 chars maiúsculos, data longa "Sábado, 25 de julho de 2026", horários em "às".
+- Confirmar que o QR continua ~70mm e legível.
+- Confirmar que o resto do layout (logo, badge, grid, orientações, footer) não mexeu.
+
+Pronto para implementar quando aprovar.
