@@ -102,10 +102,23 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
           className="h-11 rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
           onClick={() => {
             if (!orders || orders.length === 0) return;
-            const headers = ['Nome', 'Email', 'Telefone', 'Valor', 'Status', 'Método', 'Data'];
-            const rows = orders.map(o => [o.customer_name, o.customer_email, o.customer_phone || '', o.total_amount.toString(), o.status, o.payment_method || '', new Date(o.created_at).toLocaleDateString('pt-BR')]);
+            const headers = ['Nome', 'Email', 'Telefone', 'CPF', 'Valor', 'Status', 'Origem', 'Método', 'Método Manual', 'Taxa Aplicada', 'Nota Manual', 'Data'];
+            const rows = orders.map(o => [
+              o.customer_name,
+              o.customer_email,
+              o.customer_phone || '',
+              o.customer_cpf || '',
+              o.total_amount.toString(),
+              o.status,
+              o.sale_origin || 'online',
+              o.payment_method || '',
+              o.manual_payment_method || '',
+              o.sale_origin === 'manual' ? (o.manual_fee_applied ? 'Sim' : 'Não') : '',
+              (o.manual_payment_note || '').replace(/"/g, '""'),
+              new Date(o.created_at).toLocaleDateString('pt-BR'),
+            ]);
             const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = 'pedidos.csv'; a.click(); URL.revokeObjectURL(url);
           }}

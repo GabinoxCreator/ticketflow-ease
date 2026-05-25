@@ -99,6 +99,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
             <ExternalLink className="h-4 w-4 mr-2" />
             Ver Página
           </Button>
+          <ManualSaleButton event={event} label="+ Venda Manual" />
         </div>
       </div>
 
