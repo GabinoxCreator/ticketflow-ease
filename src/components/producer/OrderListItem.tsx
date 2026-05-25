@@ -25,6 +25,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 export function OrderListItem({ order }: OrderListItemProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const isManual = order.sale_origin === 'manual';
+  const isCourtesy = order.sale_origin === 'courtesy';
   const canCancel = isManual && (order.status === 'paid' || order.status === 'completed');
 
   const getStatusBadge = () => {
