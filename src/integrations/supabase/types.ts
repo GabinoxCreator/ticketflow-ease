@@ -839,6 +839,7 @@ export type Database = {
           manual_payment_note: string | null
           manual_sold_by: string | null
           mp_payment_id: string | null
+          mp_status_detail: string | null
           payment_method: string | null
           sale_origin: string
           service_fee_amount: number
@@ -863,6 +864,7 @@ export type Database = {
           manual_payment_note?: string | null
           manual_sold_by?: string | null
           mp_payment_id?: string | null
+          mp_status_detail?: string | null
           payment_method?: string | null
           sale_origin?: string
           service_fee_amount?: number
@@ -887,6 +889,7 @@ export type Database = {
           manual_payment_note?: string | null
           manual_sold_by?: string | null
           mp_payment_id?: string | null
+          mp_status_detail?: string | null
           payment_method?: string | null
           sale_origin?: string
           service_fee_amount?: number
