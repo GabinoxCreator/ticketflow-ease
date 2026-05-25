@@ -12,6 +12,13 @@ export interface EventFinance {
   net: number;
   paidOut: number;
   available: number;
+  // Partition by sale_origin
+  grossOnline: number;
+  feeOnline: number;
+  netOnline: number;
+  grossManual: number;
+  feeManual: number;
+  netManual: number;
 }
 
 export interface PayoutRow {
@@ -45,7 +52,16 @@ interface FinanceData {
     net: number;
     paidOut: number;
     available: number;
+    grossOnline: number;
+    netOnline: number;
+    grossManual: number;
+    netManual: number;
   };
+}
+
+interface Bucket {
+  gross: number;
+  fee: number;
 }
 
 export function useProducerFinance() {
@@ -65,7 +81,7 @@ export function useProducerFinance() {
 
       const producerProfileId = membership?.producer_profile_id || null;
 
-      // 2. Fee config: override > platform default
+      // 2. Fee config (informational only — actual fee comes from each order)
       let feeConfig: FeeConfig = { percent: 10, fixed: 0 };
       if (producerProfileId) {
         const { data: override } = await supabase
@@ -91,20 +107,22 @@ export function useProducerFinance() {
       const eventList = events || [];
       const eventIds = eventList.map((e) => e.id);
 
-      // 4. Paid orders per event
-      let ordersByEvent = new Map<string, number>();
+      // 4. Paid orders per event, partitioned by sale_origin
+      const onlineByEvent = new Map<string, Bucket>();
+      const manualByEvent = new Map<string, Bucket>();
       if (eventIds.length > 0) {
         const { data: orders } = await supabase
           .from('orders')
-          .select('event_id, total_amount, service_fee_amount, status')
+          .select('event_id, total_amount, service_fee_amount, status, sale_origin')
           .in('event_id', eventIds)
           .in('status', ['paid', 'completed']);
         (orders || []).forEach((o: any) => {
-          const net = Number(o.total_amount || 0) - Number(o.service_fee_amount || 0);
-          ordersByEvent.set(
-            o.event_id,
-            (ordersByEvent.get(o.event_id) || 0) + net
-          );
+          const isManual = o.sale_origin === 'manual';
+          const map = isManual ? manualByEvent : onlineByEvent;
+          const cur = map.get(o.event_id) || { gross: 0, fee: 0 };
+          cur.gross += Number(o.total_amount || 0);
+          cur.fee += Number(o.service_fee_amount || 0);
+          map.set(o.event_id, cur);
         });
       }
 
@@ -129,10 +147,12 @@ export function useProducerFinance() {
           );
         });
 
-      // 6. Build per-event finance
+      // 6. Build per-event finance using REAL stored fees (respects per-method overrides + apply_fee=false)
       const eventsFinance: EventFinance[] = eventList.map((e) => {
-        const gross = ordersByEvent.get(e.id) || 0;
-        const fee = gross > 0 ? (gross * feeConfig.percent) / 100 + feeConfig.fixed : 0;
+        const on = onlineByEvent.get(e.id) || { gross: 0, fee: 0 };
+        const man = manualByEvent.get(e.id) || { gross: 0, fee: 0 };
+        const gross = on.gross + man.gross;
+        const fee = on.fee + man.fee;
         const net = Math.max(0, gross - fee);
         const paidOut = paidByEvent.get(e.id) || 0;
         return {
@@ -145,6 +165,12 @@ export function useProducerFinance() {
           net,
           paidOut,
           available: Math.max(0, net - paidOut),
+          grossOnline: on.gross,
+          feeOnline: on.fee,
+          netOnline: Math.max(0, on.gross - on.fee),
+          grossManual: man.gross,
+          feeManual: man.fee,
+          netManual: Math.max(0, man.gross - man.fee),
         };
       });
 
@@ -155,9 +181,23 @@ export function useProducerFinance() {
           acc.net += e.net;
           acc.paidOut += e.paidOut;
           acc.available += e.available;
+          acc.grossOnline += e.grossOnline;
+          acc.netOnline += e.netOnline;
+          acc.grossManual += e.grossManual;
+          acc.netManual += e.netManual;
           return acc;
         },
-        { gross: 0, fee: 0, net: 0, paidOut: 0, available: 0 }
+        {
+          gross: 0,
+          fee: 0,
+          net: 0,
+          paidOut: 0,
+          available: 0,
+          grossOnline: 0,
+          netOnline: 0,
+          grossManual: 0,
+          netManual: 0,
+        }
       );
 
       return {
