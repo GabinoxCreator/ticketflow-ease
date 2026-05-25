@@ -4,7 +4,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-meli-session-id, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface CartItem { lotId: string; quantity: number; }
@@ -16,6 +16,7 @@ interface PixRequest {
   customerCPF: string;
   customerPhone?: string;
   couponId?: string;
+  deviceId?: string;
 }
 
 const PIX_EXPIRATION_MINUTES = 30;
@@ -81,8 +82,15 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { eventId, items, customerName, customerEmail, customerCPF, customerPhone, couponId } = await req.json() as PixRequest;
-    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, userId });
+    const { eventId, items, customerName, customerEmail, customerCPF, customerPhone, couponId, deviceId } = await req.json() as PixRequest;
+
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-real-ip') ||
+      null;
+
+    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, userId, hasDeviceId: !!deviceId, hasIp: !!clientIp });
 
     // CPF gate BEFORE any reservation
     const cleanCPF = unformatCPF(customerCPF);
@@ -212,45 +220,106 @@ serve(async (req) => {
       throw new Error('Erro ao reservar ingressos');
     }
 
-    // Create PIX at MP
+    // Split name and phone for MP antifraud (mirror process-card-payment)
+    const nameParts = (customerName || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts[0] || 'Cliente';
+    const lastName = nameParts.slice(1).join(' ') || firstName;
+
+    const phoneDigits = (customerPhone || '').replace(/\D/g, '');
+    const localDigits = phoneDigits.length >= 12 && phoneDigits.startsWith('55')
+      ? phoneDigits.slice(2)
+      : phoneDigits;
+    const areaCode = localDigits.length >= 10 ? localDigits.slice(0, 2) : '';
+    const phoneNumber = localDigits.length >= 10 ? localDigits.slice(2) : '';
+    const phoneObj = (areaCode && phoneNumber) ? { area_code: areaCode, number: phoneNumber } : null;
+
+    // Enriched PIX body for MP antifraud
+    const mpBody: any = {
+      transaction_amount: Number(finalAmount.toFixed(2)),
+      description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
+      payment_method_id: 'pix',
+      statement_descriptor: 'FESTPAG',
+      notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`,
+      external_reference: order.id,
+      payer: {
+        email: customerEmail,
+        first_name: firstName,
+        last_name: lastName,
+        identification: { type: 'CPF', number: cleanCPF },
+        ...(phoneObj ? { phone: phoneObj } : {}),
+      },
+      additional_info: {
+        ip_address: clientIp,
+        items: lineItems.map(i => ({
+          id: i.lotId,
+          title: `${event.title} - ${i.lotName}`,
+          description: `Ingresso ${i.lotName} para ${event.title}`,
+          category_id: 'tickets',
+          quantity: i.quantity,
+          unit_price: Number(i.price.toFixed(2)),
+        })),
+        payer: {
+          first_name: firstName,
+          last_name: lastName,
+          registration_date: new Date().toISOString(),
+          ...(phoneObj ? { phone: phoneObj } : {}),
+        },
+      },
+    };
+
+    const mpHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${mercadopagoToken}`,
+      'X-Idempotency-Key': order.id,
+    };
+    if (deviceId) mpHeaders['X-meli-session-id'] = deviceId;
+
+    logStep('MP request enriched', {
+      hasDeviceId: !!deviceId,
+      hasIp: !!clientIp,
+      hasPhone: !!phoneObj,
+      hasNotificationUrl: true,
+    });
+
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${mercadopagoToken}`,
-        'X-Idempotency-Key': order.id,
-      },
-      body: JSON.stringify({
-        transaction_amount: finalAmount,
-        description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
-        payment_method_id: 'pix',
-        payer: {
-          email: customerEmail,
-          first_name: customerName.split(' ')[0],
-          last_name: customerName.split(' ').slice(1).join(' ') || customerName.split(' ')[0],
-          identification: { type: 'CPF', number: cleanCPF },
-        },
-        external_reference: order.id,
-      }),
+      headers: mpHeaders,
+      body: JSON.stringify(mpBody),
     });
 
     if (!mpResponse.ok) {
       const mpError = await mpResponse.json();
-      logStep('Mercado Pago error', mpError);
+      logStep('Mercado Pago error', { statusDetail: mpError.status_detail, message: mpError.message });
+
+      // Persist status_detail before delete (symbolic — row is removed next).
+      // TODO (tech debt): unify failure behavior with process-card-payment.
+      // Today PIX deletes the order; card marks it as 'failed'. Out of scope here.
+      try {
+        await supabaseClient
+          .from('orders')
+          .update({
+            mp_status_detail: mpError.status_detail || mpError.message || 'pix_create_failed',
+          })
+          .eq('id', order.id);
+      } catch (_) { /* swallow */ }
+
       await supabaseClient.from('tickets').delete().eq('order_id', order.id);
       await supabaseClient.from('orders').delete().eq('id', order.id);
       throw new Error(mpError.message || 'Erro ao criar pagamento PIX');
     }
 
     const mpPayment = await mpResponse.json();
-    logStep('Mercado Pago payment created', { paymentId: mpPayment.id, status: mpPayment.status });
+    logStep('Mercado Pago payment created', { paymentId: mpPayment.id, status: mpPayment.status, statusDetail: mpPayment.status_detail });
 
     const pixInfo = mpPayment.point_of_interaction?.transaction_data;
 
-    // Persist mp_payment_id (single source of truth). payment_method stays 'pix'.
+    // Persist mp_payment_id (single source of truth) + status_detail. payment_method stays 'pix'.
     await supabaseClient
       .from('orders')
-      .update({ mp_payment_id: String(mpPayment.id) })
+      .update({
+        mp_payment_id: String(mpPayment.id),
+        mp_status_detail: mpPayment.status_detail || null,
+      })
       .eq('id', order.id);
 
     const expiresAt = pixInfo?.expiration_date || expiresAtIso;
