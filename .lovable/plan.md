@@ -1,206 +1,58 @@
+# Entrega A — Integração visual + deploy + smoke test
 
-# Venda Manual — Migration revisada (final, pré-código)
+Escopo isolado: integrar UI da venda manual, sem tocar no financeiro. Financeiro fica para Entrega B.
 
-Ajustes aplicados:
-1. `lookup_customer_by_cpf` agora exige `_event_id` e valida que `auth.uid()` é o produtor dono do evento. Sem isso, lança `forbidden`.
-2. `cancel_manual_order` agora aparece com corpo completo e é **idempotente** (retorna `already_cancelled` se já cancelada).
-3. `REVOKE`/`GRANT` explícitos nas duas RPCs.
-4. Confirmado: `get_event_fee(event_id, method)` retorna `TABLE(fee_percent numeric, fee_fixed numeric)`. Cálculo da taxa será:
-   `service_fee_amount = round(subtotal * fee_percent/100 + fee_fixed, 2)`.
-5. Front: botão "Cancelar venda" fica `disabled` enquanto `useCancelManualSale.isPending`.
+## 1. Header do evento
 
-## SQL completo da migration
+`src/components/producer/EventDashboardHeader.tsx`
+- Renderizar `<ManualSaleButton eventId={event.id} />` ao lado das ações existentes (Editar / Publicar).
+- Condicional: só mostra se `event.producer_id === user.id` (gate já existe no botão, mas reforçar no header).
 
-```sql
--- 1) Colunas em orders --------------------------------------------------------
-ALTER TABLE public.orders
-  ADD COLUMN IF NOT EXISTS sale_origin text NOT NULL DEFAULT 'online',
-  ADD COLUMN IF NOT EXISTS manual_payment_method text,
-  ADD COLUMN IF NOT EXISTS manual_payment_note text,
-  ADD COLUMN IF NOT EXISTS manual_sold_by uuid REFERENCES auth.users(id),
-  ADD COLUMN IF NOT EXISTS manual_fee_applied boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS customer_cpf text;
+## 2. Aba de pedidos (`EventOrdersTab.tsx`)
 
-DO $$ BEGIN
-  ALTER TABLE public.orders
-    ADD CONSTRAINT orders_sale_origin_check
-    CHECK (sale_origin IN ('online','manual'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+- Botão "+ Nova venda manual" no topo da aba (mesmo `<ManualSaleButton />`, variante secundária para não duplicar com header — decidir: deixar só no header OU só na aba. **Proposta: só no header**, e na aba apenas badge + cancelar, para evitar duplicação visual).
+- Badge `Manual` (cor accent) ao lado do nome do cliente quando `order.sale_origin === 'manual'`.
+- Botão "Cancelar venda" (ícone + tooltip) visível só quando `sale_origin === 'manual' && status === 'paid'`. Abre `<CancelManualSaleDialog />`.
+- Desabilitar botão durante a mutation (`isPending`).
 
-DO $$ BEGIN
-  ALTER TABLE public.orders
-    ADD CONSTRAINT orders_manual_payment_method_check
-    CHECK (manual_payment_method IS NULL
-           OR manual_payment_method IN ('pix','dinheiro','transferencia','cartao','outro'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+## 3. `OrderListItem.tsx`
 
-CREATE INDEX IF NOT EXISTS idx_orders_sale_origin       ON public.orders(sale_origin);
-CREATE INDEX IF NOT EXISTS idx_orders_manual_sold_by    ON public.orders(manual_sold_by) WHERE manual_sold_by IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_orders_customer_cpf      ON public.orders(customer_cpf)   WHERE customer_cpf   IS NOT NULL;
+- Quando `sale_origin === 'manual'`, exibir bloco extra com:
+  - `manual_payment_method` (Dinheiro/PIX/Cartão/Outro)
+  - `manual_payment_note` (se houver)
+  - `manual_fee_applied` → label "Taxa aplicada: Sim/Não"
+- Manter layout existente para vendas online.
 
-COMMENT ON COLUMN public.orders.sale_origin         IS 'online | manual';
-COMMENT ON COLUMN public.orders.manual_payment_method IS 'pix|dinheiro|transferencia|cartao|outro (só p/ sale_origin=manual)';
-COMMENT ON COLUMN public.orders.manual_payment_note   IS 'Nota interna do produtor sobre o pagamento';
-COMMENT ON COLUMN public.orders.manual_sold_by        IS 'Produtor que registrou a venda manual';
-COMMENT ON COLUMN public.orders.manual_fee_applied    IS 'Se a taxa de conveniência foi cobrada nesta venda manual';
-COMMENT ON COLUMN public.orders.customer_cpf          IS 'CPF normalizado (só dígitos), usado para lookup de cliente recorrente';
+## 4. CSV export
 
+`src/utils/csvExport.ts` (ou equivalente que gera CSV de pedidos)
+- Adicionar colunas: `sale_origin`, `manual_payment_method`, `manual_fee_applied`, `manual_payment_note`.
+- (Sem `cancellation_reason` por enquanto — não capturamos motivo no cancel; manter campo fora do CSV nesta entrega.)
 
--- 2) Lookup de cliente por CPF (LGPD: escopo por evento do produtor) ---------
-CREATE OR REPLACE FUNCTION public.lookup_customer_by_cpf(_event_id uuid, _cpf text)
-RETURNS TABLE(name text, email text, whatsapp text, source text)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-  _norm text := NULLIF(regexp_replace(coalesce(_cpf,''), '\D', '', 'g'), '');
-BEGIN
-  -- Gate: chamador deve ser o produtor dono do evento
-  IF NOT EXISTS (
-    SELECT 1 FROM public.events e
-     WHERE e.id = _event_id AND e.producer_id = auth.uid()
-  ) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
+## 5. Deploy edge functions
 
-  IF _norm IS NULL OR length(_norm) <> 11 THEN
-    RETURN;
-  END IF;
+- `producer-create-manual-sale`
+- `producer-cancel-manual-sale`
 
-  -- Fonte 1: profiles
-  RETURN QUERY
-  SELECT p.nome_completo, p.email, p.whatsapp, 'profile'::text
-    FROM public.profiles p
-   WHERE p.cpf = _norm
-   LIMIT 1;
-  IF FOUND THEN RETURN; END IF;
+## 6. Smoke test (executado e reportado caso a caso)
 
-  -- Fonte 2: última venda paid com aquele CPF
-  RETURN QUERY
-  SELECT o.customer_name, o.customer_email, o.customer_phone, 'order'::text
-    FROM public.orders o
-   WHERE o.customer_cpf = _norm
-     AND o.status = 'paid'
-   ORDER BY o.created_at DESC
-   LIMIT 1;
-END $$;
+Vou rodar como produtor dono do evento atual (`a8ceede6-37d8-4be4-8a60-f4539024f747`) e reportar resultado de cada item da sua lista, incluindo:
+- Verificações via `read_query` no banco para `orders`, `tickets`, `event_lots.sold_quantity`, `event_coupons.uses_count`, `audit_logs`.
+- Teste de gate de colaborador via `curl_edge_functions` com Authorization header de outro usuário → esperar 403.
 
-REVOKE ALL ON FUNCTION public.lookup_customer_by_cpf(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.lookup_customer_by_cpf(uuid, text) TO authenticated;
+## Fora de escopo (Entrega B)
 
+- `useProducerFinance` / cards de receita Online vs Manual.
+- Antes de começar B, envio screenshot do financeiro atual para baseline.
 
--- 3) Cancelamento de venda manual (idempotente + atômico) --------------------
-CREATE OR REPLACE FUNCTION public.cancel_manual_order(
-  _order_id uuid,
-  _actor    uuid,
-  _reason   text
-)
-RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE
-  _order   RECORD;
-  _used    int;
-  _lot     RECORD;
-BEGIN
-  IF _reason IS NULL OR length(btrim(_reason)) < 5 THEN
-    RAISE EXCEPTION 'reason_required' USING ERRCODE = '22023';
-  END IF;
+## Detalhes técnicos
 
-  SELECT id, status, sale_origin, coupon_id, event_id
-    INTO _order
-    FROM public.orders
-   WHERE id = _order_id
-   FOR UPDATE;
+- Arquivos a editar: `EventDashboardHeader.tsx`, `EventOrdersTab.tsx`, `OrderListItem.tsx`, `csvExport.ts` (path exato a confirmar ao implementar).
+- Sem mudanças de banco ou edge function nesta entrega — só deploy do que já foi escrito.
+- Gate de visibilidade: `event.producer_id === user.id` (consistente com padrão existente).
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'order_not_found' USING ERRCODE = 'P0002';
-  END IF;
+## Ordem de execução
 
-  -- Gate por produtor (chamador via edge function passa _actor = auth.uid())
-  IF NOT EXISTS (
-    SELECT 1 FROM public.events e
-     WHERE e.id = _order.event_id AND e.producer_id = _actor
-  ) THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
-  END IF;
-
-  IF _order.sale_origin <> 'manual' THEN
-    RAISE EXCEPTION 'not_manual' USING ERRCODE = '22023';
-  END IF;
-
-  -- Idempotência
-  IF _order.status = 'cancelled' THEN
-    RETURN jsonb_build_object('ok', true, 'already_cancelled', true);
-  END IF;
-
-  IF _order.status <> 'paid' THEN
-    RAISE EXCEPTION 'invalid_status:%', _order.status USING ERRCODE = '22023';
-  END IF;
-
-  -- Bloqueia se algum ticket foi usado
-  SELECT count(*)::int INTO _used
-    FROM public.tickets
-   WHERE order_id = _order_id AND status = 'used';
-  IF _used > 0 THEN
-    RAISE EXCEPTION 'ticket_already_used' USING ERRCODE = '22023';
-  END IF;
-
-  -- Devolve estoque (vendas pagas vivem em sold_quantity)
-  FOR _lot IN
-    SELECT lot_id, count(*)::int AS qty
-      FROM public.tickets
-     WHERE order_id = _order_id
-       AND status IN ('valid','pending')
-     GROUP BY lot_id
-  LOOP
-    UPDATE public.event_lots
-       SET sold_quantity = GREATEST(0, sold_quantity - _lot.qty)
-     WHERE id = _lot.lot_id;
-  END LOOP;
-
-  -- Cancela tickets e order
-  UPDATE public.tickets
-     SET status = 'cancelled'
-   WHERE order_id = _order_id
-     AND status IN ('valid','pending');
-
-  UPDATE public.orders
-     SET status = 'cancelled', updated_at = now()
-   WHERE id = _order_id;
-
-  -- Devolve uso de cupom
-  IF _order.coupon_id IS NOT NULL THEN
-    UPDATE public.event_coupons
-       SET uses_count = GREATEST(0, uses_count - 1),
-           updated_at = now()
-     WHERE id = _order.coupon_id;
-  END IF;
-
-  -- Audit
-  INSERT INTO public.audit_logs(actor_id, action, target_type, target_id, metadata)
-  VALUES (_actor, 'manual_sale_cancelled', 'order', _order_id,
-          jsonb_build_object('reason', _reason));
-
-  RETURN jsonb_build_object('ok', true, 'already_cancelled', false);
-END $$;
-
-REVOKE ALL ON FUNCTION public.cancel_manual_order(uuid, uuid, text) FROM PUBLIC;
--- service_role chama via edge function; sem GRANT a authenticated.
-```
-
-## Observações
-
-- A RPC `cancel_manual_order` **não** é exposta a `authenticated`: só a edge function (service role) chama. O gate por `_actor` impede que a edge function passe um UUID arbitrário (ela usa o `user.id` autenticado).
-- `apply_order_approved(order_id, null)` validado: `COALESCE` tolera null no `mp_payment_id`. OK para venda manual.
-- `release_lot_quantity` **não é usada na cancelamento**, pois vendas pagas estão em `sold_quantity` (não em `reserved_quantity`); por isso o `UPDATE event_lots` direto com `GREATEST(0, ...)`. A criação ainda usa `reserve_lot_quantity` + `apply_order_approved` (que chama `confirm_lot_sale` internamente).
-- Frontend: `useCancelManualSale.isPending` desabilita o botão "Cancelar venda" + mostra spinner. Igualmente o "Confirmar" do diálogo.
-- `useCustomerLookupByCPF(eventId, cpf)` agora exige `eventId` como argumento obrigatório.
-
-## Próximo passo
-
-Aprovado este SQL, sigo com:
-1. Aplicar migration.
-2. Edge function `producer-create-manual-sale`.
-3. Edge function `producer-cancel-manual-sale`.
-4. Hooks + Modal + integrações + relatórios/CSV.
-5. Smoke test (taxa ON/OFF, cliente recorrente, cancelamento idempotente, estoque, cupom).
+1. Deploy edge functions (independente da UI).
+2. Editar 4 arquivos da UI.
+3. Smoke test + relatório.
