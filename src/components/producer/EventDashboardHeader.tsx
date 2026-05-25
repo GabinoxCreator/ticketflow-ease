@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Event, useEvents } from '@/hooks/useEvents';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ManualSaleButton } from '@/components/producer/ManualSaleButton';
 
 interface EventDashboardHeaderProps {
   event: Event;
