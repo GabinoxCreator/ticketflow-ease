@@ -9,12 +9,10 @@ interface Props {
   onSessionExpired: () => void;
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-BR', { 
-    style: 'currency', 
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  }).format(value).replace(/\s/g, '\u00A0');
+function formatCurrency(v: number) {
+  const [intPart, fracPart] = v.toFixed(2).split('.');
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `R$\u00A0${intWithDots},${fracPart}`;
 }
 
 function timeAgo(iso: string) {
