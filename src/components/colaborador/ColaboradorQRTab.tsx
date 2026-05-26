@@ -80,7 +80,7 @@ export default function ColaboradorQRTab({
     const q = normalize(searchQuery.trim());
     const filtered = q
       ? allTickets.filter(t =>
-          normalize(t.holder_name).includes(q) ||
+          normalize(t.holder_name || '').includes(q) ||
           normalize(t.holder_email || '').includes(q) ||
           normalize(t.holder_phone || '').includes(q) ||
           t.ticket_code.toLowerCase().includes(q)
@@ -91,7 +91,7 @@ export default function ColaboradorQRTab({
       if (a.status === 'used') {
         return (b.validated_at || '').localeCompare(a.validated_at || '');
       }
-      return a.holder_name.localeCompare(b.holder_name);
+      return (a.holder_name || a.holder_email || '').localeCompare(b.holder_name || b.holder_email || '');
     });
   }, [allTickets, searchQuery]);
 
