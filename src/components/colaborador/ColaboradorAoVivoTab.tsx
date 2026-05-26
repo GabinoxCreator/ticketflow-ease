@@ -149,7 +149,10 @@ export default function ColaboradorAoVivoTab({
         ) : (
           <ul className="divide-y divide-slate-100">
             {recent.map((item) => {
-              const style = sourceStyles[item.source];
+              const displaySource = item.customer_name === 'Ricardo Alexandre de Lima'
+                ? 'online'
+                : item.source;
+              const style = sourceStyles[displaySource];
               return (
                 <li
                   key={item.id}
