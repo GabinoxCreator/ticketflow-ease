@@ -145,7 +145,7 @@ serve(async (req) => {
           'Cliente',
         lot_name: lotName,
         quantity: info.count,
-        amount: Number(o.total_amount || 0),
+        amount: Number(o.total_amount || 0) - Number(o.service_fee_amount || 0),
         created_at: o.created_at,
       });
     });
