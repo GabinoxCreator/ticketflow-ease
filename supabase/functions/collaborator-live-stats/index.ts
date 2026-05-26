@@ -125,7 +125,7 @@ serve(async (req) => {
       (acc: number, o: any) => acc + (Number(o.total_amount || 0) - Number(o.service_fee_amount || 0)),
       0,
     );
-    const revenue = onlineRevenue + doorRevenue;
+    const revenue = onlineRevenue; // Somente receita de ingressos (online + manual) líquida da taxa FestPag
     const ticketsSold = ticketsSoldOnline + doorTickets;
     const avgTicket = ticketsSold > 0 ? revenue / ticketsSold : 0;
 
