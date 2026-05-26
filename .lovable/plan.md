@@ -1,39 +1,72 @@
-# Ajustes no `ticketPdfTemplate.ts` para bater com o exemplo
+## Painel "Ao Vivo" para Colaborador
 
-Comparando o PDF de exemplo (`ingresso_festpag_redesign-2.pdf`) com o que está saindo hoje (foto 2), o layout estrutural está correto — logo, tagline, título, badge gradiente, QR com moldura, grid 2×2, card de orientações, footer. As diferenças são pontuais, todas em `src/utils/ticketPdfTemplate.ts`.
+Nova tela acessível apenas por colaboradores logados, mostrando KPIs principais e feed de vendas em tempo real (online + manual + portaria somados).
 
-## Diferenças identificadas
+### Acesso
 
-| Item | Hoje (foto 2) | Exemplo (alvo) |
-|---|---|---|
-| Código do ingresso | UUID inteiro `638df2fd-e820-4...` espalhado pela página inteira | `5D6B9746` — 8 caracteres em maiúsculo, centralizado e compacto |
-| Data | `Sex, 06/06/2026` (curto) | `Sábado, 25 de julho de 2026` (longo, Title-Case) |
-| Hora abaixo da data | `Às 13:00` | `às 13:00` (minúsculo) |
-| Horário emitido | `Às 13:12` | `às 13:12` (minúsculo) |
-| Badge de lote | `1º LOTE` | `LOTE AMIGO` — usar `data.lot.name` em UPPERCASE direto, sem prefixos |
+- Rota nova: `/colaborador/eventos/:id/ao-vivo` (protegida por `ColaboradorProtectedRoute` + verificação de vínculo via `collaborator_events`).
+- Adicionar botão "Ao Vivo" no `ColaboradorEvento` (ao lado das abas já existentes) para o próprio colaborador abrir. Sem entrada pública/sem token — só funciona logado.
+- O produtor compartilha enviando login/senha do colaborador já existente (fluxo atual).
 
-A foto 1 (Acrobat) também confirma que o exemplo mostra `INGRESSO DIGITAL`, título grande, badge gradiente arredondado, QR grande, código curto e grid — tudo presente no nosso template; só os 4 ajustes acima.
+### Métricas (escopo: tudo somado — online pago + manual pago + portaria)
 
-## Mudanças
+KPIs no topo, atualizados em tempo real:
+- **Receita total** (R$): soma de `orders.total_amount` onde `status='paid'` + `door_sales.total_amount`.
+- **Ingressos vendidos**: count de `tickets` com `status IN ('valid','used')` + sum de `door_sales.quantity`.
+- **Ingressos disponíveis**: sum de `event_lots.total_quantity - sold_quantity` (lotes ativos).
+- **Ticket médio**: receita total / ingressos vendidos.
 
-Arquivo único: `src/utils/ticketPdfTemplate.ts`
+Feed ao vivo abaixo (lista das últimas ~30 vendas, ordenadas por hora desc):
+- Origem (Online / Manual / Portaria) com badge colorido.
+- Nome do comprador (de `orders.customer_name` ou "Venda Portaria" para door_sales).
+- Lote, quantidade, valor, hora ("há 2 min").
+- Item novo entra com animação de fade-in + leve glow indigo→magenta.
 
-1. **Código curto** (bloco "TICKET CODE", linhas ~277–295):
-   - Substituir o `fullCode` espaçado por `data.ticket.ticket_code.replace(/-/g, '').slice(0, 8).toUpperCase()` espaçado com `'  '`.
-   - Manter font Courier bold, tamanho fixo 17 (não precisa mais do auto-shrink, já é curto).
-   - O auto-fit loop pode ser removido.
+### Tempo real
 
-2. **Data longa** (bloco "INFO GRID", linhas ~309–319):
-   - Trocar `format(eventDate, "EEE, dd/MM/yyyy", { locale: ptBR })` por `format(eventDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })` mantendo o `toTitleCase` para a primeira letra do dia.
-   - `v2` da célula DATA E HORÁRIO: trocar `Às ${timeStr}` por `às ${timeStr}`.
-   - `v2` da célula EMITIDO EM: trocar `Às ${issuedTime}` por `às ${issuedTime}`.
+- Realtime do Supabase via `supabase.channel()` em:
+  - `orders` (filtrado por `event_id`, evento `UPDATE` para pegar transição → paid)
+  - `tickets` (filtrado por `event_id`, evento `INSERT`)
+  - `door_sales` (filtrado por `event_id`, evento `INSERT`)
+- Indicador "AO VIVO" pulsante (ponto verde animado) no header da tela.
+- Fallback: refetch a cada 20s caso o realtime caia.
+- Habilitar `REPLICA IDENTITY FULL` e `ALTER PUBLICATION supabase_realtime ADD TABLE` para as 3 tabelas (migration).
 
-3. **Badge sem prefixo** (linha 232): já é `data.lot.name.toUpperCase()` — verificar se vem como `"1º Lote"`. Se vier, o badge mostrará `1º LOTE`, que difere do exemplo (`LOTE AMIGO`). Isso depende do dado de entrada, não do template. **Sem mudança no template**; é fiel ao nome cadastrado do lote.
+### Backend
 
-## Validação
+Nova Edge Function `collaborator-live-stats` (segue padrão das outras: valida `collaborator_id` + `session_token` via `validateCollaboratorSession`, checa `collaborator_events` para o `event_id`). Retorna:
+```json
+{
+  "kpis": { "revenue", "ticketsSold", "ticketsAvailable", "avgTicket" },
+  "recent": [{ "id", "source", "customer_name", "lot_name", "quantity", "amount", "created_at" }, ...]
+}
+```
+Frontend usa essa função no load inicial e como fallback; updates incrementais vêm pelo realtime.
 
-- Gerar PDF de cortesia → confirmar código com 8 chars maiúsculos, data longa "Sábado, 25 de julho de 2026", horários em "às".
-- Confirmar que o QR continua ~70mm e legível.
-- Confirmar que o resto do layout (logo, badge, grid, orientações, footer) não mexeu.
+### Arquivos
 
-Pronto para implementar quando aprovar.
+Novos:
+- `src/components/colaborador/ColaboradorAoVivoTab.tsx` — UI (KPIs + feed + indicador AO VIVO).
+- `src/hooks/useColaboradorLiveStats.ts` — query inicial + subscription realtime + merge incremental.
+- `supabase/functions/collaborator-live-stats/index.ts` — agrega KPIs e feed.
+- Migration: habilitar realtime para `orders`, `tickets`, `door_sales`.
+
+Editados:
+- `src/pages/colaborador/ColaboradorEvento.tsx` — adicionar tab/rota "Ao Vivo" (Icon `Radio` ou `Activity`).
+- `src/components/colaborador/ColaboradorBottomNav.tsx` — adicionar item "Ao Vivo" no bottom nav (vira 5 abas) **ou** manter como sub-rota dentro do evento, sem mexer no bottom nav. Recomendo a 2ª opção pra não inchar o nav.
+
+### Visual
+
+- Fundo escuro do tema colaborador, cards glassmorphism.
+- KPIs grandes em 2×2 no mobile, 4 colunas no desktop, números com gradient indigo→magenta.
+- Header com badge "● AO VIVO" verde pulsante + nome do evento.
+- Feed com timeline vertical, badge de origem colorido (Online=indigo, Manual=amber, Portaria=emerald).
+
+### Validação
+
+- Login como colaborador vinculado → abrir aba Ao Vivo → ver KPIs e feed.
+- Disparar uma venda manual/portaria em outra aba → confirmar que o card aparece no feed sem refresh.
+- Colaborador NÃO vinculado ao evento → 403.
+- Sem login → redireciona pra `/colaborador/login`.
+
+Aprovar pra eu implementar.
