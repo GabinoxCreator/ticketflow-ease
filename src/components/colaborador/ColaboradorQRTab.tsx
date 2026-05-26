@@ -12,7 +12,7 @@ import { buildWindowMessage } from '@/lib/checkinWindow';
 interface TicketRow {
   id: string;
   ticket_code: string;
-  holder_name: string;
+  holder_name: string | null;
   holder_email?: string;
   holder_phone?: string;
   status: string;
