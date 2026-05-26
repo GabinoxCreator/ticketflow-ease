@@ -129,7 +129,7 @@ export default function ColaboradorQRTab({
         setManualResult({
           type: 'success',
           message: 'Pode entrar!',
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
           lotName: ticket.lot_name,
           ticketCode: ticket.ticket_code,
         });
@@ -144,13 +144,13 @@ export default function ColaboradorQRTab({
         setManualResult({
           type: 'window_closed',
           message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
         });
       } else if (data.error?.includes('já foi utilizado')) {
         setManualResult({
           type: 'already_used',
           message: 'Esse ingresso já passou pela portaria.',
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
           lotName: ticket.lot_name,
         });
         setAllTickets(prev =>
@@ -160,7 +160,7 @@ export default function ColaboradorQRTab({
         setManualResult({
           type: 'error',
           message: data.error || 'Não foi possível validar agora.',
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
         });
       }
     } catch {
