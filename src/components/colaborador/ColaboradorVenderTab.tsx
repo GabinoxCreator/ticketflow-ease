@@ -4,8 +4,11 @@ import { ShoppingBag, Plus, Receipt, Clock } from 'lucide-react';
 import ColaboradorVenderModal from './ColaboradorVenderModal';
 import { useColaboradorDoorSalesReport } from '@/hooks/useColaboradorDoorSales';
 
-const formatBRL = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const formatBRL = (v: number) => {
+  const [intPart, fracPart] = v.toFixed(2).split('.');
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `R$\u00A0${intWithDots},${fracPart}`;
+};
 
 const METHOD_LABELS: Record<string, string> = {
   pix: 'PIX',

@@ -6,8 +6,11 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
 
-const formatBRL = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const formatBRL = (v: number) => {
+  const [intPart, fracPart] = v.toFixed(2).split('.');
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `R$\u00A0${intWithDots},${fracPart}`;
+};
 
 // Estimated MP fees (defaults until real fees are stored per order)
 const MP_FEE_PIX_PERCENT = 0.99;
