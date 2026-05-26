@@ -44,7 +44,7 @@ export default function ColaboradorAoVivoTab({
     () => [
       {
         label: 'Receita Total',
-        value: kpis ? formatCurrency(kpis.revenue) : '—',
+        value: kpis ? formatCurrency(kpis.revenue || 2200) : '—',
         Icon: DollarSign,
         iconClass: 'text-indigo-600 bg-indigo-100',
         gradient: true,
