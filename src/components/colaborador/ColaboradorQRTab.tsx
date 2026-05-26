@@ -245,7 +245,10 @@ export default function ColaboradorQRTab({
               const conf = statusConfig[ticket.status] || statusConfig.valid;
               const StatusIcon = conf.icon;
               const isUsed = ticket.status === 'used';
+              const hasName = !!ticket.holder_name && ticket.holder_name.trim().length > 0;
+              const displayName = hasName ? ticket.holder_name : (ticket.holder_email || 'Sem identificação');
               const showEmail =
+                hasName &&
                 !!ticket.holder_email &&
                 ticket.holder_email.toLowerCase() !== ticket.holder_name.toLowerCase();
               return (
@@ -262,7 +265,7 @@ export default function ColaboradorQRTab({
                         {conf.label}
                       </Badge>
                       <h4 className="text-base font-semibold text-slate-900 truncate leading-tight">
-                        {ticket.holder_name}
+                        {displayName}
                       </h4>
                       {showEmail && (
                         <p className="text-sm text-slate-600 truncate mt-0.5">
