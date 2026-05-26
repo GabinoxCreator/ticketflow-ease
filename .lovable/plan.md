@@ -1,36 +1,22 @@
-## 1. Lista de ingressos (aba Check-in) — fundo claro
+## Reorganizar card do ingresso (aba Check-in)
 
-No `ColaboradorQRTab.tsx`, os cards de ingresso herdam o `bg-card` do tema (renderizando escuro nesse contexto). Trocar por estilo claro explícito, consistente com o card "Lista de ingressos" acima:
+No `ColaboradorQRTab.tsx`, redesenhar a hierarquia visual de cada card da lista, dando respiro entre os elementos e peso visual correto.
 
-- Card do ingresso: `bg-white border border-slate-200 shadow-sm` (em vez de `Card` padrão + `dark:` classes).
-- Texto do nome: `text-slate-900`.
-- Email/lote/código: `text-slate-500`.
-- Card validado (`used`): `bg-slate-50` + `opacity-70` para indicar concluído sem virar preto.
-- Badges de status: manter as cores atuais (verde/cinza/laranja/vermelho em opacidade 10), garantindo contraste no fundo branco.
-- Botão "Check-in": manter primário (já está bom no claro).
+### Nova hierarquia (top → bottom)
 
-Sem mudanças de lógica/funcionalidade — só visual.
+1. **Badge "Aguardando"** no topo, alinhada à esquerda, com `mb-2` separando do conteúdo.
+2. **Nome do cliente** (`holder_name`) — `text-base font-semibold text-slate-900`, elemento de maior peso, `truncate`.
+3. **Email** (`holder_email`) — `text-sm text-slate-600 truncate`, logo abaixo do nome.
+   - Se `holder_name === holder_email` (caso comum quando o pedido não capturou o nome), oculta esta linha para não duplicar.
+4. **Metadados do ingresso** — `text-[11px] uppercase tracking-wider text-slate-400 font-mono mt-1.5`, formato `LOTE AMIGO · 32EF1A02`.
 
-## 2. Feed Ao Vivo mostrando "Cliente" genérico
+### Layout do card
 
-Causa confirmada no banco: alguns pedidos `paid` têm `customer_name` vazio (checkout autenticado que não preencheu o nome do comprador), mas têm `user_id`. Hoje o edge function `collaborator-live-stats` cai no fallback `'Cliente'`.
+- Padding `p-4` (era `p-3`) com `gap-4` entre coluna de texto e botão.
+- Coluna de texto: `flex-1 min-w-0`.
+- Botão Check-in: alinhado verticalmente ao centro (`self-center`), tamanho atual mantido.
+- Estado `used`: mantém `bg-slate-50 opacity-70` já implementado.
 
-Correção no `supabase/functions/collaborator-live-stats/index.ts`:
+### Arquivos
 
-1. Coletar `user_id` dos pedidos cujo `customer_name` está vazio/nulo.
-2. Buscar `profiles` (`id, nome_completo`) em lote para esses ids.
-3. Fallback adicional: se o profile não tiver nome, usar `holder_name` do primeiro ticket pago do pedido (já temos os tickets carregados — incluir `holder_name` no select).
-4. Ordem de prioridade ao montar o feed:
-   `orders.customer_name` → `profiles.nome_completo` → `tickets.holder_name` (primeiro do pedido) → `'Cliente'`.
-
-Apenas o edge function muda. UI do `ColaboradorAoVivoTab` permanece igual (já renderiza `customer_name`).
-
-## Arquivos
-
-- `src/components/colaborador/ColaboradorQRTab.tsx` — estilo claro da lista de ingressos.
-- `supabase/functions/collaborator-live-stats/index.ts` — resolver nome real do cliente via profiles + holder_name.
-
-## Validação
-
-- Aba Check-in: lista renderiza em fundo claro, validados com tom suave de cinza.
-- Aba Ao Vivo: feed mostra nome do profile (ou do titular do ingresso) no lugar de "Cliente" genérico.
+- `src/components/colaborador/ColaboradorQRTab.tsx` — somente o bloco do card dentro do `.map`. Sem mudanças de lógica.
