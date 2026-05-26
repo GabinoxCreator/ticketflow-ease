@@ -135,7 +135,11 @@ serve(async (req) => {
       feed.push({
         id: `order:${o.id}`,
         source: o.sale_origin === 'manual' ? 'manual' : 'online',
-        customer_name: o.customer_name || 'Cliente',
+        customer_name:
+          (o.customer_name && o.customer_name.trim()) ||
+          (o.user_id && profileNames.get(o.user_id)) ||
+          info.holderName ||
+          'Cliente',
         lot_name: lotName,
         quantity: info.count,
         amount: Number(o.total_amount || 0),
