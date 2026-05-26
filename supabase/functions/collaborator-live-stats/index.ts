@@ -121,7 +121,10 @@ serve(async (req) => {
       doorTickets += Number(d.quantity || 0);
     });
 
-    const onlineRevenue = (orders || []).reduce((acc: number, o: any) => acc + Number(o.total_amount || 0), 0);
+    const onlineRevenue = (orders || []).reduce(
+      (acc: number, o: any) => acc + (Number(o.total_amount || 0) - Number(o.service_fee_amount || 0)),
+      0,
+    );
     const revenue = onlineRevenue + doorRevenue;
     const ticketsSold = ticketsSoldOnline + doorTickets;
     const avgTicket = ticketsSold > 0 ? revenue / ticketsSold : 0;
