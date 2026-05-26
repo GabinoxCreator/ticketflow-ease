@@ -66,7 +66,7 @@ serve(async (req) => {
       .from('orders')
       .select('id, customer_name, total_amount, service_fee_amount, created_at, sale_origin, user_id')
       .eq('event_id', event_id)
-      .eq('status', 'paid')
+      .in('status', ['paid', 'completed'])
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -125,7 +125,7 @@ serve(async (req) => {
       (acc: number, o: any) => acc + (Number(o.total_amount || 0) - Number(o.service_fee_amount || 0)),
       0,
     );
-    const revenue = onlineRevenue + doorRevenue;
+    const revenue = onlineRevenue; // Somente receita de ingressos (online + manual) líquida da taxa FestPag
     const ticketsSold = ticketsSoldOnline + doorTickets;
     const avgTicket = ticketsSold > 0 ? revenue / ticketsSold : 0;
 

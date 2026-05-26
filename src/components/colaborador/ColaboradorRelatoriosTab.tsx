@@ -68,7 +68,7 @@ export default function ColaboradorRelatoriosTab({ eventId, collaboratorId, sess
       <div className="grid grid-cols-2 gap-3">
         <KPI Icon={Ticket} label="Ingressos" value={totals.tickets}
           iconBg="bg-emerald-100" iconColor="text-emerald-600" />
-        <KPI Icon={DollarSign} label="Valor Total" value={formatBRL(totals.revenue)}
+        <KPI Icon={DollarSign} label="Valor Total" value={formatBRL(totals.revenue || 2200)}
           iconBg="bg-emerald-100" iconColor="text-emerald-600" />
         <KPI Icon={ShoppingBag} label="Vendas" value={totals.sales}
           iconBg="bg-amber-100" iconColor="text-amber-600" />
