@@ -245,34 +245,39 @@ export default function ColaboradorQRTab({
               const conf = statusConfig[ticket.status] || statusConfig.valid;
               const StatusIcon = conf.icon;
               const isUsed = ticket.status === 'used';
+              const showEmail =
+                !!ticket.holder_email &&
+                ticket.holder_email.toLowerCase() !== ticket.holder_name.toLowerCase();
               return (
                 <div
                   key={ticket.id}
-                  className={`rounded-xl border border-slate-200 shadow-sm p-3 ${
+                  className={`rounded-xl border border-slate-200 shadow-sm p-4 ${
                     isUsed ? 'bg-slate-50 opacity-70' : 'bg-white'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-semibold truncate text-slate-900">{ticket.holder_name}</h4>
-                        <Badge variant="secondary" className={conf.color}>
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {conf.label}
-                        </Badge>
-                      </div>
-                      {ticket.holder_email && (
-                        <p className="text-sm text-slate-500 truncate">{ticket.holder_email}</p>
+                      <Badge variant="secondary" className={`${conf.color} mb-2`}>
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {conf.label}
+                      </Badge>
+                      <h4 className="text-base font-semibold text-slate-900 truncate leading-tight">
+                        {ticket.holder_name}
+                      </h4>
+                      {showEmail && (
+                        <p className="text-sm text-slate-600 truncate mt-0.5">
+                          {ticket.holder_email}
+                        </p>
                       )}
-                      <p className="text-xs text-slate-500 font-mono">
-                        {ticket.lot_name && `${ticket.lot_name} • `}
+                      <p className="text-[11px] uppercase tracking-wider text-slate-400 font-mono mt-1.5">
+                        {ticket.lot_name && `${ticket.lot_name} · `}
                         {ticket.ticket_code.slice(0, 8).toUpperCase()}
                       </p>
                     </div>
                     {ticket.status === 'valid' && (
                       <Button
                         size="sm"
-                        className="flex-shrink-0 h-10"
+                        className="flex-shrink-0 h-10 self-center"
                         disabled={validatingId === ticket.id}
                         onClick={() => handleManualCheckin(ticket)}
                       >
