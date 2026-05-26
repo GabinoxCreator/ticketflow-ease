@@ -64,7 +64,7 @@ serve(async (req) => {
     // Paid orders (online + manual)
     const { data: orders } = await supabase
       .from('orders')
-      .select('id, customer_name, total_amount, created_at, sale_origin')
+      .select('id, customer_name, total_amount, service_fee_amount, created_at, sale_origin, user_id')
       .eq('event_id', event_id)
       .eq('status', 'paid')
       .order('created_at', { ascending: false })
