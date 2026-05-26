@@ -66,7 +66,7 @@ serve(async (req) => {
       .from('orders')
       .select('id, customer_name, total_amount, service_fee_amount, created_at, sale_origin, user_id')
       .eq('event_id', event_id)
-      .eq('status', 'paid')
+      .in('status', ['paid', 'completed'])
       .order('created_at', { ascending: false })
       .limit(200);
 
