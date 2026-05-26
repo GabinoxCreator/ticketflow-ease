@@ -1,6 +1,6 @@
-import { QrCode, List, ShoppingBag, BarChart3 } from 'lucide-react';
+import { QrCode, List, ShoppingBag, BarChart3, Radio } from 'lucide-react';
 
-export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios';
+export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios' | 'aovivo';
 
 interface ColaboradorBottomNavProps {
   activeTab: ColaboradorTab;
@@ -12,6 +12,7 @@ export default function ColaboradorBottomNav({ activeTab, onTabChange }: Colabor
     { id: 'qr', label: 'Check-in', Icon: QrCode },
     { id: 'listas', label: 'Listas', Icon: List },
     { id: 'vender', label: 'Vender', Icon: ShoppingBag },
+    { id: 'aovivo', label: 'Ao Vivo', Icon: Radio },
     { id: 'relatorios', label: 'Relatórios', Icon: BarChart3 },
   ];
 

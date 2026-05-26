@@ -11,6 +11,7 @@ import ColaboradorQRTab from '@/components/colaborador/ColaboradorQRTab';
 import ColaboradorListasTab from '@/components/colaborador/ColaboradorListasTab';
 import ColaboradorVenderTab from '@/components/colaborador/ColaboradorVenderTab';
 import ColaboradorRelatoriosTab from '@/components/colaborador/ColaboradorRelatoriosTab';
+import ColaboradorAoVivoTab from '@/components/colaborador/ColaboradorAoVivoTab';
 
 export default function ColaboradorEvento() {
   const navigate = useNavigate();
@@ -184,6 +185,14 @@ export default function ColaboradorEvento() {
         )}
         {activeTab === 'vender' && (
           <ColaboradorVenderTab
+            eventId={eventId!}
+            collaboratorId={collaborator.id}
+            sessionToken={session.token}
+            onSessionExpired={handleSessionExpired}
+          />
+        )}
+        {activeTab === 'aovivo' && (
+          <ColaboradorAoVivoTab
             eventId={eventId!}
             collaboratorId={collaborator.id}
             sessionToken={session.token}
