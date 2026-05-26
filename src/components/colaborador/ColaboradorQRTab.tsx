@@ -246,45 +246,45 @@ export default function ColaboradorQRTab({
               const StatusIcon = conf.icon;
               const isUsed = ticket.status === 'used';
               return (
-                <Card
+                <div
                   key={ticket.id}
-                  className={`border-slate-200 dark:border-slate-800 ${isUsed ? 'opacity-60' : ''}`}
+                  className={`rounded-xl border border-slate-200 shadow-sm p-3 ${
+                    isUsed ? 'bg-slate-50 opacity-70' : 'bg-white'
+                  }`}
                 >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-semibold truncate">{ticket.holder_name}</h4>
-                          <Badge variant="secondary" className={conf.color}>
-                            <StatusIcon className="w-3 h-3 mr-1" />
-                            {conf.label}
-                          </Badge>
-                        </div>
-                        {ticket.holder_email && (
-                          <p className="text-sm text-muted-foreground truncate">{ticket.holder_email}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {ticket.lot_name && `${ticket.lot_name} • `}
-                          {ticket.ticket_code.slice(0, 8).toUpperCase()}
-                        </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-semibold truncate text-slate-900">{ticket.holder_name}</h4>
+                        <Badge variant="secondary" className={conf.color}>
+                          <StatusIcon className="w-3 h-3 mr-1" />
+                          {conf.label}
+                        </Badge>
                       </div>
-                      {ticket.status === 'valid' && (
-                        <Button
-                          size="sm"
-                          className="flex-shrink-0 h-10"
-                          disabled={validatingId === ticket.id}
-                          onClick={() => handleManualCheckin(ticket)}
-                        >
-                          {validatingId === ticket.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            'Check-in'
-                          )}
-                        </Button>
+                      {ticket.holder_email && (
+                        <p className="text-sm text-slate-500 truncate">{ticket.holder_email}</p>
                       )}
+                      <p className="text-xs text-slate-500 font-mono">
+                        {ticket.lot_name && `${ticket.lot_name} • `}
+                        {ticket.ticket_code.slice(0, 8).toUpperCase()}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
+                    {ticket.status === 'valid' && (
+                      <Button
+                        size="sm"
+                        className="flex-shrink-0 h-10"
+                        disabled={validatingId === ticket.id}
+                        onClick={() => handleManualCheckin(ticket)}
+                      >
+                        {validatingId === ticket.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Check-in'
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
