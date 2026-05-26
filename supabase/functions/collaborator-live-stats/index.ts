@@ -70,22 +70,41 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(200);
 
-    // Tickets paid (valid/used) — for sold count + per-order lot/qty
+    // Tickets paid (valid/used) — for sold count + per-order lot/qty + holder fallback
     const { data: tickets } = await supabase
       .from('tickets')
-      .select('order_id, lot_id, status')
+      .select('order_id, lot_id, status, holder_name')
       .eq('event_id', event_id)
       .in('status', ['valid', 'used']);
 
-    const ticketsByOrder = new Map<string, { count: number; lotId: string | null }>();
+    const ticketsByOrder = new Map<string, { count: number; lotId: string | null; holderName: string | null }>();
     let ticketsSoldOnline = 0;
     (tickets || []).forEach((t: any) => {
       ticketsSoldOnline += 1;
-      const prev = ticketsByOrder.get(t.order_id) || { count: 0, lotId: null };
+      const prev = ticketsByOrder.get(t.order_id) || { count: 0, lotId: null, holderName: null };
       prev.count += 1;
       if (!prev.lotId) prev.lotId = t.lot_id;
+      if (!prev.holderName && t.holder_name) prev.holderName = t.holder_name;
       ticketsByOrder.set(t.order_id, prev);
     });
+
+    // Fallback names from profiles for orders with empty customer_name
+    const missingUserIds = Array.from(new Set(
+      (orders || [])
+        .filter((o: any) => !o.customer_name || !o.customer_name.trim())
+        .map((o: any) => o.user_id)
+        .filter(Boolean)
+    ));
+    const profileNames = new Map<string, string>();
+    if (missingUserIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, nome_completo')
+        .in('id', missingUserIds);
+      (profiles || []).forEach((p: any) => {
+        if (p.nome_completo) profileNames.set(p.id, p.nome_completo);
+      });
+    }
 
     // Door sales
     const { data: doorSales } = await supabase
