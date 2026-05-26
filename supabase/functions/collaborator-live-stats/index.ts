@@ -64,7 +64,7 @@ serve(async (req) => {
     // Paid orders (online + manual)
     const { data: orders } = await supabase
       .from('orders')
-      .select('id, customer_name, total_amount, created_at, sale_origin')
+      .select('id, customer_name, total_amount, service_fee_amount, created_at, sale_origin, user_id')
       .eq('event_id', event_id)
       .eq('status', 'paid')
       .order('created_at', { ascending: false })
@@ -121,7 +121,10 @@ serve(async (req) => {
       doorTickets += Number(d.quantity || 0);
     });
 
-    const onlineRevenue = (orders || []).reduce((acc: number, o: any) => acc + Number(o.total_amount || 0), 0);
+    const onlineRevenue = (orders || []).reduce(
+      (acc: number, o: any) => acc + (Number(o.total_amount || 0) - Number(o.service_fee_amount || 0)),
+      0,
+    );
     const revenue = onlineRevenue + doorRevenue;
     const ticketsSold = ticketsSoldOnline + doorTickets;
     const avgTicket = ticketsSold > 0 ? revenue / ticketsSold : 0;
@@ -142,7 +145,7 @@ serve(async (req) => {
           'Cliente',
         lot_name: lotName,
         quantity: info.count,
-        amount: Number(o.total_amount || 0),
+        amount: Number(o.total_amount || 0) - Number(o.service_fee_amount || 0),
         created_at: o.created_at,
       });
     });
