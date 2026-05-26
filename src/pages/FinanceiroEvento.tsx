@@ -12,8 +12,11 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 
-const formatBRL = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const formatBRL = (v: number) => {
+  const [intPart, fracPart] = v.toFixed(2).split('.');
+  const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `R$\u00A0${intWithDots},${fracPart}`;
+};
 
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
 
