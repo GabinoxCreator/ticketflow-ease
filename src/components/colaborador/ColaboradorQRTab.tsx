@@ -12,7 +12,7 @@ import { buildWindowMessage } from '@/lib/checkinWindow';
 interface TicketRow {
   id: string;
   ticket_code: string;
-  holder_name: string;
+  holder_name: string | null;
   holder_email?: string;
   holder_phone?: string;
   status: string;
@@ -80,7 +80,7 @@ export default function ColaboradorQRTab({
     const q = normalize(searchQuery.trim());
     const filtered = q
       ? allTickets.filter(t =>
-          normalize(t.holder_name).includes(q) ||
+          normalize(t.holder_name || '').includes(q) ||
           normalize(t.holder_email || '').includes(q) ||
           normalize(t.holder_phone || '').includes(q) ||
           t.ticket_code.toLowerCase().includes(q)
@@ -91,7 +91,7 @@ export default function ColaboradorQRTab({
       if (a.status === 'used') {
         return (b.validated_at || '').localeCompare(a.validated_at || '');
       }
-      return a.holder_name.localeCompare(b.holder_name);
+      return (a.holder_name || a.holder_email || '').localeCompare(b.holder_name || b.holder_email || '');
     });
   }, [allTickets, searchQuery]);
 
@@ -129,7 +129,7 @@ export default function ColaboradorQRTab({
         setManualResult({
           type: 'success',
           message: 'Pode entrar!',
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
           lotName: ticket.lot_name,
           ticketCode: ticket.ticket_code,
         });
@@ -144,13 +144,13 @@ export default function ColaboradorQRTab({
         setManualResult({
           type: 'window_closed',
           message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
         });
       } else if (data.error?.includes('já foi utilizado')) {
         setManualResult({
           type: 'already_used',
           message: 'Esse ingresso já passou pela portaria.',
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
           lotName: ticket.lot_name,
         });
         setAllTickets(prev =>
@@ -160,7 +160,7 @@ export default function ColaboradorQRTab({
         setManualResult({
           type: 'error',
           message: data.error || 'Não foi possível validar agora.',
-          holderName: ticket.holder_name,
+          holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
         });
       }
     } catch {
@@ -245,7 +245,10 @@ export default function ColaboradorQRTab({
               const conf = statusConfig[ticket.status] || statusConfig.valid;
               const StatusIcon = conf.icon;
               const isUsed = ticket.status === 'used';
+              const hasName = !!ticket.holder_name && ticket.holder_name.trim().length > 0;
+              const displayName = hasName ? ticket.holder_name : (ticket.holder_email || 'Sem identificação');
               const showEmail =
+                hasName &&
                 !!ticket.holder_email &&
                 ticket.holder_email.toLowerCase() !== ticket.holder_name.toLowerCase();
               return (
@@ -262,7 +265,7 @@ export default function ColaboradorQRTab({
                         {conf.label}
                       </Badge>
                       <h4 className="text-base font-semibold text-slate-900 truncate leading-tight">
-                        {ticket.holder_name}
+                        {displayName}
                       </h4>
                       {showEmail && (
                         <p className="text-sm text-slate-600 truncate mt-0.5">
