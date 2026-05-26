@@ -2,7 +2,11 @@ import { Ticket, DollarSign, ShoppingBag, TrendingUp, Loader2 } from 'lucide-rea
 import { useColaboradorDoorSalesReport } from '@/hooks/useColaboradorDoorSales';
 
 const formatBRL = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  new Intl.NumberFormat('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+  }).format(v).replace(/\s/g, '\u00A0');
 
 const METHOD_LABELS: Record<string, string> = {
   pix: 'PIX',

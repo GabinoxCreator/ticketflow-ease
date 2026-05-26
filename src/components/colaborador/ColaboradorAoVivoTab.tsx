@@ -10,7 +10,11 @@ interface Props {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  return new Intl.NumberFormat('pt-BR', { 
+    style: 'currency', 
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+  }).format(value).replace(/\s/g, '\u00A0');
 }
 
 function timeAgo(iso: string) {
