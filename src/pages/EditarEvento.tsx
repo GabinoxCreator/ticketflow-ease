@@ -211,6 +211,20 @@ export default function EditarEvento() {
       return;
     }
 
+    const oldStatus = event?.status;
+    const newStatus = data.status;
+    const statusChanged = oldStatus !== newStatus;
+    const goingToPublished = statusChanged && newStatus === 'published';
+    const leavingPublished = statusChanged && oldStatus === 'published' && newStatus !== 'published';
+
+    // Guard: cannot change linked map while event is published
+    if (isPublished && (data.table_map_id ?? null) !== (event?.table_map_id ?? null)) {
+      toast.error('Não é possível trocar o mapa de um evento publicado', {
+        description: 'Despublique o evento antes de alterar o mapa.',
+      });
+      return;
+    }
+
     const eventData: any = {
       title: data.title,
       description: data.description,
@@ -224,13 +238,31 @@ export default function EditarEvento() {
       address: data.address,
       image_url: imageUrl,
       is_hot: data.is_hot,
-      status: data.status,
       event_type: data.event_type,
+      // Only send table_map_id when not published (server is the source of truth)
+      ...(isPublished ? {} : { table_map_id: data.table_map_id ?? null }),
+      // Status is handled by RPC when crossing the published boundary
+      ...(statusChanged && !goingToPublished && !leavingPublished
+        ? { status: newStatus }
+        : {}),
     };
 
     updateEvent.mutate(
       { id, data: eventData },
-      { onSuccess: () => reset(data) }
+      {
+        onSuccess: async () => {
+          if (goingToPublished) {
+            await publishEvent.mutateAsync(id);
+          } else if (leavingPublished && newStatus === 'draft') {
+            await unpublishEvent.mutateAsync(id);
+          } else if (leavingPublished) {
+            // cancelled/finished from published: persist status directly after RPC unpublish
+            await unpublishEvent.mutateAsync(id);
+            updateEvent.mutate({ id, data: { status: newStatus } });
+          }
+          reset(data);
+        },
+      }
     );
   };
 
