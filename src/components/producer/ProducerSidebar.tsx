@@ -37,6 +37,7 @@ const mainMenuItems = [
 const managementItems = [
   { title: 'Financeiro', url: '/produtor/financeiro', icon: Wallet },
   { title: 'Colaboradores', url: '/produtor/equipe', icon: Users },
+  { title: 'Tipos de Assento', url: '/produtor/tipos-de-assento', icon: Armchair },
 ];
 
 const settingsItems = [
