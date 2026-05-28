@@ -22,7 +22,7 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSeatHold, type HoldState } from '@/hooks/useSeatHold';
+import { useSeatHold, type HoldState, readStoredOrderId, writeStoredOrderId, clearStoredOrderId } from '@/hooks/useSeatHold';
 import { HoldCountdown } from '@/components/seated/HoldCountdown';
 import { CheckoutStepProgressiveForm } from '@/components/checkout/CheckoutStepProgressiveForm';
 import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
@@ -32,7 +32,7 @@ import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
 
 
-type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'success';
+type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
 
 
 interface CustomerData {
