@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Mail, Phone, XCircle, Receipt, Gift } from 'lucide-react';
+import { Mail, Phone, XCircle, Receipt, Gift, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Order } from '@/hooks/useEventOrders';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
-
 interface OrderListItemProps {
   order: Order;
   onUpdateStatus?: (orderId: string, status: Order['status']) => void;
