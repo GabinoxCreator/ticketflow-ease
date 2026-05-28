@@ -16,7 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, CheckCircle2, CreditCard, QrCode } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, CreditCard, QrCode, ArrowRight, Zap, ShieldCheck, Clock } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
