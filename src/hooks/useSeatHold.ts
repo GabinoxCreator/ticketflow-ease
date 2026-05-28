@@ -12,6 +12,17 @@ export interface HoldState {
 }
 
 const storageKey = (eventId: string) => `festpag:hold:${eventId}`;
+const orderStorageKey = (eventId: string) => `festpag:order:${eventId}`;
+
+export function readStoredOrderId(eventId: string): string | null {
+  try { return sessionStorage.getItem(orderStorageKey(eventId)); } catch { return null; }
+}
+export function writeStoredOrderId(eventId: string, orderId: string) {
+  try { sessionStorage.setItem(orderStorageKey(eventId), orderId); } catch {}
+}
+export function clearStoredOrderId(eventId: string) {
+  try { sessionStorage.removeItem(orderStorageKey(eventId)); } catch {}
+}
 
 interface HoldRpcResult {
   hold_token: string;
@@ -106,6 +117,8 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
         addons: initialAddons ? { ...initialAddons } : {},
       };
       persist(next);
+      // Anti-double-payment: novo hold => esquece orderId anterior desse evento.
+      clearStoredOrderId(eventId);
       setHold(next);
 
       if (userId) {
