@@ -288,14 +288,15 @@ export default function SeatCheckout() {
       </div>
     );
   }
-
-  if (!hold || !event || !customer) {
+  if (!hold || !event || !customer || step === null) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <main className="pt-32 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></main>
       </div>
     );
+  }
+
   }
 
   return (
