@@ -180,7 +180,7 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
   }, []);
 
   // Cleanup no unmount — usa holdRef.current, não closure de hold.
-  // Não solta se markProceeding() foi chamado (usuário saiu pro checkout)
+      // Não solta se markProceeding foi chamado (usuário saiu pro checkout)
   // nem se clearLocalHold() já zerou o hold (terminal success/rejected).
   useEffect(() => {
     return () => {
