@@ -21,6 +21,7 @@ import CheckoutSuccess from "./pages/CheckoutSuccess";
 import Financeiro from "./pages/Financeiro";
 import FinanceiroEvento from "./pages/FinanceiroEvento";
 import MeusIngressos from "./pages/MeusIngressos";
+import SeatCheckout from "./pages/SeatCheckout";
 import MinhaConta from "./pages/MinhaConta";
 import ColaboradoresManager from "./pages/ColaboradoresManager";
 import ColaboradorLogin from "./pages/colaborador/ColaboradorLogin";
@@ -83,7 +84,9 @@ const App = () => (
 
                 {/* Client Protected */}
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
+                <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
+                <Route path="/checkout/mesa/:eventId" element={<ProtectedRoute><SeatCheckout /></ProtectedRoute>} />
 
                 {/* Producer Area (public) */}
                 <Route path="/area-do-produtor" element={<AreaDoProdutor />} />

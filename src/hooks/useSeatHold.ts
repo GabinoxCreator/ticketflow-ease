@@ -8,6 +8,7 @@ export interface HoldState {
   token: string;
   expiresAt: string;
   seatIds: string[];
+  addons: Record<string, number>;
 }
 
 const storageKey = (eventId: string) => `festpag:hold:${eventId}`;
@@ -27,15 +28,27 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
     holdRef.current = hold;
   }, [hold]);
 
+  const persist = useCallback((next: HoldState | null) => {
+    if (!eventId) return;
+    if (next) sessionStorage.setItem(storageKey(eventId), JSON.stringify(next));
+    else sessionStorage.removeItem(storageKey(eventId));
+  }, [eventId]);
+
   // Hidratação do sessionStorage
   useEffect(() => {
     if (!eventId) return;
     const raw = sessionStorage.getItem(storageKey(eventId));
     if (!raw) return;
     try {
-      const parsed: HoldState = JSON.parse(raw);
-      if (new Date(parsed.expiresAt).getTime() > Date.now()) {
-        setHold(parsed);
+      const parsed = JSON.parse(raw) as Partial<HoldState>;
+      if (parsed?.token && parsed?.expiresAt && Array.isArray(parsed.seatIds) &&
+          new Date(parsed.expiresAt).getTime() > Date.now()) {
+        setHold({
+          token: parsed.token,
+          expiresAt: parsed.expiresAt,
+          seatIds: parsed.seatIds,
+          addons: parsed.addons ?? {},
+        });
       } else {
         sessionStorage.removeItem(storageKey(eventId));
       }
@@ -49,19 +62,19 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
     if (!hold || !eventId) return;
     const ms = new Date(hold.expiresAt).getTime() - Date.now();
     if (ms <= 0) {
-      sessionStorage.removeItem(storageKey(eventId));
+      persist(null);
       setHold(null);
       queryClient.invalidateQueries({ queryKey: ['event-seats', eventId] });
       return;
     }
     const t = setTimeout(() => {
-      sessionStorage.removeItem(storageKey(eventId));
+      persist(null);
       setHold(null);
       queryClient.invalidateQueries({ queryKey: ['event-seats', eventId] });
       toast.info('Tempo esgotado. Selecione novamente.');
     }, ms);
     return () => clearTimeout(t);
-  }, [hold, eventId, queryClient]);
+  }, [hold, eventId, queryClient, persist]);
 
   const holdSelected = useCallback(
     async (seatIds: string[]): Promise<HoldState | null> => {
@@ -87,12 +100,11 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
         token: result.hold_token,
         expiresAt: result.expires_at,
         seatIds,
+        addons: {},
       };
-      sessionStorage.setItem(storageKey(eventId), JSON.stringify(next));
+      persist(next);
       setHold(next);
 
-      // Merge otimista: marca como 'held' na cache pra evitar flash de "available"
-      // até o realtime UPDATE chegar.
       if (userId) {
         queryClient.setQueryData<EventSeatRow[] | undefined>(
           ['event-seats', eventId],
@@ -114,8 +126,32 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
       }
       return next;
     },
-    [eventId, userId, queryClient]
+    [eventId, userId, queryClient, persist]
   );
+
+  const setSeatAddon = useCallback((seatId: string, qty: number) => {
+    setHold((prev) => {
+      if (!prev) return prev;
+      const next: HoldState = {
+        ...prev,
+        addons: { ...prev.addons, [seatId]: Math.max(0, Math.floor(qty)) },
+      };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  // Atualiza expiresAt com o valor AUTORITATIVO do servidor (event_seats.hold_expires_at
+  // estendido por create_seat_order). No-op se null/undefined. Sem fallback client-side.
+  const updateHoldExpiresAt = useCallback((newIso: string | null | undefined) => {
+    if (!newIso) return;
+    setHold((prev) => {
+      if (!prev) return prev;
+      const next: HoldState = { ...prev, expiresAt: newIso };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
 
   const releaseCurrent = useCallback(async () => {
     const cur = holdRef.current;
@@ -124,19 +160,28 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
       _event_id: eventId,
       _hold_token: cur.token,
     });
-    sessionStorage.removeItem(storageKey(eventId));
+    persist(null);
     setHold(null);
     queryClient.invalidateQueries({ queryKey: ['event-seats', eventId] });
-  }, [eventId, queryClient]);
+  }, [eventId, queryClient, persist]);
 
-  // Fase 9 vai chamar isso colado ao navigate('/checkout/...').
-  // NÃO chamar no stub desta fase.
+  // Limpa apenas o hold LOCAL (state + storage). Não chama release no servidor.
+  // Usado em success/rejected: o servidor já promoveu (sold) ou já liberou (release_seats_for_order).
+  // Como holdRef.current vira null, o cleanup do unmount não dispara release.
+  const clearLocalHold = useCallback(() => {
+    persist(null);
+    setHold(null);
+  }, [persist]);
+
+  // Chamar IMEDIATAMENTE antes do navigate pro checkout. Latch ref pra que o
+  // cleanup do unmount não solte o hold do servidor.
   const markProceeding = useCallback(() => {
     isProceedingRef.current = true;
   }, []);
 
   // Cleanup no unmount — usa holdRef.current, não closure de hold.
-  // Não solta se markProceeding() foi chamado (usuário saiu pro checkout).
+      // Não solta se markProceeding foi chamado (usuário saiu pro checkout)
+  // nem se clearLocalHold() já zerou o hold (terminal success/rejected).
   useEffect(() => {
     return () => {
       const cur = holdRef.current;
@@ -151,5 +196,14 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  return { hold, holdSelected, releaseCurrent, markProceeding };
+  return {
+    hold,
+    addons: hold?.addons ?? {},
+    holdSelected,
+    setSeatAddon,
+    updateHoldExpiresAt,
+    releaseCurrent,
+    clearLocalHold,
+    markProceeding,
+  };
 }

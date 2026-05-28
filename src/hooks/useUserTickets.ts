@@ -27,7 +27,12 @@ export interface UserTicket {
   lot: {
     name: string;
     price: number;
-  };
+  } | null;
+  seat: {
+    label: string | null;
+    code: string | null;
+    seat_type_name: string | null;
+  } | null;
 }
 
 export function useUserTickets() {
@@ -50,17 +55,19 @@ export function useUserTickets() {
           validated_at,
           created_at,
           event:events(id, slug, title, date, time, end_date, end_time, venue, city, state, image_url),
-          lot:event_lots(name, price)
+          lot:event_lots(name, price),
+          seat:event_seats(label, code, seat_type_name)
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       // Filter out pending tickets (not yet paid)
-      return (data as UserTicket[]).filter(t => t.status !== 'pending');
+      return (data as unknown as UserTicket[]).filter(t => t.status !== 'pending');
     },
     enabled: !!user,
   });
+
 
   // Calcula o momento real de término do evento (respeita fuso local)
   const getEventEndDate = (event: UserTicket['event']): Date => {
