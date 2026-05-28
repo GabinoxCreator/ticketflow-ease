@@ -1961,6 +1961,10 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      confirm_seats: {
+        Args: { _event_id: string; _hold_token: string; _seat_ids: string[] }
+        Returns: Json
+      }
       decrement_sold_quantity_legacy: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
@@ -1980,6 +1984,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      hold_seats: {
+        Args: { _event_id: string; _seat_ids: string[]; _window?: string }
+        Returns: Json
       }
       is_event_checkin_open: {
         Args: { _event_id: string }
@@ -2015,11 +2023,16 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      release_seats: {
+        Args: { _event_id: string; _hold_token: string }
+        Returns: Json
+      }
       reserve_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
       slugify: { Args: { _input: string }; Returns: string }
+      sweep_expired_event_seat_holds: { Args: never; Returns: number }
       unaccent: { Args: { "": string }; Returns: string }
       unpublish_event: { Args: { _event_id: string }; Returns: Json }
     }
