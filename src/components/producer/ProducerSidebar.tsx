@@ -7,6 +7,7 @@ import {
   Wallet,
   Users,
   Armchair,
+  MapPin,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ const mainMenuItems = [
 const managementItems = [
   { title: 'Financeiro', url: '/produtor/financeiro', icon: Wallet },
   { title: 'Colaboradores', url: '/produtor/equipe', icon: Users },
+  { title: 'Locais', url: '/produtor/locais', icon: MapPin },
   { title: 'Tipos de Assento', url: '/produtor/tipos-de-assento', icon: Armchair },
 ];
 
