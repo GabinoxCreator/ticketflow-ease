@@ -329,13 +329,8 @@ export default function SeatCheckout() {
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Voltar ao mapa
             </button>
-            {step !== 'success' && (
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-medium text-primary">
-                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Reservada ·</span>
-                <HoldCountdown expiresAt={hold.expiresAt} />
-              </div>
-            )}
+            {step !== 'success' && <ReservedPill expiresAt={hold.expiresAt} />}
+          </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
