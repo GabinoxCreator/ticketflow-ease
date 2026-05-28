@@ -186,6 +186,18 @@ export default function EditarEvento() {
   const onSubmit = async (data: EventFormData) => {
     if (!id) return;
 
+    // Bloqueio: mesa/hibrido -> ingresso com assentos vendidos
+    if (
+      (originalType === 'mesa' || originalType === 'hibrido') &&
+      data.event_type === 'ingresso' &&
+      hasSoldSeats
+    ) {
+      toast.error('Não é possível voltar para Ingresso', {
+        description: 'Este evento já possui assentos vendidos no mapa de reservas.',
+      });
+      return;
+    }
+
     const eventData: any = {
       title: data.title,
       description: data.description,
@@ -200,6 +212,7 @@ export default function EditarEvento() {
       image_url: imageUrl,
       is_hot: data.is_hot,
       status: data.status,
+      event_type: data.event_type,
     };
 
     updateEvent.mutate(
