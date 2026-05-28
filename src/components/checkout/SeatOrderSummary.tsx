@@ -13,13 +13,15 @@ interface Props {
   event: { title: string; venue: string; city: string; state: string };
   seats: SeatSummary[];
   addons: Record<string, number>;
+  subtotal: number;
+  serviceFee: number;
   totalAmount: number;
 }
 
 const fmt = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function SeatOrderSummary({ event, seats, addons, totalAmount }: Props) {
+export function SeatOrderSummary({ event, seats, addons, subtotal, serviceFee, totalAmount }: Props) {
   return (
     <div className="space-y-4">
       <div>
@@ -51,9 +53,21 @@ export function SeatOrderSummary({ event, seats, addons, totalAmount }: Props) {
             );
           })}
         </ul>
-        <div className="flex justify-between font-semibold text-base mt-4 pt-3 border-t border-border">
-          <span>Total</span>
-          <span className="gradient-text tabular-nums">{fmt(totalAmount)}</span>
+        <div className="mt-4 pt-3 border-t border-border space-y-1.5">
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>Subtotal</span>
+            <span className="tabular-nums">{fmt(subtotal)}</span>
+          </div>
+          {serviceFee > 0 && (
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Taxa de conveniência</span>
+              <span className="tabular-nums">{fmt(serviceFee)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-base pt-1.5">
+            <span>Total</span>
+            <span className="gradient-text tabular-nums">{fmt(totalAmount)}</span>
+          </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground border-t border-border pt-3">
