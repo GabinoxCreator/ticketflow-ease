@@ -331,7 +331,6 @@ export default function SeatCheckout() {
             </button>
             {step !== 'success' && <ReservedPill expiresAt={hold.expiresAt} />}
           </div>
-          </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
             {(['method', 'pix', 'card', 'awaiting'] as Step[]).includes(step) ? (
