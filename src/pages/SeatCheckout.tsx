@@ -16,7 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, CheckCircle2, CreditCard, QrCode } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, CreditCard, QrCode, ArrowRight, Zap, ShieldCheck, Clock } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -64,6 +64,31 @@ interface SeatSummary {
 }
 
 const HONEST_HOLD_ERRORS = new Set(['hold_expired', 'seat_not_held', 'seat_not_found']);
+
+function ReservedPill({ expiresAt }: { expiresAt: string }) {
+  const [ms, setMs] = useState(() => new Date(expiresAt).getTime() - Date.now());
+  useEffect(() => {
+    setMs(new Date(expiresAt).getTime() - Date.now());
+    const id = setInterval(() => setMs(new Date(expiresAt).getTime() - Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  const safe = Math.max(0, ms);
+  const m = Math.floor(safe / 60000);
+  const s = Math.floor((safe % 60000) / 1000);
+  const urgent = safe <= 60_000;
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium tabular-nums border ${
+        urgent
+          ? 'bg-destructive/10 border-destructive/30 text-destructive'
+          : 'bg-primary/10 border-primary/25 text-primary'
+      }`}
+    >
+      <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+      <span>Reservada · {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>
+    </div>
+  );
+}
 
 export default function SeatCheckout() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -321,15 +346,15 @@ export default function SeatCheckout() {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="pt-24 pb-16 max-w-2xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3">
             <button
               type="button"
               onClick={() => navigate(`/evento/${eventId}`)}
               className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
-              <ArrowLeft className="w-4 h-4" /> Voltar ao mapa
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Voltar ao mapa
             </button>
-            {step !== 'success' && <HoldCountdown expiresAt={hold.expiresAt} />}
+            {step !== 'success' && <ReservedPill expiresAt={hold.expiresAt} />}
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
@@ -380,14 +405,61 @@ export default function SeatCheckout() {
 
 
             {step === 'method' && (
-              <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-3">
-                <Button variant="hero" size="lg" className="w-full justify-start gap-3 h-14" onClick={handleStartPix} disabled={isStartingPix}>
-                  {isStartingPix ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
-                  {isStartingPix ? 'Gerando PIX...' : 'Pagar com PIX'}
-                </Button>
-                <Button variant="outline" size="lg" className="w-full justify-start gap-3 h-14" onClick={() => setStep('card')}>
-                  <CreditCard className="w-5 h-5" /> Pagar com cartão
-                </Button>
+              <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
+                <h2 className="font-display font-semibold text-lg">Como você quer pagar?</h2>
+
+                <button
+                  type="button"
+                  onClick={handleStartPix}
+                  disabled={isStartingPix}
+                  aria-label="Pagar com PIX, aprovação imediata, recomendado"
+                  className="group relative w-full overflow-hidden rounded-2xl p-5 text-left text-white shadow-lg shadow-primary/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #c026d3 55%, #ec4899 100%)' }}
+                >
+                  <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                    <Zap className="w-3 h-3" aria-hidden="true" />
+                    Recomendado
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0 border border-white/20">
+                      {isStartingPix ? (
+                        <Loader2 className="w-7 h-7 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <QrCode className="w-7 h-7" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 pr-16">
+                      <p className="font-display font-bold text-lg leading-tight">
+                        {isStartingPix ? 'Gerando PIX...' : 'Pagar com PIX'}
+                      </p>
+                      <p className="text-sm text-white/85 mt-0.5">Aprovação na hora · sem taxas extras</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-white/80 group-hover:translate-x-1 transition-transform flex-shrink-0" aria-hidden="true" />
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStep('card')}
+                  aria-label="Pagar com cartão de crédito em até 12 parcelas"
+                  className="group w-full rounded-2xl p-5 text-left bg-card border border-border/70 transition-all duration-300 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-secondary/60 border border-border/60 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-7 h-7 text-foreground/80" aria-hidden="true" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display font-semibold text-base leading-tight">Pagar com cartão</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">Crédito · parcele em até 12x</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" aria-hidden="true" />
+                  </div>
+                </button>
+
+                <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />
+                  <span>Pagamento 100% seguro e criptografado</span>
+                </div>
               </motion.div>
             )}
 
