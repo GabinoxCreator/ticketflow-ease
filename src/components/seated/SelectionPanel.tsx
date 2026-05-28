@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2, Ticket, X, Minus, Plus } from 'lucide-react';
+import { Loader2, Ticket, X, Minus, Plus, Pencil } from 'lucide-react';
 import type { EventSeatRow } from '@/hooks/useEventSeats';
 import type { HoldState } from '@/hooks/useSeatHold';
 import { HoldCountdown } from './HoldCountdown';
@@ -8,6 +8,7 @@ import { HoldCountdown } from './HoldCountdown';
 interface Props {
   seats: EventSeatRow[];
   localSelection: Set<string>;
+  pendingAddons?: Record<string, number>;
   hold: HoldState | null;
   addons: Record<string, number>;
   isHolding: boolean;
@@ -17,6 +18,7 @@ interface Props {
   onRelease: () => void;
   setSeatAddon: (seatId: string, qty: number) => void;
   markProceeding: () => void;
+  onEditSeat?: (seatId: string) => void;
 }
 
 const formatPrice = (price: number) =>
@@ -25,6 +27,7 @@ const formatPrice = (price: number) =>
 export function SelectionPanel({
   seats,
   localSelection,
+  pendingAddons = {},
   hold,
   addons,
   isHolding,
@@ -34,6 +37,7 @@ export function SelectionPanel({
   onRelease,
   setSeatAddon,
   markProceeding,
+  onEditSeat,
 }: Props) {
   const navigate = useNavigate();
   const heldMode = !!hold;
@@ -45,12 +49,12 @@ export function SelectionPanel({
   const subtotal = rows.reduce((acc, s) => {
     const base = Number(s.base_price ?? 0);
     const extra = Number(s.extra_price ?? 0);
-    const qty = heldMode ? (addons[s.id] ?? 0) : 0;
+    const qty = heldMode ? (addons[s.id] ?? 0) : (pendingAddons[s.id] ?? 0);
     return acc + base + extra * qty;
   }, 0);
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-5 sticky top-24">
+    <div className="bg-card rounded-2xl border border-border p-5 sticky top-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-display font-semibold text-lg">Sua seleção</h3>
         {hold && <HoldCountdown expiresAt={hold.expiresAt} />}
@@ -58,7 +62,7 @@ export function SelectionPanel({
 
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Clique nos assentos disponíveis no mapa para selecionar.
+          Clique nas mesas disponíveis no mapa para selecionar.
         </p>
       ) : (
         <ul className="space-y-3 mb-4 max-h-80 overflow-auto pr-1">
@@ -68,8 +72,9 @@ export function SelectionPanel({
             const baseCap = Number(s.base_capacity ?? 0);
             const maxCap = Number(s.max_capacity ?? 0);
             const maxAddons = Math.max(0, maxCap - baseCap);
-            const qty = heldMode ? (addons[s.id] ?? 0) : 0;
+            const qty = heldMode ? (addons[s.id] ?? 0) : (pendingAddons[s.id] ?? 0);
             const lineTotal = base + extra * qty;
+            const totalPeople = baseCap + qty;
             return (
               <li
                 key={s.id}
@@ -77,15 +82,29 @@ export function SelectionPanel({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{s.label || s.code || 'Assento'}</p>
+                    <p className="font-medium truncate">{s.label || s.code || 'Mesa'}</p>
                     {s.seat_type_name && (
                       <p className="text-xs text-muted-foreground truncate">
                         {s.seat_type_name}
-                        {baseCap > 0 && ` · ${baseCap} ${baseCap === 1 ? 'pessoa' : 'pessoas'}`}
+                        {baseCap > 0 &&
+                          ` · ${totalPeople} ${totalPeople === 1 ? 'pessoa' : 'pessoas'}`}
+                        {qty > 0 && ` (+${qty} extra${qty > 1 ? 's' : ''})`}
                       </p>
                     )}
                   </div>
-                  <span className="tabular-nums">{formatPrice(lineTotal)}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="tabular-nums">{formatPrice(lineTotal)}</span>
+                    {!heldMode && onEditSeat && (
+                      <button
+                        type="button"
+                        onClick={() => onEditSeat(s.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Editar mesa"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {heldMode && maxAddons > 0 && (
                   <div className="flex items-center justify-between gap-2 pt-1">
