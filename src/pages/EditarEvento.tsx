@@ -498,6 +498,42 @@ export default function EditarEvento() {
                     />
                   </div>
 
+                  {(watchedValues.event_type === 'mesa' || watchedValues.event_type === 'hibrido') && (
+                    <div className="space-y-2">
+                      <Label>Mapa de assentos</Label>
+                      <Select
+                        value={watchedValues.table_map_id ?? '__none__'}
+                        onValueChange={(v) =>
+                          setValue('table_map_id', v === '__none__' ? null : v, { shouldDirty: true })
+                        }
+                        disabled={isPublished}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um mapa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sem mapa</SelectItem>
+                          {producerMaps.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name} — {m.venue_name} ({m.seats_count} assentos)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {isPublished && (
+                        <p className="text-xs text-muted-foreground">
+                          Despublique o evento para trocar o mapa vinculado.
+                        </p>
+                      )}
+                      {!isPublished && producerMaps.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum mapa disponível. Crie um em Locais &amp; Mapas.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div>
