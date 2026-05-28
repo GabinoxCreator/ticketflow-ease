@@ -28,7 +28,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { useEvents } from '@/hooks/useEvents';
+import { useEvents, type EventType } from '@/hooks/useEvents';
+import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { cn } from '@/lib/utils';
 
 const states = [
@@ -133,6 +134,7 @@ export default function CriarEvento() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState<string | undefined>();
+  const [eventType, setEventType] = useState<EventType>('ingresso');
 
   // Step 2
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -220,6 +222,7 @@ export default function CriarEvento() {
           image_url: imageUrl,
           is_hot: true,
           status,
+          event_type: eventType,
         },
         { onSuccess: (data) => resolve(data), onError: (err) => reject(err) }
       );
@@ -370,6 +373,11 @@ export default function CriarEvento() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Imagem do Evento</Label>
                   <ImageUpload value={imageUrl} onChange={setImageUrl} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tipo de venda *</Label>
+                  <EventTypeSelector value={eventType} onChange={setEventType} />
                 </div>
               </div>
             </div>
