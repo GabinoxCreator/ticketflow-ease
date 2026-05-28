@@ -600,6 +600,7 @@ export type Database = {
           manually_closed_at: string | null
           manually_closed_by: string | null
           max_capacity: number | null
+          order_id: string | null
           pending_order_id: string | null
           radius: number | null
           rotation: number
@@ -633,6 +634,7 @@ export type Database = {
           manually_closed_at?: string | null
           manually_closed_by?: string | null
           max_capacity?: number | null
+          order_id?: string | null
           pending_order_id?: string | null
           radius?: number | null
           rotation?: number
@@ -666,6 +668,7 @@ export type Database = {
           manually_closed_at?: string | null
           manually_closed_by?: string | null
           max_capacity?: number | null
+          order_id?: string | null
           pending_order_id?: string | null
           radius?: number | null
           rotation?: number
@@ -686,6 +689,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_seats_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {
@@ -1713,12 +1723,14 @@ export type Database = {
         Row: {
           created_at: string
           event_id: string
+          event_seat_id: string | null
           holder_email: string | null
           holder_name: string
           holder_phone: string | null
           id: string
-          lot_id: string
+          lot_id: string | null
           order_id: string
+          seat_label: string | null
           status: string
           ticket_code: string
           user_id: string | null
@@ -1727,12 +1739,14 @@ export type Database = {
         Insert: {
           created_at?: string
           event_id: string
+          event_seat_id?: string | null
           holder_email?: string | null
           holder_name: string
           holder_phone?: string | null
           id?: string
-          lot_id: string
+          lot_id?: string | null
           order_id: string
+          seat_label?: string | null
           status?: string
           ticket_code?: string
           user_id?: string | null
@@ -1741,12 +1755,14 @@ export type Database = {
         Update: {
           created_at?: string
           event_id?: string
+          event_seat_id?: string | null
           holder_email?: string | null
           holder_name?: string
           holder_phone?: string | null
           id?: string
-          lot_id?: string
+          lot_id?: string | null
           order_id?: string
+          seat_label?: string | null
           status?: string
           ticket_code?: string
           user_id?: string | null
@@ -1758,6 +1774,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_event_seat_id_fkey"
+            columns: ["event_seat_id"]
+            isOneToOne: false
+            referencedRelation: "event_seats"
             referencedColumns: ["id"]
           },
           {
@@ -1965,6 +1988,23 @@ export type Database = {
         Args: { _event_id: string; _hold_token: string; _seat_ids: string[] }
         Returns: Json
       }
+      create_seat_order: {
+        Args: {
+          _customer_cpf: string
+          _customer_email: string
+          _customer_name: string
+          _customer_phone: string
+          _event_id: string
+          _fee_fixed: number
+          _fee_percent: number
+          _hold_token: string
+          _payment_method: string
+          _seats: Json
+          _user_id: string
+          _window?: string
+        }
+        Returns: Json
+      }
       decrement_sold_quantity_legacy: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
@@ -2025,6 +2065,10 @@ export type Database = {
       }
       release_seats: {
         Args: { _event_id: string; _hold_token: string }
+        Returns: Json
+      }
+      release_seats_admin: {
+        Args: { _event_id: string; _hold_token: string; _user_id: string }
         Returns: Json
       }
       reserve_lot_quantity: {
