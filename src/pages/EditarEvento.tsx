@@ -443,6 +443,16 @@ export default function EditarEvento() {
                 <CardContent className="space-y-6">
                   <ImageUpload value={imageUrl} onChange={setImageUrl} />
 
+                  <div className="space-y-2">
+                    <Label>Tipo de venda *</Label>
+                    <EventTypeSelector
+                      value={(watchedValues.event_type as EventType) ?? 'ingresso'}
+                      onChange={(v) => setValue('event_type', v, { shouldDirty: true, shouldValidate: true })}
+                      originalType={originalType}
+                      hasSoldSeats={hasSoldSeats}
+                    />
+                  </div>
+
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                       <div>
