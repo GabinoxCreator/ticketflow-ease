@@ -92,11 +92,12 @@ function SeatNodeImpl({ seat, vstatus, onToggle }: Props) {
 
 export const SeatNode = React.memo(
   SeatNodeImpl,
+  // onToggle propositalmente fora: closure velho é seguro (toggleLocal usa
+  // setLocalSelection(prev => ...) e checa vstatus que vem fresco via prop).
   (a, b) =>
     a.vstatus === b.vstatus &&
     a.seat.status === b.seat.status &&
     a.seat.held_by_user_id === b.seat.held_by_user_id &&
     a.seat.color === b.seat.color &&
-    a.seat.label === b.seat.label &&
-    a.onToggle === b.onToggle
+    a.seat.label === b.seat.label
 );
