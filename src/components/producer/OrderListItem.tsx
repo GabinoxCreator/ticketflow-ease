@@ -70,6 +70,29 @@ export function OrderListItem({ order }: OrderListItemProps) {
               <Gift className="h-3 w-3 mr-1" /> Cortesia
             </Badge>
           )}
+          {order.review_status && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className="bg-red-500/15 text-red-400 border border-red-500/40 hover:bg-red-500/25 cursor-help">
+                    <AlertTriangle className="h-3 w-3 mr-1" /> Revisar pagamento
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                  {order.review_status === 'partial_delivery' ? (
+                    <>
+                      <strong className="text-red-400">Entrega parcial.</strong> Pagamento confirmado, mas só{' '}
+                      {order.review_reason?.delivered ?? '?'} de {order.review_reason?.expected ?? '?'} assentos foram entregues. Verifique no Mercado Pago e reembolse a diferença manualmente se necessário.
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-red-400">Pago sem entrega.</strong> Pagamento confirmado no Mercado Pago, mas o pedido já estava {order.review_reason?.order_status ?? 'encerrado'} quando o webhook chegou. Nenhum assento foi entregue. Verifique e reembolse manualmente no painel do MP.
+                    </>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
