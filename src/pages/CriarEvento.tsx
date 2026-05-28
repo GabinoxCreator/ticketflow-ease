@@ -964,8 +964,9 @@ export default function CriarEvento() {
                 <Button
                   type="button"
                   onClick={() => handleSubmit('published')}
-                  disabled={createEvent.isPending}
-                  className="rounded-xl bg-gradient-to-r from-[hsl(250,85%,60%)] to-[hsl(330,85%,60%)] text-white hover:opacity-90 hover:shadow-lg hover:shadow-primary/30"
+                  disabled={createEvent.isPending || eventType !== 'ingresso'}
+                  title={eventType !== 'ingresso' ? 'Disponível apenas após vincular o mapa em Editar evento' : undefined}
+                  className="rounded-xl bg-gradient-to-r from-[hsl(250,85%,60%)] to-[hsl(330,85%,60%)] text-white hover:opacity-90 hover:shadow-lg hover:shadow-primary/30 disabled:opacity-50"
                 >
                   {createEvent.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
                   Publicar evento
