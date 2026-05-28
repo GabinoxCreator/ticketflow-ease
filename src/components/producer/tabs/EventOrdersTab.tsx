@@ -67,6 +67,19 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Fase 10: chip de pedidos sinalizados para revisão */}
+      {flaggedOrders.length > 0 && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-red-500/20 flex-shrink-0">
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+          </div>
+          <div className="text-xs sm:text-sm text-red-100/90">
+            <strong className="text-red-300">{flaggedOrders.length} pedido(s) com problema:</strong>{' '}
+            pagamento confirmado no Mercado Pago, mas a entrega de assentos falhou (parcial ou totalmente). Revise abaixo e reembolse manualmente no painel do MP se necessário.
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {stats.map((s) => (
