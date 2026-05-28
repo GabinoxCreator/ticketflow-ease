@@ -187,6 +187,9 @@ export default function EditarEvento() {
     if (!id) return;
 
     // Bloqueio: mesa/hibrido -> ingresso com assentos vendidos
+    // FIXME: Bloco 3 — replicar este guard no backend (Edge Function)
+    // para evitar bypass via API. Dívida técnica: validação client-side
+    // é UX, mas a segurança real deve estar no servidor.
     if (
       (originalType === 'mesa' || originalType === 'hibrido') &&
       data.event_type === 'ingresso' &&
