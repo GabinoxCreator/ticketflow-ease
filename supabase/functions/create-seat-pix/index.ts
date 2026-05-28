@@ -197,9 +197,9 @@ serve(async (req) => {
           return json({ error: 'payment_already_started', orderId: existing?.orderId ?? null, holdExpiresAt: existing?.holdExpiresAt ?? null });
         }
         if (mapped.kind === 'manipulation' || mapped.kind === 'unknown') {
-          return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, mapped.httpStatus);
+          return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' });
         }
-        return json({ error: mapped.code }, mapped.httpStatus);
+        return json({ error: mapped.code });
       }
 
       orderId = rpcData.order_id;
@@ -224,9 +224,9 @@ serve(async (req) => {
         return json({ error: 'payment_already_started', orderId: existing?.orderId ?? null, holdExpiresAt: existing?.holdExpiresAt ?? null });
       }
       if (mapped.kind === 'manipulation' || mapped.kind === 'unknown') {
-        return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, mapped.httpStatus);
+        return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' });
       }
-      return json({ error: mapped.code }, mapped.httpStatus);
+      return json({ error: mapped.code });
     }
 
     // Lê hold_expires_at autoritativo (estendido pra janela do método)
@@ -311,7 +311,7 @@ serve(async (req) => {
       // Exceção AMBÍGUA pós-POST: pagamento pode ter sido criado mesmo sem resposta.
       // NÃO solta seat — sweeper/webhook resolve quando vier o veredito.
       logStep('MP POST network exception', { msg: e?.message });
-      return json({ error: 'payment_provider_unreachable', orderId }, 502);
+      return json({ error: 'payment_provider_unreachable', orderId });
     }
 
     if (!mpResponse.ok) {
@@ -332,7 +332,7 @@ serve(async (req) => {
         logStep('release after MP !ok failed', { msg: relErr?.message });
       }
 
-      return json({ error: mpError.message || 'pix_create_failed', errorCode: mpError.status_detail || 'unknown' }, 422);
+      return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.', errorCode: mpError.status_detail || 'unknown' });
     }
 
     let mpPayment: any;
@@ -341,7 +341,7 @@ serve(async (req) => {
     } catch (e: any) {
       // Parse ambíguo. NÃO solta seat.
       logStep('MP response parse error', { msg: e?.message });
-      return json({ error: 'payment_provider_unreachable', orderId }, 502);
+      return json({ error: 'payment_provider_unreachable', orderId });
     }
 
     const pixInfo = mpPayment.point_of_interaction?.transaction_data;
@@ -369,6 +369,6 @@ serve(async (req) => {
   } catch (error: any) {
     // Catch externo: erro pré-RPC (validação, auth, etc.). Nenhum side effect criado.
     console.error('[CREATE-SEAT-PIX] UNHANDLED', error);
-    return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, 500);
+    return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' });
   }
 });
