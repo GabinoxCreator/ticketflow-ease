@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+export type EventType = 'ingresso' | 'mesa' | 'hibrido';
+
 export interface Event {
   id: string;
   producer_id: string;
@@ -23,6 +25,7 @@ export interface Event {
   image_url: string | null;
   is_hot: boolean;
   status: 'draft' | 'published' | 'cancelled' | 'finished';
+  event_type: EventType;
   fake_scarcity_enabled: boolean | null;
   fake_scarcity_percentage: number | null;
   created_at: string;
@@ -54,6 +57,7 @@ export interface EventFormData {
   image_url?: string;
   is_hot?: boolean;
   status?: 'draft' | 'published' | 'cancelled' | 'finished';
+  event_type?: EventType;
   fake_scarcity_enabled?: boolean;
   fake_scarcity_percentage?: number;
 }
