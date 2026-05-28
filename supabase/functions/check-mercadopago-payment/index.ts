@@ -120,8 +120,21 @@ serve(async (req) => {
       }, 200);
     }
 
-    // Determine authoritative ability: requires JWT of order owner
+    // MESA detection: tickets atrelados a event_seats têm event_seat_id setado.
+    // Mesa NÃO entra no caminho autoritativo de polling — promoção é só webhook.
+    // Detecção por event_seats.order_id é alternativa, mas vira false após release;
+    // event_seat_id em tickets é imutável (defensivo).
+    const { count: seatTicketCount } = await supabaseClient
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', orderId)
+      .not('event_seat_id', 'is', null);
+    const isMesa = (seatTicketCount ?? 0) > 0;
+
+    // Determine authoritative ability: requires JWT of order owner.
+    // MESA nunca é authoritative aqui — webhook único caminho.
     const isAuthoritative =
+      !isMesa &&
       mpStatus === 'approved' &&
       order.user_id != null &&
       authedUserId != null &&
@@ -150,8 +163,8 @@ serve(async (req) => {
       }
     }
 
-    // Non-authoritative: just reflect state. Webhook remains the source of truth.
-    // Re-read local order to surface freshest status if webhook already updated it.
+    // Non-authoritative (inclui MESA): apenas reflete o estado local.
+    // Webhook é a fonte da verdade. Front continua em "finalizando" até paid.
     const { data: refreshed } = await supabaseClient
       .from('orders')
       .select('status')
@@ -166,6 +179,7 @@ serve(async (req) => {
       paymentId,
       message: mpStatus === 'approved' ? 'awaiting_webhook' : 'mp_status_reported',
       orderStatus: localStatus,
+      isMesa,
     });
   } catch (error: any) {
     logStep('ERROR', { message: error.message });

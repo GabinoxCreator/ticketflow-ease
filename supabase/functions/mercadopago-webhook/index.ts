@@ -216,19 +216,36 @@ serve(async (req) => {
         .maybeSingle();
 
       if (changed) {
-        // Release reservations
-        const { data: tickets } = await supabase
+        // MESA vs INGRESSO. Detecção por tickets.event_seat_id (imutável).
+        // Nota Fase 10: event_seats.order_id é zerado por release_seats_for_order,
+        // por isso não é confiável após o release. Usar tickets.event_seat_id.
+        const { data: ticketsRaw } = await supabase
           .from('tickets')
-          .select('lot_id')
+          .select('lot_id, event_seat_id')
           .eq('order_id', order.id);
-        const counts = new Map<string, number>();
-        for (const t of tickets || []) counts.set(t.lot_id, (counts.get(t.lot_id) || 0) + 1);
-        for (const [lotId, qty] of counts) {
-          await supabase.rpc('release_lot_quantity', { _lot_id: lotId, _qty: qty });
+        const tickets = ticketsRaw || [];
+        const isMesa = tickets.some((t: any) => t.event_seat_id != null);
+
+        if (isMesa) {
+          // Mesa: libera seats da order. release_seats_for_order não consulta
+          // orders.status — solta held desta order, sempre seguro em rejected.
+          await supabase.rpc('release_seats_for_order', { _order_id: order.id });
+          log('rejected (mesa) seats released', { orderId: order.id });
+        } else {
+          // Ingresso: libera lots por contagem.
+          const counts = new Map<string, number>();
+          for (const t of tickets) {
+            if (t.lot_id) counts.set(t.lot_id, (counts.get(t.lot_id) || 0) + 1);
+          }
+          for (const [lotId, qty] of counts) {
+            await supabase.rpc('release_lot_quantity', { _lot_id: lotId, _qty: qty });
+          }
+          log('rejected (ingresso) lots released', { orderId: order.id });
         }
+
         await supabase.from('tickets').update({ status: 'cancelled' }).eq('order_id', order.id).eq('status', 'pending');
         outcome = 'applied';
-        log('rejected applied', { orderId: order.id });
+        log('rejected applied', { orderId: order.id, isMesa });
       }
     } else if (mpStatus === 'refunded' || mpStatus === 'charged_back') {
       const newStatus = mpStatus === 'refunded' ? 'refunded' : 'charged_back';
