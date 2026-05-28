@@ -66,10 +66,11 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
           {event.status === 'draft' && (
             <Button
               size="sm"
-              onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'published' } })}
+              disabled={publishEvent.isPending}
+              onClick={() => publishEvent.mutate(event.id)}
               className="rounded-xl bg-gradient-to-r from-primary to-pink-500 hover:opacity-90 text-white shadow-lg shadow-primary/20"
             >
-              <Globe className="h-4 w-4 mr-2" />
+              {publishEvent.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Globe className="h-4 w-4 mr-2" />}
               Publicar Evento
             </Button>
           )}
@@ -77,10 +78,11 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateEvent.mutate({ id: event.id, data: { status: 'draft' } })}
+              disabled={unpublishEvent.isPending}
+              onClick={() => unpublishEvent.mutate(event.id)}
               className="rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
             >
-              <EyeOff className="h-4 w-4 mr-2" />
+              {unpublishEvent.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <EyeOff className="h-4 w-4 mr-2" />}
               Despublicar
             </Button>
           )}
