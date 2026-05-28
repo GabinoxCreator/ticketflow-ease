@@ -1,89 +1,186 @@
+# Plano revisado — Ajustes 1, 2, 3
 
-# Fase 11.1 — Correções da página pública e do mapa
-
-Quatro problemas independentes, uma rodada. Sem mexer em business logic (RPCs `hold_seats`/`release_seats`, `useSeatHold` continuam como estão).
-
----
-
-## Problema 1 — Card "Reserve sua Mesa" (UX)
-
-**Arquivos:** `src/hooks/useEventSeatAvailability.ts`, `src/components/event/MesaReservaCTA.tsx`, `src/pages/EventDetails.tsx`, migration nova.
-
-- Estender `useEventSeatAvailability` para também devolver `basePrice`, `extraPrice`, `baseCapacity`, `maxCapacity` por `seat_type_name` (pega do primeiro seat do tipo — todos do mesmo tipo compartilham). Hoje só traz status/price.
-- Reescrever `MesaReservaCTA`:
-  - Remove os chips de estoque (`Bistrô · 40/40`, `Mesa Padrão · 40/40`).
-  - Remove o bloco "A partir de R$" interno (fica só no `PriceAndShareBar` no topo).
-  - Lista um item por `seat_type_name` no formato:
-    `MESA PADRÃO · 4 pessoas + até 2 extras · R$ 120,00 · +R$ 30,00 por extra`
-  - Adiciona descrição curta acima (campo `event.mesa_reserva_description` no banco; fallback "Escolha sua mesa diretamente no mapa do local").
-  - Mantém botão "Ver Mapa de Mesas" e badge "Esgotado" quando `totalAvailable === 0`.
-- Migration: `ALTER TABLE public.events ADD COLUMN mesa_reserva_description text;` (nullable, sem default).
-- Editor de evento (`EditarEvento.tsx` / `CriarEvento.tsx`): adicionar `<Textarea>` opcional "Descrição da reserva de mesas" só quando `event_type ∈ {mesa, hibrido}`. **Fora de escopo** deste fix se ficar grande — mínimo aceitável: só adicionar a coluna + fallback; o editor entra na Fase 12. Confirmar com você antes de tocar nos forms.
+Confirmação: `customerPhone` é **opcional** nas duas edge functions de pagamento de mesa (`create-seat-pix/index.ts:29` e `charge-seat-card/index.ts:30` — `customerPhone?: string`; L141/L143: `customerPhone || null`; L213: spread condicional `...(phoneObj ? { phone: phoneObj } : {})`). → opção (b) aprovada, telefone não é pedido.
 
 ---
 
-## Problema 2 — Responsividade mobile (regressão)
+## Ajuste 2 — Mesa: 1 clique, 1 mesa (corrigido)
 
-**Arquivo:** `src/pages/EventDetails.tsx`.
+### `src/hooks/useSeatHold.ts`
+- `holdSelected(seatIds, initialAddons?)` aceita um 2º parâmetro opcional. O hold criado já nasce com os addons gravados em `sessionStorage` — sem race entre `setSeatAddon` async e `navigate`.
 
-- Banner: hoje `aspect-[4/5] sm:aspect-[16/9]` dentro de `max-w-5xl px-4`. Em ≤380px o `rounded-2xl` + sombra causa overflow visual. Trocar wrapper para `px-3 sm:px-4`, garantir `w-full max-w-full overflow-hidden` no container do `<img>`, e `object-cover object-center`.
-- Tipografia: `h1` passa de `text-3xl md:text-4xl` para `text-2xl sm:text-3xl md:text-4xl lg:text-5xl`. Subtítulos `text-base sm:text-lg`. Aplicar `break-words` onde já não tem.
-- Section content: trocar `px-4` por `px-3 sm:px-4`; manter `min-w-0`.
-- `MesaReservaCTA`: `p-6` → `p-4 sm:p-6`, ícone container `w-10 h-10` ok, mas `flex-wrap` nos meta-rows.
-- `LotCard` / Sticky bottom bar: revisar paddings e font-sizes equivalentes.
-- QA: verificar em viewport 380×740 que nada estoura horizontalmente (sem scroll-x).
+### `src/components/seated/SeatDetailModal.tsx` (reescrito)
+- Props: `{ seat, open, onClose, onConfirm(seatId, addons), isProcessing }`. Sem `onConfirm/onConfirmAndContinue/onRemove/initialAddons/alreadySelected`.
+- Único CTA: `Reservar Mesa {label}` (variant hero). Botão secundário `Cancelar` (ghost) que fecha.
+- Branch responsivo: `useIsMobile()` → `<Drawer>` (bottom-sheet shadcn), senão `<Dialog>`. Conteúdo idêntico nos dois.
+- Stepper de adicionais só aparece se `max > base`.
 
----
+### `src/lib/seatCheckoutNav.ts` (novo)
+```ts
+export function goToSeatCheckout(navigate, markProceeding, eventId) {
+  markProceeding();
+  navigate(`/checkout/mesa/${eventId}`);
+}
+```
+Único call-site de `markProceeding()` em `src/`.
 
-## Problema 3 — Mapa fullscreen com header dedicado (regressão)
+### `src/pages/EventDetailsSeated.tsx` (reescrito)
+- Remove: `localSelection`, `pendingAddons`, `handleConfirmSeat`, `handleClearSelection`, `handleConfirmAndContinue`, `handleRemoveSeat`, `doHold` antigo.
+- `handleToggleSeat(seatId)` bloqueia se já tem `hold` (mesa atual já reservada) e se status visual ≠ available; senão abre modal.
+- `handleConfirmReserve(seatId, addons)`:
+  ```ts
+  setIsHolding(true);
+  const initial = addons > 0 ? { [seatId]: addons } : undefined;
+  const result = await holdSelected([seatId], initial);
+  setIsHolding(false);
+  if (!result) { setModalSeatId(null); return; }      // hook já fez toast + refetch
+  goToSeatCheckout(navigate, markProceeding, eventId);
+  ```
+- `resolveVisualStatus`: remove o ramo `localSelection.has(seat.id)`; só available/held-other/selected-mine (do próprio hold)/sold/blocked.
+- `SelectionPanel` continua sendo renderizado no `<aside>` mas agora é **read-only do hold ativo** (vide abaixo).
 
-**Arquivos:** `src/pages/EventMapPage.tsx` (reescrever), `src/pages/EventDetailsSeated.tsx` (refatorar), `src/components/seated/SeatMapRenderer.tsx` (adicionar zoom).
+### `src/components/seated/SelectionPanel.tsx` (simplificado)
+- Props enxutas: `{ seats, hold, addons, isHolding, eventId, onRelease, setSeatAddon, markProceeding }`. Remove `localSelection`, `pendingAddons`, `onClearSelection`, `onContinue`, `onEditSeat`.
+- Sem `hold` → mostra placeholder "Clique numa mesa disponível no mapa para reservar." (branch `localSelection.size > 0 && !hold` morto: removido).
+- Com `hold` → lista as mesas com stepper de adicionais (já existia), total, botão `Ir para pagamento` que chama `goToSeatCheckout(navigate, markProceeding, eventId)`, e link "Cancelar reserva" (`onRelease`).
+- Conta de `markProceeding(` em `src/` após: **1** (dentro de `seatCheckoutNav.ts`).
 
-- `EventMapPage`: NÃO renderiza mais `<Header />` do FestPag. Layout próprio:
-  - Top bar fixo (h-14): `[← Voltar]` à esquerda, `Nome do evento · DD/MM · HH:mm` centralizado (truncate no mobile), controles `[−] [100%] [+] [⛶ fullscreen]` à direita.
-  - Canvas do mapa ocupa `calc(100vh - 3.5rem)`, sem `Footer`.
-  - Painel de seleção: drawer/sheet inferior no mobile (≤md), sidebar direita no desktop.
-- `EventDetailsSeated`: remove `<Header/>`, `<Footer/>`, título/meta e o `pt-20`. Vira componente puro de "mapa + painel", recebe `event` por prop. Toda a parte de cabeçalho do evento já é responsabilidade do `EventMapPage`.
-- `SeatMapRenderer`: envelopar SVG em wrapper com `transform: scale()` controlado por estado `zoom` (50%–200%, passo 10%). Expor handlers via props (`zoom`, `onZoomIn`, `onZoomOut`, `onFit`) para o header da page controlar. Botão fullscreen usa `document.documentElement.requestFullscreen()`.
-- Detalhe: o sticky `Voltar` antigo do `EventMapPage` (top-20 left-4) sai.
-
----
-
-## Problema 4 — Modal de detalhes da mesa (regressão crítica)
-
-**Arquivos:** novo `src/components/seated/SeatDetailModal.tsx`, edit `EventDetailsSeated.tsx`, edit `SelectionPanel.tsx`.
-
-- Clique em seat `available`/`selected-mine` deixa de toggar `localSelection` diretamente. Em vez disso, abre `<SeatDetailModal seat={...} />`.
-- Modal (shadcn `Dialog`):
-  - Header: `M01 · {seat.label}` + tipo de mesa.
-  - Capacidade base: "Inclui X pessoas" (de `base_capacity`).
-  - Stepper "Pessoas adicionais" 0 → (`max_capacity - base_capacity`), com label "+R$ Y por pessoa".
-  - Resumo: linha "Mesa (X pessoas) R$ base", "+N extras R$ N*extra", "Taxa de conveniência" (puxar do `useEventFees` se aplicável aqui — confirmar; senão omitir nesta etapa), "Total".
-  - Botões: `Adicionar` (adiciona à `localSelection` + grava `pendingAddons[seatId]` no estado do pai, fecha modal), `Reservar Mesa` (adiciona + dispara `handleContinue` imediato).
-  - Se seat já está em `localSelection`: botão vira `Atualizar` + `Remover`.
-- Estado novo no `EventDetailsSeated`: `pendingAddons: Record<seatId, number>` para guardar addons antes do hold. Quando `handleContinue` chama `holdSelected(ids)` com sucesso, copia para `useSeatHold` via `setSeatAddon(id, qty)` para cada um (já existente na B2; persiste em `festpag:hold:${eventId}.addons`).
-- `SelectionPanel`: continua igual no modo `heldMode` (stepper visível após reservar — já funciona). No modo pré-hold, agora mostra resumo "M01 (4+2 pessoas) — R$ 180,00" sem stepper, porque addons já foram setados no modal.
-- Validação client-side de `addons_exceed_max` continua sendo backstop do servidor; modal já bloqueia stepper no limite.
-
----
-
-## Verificações pós-fix
-
-- `rg -n "useSeatHold|markProceeding|clearLocalHold" src/` deve listar: `useSeatHold.ts`, `EventDetailsSeated.tsx`, `SeatCheckout.tsx` (todos preservados).
-- `bunx tsc --noEmit` limpo.
-- Screenshots: viewport 380×740 e 1280×800 em `/evento/:slug` e `/evento/:slug/mapa`, antes/depois do modal aberto.
-- Clicar em mesa abre modal; confirmar; `Continuar`; checar `sessionStorage.festpag:hold:{eventId}` tem `addons`.
+### Verificação
+`rg -n "markProceeding\(" src/` → 1 resultado. `rg -n "localSelection" src/` → 0 resultados.
 
 ---
 
-## Fora de escopo
+## Ajuste 1 — Layout side-by-side em `/evento/:slug`
 
-- Editor de `mesa_reserva_description` no wizard (Fase 12).
-- Pan/drag do mapa (só zoom in/out + fit/fullscreen agora).
-- Mudar `hold_seats` / addons no checkout.
-- Taxa de conveniência no modal — se for trivial puxar do hook existente, incluo; senão deixo `Total = base + extras` e a taxa aparece no checkout como hoje.
+### `src/components/event/EventOrderSummary.tsx` (novo)
+Recebe `{ items, totalAmount, onCheckout, isFinished, hasMesa, mesaCtaHref }` e renderiza um card "Resumo" com lista + total + botões. Usado pelo sidebar desktop e pelo bottom-bar mobile (via `cn("...", variant === 'bar' && '...')`).
 
-## Pergunta antes de implementar
+### `src/pages/EventDetails.tsx` (reescrito)
+Estrutura nova abaixo do `<Header />`:
 
-1. Confirmar que posso adicionar a coluna `events.mesa_reserva_description` agora **sem** já adicionar o campo no editor de evento (fica só fallback até a Fase 12). Ou prefere que o editor entre nesta mesma rodada?
-2. Taxa de conveniência no modal de mesa: incluo agora (puxando de `useEventFees`) ou deixo só na tela de checkout?
+```tsx
+<main className={cn('pt-20 w-full pb-28 lg:pb-0')}>
+  {finishedBanner}
+  <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 lg:py-6 grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6 lg:gap-8">
+    {/* Coluna principal */}
+    <div className="min-w-0 space-y-5 sm:space-y-6">
+      {/* Hero: info + banner */}
+      <section className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4 lg:gap-6 items-start">
+        <div className="space-y-3 order-2 md:order-1">
+          <h1>{title}</h1>
+          <{city, state}> + <{venue}> + <{address}> + <{date/time}>
+          <PriceAndShareBar />
+        </div>
+        <div className="order-1 md:order-2">
+          <div className="aspect-[16/9] rounded-2xl overflow-hidden ...">
+            <img ... />
+            <LikeButton />
+          </div>
+        </div>
+      </section>
+
+      {hasMap && <MesaReservaCTA />}
+      {activeLots.length > 0 && <LotsSection />}
+      <AboutSection />
+      <ProducerSection />
+      <EventPolicies />
+    </div>
+
+    {/* Sidebar desktop sticky */}
+    <aside className="hidden lg:block">
+      <div className="sticky top-24">
+        <EventOrderSummary variant="sidebar" ... />
+      </div>
+    </aside>
+  </div>
+</main>
+
+{/* Bottom-bar mobile (só quando tem itens OU mesa disponível) */}
+<div className="lg:hidden fixed bottom-0 ...">
+  <EventOrderSummary variant="bar" ... />
+</div>
+```
+
+Detalhes:
+- Banner aspect `16/9` desktop **e mobile** (acaba o 4/5 vertical cortado).
+- Mobile (`<lg`): empilhado, banner primeiro (`order-1` em mobile via `order-1 md:order-2`).
+- Sidebar só renderiza no desktop (`hidden lg:block`).
+- Bottom-bar substitui o atual (L487–518). Mostra: quando `totalTickets > 0` → "X ingressos · R$ Y" + "Comprar"; quando `hasMap && totalTickets === 0` → "Reserve sua mesa" + link "Ver Mapa" (que vai para `/evento/:slug/mapa`). Quando nem um nem outro, esconde.
+- Sidebar desktop renderiza sempre que `hasMap || activeLots.length > 0`. Sem itens selecionados mostra placeholder "Selecione seus ingressos" + (se mesa) CTA "Ver Mapa de Mesas".
+- `max-w-3xl` interno some — coluna principal já é limitada pelo grid.
+
+---
+
+## Ajuste 3 — `SeatCheckout` pula form quando logado
+
+### `src/pages/SeatCheckout.tsx`
+- Trocar `const { user } = useAuth()` por `const { user, profile } = useAuth()`.
+- Prefill (substituir L131–141):
+  ```ts
+  useEffect(() => {
+    if (!user || customer) return;
+    const meta = (user.user_metadata || {}) as Record<string, any>;
+    setCustomer({
+      name: profile?.nome_completo || meta.name || meta.full_name || user.email?.split('@')[0] || '',
+      email: profile?.email || user.email || '',
+      cpf: profile?.cpf || meta.cpf || '',
+      phone: profile?.whatsapp || meta.phone || meta.whatsapp || '',
+    });
+  }, [user, profile, customer]);
+  ```
+- `Step` ganha `'cpf'`. Estado inicial muda para `null` e um effect decide depois que `customer` está pronto:
+  ```ts
+  const [step, setStep] = useState<Step | null>(null);
+
+  useEffect(() => {
+    if (!customer || step !== null) return;
+    if (!user) { setStep('form'); return; }
+    const digits = customer.cpf.replace(/\D/g, '');
+    const cpfOk = digits.length === 11 && validateCPF(digits);
+    const nameOk = customer.name.trim().length >= 3;
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email);
+    if (cpfOk && nameOk && emailOk) setStep('method');
+    else setStep('cpf');
+  }, [customer, user, step]);
+  ```
+- Render do step `'form'` (L306) fica restrito a `!user`. Adicionar render do step `'cpf'`:
+  ```tsx
+  {step === 'cpf' && user && (
+    <CheckoutStepCPF
+      initialCPF={customer.cpf}
+      initialName={customer.name}
+      initialEmail={customer.email}
+      requireName={customer.name.trim().length < 3}
+      requireEmail={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)}
+      onContinue={(cpf, name, email) => {
+        setCustomer({ ...customer, cpf, name: name || customer.name, email: email || customer.email });
+        setStep('method');
+      }}
+    />
+  )}
+  ```
+- Loading guard (L273) checa `step === null` também.
+
+Telefone não é pedido (edge functions aceitam vazio).
+
+---
+
+## Arquivos
+
+- **novo** `src/lib/seatCheckoutNav.ts`
+- **novo** `src/components/event/EventOrderSummary.tsx`
+- editar `src/hooks/useSeatHold.ts` (`holdSelected` aceita addons iniciais)
+- reescrever `src/components/seated/SeatDetailModal.tsx` (Drawer/Dialog, 1 CTA)
+- reescrever `src/pages/EventDetailsSeated.tsx` (sem localSelection)
+- simplificar `src/components/seated/SelectionPanel.tsx` (read-only)
+- reescrever `src/pages/EventDetails.tsx` (grid side-by-side + bottom-bar)
+- editar `src/pages/SeatCheckout.tsx` (prefill + step dinâmico + CheckoutStepCPF)
+
+Sem migrações. Sem edge functions.
+
+## Verificação pós-implementação
+
+1. `rg -n "markProceeding\(" src/` → 1 ocorrência.
+2. `rg -n "localSelection" src/` → 0 ocorrências.
+3. `bunx tsc --noEmit` limpo.
+4. Screenshots: `/evento/:slug` 1280×800 + 380×740; modal de mesa aberto (mobile drawer + desktop dialog); `/checkout/mesa/:id` logado (mostra step `method` direto OU `cpf` só pedindo o que falta).

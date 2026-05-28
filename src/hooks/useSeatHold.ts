@@ -77,7 +77,10 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
   }, [hold, eventId, queryClient, persist]);
 
   const holdSelected = useCallback(
-    async (seatIds: string[]): Promise<HoldState | null> => {
+    async (
+      seatIds: string[],
+      initialAddons?: Record<string, number>,
+    ): Promise<HoldState | null> => {
       if (!eventId || !seatIds.length) return null;
       const { data, error } = await supabase.rpc('hold_seats', {
         _event_id: eventId,
@@ -100,7 +103,7 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
         token: result.hold_token,
         expiresAt: result.expires_at,
         seatIds,
-        addons: {},
+        addons: initialAddons ? { ...initialAddons } : {},
       };
       persist(next);
       setHold(next);
@@ -128,6 +131,7 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
     },
     [eventId, userId, queryClient, persist]
   );
+
 
   const setSeatAddon = useCallback((seatId: string, qty: number) => {
     setHold((prev) => {
