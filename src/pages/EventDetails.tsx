@@ -302,18 +302,18 @@ const EventDetails = () => {
           )}
 
           {/* Banner full-width */}
-          <section className="relative w-full max-w-5xl mx-auto px-4 pt-4">
-            <div className="relative rounded-2xl overflow-hidden shadow-xl shadow-primary/10">
-              <div className="aspect-[4/5] sm:aspect-[16/9] bg-muted">
+          <section className="relative w-full max-w-5xl mx-auto px-3 sm:px-4 pt-3 sm:pt-4">
+            <div className="relative w-full max-w-full rounded-2xl overflow-hidden shadow-xl shadow-primary/10">
+              <div className="aspect-[4/5] sm:aspect-[16/9] bg-muted w-full">
                 <img
                   src={event.image_url || '/placeholder.svg'}
                   alt={event.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
                 />
               </div>
               <button
                 onClick={handleLike}
-                className="absolute bottom-4 right-4 z-10 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-2 transition-colors hover:bg-black/80"
+                className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-2 transition-colors hover:bg-black/80"
                 aria-label="Curtir evento"
               >
                 <Heart
@@ -337,21 +337,21 @@ const EventDetails = () => {
           </section>
 
           {/* Linear content */}
-          <section className="w-full max-w-3xl mx-auto px-4 py-6 space-y-6 min-w-0">
+          <section className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-5 sm:py-6 space-y-5 sm:space-y-6 min-w-0">
             {/* Title + meta */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-3"
             >
-              <h1 className="font-display font-bold text-3xl md:text-4xl break-words">
+              <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-tight break-words">
                 {event.title}
               </h1>
 
               <div className="flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 shrink-0" />
-                  <span className="text-sm capitalize">{formatDate(event.date)}</span>
+                  <span className="text-sm capitalize break-words">{formatDate(event.date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 shrink-0" />
@@ -359,11 +359,11 @@ const EventDetails = () => {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <p className="text-foreground font-semibold text-lg break-words">
+              <div className="space-y-1 min-w-0">
+                <p className="text-foreground font-semibold text-base sm:text-lg break-words">
                   {event.venue}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground break-words">
                   {event.city}, {event.state}
                 </p>
                 {event.address && (
@@ -386,8 +386,13 @@ const EventDetails = () => {
 
             {/* Reserve sua Mesa (mesa | hibrido) */}
             {!isEventFinished && hasMap && eventId && (
-              <MesaReservaCTA eventId={eventId} eventSlugOrId={event.slug ?? event.id} />
+              <MesaReservaCTA
+                eventId={eventId}
+                eventSlugOrId={event.slug ?? event.id}
+                description={(event as any).mesa_reserva_description}
+              />
             )}
+
 
             {/* Ingressos */}
             {activeLots.length > 0 && (
