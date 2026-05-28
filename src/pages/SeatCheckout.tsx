@@ -442,7 +442,7 @@ export default function SeatCheckout() {
                 </Button>
               </motion.div>
             )}
-          </AnimatePresence>
+          </div>
         </main>
         <Footer />
       </div>
