@@ -34,6 +34,7 @@ import CentralDeAjuda from "./pages/CentralDeAjuda";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
+import SeatTypes from "./pages/SeatTypes";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
