@@ -62,6 +62,7 @@ export interface EventFormData {
   event_type?: EventType;
   fake_scarcity_enabled?: boolean;
   fake_scarcity_percentage?: number;
+  table_map_id?: string | null;
 }
 
 export function useEvents() {
