@@ -34,6 +34,7 @@ import CentralDeAjuda from "./pages/CentralDeAjuda";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
+import SeatTypes from "./pages/SeatTypes";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -95,6 +96,7 @@ const App = () => (
                 <Route path="/produtor/financeiro" element={<ProtectedRoute requiredRole="produtor"><Financeiro /></ProtectedRoute>} />
                 <Route path="/produtor/financeiro/:eventId" element={<ProtectedRoute requiredRole="produtor"><FinanceiroEvento /></ProtectedRoute>} />
                 <Route path="/produtor/equipe" element={<ProtectedRoute requiredRole="produtor"><ColaboradoresManager /></ProtectedRoute>} />
+                <Route path="/produtor/tipos-de-assento" element={<ProtectedRoute requiredRole="produtor"><SeatTypes /></ProtectedRoute>} />
                 <Route path="/produtor/configuracoes" element={<ProtectedRoute requiredRole="produtor"><ProducerSettings /></ProtectedRoute>} />
 
                 {/* Legacy redirects */}
