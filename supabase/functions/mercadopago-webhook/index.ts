@@ -192,6 +192,23 @@ serve(async (req) => {
         });
         outcome = (result.first_transition || (result.tickets_fixed ?? 0) > 0) ? 'applied' : 'noop';
         log('webhook approved processed', { orderId: order.id, paymentId, result });
+
+        // Fase 10 sabor (b): pagamento REAL aprovado (passou no gate
+        // approved + amount + dedupe MP) mas a order não estava pending nem
+        // paid (estado terminal: expired/failed/cancelled/...). Dinheiro entrou,
+        // entrega bloqueada. Flagga pra revisão manual do produtor.
+        if (result.mismatch && (result as any).order_status && (result as any).order_status !== 'paid') {
+          try {
+            await supabase.rpc('flag_order_paid_no_delivery', {
+              _order_id: order.id,
+              _mp_payment_id: paymentId,
+              _transaction_amount: received,
+              _order_status: (result as any).order_status,
+            });
+          } catch (flagErr) {
+            log('flag_order_paid_no_delivery error (non-fatal)', { e: String(flagErr) });
+          }
+        }
       } catch (e: any) {
         log('applyOrderApproved error — releasing dedupe for retry', { e: String(e) });
         // Release dedupe so MP retry can re-process this event

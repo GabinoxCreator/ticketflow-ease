@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Mail, Phone, XCircle, Receipt, Gift } from 'lucide-react';
+import { Mail, Phone, XCircle, Receipt, Gift, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Order } from '@/hooks/useEventOrders';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
-
 interface OrderListItemProps {
   order: Order;
   onUpdateStatus?: (orderId: string, status: Order['status']) => void;
@@ -69,6 +69,29 @@ export function OrderListItem({ order }: OrderListItemProps) {
             <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20">
               <Gift className="h-3 w-3 mr-1" /> Cortesia
             </Badge>
+          )}
+          {order.review_status && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className="bg-red-500/15 text-red-400 border border-red-500/40 hover:bg-red-500/25 cursor-help">
+                    <AlertTriangle className="h-3 w-3 mr-1" /> Revisar pagamento
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                  {order.review_status === 'partial_delivery' ? (
+                    <>
+                      <strong className="text-red-400">Entrega parcial.</strong> Pagamento confirmado, mas só{' '}
+                      {order.review_reason?.delivered ?? '?'} de {order.review_reason?.expected ?? '?'} assentos foram entregues. Verifique no Mercado Pago e reembolse a diferença manualmente se necessário.
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-red-400">Pago sem entrega.</strong> Pagamento confirmado no Mercado Pago, mas o pedido já estava {order.review_reason?.order_status ?? 'encerrado'} quando o webhook chegou. Nenhum assento foi entregue. Verifique e reembolse manualmente no painel do MP.
+                    </>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
 
