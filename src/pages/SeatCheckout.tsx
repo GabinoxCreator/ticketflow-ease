@@ -351,9 +351,7 @@ export default function SeatCheckout() {
               </motion.div>
             )}
 
-                />
-              </motion.div>
-            )}
+
 
             {step === 'method' && (
               <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-3">
