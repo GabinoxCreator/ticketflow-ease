@@ -215,7 +215,12 @@ export default function EditarEvento() {
     const newStatus = data.status;
     const statusChanged = oldStatus !== newStatus;
     const goingToPublished = statusChanged && newStatus === 'published';
-    const leavingPublished = statusChanged && oldStatus === 'published' && newStatus !== 'published';
+    const goingToDraftFromPublished =
+      statusChanged && oldStatus === 'published' && newStatus === 'draft';
+    // cancelled/finished partindo de published: UPDATE direto, NÃO passa por unpublish
+    // (unpublish_event bloqueia se houver held/sold e apagaria event_seats — perderia registro de venda).
+    const directStatusWrite =
+      statusChanged && !goingToPublished && !goingToDraftFromPublished;
 
     // Guard: cannot change linked map while event is published
     if (isPublished && (data.table_map_id ?? null) !== (event?.table_map_id ?? null)) {
@@ -241,10 +246,9 @@ export default function EditarEvento() {
       event_type: data.event_type,
       // Only send table_map_id when not published (server is the source of truth)
       ...(isPublished ? {} : { table_map_id: data.table_map_id ?? null }),
-      // Status is handled by RPC when crossing the published boundary
-      ...(statusChanged && !goingToPublished && !leavingPublished
-        ? { status: newStatus }
-        : {}),
+      // Status só vai no UPDATE para transições que NÃO cruzam a fronteira published↔draft.
+      // published→cancelled e published→finished caem aqui (preservam event_seats).
+      ...(directStatusWrite ? { status: newStatus } : {}),
     };
 
     updateEvent.mutate(
@@ -253,12 +257,8 @@ export default function EditarEvento() {
         onSuccess: async () => {
           if (goingToPublished) {
             await publishEvent.mutateAsync(id);
-          } else if (leavingPublished && newStatus === 'draft') {
+          } else if (goingToDraftFromPublished) {
             await unpublishEvent.mutateAsync(id);
-          } else if (leavingPublished) {
-            // cancelled/finished from published: persist status directly after RPC unpublish
-            await unpublishEvent.mutateAsync(id);
-            updateEvent.mutate({ id, data: { status: newStatus } });
           }
           reset(data);
         },
