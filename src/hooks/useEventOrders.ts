@@ -78,6 +78,7 @@ export function useEventOrders(eventId: string | undefined) {
   const pendingOrders = orders?.filter(o => o.status === 'pending') || [];
   const cancelledOrders = orders?.filter(o => ['cancelled','refunded','failed','expired','charged_back'].includes(o.status)) || [];
   const failedOrders = orders?.filter(o => o.status === 'failed') || [];
+  const flaggedOrders = orders?.filter(o => !!o.review_status) || [];
 
   const totalRevenue = paidOrders.reduce((sum, order) => sum + (Number(order.total_amount) - Number(order.service_fee_amount || 0)), 0);
 
@@ -87,6 +88,7 @@ export function useEventOrders(eventId: string | undefined) {
     pendingOrders,
     cancelledOrders,
     failedOrders,
+    flaggedOrders,
     totalRevenue,
     isLoading,
     error,
