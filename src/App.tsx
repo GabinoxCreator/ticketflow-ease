@@ -35,6 +35,9 @@ import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
 import SeatTypes from "./pages/SeatTypes";
+import Locais from "./pages/Locais";
+import LocaisMapas from "./pages/LocaisMapas";
+import MapEditorPlaceholder from "./pages/MapEditorPlaceholder";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -97,6 +100,9 @@ const App = () => (
                 <Route path="/produtor/financeiro/:eventId" element={<ProtectedRoute requiredRole="produtor"><FinanceiroEvento /></ProtectedRoute>} />
                 <Route path="/produtor/equipe" element={<ProtectedRoute requiredRole="produtor"><ColaboradoresManager /></ProtectedRoute>} />
                 <Route path="/produtor/tipos-de-assento" element={<ProtectedRoute requiredRole="produtor"><SeatTypes /></ProtectedRoute>} />
+                <Route path="/produtor/locais" element={<ProtectedRoute requiredRole="produtor"><Locais /></ProtectedRoute>} />
+                <Route path="/produtor/locais/:venueId/mapas" element={<ProtectedRoute requiredRole="produtor"><LocaisMapas /></ProtectedRoute>} />
+                <Route path="/produtor/locais/:venueId/mapas/:mapId/editor" element={<ProtectedRoute requiredRole="produtor"><MapEditorPlaceholder /></ProtectedRoute>} />
                 <Route path="/produtor/configuracoes" element={<ProtectedRoute requiredRole="produtor"><ProducerSettings /></ProtectedRoute>} />
 
                 {/* Legacy redirects */}
