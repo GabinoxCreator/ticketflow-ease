@@ -80,7 +80,7 @@ export default function DraggableSeat({
       {...(disabled ? {} : attributes)}
       onClick={(e) => {
         e.stopPropagation();
-        if (disabled) return;
+        if (disabled) { onSelect(false); return; }
         onSelect(e.shiftKey || e.metaKey || e.ctrlKey);
       }}
       className={cn(
