@@ -66,6 +66,7 @@ const eventSchema = z.object({
   is_hot: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'cancelled', 'finished']).default('draft'),
   event_type: z.enum(['ingresso', 'mesa', 'hibrido']).default('ingresso'),
+  table_map_id: z.string().nullable().optional(),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
