@@ -732,6 +732,7 @@ export type Database = {
           is_hot: boolean | null
           map_snapshot: Json | null
           map_snapshot_at: string | null
+          mesa_reserva_description: string | null
           producer_id: string
           producer_profile_id: string | null
           short_description: string | null
@@ -762,6 +763,7 @@ export type Database = {
           is_hot?: boolean | null
           map_snapshot?: Json | null
           map_snapshot_at?: string | null
+          mesa_reserva_description?: string | null
           producer_id: string
           producer_profile_id?: string | null
           short_description?: string | null
@@ -792,6 +794,7 @@ export type Database = {
           is_hot?: boolean | null
           map_snapshot?: Json | null
           map_snapshot_at?: string | null
+          mesa_reserva_description?: string | null
           producer_id?: string
           producer_profile_id?: string | null
           short_description?: string | null
