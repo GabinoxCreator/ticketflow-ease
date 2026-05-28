@@ -31,6 +31,9 @@ async function ticketCountsByLot(supabase: any, orderId: string) {
 }
 
 async function applyExpired(supabase: any, order: OrderRow) {
+  // STEP 1 — Mark order expired FIRST (guarded). If webhook already promoted to
+  // paid in the same minute, this update matches 0 rows and we return without
+  // touching seats. Inverting this order reopens double-book under load.
   const { data: changed } = await supabase
     .from('orders')
     .update({ status: 'expired' })
@@ -38,8 +41,24 @@ async function applyExpired(supabase: any, order: OrderRow) {
     .select('id').maybeSingle();
   if (!changed) return false;
 
+  // STEP 2 — Only after the order is confirmed expired do we release inventory.
+  // Mesa: release seats tied to this order (idempotent; no-op for ticket orders).
+  await supabase
+    .from('event_seats')
+    .update({
+      status: 'available',
+      held_by_user_id: null,
+      hold_token: null,
+      hold_expires_at: null,
+      order_id: null,
+    })
+    .eq('order_id', order.id)
+    .eq('status', 'held');
+
+  // Ingresso: release lot quantities (skips mesa tickets where lot_id is null).
   const counts = await ticketCountsByLot(supabase, order.id);
   for (const [lotId, qty] of counts) {
+    if (!lotId) continue;
     await supabase.rpc('release_lot_quantity', { _lot_id: lotId, _qty: qty });
   }
   await supabase.from('tickets').update({ status: 'cancelled' })
