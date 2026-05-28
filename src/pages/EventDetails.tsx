@@ -148,6 +148,15 @@ const EventDetails = () => {
     );
   }
 
+  // Branch hasMap: roteamento NÃO depende de map_snapshot (a view trata a ausência).
+  const hasMap =
+    event.status === 'published' &&
+    (event.event_type === 'mesa' || event.event_type === 'hibrido') &&
+    !!event.table_map_id;
+  if (hasMap) {
+    return <EventDetailsSeated event={event} />;
+  }
+
   const getEventEnd = () => {
     if (!event) return new Date(0);
     if (event.end_date) {
