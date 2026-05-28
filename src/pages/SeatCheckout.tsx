@@ -297,7 +297,6 @@ export default function SeatCheckout() {
     );
   }
 
-  }
 
   return (
     <>
@@ -319,11 +318,7 @@ export default function SeatCheckout() {
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
             <h1 className="font-display font-bold text-xl mb-1">{event.title}</h1>
             <p className="text-sm text-muted-foreground mb-3">{event.venue} — {event.city}/{event.state}</p>
-            <SummaryList seats={seats} addons={addons} totalAmount={totalAmount} />
-          </div>
-
-          <AnimatePresence mode="wait">
-            {step === 'form' && (
+            {step === 'form' && !user && (
               <motion.div key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <CheckoutStepProgressiveForm
                   initialData={customer}
@@ -331,6 +326,31 @@ export default function SeatCheckout() {
                     setCustomer({ name: data.name, email: data.email, cpf: data.cpf, phone: data.phone });
                     setStep('method');
                   }}
+                />
+              </motion.div>
+            )}
+
+            {step === 'cpf' && user && (
+              <motion.div key="cpf" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <CheckoutStepCPF
+                  initialCPF={customer.cpf}
+                  initialName={customer.name}
+                  initialEmail={customer.email}
+                  requireName={customer.name.trim().length < 3}
+                  requireEmail={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)}
+                  onContinue={(cpf, name, email) => {
+                    setCustomer({
+                      ...customer,
+                      cpf,
+                      name: name?.trim() ? name.trim() : customer.name,
+                      email: email?.trim() ? email.trim() : customer.email,
+                    });
+                    setStep('method');
+                  }}
+                />
+              </motion.div>
+            )}
+
                 />
               </motion.div>
             )}
