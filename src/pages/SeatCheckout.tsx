@@ -333,9 +333,18 @@ export default function SeatCheckout() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
-            <h1 className="font-display font-bold text-xl mb-1">{event.title}</h1>
-            <p className="text-sm text-muted-foreground mb-3">{event.venue} — {event.city}/{event.state}</p>
+            {(['method', 'pix', 'card', 'awaiting'] as Step[]).includes(step) ? (
+              <div className="mb-5">
+                <SeatOrderSummary event={event} seats={seats} addons={addons} totalAmount={totalAmount} />
+              </div>
+            ) : (
+              <>
+                <h1 className="font-display font-bold text-xl mb-1">{event.title}</h1>
+                <p className="text-sm text-muted-foreground mb-3">{event.venue} — {event.city}/{event.state}</p>
+              </>
+            )}
             {step === 'form' && !user && (
+
               <motion.div key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <CheckoutStepProgressiveForm
                   initialData={customer}
