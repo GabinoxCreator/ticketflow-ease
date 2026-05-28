@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useSeatTypes, type SeatTypeFormData } from '@/hooks/useSeatTypes';
-import { toast } from 'sonner';
+import { z } from 'zod';
 import {
   Armchair,
   Plus,
@@ -48,8 +48,53 @@ import {
   Tag,
   AlertTriangle,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const seatTypeSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Nome é obrigatório')
+      .max(100, 'Máximo 100 caracteres'),
+    description: z
+      .string()
+      .trim()
+      .max(500, 'Máximo 500 caracteres')
+      .optional()
+      .or(z.literal('')),
+    base_capacity: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .int('Use número inteiro')
+      .min(1, 'Capacidade base deve ser maior que 0')
+      .max(50, 'Máximo 50'),
+    max_capacity: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .int('Use número inteiro')
+      .min(1, 'Capacidade máxima deve ser maior que 0')
+      .max(50, 'Máximo 50'),
+    base_price: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .min(0, 'Preço base não pode ser negativo'),
+    extra_price: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .min(0, 'Preço extra não pode ser negativo'),
+    shape: z.enum(['rect', 'circle']),
+    default_width: z.number().int().min(20, 'Mínimo 20px').max(500, 'Máximo 500px'),
+    default_height: z.number().int().min(20, 'Mínimo 20px').max(500, 'Máximo 500px'),
+    default_color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida (use formato #RRGGBB)')
+      .nullable(),
+    icon: z.string().nullable().optional(),
+    is_active: z.boolean(),
+  })
+  .refine((d) => d.max_capacity >= d.base_capacity, {
+    message: 'Capacidade máxima deve ser maior ou igual à base',
+    path: ['max_capacity'],
+  });
 
 const EMPTY_FORM: SeatTypeFormData = {
   name: '',
