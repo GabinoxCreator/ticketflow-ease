@@ -1,8 +1,9 @@
-import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock, Globe, EyeOff, DollarSign, Ticket as TicketIcon, CalendarClock } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock, Globe, EyeOff, DollarSign, Ticket as TicketIcon, CalendarClock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { Event, useEvents } from '@/hooks/useEvents';
+import { Event } from '@/hooks/useEvents';
+import { usePublishEvent, useUnpublishEvent } from '@/hooks/useEventPublishing';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ManualSaleButton } from '@/components/producer/ManualSaleButton';
@@ -16,7 +17,8 @@ interface EventDashboardHeaderProps {
 
 export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: EventDashboardHeaderProps) {
   const navigate = useNavigate();
-  const { updateEvent } = useEvents();
+  const publishEvent = usePublishEvent();
+  const unpublishEvent = useUnpublishEvent();
 
   const eventDate = new Date(event.date + 'T12:00:00');
   const daysUntil = differenceInDays(eventDate, new Date());
