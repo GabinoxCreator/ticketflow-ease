@@ -95,6 +95,14 @@ async function findExistingSeatOrder(supabase: any, eventId: string, userId: str
   };
 }
 
+async function fetchExistingPixPayment(mercadopagoToken: string, paymentId: string) {
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    headers: { Authorization: `Bearer ${mercadopagoToken}` },
+  });
+  if (!response.ok) return null;
+  return await response.json();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -185,6 +193,22 @@ serve(async (req) => {
         if (mapped.kind === 'already_in_progress') {
           const existing = await findExistingSeatOrder(supabase, eventId, userId, holdToken);
           if (existing?.paymentId) {
+            const existingPayment = await fetchExistingPixPayment(mercadopagoToken, existing.paymentId).catch(() => null);
+            const pixInfo = existingPayment?.point_of_interaction?.transaction_data;
+            if (pixInfo?.qr_code) {
+              return json({
+                success: true,
+                resumed: true,
+                orderId: existing.orderId,
+                pixCode: pixInfo.qr_code,
+                qrCodeBase64: pixInfo.qr_code_base64 || '',
+                expiresAt: pixInfo.expiration_date || existing.holdExpiresAt,
+                holdExpiresAt: existing.holdExpiresAt,
+                paymentId: existing.paymentId,
+                amount: existing.amount,
+                serviceFeeAmount: existing.serviceFee,
+              });
+            }
             return json({
               error: 'payment_already_started',
               orderId: existing.orderId,
@@ -212,6 +236,22 @@ serve(async (req) => {
       if (mapped.kind === 'already_in_progress') {
         const existing = await findExistingSeatOrder(supabase, eventId, userId, holdToken);
         if (existing?.paymentId) {
+          const existingPayment = await fetchExistingPixPayment(mercadopagoToken, existing.paymentId).catch(() => null);
+          const pixInfo = existingPayment?.point_of_interaction?.transaction_data;
+          if (pixInfo?.qr_code) {
+            return json({
+              success: true,
+              resumed: true,
+              orderId: existing.orderId,
+              pixCode: pixInfo.qr_code,
+              qrCodeBase64: pixInfo.qr_code_base64 || '',
+              expiresAt: pixInfo.expiration_date || existing.holdExpiresAt,
+              holdExpiresAt: existing.holdExpiresAt,
+              paymentId: existing.paymentId,
+              amount: existing.amount,
+              serviceFeeAmount: existing.serviceFee,
+            });
+          }
           return json({
             error: 'payment_already_started',
             orderId: existing.orderId,
