@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useSeatTypes, type SeatTypeFormData } from '@/hooks/useSeatTypes';
-import { toast } from 'sonner';
+import { z } from 'zod';
 import {
   Armchair,
   Plus,
@@ -48,8 +48,53 @@ import {
   Tag,
   AlertTriangle,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const seatTypeSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Nome é obrigatório')
+      .max(100, 'Máximo 100 caracteres'),
+    description: z
+      .string()
+      .trim()
+      .max(500, 'Máximo 500 caracteres')
+      .optional()
+      .or(z.literal('')),
+    base_capacity: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .int('Use número inteiro')
+      .min(1, 'Capacidade base deve ser maior que 0')
+      .max(50, 'Máximo 50'),
+    max_capacity: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .int('Use número inteiro')
+      .min(1, 'Capacidade máxima deve ser maior que 0')
+      .max(50, 'Máximo 50'),
+    base_price: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .min(0, 'Preço base não pode ser negativo'),
+    extra_price: z
+      .number({ invalid_type_error: 'Informe um número' })
+      .min(0, 'Preço extra não pode ser negativo'),
+    shape: z.enum(['rect', 'circle']),
+    default_width: z.number().int().min(20, 'Mínimo 20px').max(500, 'Máximo 500px'),
+    default_height: z.number().int().min(20, 'Mínimo 20px').max(500, 'Máximo 500px'),
+    default_color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, 'Cor inválida (use formato #RRGGBB)')
+      .nullable(),
+    icon: z.string().nullable().optional(),
+    is_active: z.boolean(),
+  })
+  .refine((d) => d.max_capacity >= d.base_capacity, {
+    message: 'Capacidade máxima deve ser maior ou igual à base',
+    path: ['max_capacity'],
+  });
 
 const EMPTY_FORM: SeatTypeFormData = {
   name: '',
@@ -68,7 +113,7 @@ const EMPTY_FORM: SeatTypeFormData = {
 
 export default function SeatTypes() {
   const navigate = useNavigate();
-  const { seatTypes, isLoading, createSeatType, updateSeatType, deleteSeatType } = useSeatTypes();
+  const { seatTypes, isLoading, createSeatType, updateSeatType, deleteSeatType, seedDefaultTemplates } = useSeatTypes();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -104,16 +149,17 @@ export default function SeatTypes() {
   };
 
   const validate = (): boolean => {
-    const errs: Record<string, string> = {};
-    if (!formData.name.trim()) errs.name = 'Nome é obrigatório';
-    if ((formData.base_capacity ?? 0) <= 0) errs.base_capacity = 'Capacidade base deve ser maior que 0';
-    if ((formData.max_capacity ?? 0) < (formData.base_capacity ?? 0)) {
-      errs.max_capacity = 'Capacidade máxima deve ser maior ou igual à base';
+    const result = seatTypeSchema.safeParse(formData);
+    if (result.success) {
+      setFormErrors({});
+      return true;
     }
-    if ((formData.base_price ?? 0) < 0) errs.base_price = 'Preço base não pode ser negativo';
-    if ((formData.extra_price ?? 0) < 0) errs.extra_price = 'Preço extra não pode ser negativo';
+    const errs: Record<string, string> = {};
+    for (const [key, messages] of Object.entries(result.error.flatten().fieldErrors)) {
+      if (messages && messages.length > 0) errs[key] = messages[0]!;
+    }
     setFormErrors(errs);
-    return Object.keys(errs).length === 0;
+    return false;
   };
 
   const handleSubmit = () => {
@@ -249,10 +295,20 @@ export default function SeatTypes() {
                   Crie tipos de assento (mesa, cadeira, bistrô, etc.) para usá-los no mapa de reservas dos seus eventos.
                 </p>
               </div>
-              <Button onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-2" />
-                Criar primeiro tipo
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+                <Button onClick={openCreate}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar primeiro tipo
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => seedDefaultTemplates.mutate()}
+                  disabled={seedDefaultTemplates.isPending}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {seedDefaultTemplates.isPending ? 'Criando...' : 'Criar templates padrão'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

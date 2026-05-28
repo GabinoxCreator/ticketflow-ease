@@ -24,6 +24,70 @@ export interface SeatTypeFormData {
   is_active?: boolean;
 }
 
+// Templates padrão com preços de exemplo realistas (produtor ajusta se quiser,
+// mas nunca fica zerado por esquecimento).
+export const DEFAULT_SEAT_TYPE_TEMPLATES: SeatTypeFormData[] = [
+  {
+    name: 'Mesa Padrão',
+    description: 'Mesa retangular para 4 pessoas (até 6)',
+    base_capacity: 4,
+    max_capacity: 6,
+    base_price: 100,
+    extra_price: 25,
+    shape: 'rect',
+    default_width: 100,
+    default_height: 100,
+    default_color: '#6366f1',
+    is_active: true,
+  },
+  {
+    name: 'Bistrô',
+    description: 'Mesa alta para 2 pessoas (até 4)',
+    base_capacity: 2,
+    max_capacity: 4,
+    base_price: 60,
+    extra_price: 30,
+    shape: 'circle',
+    default_width: 70,
+    default_height: 70,
+    default_color: '#ec4899',
+    is_active: true,
+  },
+  {
+    name: 'Cadeira',
+    description: 'Cadeira individual',
+    base_capacity: 1,
+    max_capacity: 1,
+    base_price: 50,
+    extra_price: 0,
+    shape: 'rect',
+    default_width: 40,
+    default_height: 40,
+    default_color: '#8b5cf6',
+    is_active: true,
+  },
+];
+
+// FIXME (Bloco 3): adicionar constraint UNIQUE (producer_id, lower(name)) no banco
+// para fechar a janela de TOCTOU desta verificação client-side.
+async function assertUniqueName(
+  producer_id: string,
+  name: string,
+  excludeId?: string | null
+) {
+  const { data, error } = await supabase
+    .from('seat_types')
+    .select('id')
+    .eq('producer_id', producer_id)
+    .ilike('name', name.trim());
+
+  if (error) throw error;
+  const conflict = (data ?? []).find((r) => r.id !== excludeId);
+  if (conflict) {
+    throw new Error('Já existe um tipo de assento com esse nome.');
+  }
+}
+
 export function useSeatTypes() {
   const queryClient = useQueryClient();
 
@@ -45,6 +109,8 @@ export function useSeatTypes() {
       const { data: userData } = await supabase.auth.getUser();
       const producer_id = userData.user?.id;
       if (!producer_id) throw new Error('Usuário não autenticado');
+
+      await assertUniqueName(producer_id, formData.name);
 
       const insertData: SeatTypeInsert = {
         ...formData,
@@ -78,6 +144,13 @@ export function useSeatTypes() {
 
   const updateSeatType = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<SeatTypeFormData> }) => {
+      if (data.name) {
+        const { data: userData } = await supabase.auth.getUser();
+        const producer_id = userData.user?.id;
+        if (!producer_id) throw new Error('Usuário não autenticado');
+        await assertUniqueName(producer_id, data.name, id);
+      }
+
       const updateData: SeatTypeUpdate = {
         ...data,
         updated_at: new Date().toISOString(),
@@ -131,6 +204,51 @@ export function useSeatTypes() {
     },
   });
 
+  const seedDefaultTemplates = useMutation({
+    mutationFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const producer_id = userData.user?.id;
+      if (!producer_id) throw new Error('Usuário não autenticado');
+
+      // Idempotente: busca nomes existentes (case-insensitive) e pula colisões.
+      const { data: existing, error: exErr } = await supabase
+        .from('seat_types')
+        .select('name')
+        .eq('producer_id', producer_id);
+      if (exErr) throw exErr;
+
+      const existingNames = new Set(
+        (existing ?? []).map((r) => r.name.trim().toLowerCase())
+      );
+
+      const toInsert: SeatTypeInsert[] = DEFAULT_SEAT_TYPE_TEMPLATES
+        .filter((t) => !existingNames.has(t.name.trim().toLowerCase()))
+        .map((t) => ({
+          ...t,
+          producer_id,
+          base_price: t.base_price ?? 0,
+          extra_price: t.extra_price ?? 0,
+        }));
+
+      if (toInsert.length === 0) return { inserted: 0 };
+
+      const { error } = await supabase.from('seat_types').insert(toInsert);
+      if (error) throw error;
+      return { inserted: toInsert.length };
+    },
+    onSuccess: ({ inserted }) => {
+      queryClient.invalidateQueries({ queryKey: ['seat-types'] });
+      if (inserted === 0) {
+        toast.info('Todos os templates padrão já existem.');
+      } else {
+        toast.success(`${inserted} template${inserted > 1 ? 's' : ''} padrão criado${inserted > 1 ? 's' : ''}!`);
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao criar templates: ${error.message}`);
+    },
+  });
+
   return {
     seatTypes,
     isLoading,
@@ -138,5 +256,6 @@ export function useSeatTypes() {
     createSeatType,
     updateSeatType,
     deleteSeatType,
+    seedDefaultTemplates,
   };
 }
