@@ -167,6 +167,7 @@ export default function EditarEvento() {
       is_hot: false,
       status: 'draft',
       event_type: 'ingresso',
+      table_map_id: null,
     },
     values: formValues,
     resetOptions: { keepDirtyValues: true },
