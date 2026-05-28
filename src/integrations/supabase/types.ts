@@ -1110,6 +1110,9 @@ export type Database = {
           mp_payment_id: string | null
           mp_status_detail: string | null
           payment_method: string | null
+          review_flagged_at: string | null
+          review_reason: Json | null
+          review_status: string | null
           sale_origin: string
           service_fee_amount: number
           status: string
@@ -1135,6 +1138,9 @@ export type Database = {
           mp_payment_id?: string | null
           mp_status_detail?: string | null
           payment_method?: string | null
+          review_flagged_at?: string | null
+          review_reason?: Json | null
+          review_status?: string | null
           sale_origin?: string
           service_fee_amount?: number
           status?: string
@@ -1160,6 +1166,9 @@ export type Database = {
           mp_payment_id?: string | null
           mp_status_detail?: string | null
           payment_method?: string | null
+          review_flagged_at?: string | null
+          review_reason?: Json | null
+          review_status?: string | null
           sale_origin?: string
           service_fee_amount?: number
           status?: string
@@ -2007,6 +2016,15 @@ export type Database = {
       }
       decrement_sold_quantity_legacy: {
         Args: { _lot_id: string; _qty: number }
+        Returns: boolean
+      }
+      flag_order_paid_no_delivery: {
+        Args: {
+          _mp_payment_id: string
+          _order_id: string
+          _order_status: string
+          _transaction_amount: number
+        }
         Returns: boolean
       }
       get_cron_health: { Args: never; Returns: Json }
