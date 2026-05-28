@@ -25,10 +25,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSeatHold, type HoldState } from '@/hooks/useSeatHold';
 import { HoldCountdown } from '@/components/seated/HoldCountdown';
 import { CheckoutStepProgressiveForm } from '@/components/checkout/CheckoutStepProgressiveForm';
+import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
 import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { SeatCheckoutCard, CARD_ERROR_MESSAGES } from '@/components/checkout/SeatCheckoutCard';
+import { validateCPF } from '@/utils/cpfValidator';
 
-type Step = 'form' | 'method' | 'pix' | 'card' | 'awaiting' | 'success';
+type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'success';
+
 
 interface CustomerData {
   name: string;
@@ -63,7 +66,7 @@ const HONEST_HOLD_ERRORS = new Set(['hold_expired', 'seat_not_held', 'seat_not_f
 export default function SeatCheckout() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const {
     hold,
     addons,
@@ -72,7 +75,8 @@ export default function SeatCheckout() {
     markProceeding,
   } = useSeatHold(eventId, user?.id);
 
-  const [step, setStep] = useState<Step>('form');
+  const [step, setStep] = useState<Step | null>(null);
+
   const [event, setEvent] = useState<EventSummary | null>(null);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [loadingEvent, setLoadingEvent] = useState(true);
@@ -128,17 +132,32 @@ export default function SeatCheckout() {
     return () => clearTimeout(t);
   }, [eventId, hold, navigate, hasCheckedHold]);
 
-  // Pré-fill com user_metadata
+  // Pré-fill: profile (Lovable Cloud) tem prioridade, depois user_metadata.
   useEffect(() => {
     if (!user || customer) return;
     const meta = (user.user_metadata || {}) as Record<string, any>;
     setCustomer({
-      name: meta.name || meta.full_name || user.email?.split('@')[0] || '',
-      email: user.email || '',
-      cpf: meta.cpf || '',
-      phone: meta.phone || meta.whatsapp || '',
+      name: profile?.nome_completo || meta.name || meta.full_name || user.email?.split('@')[0] || '',
+      email: profile?.email || user.email || '',
+      cpf: profile?.cpf || meta.cpf || '',
+      phone: profile?.whatsapp || meta.phone || meta.whatsapp || '',
     });
-  }, [user, customer]);
+  }, [user, profile, customer]);
+
+  // Decide o step inicial assim que customer estiver pronto.
+  useEffect(() => {
+    if (!customer || step !== null) return;
+    if (!user) {
+      setStep('form');
+      return;
+    }
+    const digits = (customer.cpf || '').replace(/\D/g, '');
+    const cpfOk = digits.length === 11 && validateCPF(digits);
+    const nameOk = customer.name.trim().length >= 3;
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email);
+    setStep(cpfOk && nameOk && emailOk ? 'method' : 'cpf');
+  }, [customer, user, step]);
+
 
   const totalAmount = useMemo(() => {
     if (!hold) return 0;
@@ -269,8 +288,7 @@ export default function SeatCheckout() {
       </div>
     );
   }
-
-  if (!hold || !event || !customer) {
+  if (!hold || !event || !customer || step === null) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -278,6 +296,7 @@ export default function SeatCheckout() {
       </div>
     );
   }
+
 
   return (
     <>
@@ -299,11 +318,7 @@ export default function SeatCheckout() {
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
             <h1 className="font-display font-bold text-xl mb-1">{event.title}</h1>
             <p className="text-sm text-muted-foreground mb-3">{event.venue} — {event.city}/{event.state}</p>
-            <SummaryList seats={seats} addons={addons} totalAmount={totalAmount} />
-          </div>
-
-          <AnimatePresence mode="wait">
-            {step === 'form' && (
+            {step === 'form' && !user && (
               <motion.div key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <CheckoutStepProgressiveForm
                   initialData={customer}
@@ -314,6 +329,29 @@ export default function SeatCheckout() {
                 />
               </motion.div>
             )}
+
+            {step === 'cpf' && user && (
+              <motion.div key="cpf" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <CheckoutStepCPF
+                  initialCPF={customer.cpf}
+                  initialName={customer.name}
+                  initialEmail={customer.email}
+                  requireName={customer.name.trim().length < 3}
+                  requireEmail={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)}
+                  onContinue={(cpf, name, email) => {
+                    setCustomer({
+                      ...customer,
+                      cpf,
+                      name: name?.trim() ? name.trim() : customer.name,
+                      email: email?.trim() ? email.trim() : customer.email,
+                    });
+                    setStep('method');
+                  }}
+                />
+              </motion.div>
+            )}
+
+
 
             {step === 'method' && (
               <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-3">
