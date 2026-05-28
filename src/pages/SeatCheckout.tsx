@@ -321,15 +321,21 @@ export default function SeatCheckout() {
       <div className="min-h-screen bg-background">
         <Header />
         <main className="pt-24 pb-16 max-w-2xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3">
             <button
               type="button"
               onClick={() => navigate(`/evento/${eventId}`)}
               className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
-              <ArrowLeft className="w-4 h-4" /> Voltar ao mapa
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Voltar ao mapa
             </button>
-            {step !== 'success' && <HoldCountdown expiresAt={hold.expiresAt} />}
+            {step !== 'success' && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-medium text-primary">
+                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Reservada ·</span>
+                <HoldCountdown expiresAt={hold.expiresAt} />
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
