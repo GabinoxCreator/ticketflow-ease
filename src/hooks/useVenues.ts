@@ -34,9 +34,11 @@ export function useVenues() {
     queryKey: ['venues', user?.id],
     enabled: !!user?.id,
     queryFn: async (): Promise<Venue[]> => {
+      if (!user?.id) return [];
       const { data: venues, error } = await supabase
         .from('venues')
         .select('*')
+        .eq('producer_id', user.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
       if (error) throw error;
