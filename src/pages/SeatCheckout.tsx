@@ -132,17 +132,32 @@ export default function SeatCheckout() {
     return () => clearTimeout(t);
   }, [eventId, hold, navigate, hasCheckedHold]);
 
-  // Pré-fill com user_metadata
+  // Pré-fill: profile (Lovable Cloud) tem prioridade, depois user_metadata.
   useEffect(() => {
     if (!user || customer) return;
     const meta = (user.user_metadata || {}) as Record<string, any>;
     setCustomer({
-      name: meta.name || meta.full_name || user.email?.split('@')[0] || '',
-      email: user.email || '',
-      cpf: meta.cpf || '',
-      phone: meta.phone || meta.whatsapp || '',
+      name: profile?.nome_completo || meta.name || meta.full_name || user.email?.split('@')[0] || '',
+      email: profile?.email || user.email || '',
+      cpf: profile?.cpf || meta.cpf || '',
+      phone: profile?.whatsapp || meta.phone || meta.whatsapp || '',
     });
-  }, [user, customer]);
+  }, [user, profile, customer]);
+
+  // Decide o step inicial assim que customer estiver pronto.
+  useEffect(() => {
+    if (!customer || step !== null) return;
+    if (!user) {
+      setStep('form');
+      return;
+    }
+    const digits = (customer.cpf || '').replace(/\D/g, '');
+    const cpfOk = digits.length === 11 && validateCPF(digits);
+    const nameOk = customer.name.trim().length >= 3;
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email);
+    setStep(cpfOk && nameOk && emailOk ? 'method' : 'cpf');
+  }, [customer, user, step]);
+
 
   const totalAmount = useMemo(() => {
     if (!hold) return 0;
