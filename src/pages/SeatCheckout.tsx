@@ -281,31 +281,46 @@ export default function SeatCheckout() {
     }
   }, [hold, eventId, customer, seatPayload, updateHoldExpiresAt, handleHoldErrorRedirect, handleProviderUnreachable, handlePaymentFailedGeneric]);
 
-  // ----- Polling (PIX + cartão approved_pending) -----
+  // ----- Detector único (PIX + cartão). Fonte da verdade: webhook gravou orders.status='paid'.
+  // Tentativa 1: edge check-mercadopago-payment (faz cross-validation valor+ext_ref).
+  // Tentativa 2 (fallback): leitura direta de orders.status — seguro porque o webhook
+  // só grava 'paid' após validar signature + external_reference + amount.
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
     try {
       const { data, error } = await supabase.functions.invoke('check-mercadopago-payment', {
         body: { paymentId: paymentId || null, orderId },
       });
-      if (error) return false;
-      return data?.paid === true;
+      if (!error && data?.paid === true) return true;
+    } catch { /* segue pro fallback */ }
+    try {
+      const { data: row } = await supabase
+        .from('orders')
+        .select('status')
+        .eq('id', orderId)
+        .maybeSingle();
+      return row?.status === 'paid' || row?.status === 'completed';
     } catch {
       return false;
     }
   }, [orderId, paymentId]);
 
   const handlePaymentConfirmed = useCallback(() => {
+    if (eventId) clearStoredOrderId(eventId);
     clearLocalHold();
     setStep('success');
-  }, [clearLocalHold]);
+  }, [clearLocalHold, eventId]);
 
-  // Polling no awaiting (cartão approved_pending_confirmation)
+  // Polling do step 'awaiting' (cartão approved_pending). 90s sem paid → leitura
+  // direta final; se paid → success; senão → step 'verifying' terminal (nunca
+  // spinner infinito). PIX NÃO usa este timeout — espera natural do usuário.
   useEffect(() => {
     if (step !== 'awaiting' || !orderId) return;
     let cancelled = false;
     let inFlight = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const startedAt = Date.now();
+    const HARD_TIMEOUT_MS = 90_000;
     const tick = async () => {
       if (cancelled) return;
       if (inFlight) { timeoutId = setTimeout(tick, 4000); return; }
@@ -315,11 +330,55 @@ export default function SeatCheckout() {
         if (cancelled) return;
         if (paid) { handlePaymentConfirmed(); return; }
       } finally { inFlight = false; }
-      if (!cancelled) timeoutId = setTimeout(tick, 4000);
+      if (cancelled) return;
+      if (Date.now() - startedAt >= HARD_TIMEOUT_MS) {
+        // Última tentativa direta — webhook pode ter gravado fora da janela do edge
+        try {
+          const { data: row } = await supabase
+            .from('orders').select('status').eq('id', orderId).maybeSingle();
+          if (cancelled) return;
+          if (row?.status === 'paid' || row?.status === 'completed') {
+            handlePaymentConfirmed();
+            return;
+          }
+        } catch { /* cai pro verifying */ }
+        setStep('verifying');
+        return;
+      }
+      timeoutId = setTimeout(tick, 4000);
     };
     timeoutId = setTimeout(tick, 2000);
     return () => { cancelled = true; if (timeoutId) clearTimeout(timeoutId); };
   }, [step, orderId, checkPaymentStatus, handlePaymentConfirmed]);
+
+  // Idempotência ao montar: se já há orderId salvo pra este evento, checa status.
+  // Se paid → vai direto pra success (anti-double-payment). Se terminal → limpa e segue fluxo normal.
+  useEffect(() => {
+    if (!eventId || !user) return;
+    const stored = readStoredOrderId(eventId);
+    if (!stored) return;
+    let cancelled = false;
+    (async () => {
+      const { data: row } = await supabase
+        .from('orders').select('status').eq('id', stored).maybeSingle();
+      if (cancelled) return;
+      const s = row?.status;
+      if (s === 'paid' || s === 'completed') {
+        setOrderId(stored);
+        clearLocalHold();
+        setStep('success');
+      } else if (s && ['cancelled','refunded','failed','expired','charged_back'].includes(s)) {
+        clearStoredOrderId(eventId);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [eventId, user, clearLocalHold]);
+
+  // Persist orderId quando setado (sobrevive a refresh — anti-double-payment).
+  useEffect(() => {
+    if (eventId && orderId) writeStoredOrderId(eventId, orderId);
+  }, [eventId, orderId]);
+
 
   // ----- Render -----
   if (!eventId || loadingEvent) {
