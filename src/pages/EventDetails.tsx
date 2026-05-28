@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Calendar,
   Clock,
   MapPin,
   Heart,
-  Ticket,
   AlertCircle,
   Loader2,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
@@ -29,6 +27,7 @@ import { LotCard } from '@/components/event/LotCard';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
 import { EventPolicies } from '@/components/event/EventPolicies';
+import { EventOrderSummary, type SummaryItem } from '@/components/event/EventOrderSummary';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -84,7 +83,6 @@ const EventDetails = () => {
   const handleLike = useCallback(async () => {
     if (!eventId) return;
     const anonymousId = getAnonymousId();
-
     if (liked) {
       setLiked(false);
       setLikeCount((prev) => Math.max(0, prev - 1));
@@ -184,7 +182,7 @@ const EventDetails = () => {
 
   const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
 
-  // Compute "from price" combining lots + (if mesa) cheapest seat type
+  // "A partir de" — lotes + (se mesa) menor base_price
   const lotsFromPrice = activeLots.length
     ? Math.min(...activeLots.map((l) => l.price))
     : null;
@@ -238,6 +236,13 @@ const EventDetails = () => {
     };
   });
 
+  const summaryItems: SummaryItem[] = cartItems.map((it) => ({
+    id: it.lotId,
+    name: it.lotName,
+    quantity: it.quantity,
+    price: it.price,
+  }));
+
   // Group lots by sector
   const lotGroups = (() => {
     const groups = new Map<string, typeof activeLots>();
@@ -254,6 +259,9 @@ const EventDetails = () => {
   })();
 
   const canonicalUrl = `https://festpag.com.br/evento/${event.slug ?? event.id}`;
+  const mesaHref = `/evento/${event.slug ?? event.id}/mapa`;
+
+  const showSidebar = !isEventFinished && (hasMap || activeLots.length > 0);
 
   return (
     <>
@@ -291,7 +299,7 @@ const EventDetails = () => {
       <div className="min-h-screen bg-background">
         <Header />
 
-        <main className={cn('pt-20 w-full', totalTickets > 0 && 'pb-28')}>
+        <main className={cn('pt-20 w-full pb-28 lg:pb-12')}>
           {isEventFinished && (
             <div className="w-full bg-destructive/10 border-b border-destructive/20">
               <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
@@ -301,221 +309,224 @@ const EventDetails = () => {
             </div>
           )}
 
-          {/* Banner full-width */}
-          <section className="relative w-full max-w-5xl mx-auto px-3 sm:px-4 pt-3 sm:pt-4">
-            <div className="relative w-full max-w-full rounded-2xl overflow-hidden shadow-xl shadow-primary/10">
-              <div className="aspect-[4/5] sm:aspect-[16/9] bg-muted w-full">
-                <img
-                  src={event.image_url || '/placeholder.svg'}
-                  alt={event.title}
-                  className="w-full h-full object-cover object-center"
-                />
-              </div>
-              <button
-                onClick={handleLike}
-                className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-2 transition-colors hover:bg-black/80"
-                aria-label="Curtir evento"
-              >
-                <Heart
-                  className={cn(
-                    'w-5 h-5 transition-colors',
-                    liked ? 'fill-red-500 text-red-500' : 'text-white',
-                  )}
-                />
-                {likeCount > 0 && (
-                  <span
-                    className={cn(
-                      'text-sm font-medium',
-                      liked ? 'text-red-500' : 'text-white',
+          <div
+            className={cn(
+              'max-w-7xl mx-auto px-3 sm:px-4 py-4 lg:py-6 gap-6 lg:gap-8',
+              showSidebar
+                ? 'grid lg:grid-cols-[minmax(0,1fr)_360px]'
+                : 'flex flex-col',
+            )}
+          >
+            {/* Coluna principal */}
+            <div className="min-w-0 space-y-5 sm:space-y-6">
+              {/* Hero: info + banner side-by-side em desktop */}
+              <section className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-4 lg:gap-6 items-start">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4 order-2 md:order-1 min-w-0"
+                >
+                  <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl leading-tight break-words">
+                    {event.title}
+                  </h1>
+
+                  <div className="space-y-1.5 min-w-0">
+                    <p className="text-foreground font-semibold text-base sm:text-lg break-words">
+                      {event.venue}
+                    </p>
+                    <p className="text-sm text-muted-foreground break-words">
+                      {event.city}, {event.state}
+                    </p>
+                    {event.address && (
+                      <div className="flex items-start gap-2 text-muted-foreground min-w-0">
+                        <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+                        <span className="text-sm break-words">{event.address}</span>
+                      </div>
                     )}
-                  >
-                    {likeCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          </section>
-
-          {/* Linear content */}
-          <section className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-5 sm:py-6 space-y-5 sm:space-y-6 min-w-0">
-            {/* Title + meta */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-3"
-            >
-              <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-tight break-words">
-                {event.title}
-              </h1>
-
-              <div className="flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 shrink-0" />
-                  <span className="text-sm capitalize break-words">{formatDate(event.date)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 shrink-0" />
-                  <span className="text-sm">{event.time}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1 min-w-0">
-                <p className="text-foreground font-semibold text-base sm:text-lg break-words">
-                  {event.venue}
-                </p>
-                <p className="text-sm text-muted-foreground break-words">
-                  {event.city}, {event.state}
-                </p>
-                {event.address && (
-                  <div className="flex items-start gap-2 text-muted-foreground min-w-0 pt-1">
-                    <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span className="text-sm break-words">{event.address}</span>
                   </div>
-                )}
-              </div>
-            </motion.div>
 
-            {/* Price + share */}
-            {!isEventFinished && (
-              <PriceAndShareBar
-                fromPrice={fromPrice}
-                shareTitle={event.title}
-                shareText={event.short_description || undefined}
-              />
-            )}
-
-            {/* Reserve sua Mesa (mesa | hibrido) */}
-            {!isEventFinished && hasMap && eventId && (
-              <MesaReservaCTA
-                eventId={eventId}
-                eventSlugOrId={event.slug ?? event.id}
-                description={(event as any).mesa_reserva_description}
-              />
-            )}
-
-
-            {/* Ingressos */}
-            {activeLots.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="space-y-4"
-              >
-                <h2 className="font-display font-bold text-xl">Ingressos</h2>
-                {lotGroups.map(([sectorName, sectorLots]) => (
-                  <div
-                    key={sectorName}
-                    className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl overflow-hidden shadow-lg shadow-primary/5"
-                  >
-                    <div className="px-5 md:px-6 py-4 bg-gradient-to-r from-primary/15 via-primary/10 to-accent/10 border-b border-border/40">
-                      <h3 className="font-display font-bold text-sm uppercase tracking-[0.2em] text-primary">
-                        {sectorName}
-                      </h3>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 shrink-0" />
+                      <span className="text-sm capitalize break-words">{formatDate(event.date)}</span>
                     </div>
-                    <div className="divide-y divide-border/40">
-                      {sectorLots.map((lot) => (
-                        <LotCard
-                          key={lot.id}
-                          lot={lot}
-                          quantity={selectedLots[lot.id] || 0}
-                          onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
-                          formatPrice={formatPrice}
-                        />
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 shrink-0" />
+                      <span className="text-sm">{event.time}</span>
                     </div>
                   </div>
-                ))}
-              </motion.div>
-            )}
 
-            {/* Sobre */}
-            {(event.description || event.short_description) && (
-              <motion.section
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="py-2"
-              >
-                <h3 className="font-display font-bold text-xl mb-4">Sobre o evento</h3>
-                <div className="text-muted-foreground leading-relaxed space-y-4">
-                  {(event.description || event.short_description || '')
-                    .split(/\n{2,}/)
-                    .map((para: string, i: number) => (
-                      <p key={i} className="whitespace-pre-wrap break-words">
-                        {para}
-                      </p>
-                    ))}
-                </div>
-              </motion.section>
-            )}
+                  {!isEventFinished && (
+                    <PriceAndShareBar
+                      fromPrice={fromPrice}
+                      shareTitle={event.title}
+                      shareText={event.short_description || undefined}
+                    />
+                  )}
+                </motion.div>
 
-            {/* Realização */}
-            {(() => {
-              const producer = (event as any).producer_profiles;
-              const brandName = producer?.brand_name;
-              const logoUrl = producer?.logo_url || festpagLogo;
-              if (!brandName) return null;
-              return (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="order-1 md:order-2"
+                >
+                  <div className="relative w-full rounded-2xl overflow-hidden shadow-xl shadow-primary/10 bg-muted">
+                    <div className="aspect-[16/9] w-full">
+                      <img
+                        src={event.image_url || '/placeholder.svg'}
+                        alt={event.title}
+                        className="w-full h-full object-cover object-center"
+                      />
+                    </div>
+                    <button
+                      onClick={handleLike}
+                      className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 flex items-center gap-2 bg-black/60 backdrop-blur-md rounded-full px-3 py-2 transition-colors hover:bg-black/80"
+                      aria-label="Curtir evento"
+                    >
+                      <Heart
+                        className={cn(
+                          'w-5 h-5 transition-colors',
+                          liked ? 'fill-red-500 text-red-500' : 'text-white',
+                        )}
+                      />
+                      {likeCount > 0 && (
+                        <span
+                          className={cn(
+                            'text-sm font-medium',
+                            liked ? 'text-red-500' : 'text-white',
+                          )}
+                        >
+                          {likeCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </section>
+
+              {!isEventFinished && hasMap && eventId && (
+                <MesaReservaCTA
+                  eventId={eventId}
+                  eventSlugOrId={event.slug ?? event.id}
+                  description={(event as any).mesa_reserva_description}
+                />
+              )}
+
+              {activeLots.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="space-y-4"
+                >
+                  <h2 className="font-display font-bold text-xl">Ingressos</h2>
+                  {lotGroups.map(([sectorName, sectorLots]) => (
+                    <div
+                      key={sectorName}
+                      className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl overflow-hidden shadow-lg shadow-primary/5"
+                    >
+                      <div className="px-5 md:px-6 py-4 bg-gradient-to-r from-primary/15 via-primary/10 to-accent/10 border-b border-border/40">
+                        <h3 className="font-display font-bold text-sm uppercase tracking-[0.2em] text-primary">
+                          {sectorName}
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-border/40">
+                        {sectorLots.map((lot) => (
+                          <LotCard
+                            key={lot.id}
+                            lot={lot}
+                            quantity={selectedLots[lot.id] || 0}
+                            onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
+                            formatPrice={formatPrice}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+
+              {(event.description || event.short_description) && (
                 <motion.section
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   className="py-2"
                 >
-                  <h3 className="font-display font-bold text-xl mb-4">Realização</h3>
-                  <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card">
-                    <div className="h-14 w-14 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                      <img src={logoUrl} alt={brandName} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold truncate">{brandName}</p>
-                      <p className="text-sm text-muted-foreground">Produtora do evento</p>
-                    </div>
+                  <h3 className="font-display font-bold text-xl mb-4">Sobre o evento</h3>
+                  <div className="text-muted-foreground leading-relaxed space-y-4">
+                    {(event.description || event.short_description || '')
+                      .split(/\n{2,}/)
+                      .map((para: string, i: number) => (
+                        <p key={i} className="whitespace-pre-wrap break-words">
+                          {para}
+                        </p>
+                      ))}
                   </div>
                 </motion.section>
-              );
-            })()}
+              )}
 
-            {/* Políticas */}
-            <EventPolicies />
-          </section>
+              {(() => {
+                const producer = (event as any).producer_profiles;
+                const brandName = producer?.brand_name;
+                const logoUrl = producer?.logo_url || festpagLogo;
+                if (!brandName) return null;
+                return (
+                  <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="py-2"
+                  >
+                    <h3 className="font-display font-bold text-xl mb-4">Realização</h3>
+                    <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card">
+                      <div className="h-14 w-14 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                        <img src={logoUrl} alt={brandName} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold truncate">{brandName}</p>
+                        <p className="text-sm text-muted-foreground">Produtora do evento</p>
+                      </div>
+                    </div>
+                  </motion.section>
+                );
+              })()}
+
+              <EventPolicies />
+            </div>
+
+            {/* Sidebar desktop sticky */}
+            {showSidebar && (
+              <aside className="hidden lg:block">
+                <div className="sticky top-24">
+                  <EventOrderSummary
+                    variant="sidebar"
+                    items={summaryItems}
+                    totalAmount={totalAmount}
+                    totalCount={totalTickets}
+                    hasMesa={hasMap}
+                    mesaCtaHref={mesaHref}
+                    onCheckout={handleCheckout}
+                  />
+                </div>
+              </aside>
+            )}
+          </div>
         </main>
 
         <Footer />
 
-        {/* Sticky bottom bar (mobile + desktop) when lots selected */}
-        <AnimatePresence>
-          {totalTickets > 0 && (
-            <motion.div
-              initial={{ y: 100 }}
-              animate={{ y: 0 }}
-              exit={{ y: 100 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3"
-            >
-              <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">
-                    {totalTickets} ingresso{totalTickets > 1 ? 's' : ''}
-                  </p>
-                  <p className="font-bold text-lg gradient-text">
-                    {formatPrice(totalAmount)}
-                  </p>
-                </div>
-                <Button
-                  variant="hero"
-                  size="lg"
-                  onClick={handleCheckout}
-                  className="shrink-0"
-                >
-                  <Ticket className="w-5 h-5 mr-2" />
-                  Comprar
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {!isEventFinished && (
+          <EventOrderSummary
+            variant="bar"
+            items={summaryItems}
+            totalAmount={totalAmount}
+            totalCount={totalTickets}
+            hasMesa={hasMap}
+            mesaCtaHref={mesaHref}
+            onCheckout={handleCheckout}
+          />
+        )}
 
         <AuthModal
           isOpen={isAuthModalOpen}
