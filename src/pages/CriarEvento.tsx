@@ -130,6 +130,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function CriarEvento() {
   const navigate = useNavigate();
   const { createEvent } = useEvents();
+  const publishEvent = usePublishEvent();
+  const { data: producerMaps = [] } = useProducerTableMaps();
   const [currentStep, setCurrentStep] = useState(1);
 
   // Step 1
@@ -147,6 +149,7 @@ export default function CriarEvento() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [address, setAddress] = useState('');
+  const [tableMapId, setTableMapId] = useState<string | null>(null);
 
   // Step 3
   const [lots, setLots] = useState<InlineLot[]>([createEmptyLot(0)]);
