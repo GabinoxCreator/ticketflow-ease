@@ -210,7 +210,13 @@ export default function CriarEvento() {
 
   const handleSubmit = async (status: 'draft' | 'published') => {
     if (!startDate || !endDate) return;
-    // Always create as draft; publish via RPC after lots are inserted
+
+    // mesa/hibrido não tem select de mapa no wizard → sem table_map_id, publish_event_with_snapshot
+    // dispararia no_seats. Força draft e orienta a vincular o mapa na tela de edição.
+    const requiresMap = eventType !== 'ingresso';
+    const effectiveStatus: 'draft' | 'published' =
+      requiresMap ? 'draft' : status;
+
     const eventResult = await new Promise<any>((resolve, reject) => {
       createEvent.mutate(
         {
@@ -256,12 +262,17 @@ export default function CriarEvento() {
       }
     }
 
-    if (status === 'published' && eventResult?.id) {
+    if (effectiveStatus === 'published' && eventResult?.id) {
       try {
         await publishEvent.mutateAsync(eventResult.id);
       } catch {
         // toast already shown by hook; keep event as draft
       }
+    } else if (requiresMap && status === 'published') {
+      const { toast } = await import('sonner');
+      toast.info('Evento salvo como rascunho', {
+        description: 'Vincule o mapa de mesas e publique pela tela de edição.',
+      });
     }
     navigate(eventResult?.id ? `/produtor/eventos/${eventResult.id}` : '/produtor/eventos');
   };
@@ -953,8 +964,9 @@ export default function CriarEvento() {
                 <Button
                   type="button"
                   onClick={() => handleSubmit('published')}
-                  disabled={createEvent.isPending}
-                  className="rounded-xl bg-gradient-to-r from-[hsl(250,85%,60%)] to-[hsl(330,85%,60%)] text-white hover:opacity-90 hover:shadow-lg hover:shadow-primary/30"
+                  disabled={createEvent.isPending || eventType !== 'ingresso'}
+                  title={eventType !== 'ingresso' ? 'Disponível apenas após vincular o mapa em Editar evento' : undefined}
+                  className="rounded-xl bg-gradient-to-r from-[hsl(250,85%,60%)] to-[hsl(330,85%,60%)] text-white hover:opacity-90 hover:shadow-lg hover:shadow-primary/30 disabled:opacity-50"
                 >
                   {createEvent.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
                   Publicar evento
