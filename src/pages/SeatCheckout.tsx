@@ -451,7 +451,7 @@ export default function SeatCheckout() {
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
             {(['method', 'pix', 'card', 'awaiting'] as Step[]).includes(step) ? (
               <div className="mb-5">
-                <SeatOrderSummary event={event} seats={seats} addons={addons} totalAmount={totalAmount} />
+                <SeatOrderSummary event={event} seats={seats} addons={addons} subtotal={subtotal} serviceFee={serviceFee} totalAmount={totalAmount} />
               </div>
             ) : (
               <>
