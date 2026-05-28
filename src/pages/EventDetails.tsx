@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
+import EventDetailsSeated from './EventDetailsSeated';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
