@@ -380,14 +380,61 @@ export default function SeatCheckout() {
 
 
             {step === 'method' && (
-              <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-3">
-                <Button variant="hero" size="lg" className="w-full justify-start gap-3 h-14" onClick={handleStartPix} disabled={isStartingPix}>
-                  {isStartingPix ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
-                  {isStartingPix ? 'Gerando PIX...' : 'Pagar com PIX'}
-                </Button>
-                <Button variant="outline" size="lg" className="w-full justify-start gap-3 h-14" onClick={() => setStep('card')}>
-                  <CreditCard className="w-5 h-5" /> Pagar com cartão
-                </Button>
+              <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
+                <h2 className="font-display font-semibold text-lg">Como você quer pagar?</h2>
+
+                <button
+                  type="button"
+                  onClick={handleStartPix}
+                  disabled={isStartingPix}
+                  aria-label="Pagar com PIX, aprovação imediata, recomendado"
+                  className="group relative w-full overflow-hidden rounded-2xl p-5 text-left text-white shadow-lg shadow-primary/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #c026d3 55%, #ec4899 100%)' }}
+                >
+                  <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+                    <Zap className="w-3 h-3" aria-hidden="true" />
+                    Recomendado
+                  </span>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0 border border-white/20">
+                      {isStartingPix ? (
+                        <Loader2 className="w-7 h-7 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <QrCode className="w-7 h-7" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 pr-16">
+                      <p className="font-display font-bold text-lg leading-tight">
+                        {isStartingPix ? 'Gerando PIX...' : 'Pagar com PIX'}
+                      </p>
+                      <p className="text-sm text-white/85 mt-0.5">Aprovação na hora · sem taxas extras</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-white/80 group-hover:translate-x-1 transition-transform flex-shrink-0" aria-hidden="true" />
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStep('card')}
+                  aria-label="Pagar com cartão de crédito em até 12 parcelas"
+                  className="group w-full rounded-2xl p-5 text-left bg-card border border-border/70 transition-all duration-300 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-secondary/60 border border-border/60 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-7 h-7 text-foreground/80" aria-hidden="true" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display font-semibold text-base leading-tight">Pagar com cartão</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">Crédito · parcele em até 12x</p>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" aria-hidden="true" />
+                  </div>
+                </button>
+
+                <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />
+                  <span>Pagamento 100% seguro e criptografado</span>
+                </div>
               </motion.div>
             )}
 
