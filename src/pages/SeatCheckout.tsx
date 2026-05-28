@@ -615,7 +615,6 @@ export default function SeatCheckout() {
                 </div>
               </motion.div>
             )}
-            )}
 
             {step === 'success' && (
               <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-10 space-y-5">
