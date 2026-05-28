@@ -31,11 +31,11 @@ const EventDetailsSeated = ({ event }: Props) => {
   const eventId: string = event.id;
 
   const { data: seats, isLoading: seatsLoading } = useEventSeats(eventId);
-  const { hold, holdSelected, releaseCurrent, markProceeding } = useSeatHold(
+  const { hold, addons, holdSelected, releaseCurrent, setSeatAddon, markProceeding } = useSeatHold(
     eventId,
     user?.id
   );
-  void markProceeding; // Fase 9 chama isso colado ao navigate
+
 
   const [localSelection, setLocalSelection] = useState<Set<string>>(new Set());
   const [isHolding, setIsHolding] = useState(false);
@@ -208,15 +208,17 @@ const EventDetailsSeated = ({ event }: Props) => {
                   seats={seats ?? []}
                   localSelection={localSelection}
                   hold={hold}
+                  addons={addons}
                   isHolding={isHolding}
+                  eventId={eventId}
                   onClearSelection={handleClearSelection}
                   onContinue={handleContinue}
                   onRelease={handleRelease}
-                  onProceedStub={() => {
-                    /* stub: sem markProceeding, sem navigate */
-                  }}
+                  setSeatAddon={setSeatAddon}
+                  markProceeding={markProceeding}
                 />
               </div>
+
             </div>
           </section>
         </main>

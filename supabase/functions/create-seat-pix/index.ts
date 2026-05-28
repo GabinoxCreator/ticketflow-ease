@@ -165,6 +165,26 @@ serve(async (req) => {
       return json({ error: mapped.code }, mapped.httpStatus);
     }
 
+    // Lê hold_expires_at autoritativo (estendido pra janela do método)
+    let holdExpiresAt: string | null = null;
+    try {
+      const { data: seatRows } = await supabase
+        .from('event_seats')
+        .select('hold_expires_at')
+        .eq('order_id', orderId);
+      if (seatRows && seatRows.length) {
+        const max = seatRows
+          .map((r: any) => r.hold_expires_at)
+          .filter(Boolean)
+          .sort()
+          .pop();
+        holdExpiresAt = max ?? null;
+      }
+    } catch (e: any) {
+      logStep('hold_expires_at read failed (non-fatal)', { msg: e?.message });
+    }
+
+
     // --- TRY #2: MP POST ---
     // Antifraude
     const nameParts = (customerName || '').trim().split(/\s+/).filter(Boolean);

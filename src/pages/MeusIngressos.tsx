@@ -187,7 +187,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
                 >
                   {ticket.event.title}
                 </h3>
-                <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot.name}</p>
+                <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
               </div>
             </div>
 
@@ -356,7 +356,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Ticket className="w-4 h-4 shrink-0" />
-                  <span>{ticket.lot.name}</span>
+                  <span>{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</span>
                 </div>
                 {ticket.status === 'used' && ticket.validated_at && (
                   <div className="flex items-center gap-2 text-muted-foreground">

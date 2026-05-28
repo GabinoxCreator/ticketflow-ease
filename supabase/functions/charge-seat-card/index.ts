@@ -166,6 +166,26 @@ serve(async (req) => {
       return json({ error: mapped.code }, mapped.httpStatus);
     }
 
+    // Lê hold_expires_at autoritativo (estendido pra janela do cartão)
+    let holdExpiresAt: string | null = null;
+    try {
+      const { data: seatRows } = await supabase
+        .from('event_seats')
+        .select('hold_expires_at')
+        .eq('order_id', orderId);
+      if (seatRows && seatRows.length) {
+        const max = seatRows
+          .map((r: any) => r.hold_expires_at)
+          .filter(Boolean)
+          .sort()
+          .pop();
+        holdExpiresAt = max ?? null;
+      }
+    } catch (e: any) {
+      logStep('hold_expires_at read failed (non-fatal)', { msg: e?.message });
+    }
+
+
     // --- TRY #2: MP POST ---
     const nameParts = (customerName || '').trim().split(/\s+/).filter(Boolean);
     const firstName = nameParts[0] || 'Cliente';
@@ -248,7 +268,7 @@ serve(async (req) => {
         mp_payment_id: String(mpPayment.id),
         mp_status_detail: mpPayment.status_detail || null,
       }).eq('id', orderId);
-      return json({ status: 'approved_pending_confirmation', orderId, paymentId: mpPayment.id });
+      return json({ status: 'approved_pending_confirmation', orderId, paymentId: mpPayment.id, holdExpiresAt });
     }
 
     if (mpPayment.status === 'in_process' || mpPayment.status === 'pending' || mpPayment.status === 'in_review') {
@@ -256,7 +276,7 @@ serve(async (req) => {
         mp_payment_id: String(mpPayment.id),
         mp_status_detail: mpPayment.status_detail || null,
       }).eq('id', orderId);
-      return json({ status: 'in_process', orderId, paymentId: mpPayment.id });
+      return json({ status: 'in_process', orderId, paymentId: mpPayment.id, holdExpiresAt });
     }
 
     if (mpPayment.status === 'rejected') {
@@ -277,6 +297,7 @@ serve(async (req) => {
         status: 'rejected',
         errorCode: mpPayment.status_detail || 'unknown',
         orderId,
+        holdExpiresAt,
       });
     }
 
@@ -286,7 +307,7 @@ serve(async (req) => {
       mp_payment_id: mpPayment.id ? String(mpPayment.id) : null,
       mp_status_detail: mpPayment.status_detail || null,
     }).eq('id', orderId);
-    return json({ status: 'in_process', orderId, paymentId: mpPayment.id || null });
+    return json({ status: 'in_process', orderId, paymentId: mpPayment.id || null, holdExpiresAt });
   } catch (error: any) {
     console.error('[CHARGE-SEAT-CARD] UNHANDLED', error);
     return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, 500);

@@ -23,12 +23,15 @@ export interface EventSeatRow {
   seat_type_name: string | null;
   base_price: number | null;
   extra_price: number | null;
+  base_capacity: number | null;
+  max_capacity: number | null;
 }
 
 const SEAT_COLS =
   'id,event_id,status,held_by_user_id,hold_expires_at,hold_token,' +
   'code,label,x,y,width,height,radius,rotation,shape,color,icon,' +
-  'seat_type_name,base_price,extra_price';
+  'seat_type_name,base_price,extra_price,base_capacity,max_capacity';
+
 
 export function useEventSeats(eventId: string | undefined) {
   const queryClient = useQueryClient();

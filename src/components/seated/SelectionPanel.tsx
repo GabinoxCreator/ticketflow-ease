@@ -1,6 +1,6 @@
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2, Ticket, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { Loader2, Ticket, X, Minus, Plus } from 'lucide-react';
 import type { EventSeatRow } from '@/hooks/useEventSeats';
 import type { HoldState } from '@/hooks/useSeatHold';
 import { HoldCountdown } from './HoldCountdown';
@@ -9,11 +9,14 @@ interface Props {
   seats: EventSeatRow[];
   localSelection: Set<string>;
   hold: HoldState | null;
+  addons: Record<string, number>;
   isHolding: boolean;
+  eventId: string;
   onClearSelection: () => void;
   onContinue: () => void;
   onRelease: () => void;
-  onProceedStub: () => void;
+  setSeatAddon: (seatId: string, qty: number) => void;
+  markProceeding: () => void;
 }
 
 const formatPrice = (price: number) =>
@@ -23,19 +26,28 @@ export function SelectionPanel({
   seats,
   localSelection,
   hold,
+  addons,
   isHolding,
+  eventId,
   onClearSelection,
   onContinue,
   onRelease,
-  onProceedStub,
+  setSeatAddon,
+  markProceeding,
 }: Props) {
+  const navigate = useNavigate();
   const heldMode = !!hold;
   const idsForDisplay = heldMode ? hold!.seatIds : Array.from(localSelection);
   const rows = idsForDisplay
     .map((id) => seats.find((s) => s.id === id))
     .filter((s): s is EventSeatRow => !!s);
 
-  const subtotal = rows.reduce((acc, s) => acc + Number(s.base_price ?? 0), 0);
+  const subtotal = rows.reduce((acc, s) => {
+    const base = Number(s.base_price ?? 0);
+    const extra = Number(s.extra_price ?? 0);
+    const qty = heldMode ? (addons[s.id] ?? 0) : 0;
+    return acc + base + extra * qty;
+  }, 0);
 
   return (
     <div className="bg-card rounded-2xl border border-border p-5 sticky top-24">
@@ -49,21 +61,67 @@ export function SelectionPanel({
           Clique nos assentos disponíveis no mapa para selecionar.
         </p>
       ) : (
-        <ul className="space-y-2 mb-4 max-h-64 overflow-auto pr-1">
-          {rows.map((s) => (
-            <li
-              key={s.id}
-              className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-border/40 last:border-0"
-            >
-              <div className="min-w-0">
-                <p className="font-medium truncate">{s.label || s.code || 'Assento'}</p>
-                {s.seat_type_name && (
-                  <p className="text-xs text-muted-foreground truncate">{s.seat_type_name}</p>
+        <ul className="space-y-3 mb-4 max-h-80 overflow-auto pr-1">
+          {rows.map((s) => {
+            const base = Number(s.base_price ?? 0);
+            const extra = Number(s.extra_price ?? 0);
+            const baseCap = Number(s.base_capacity ?? 0);
+            const maxCap = Number(s.max_capacity ?? 0);
+            const maxAddons = Math.max(0, maxCap - baseCap);
+            const qty = heldMode ? (addons[s.id] ?? 0) : 0;
+            const lineTotal = base + extra * qty;
+            return (
+              <li
+                key={s.id}
+                className="space-y-1.5 text-sm py-1.5 border-b border-border/40 last:border-0"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{s.label || s.code || 'Assento'}</p>
+                    {s.seat_type_name && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {s.seat_type_name}
+                        {baseCap > 0 && ` · ${baseCap} ${baseCap === 1 ? 'pessoa' : 'pessoas'}`}
+                      </p>
+                    )}
+                  </div>
+                  <span className="tabular-nums">{formatPrice(lineTotal)}</span>
+                </div>
+                {heldMode && maxAddons > 0 && (
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-xs text-muted-foreground">
+                      Pessoas adicionais (+{formatPrice(extra)} cada)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        disabled={qty <= 0}
+                        onClick={() => setSeatAddon(s.id, qty - 1)}
+                        aria-label="Diminuir adicionais"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="text-sm font-semibold w-5 text-center tabular-nums">{qty}</span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        disabled={qty >= maxAddons}
+                        onClick={() => setSeatAddon(s.id, qty + 1)}
+                        aria-label="Aumentar adicionais"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </div>
-              <span className="tabular-nums">{formatPrice(Number(s.base_price ?? 0))}</span>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -112,9 +170,8 @@ export function SelectionPanel({
             className="w-full"
             disabled={!hold}
             onClick={() => {
-              // STUB: NÃO chama markProceeding. Pagamento entra na próxima fase.
-              onProceedStub();
-              toast.info('Checkout do mapa estará disponível em breve');
+              markProceeding();
+              navigate(`/checkout/mesa/${eventId}`);
             }}
           >
             <Ticket className="w-4 h-4 mr-2" />
