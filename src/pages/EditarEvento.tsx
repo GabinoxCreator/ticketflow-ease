@@ -44,6 +44,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useEvent, useEvents, type EventType } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
+import { useProducerTableMaps } from '@/hooks/useProducerTableMaps';
+import { usePublishEvent, useUnpublishEvent } from '@/hooks/useEventPublishing';
 import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -64,6 +66,7 @@ const eventSchema = z.object({
   is_hot: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'cancelled', 'finished']).default('draft'),
   event_type: z.enum(['ingresso', 'mesa', 'hibrido']).default('ingresso'),
+  table_map_id: z.string().nullable().optional(),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -102,9 +105,14 @@ export default function EditarEvento() {
   const { data: event, isLoading: isLoadingEvent } = useEvent(id);
   const { updateEvent, deleteEvent } = useEvents();
   const { lots, createLot, updateLot, deleteLot, isLoading: isLoadingLots } = useEventLots(id);
-  
+  const { data: producerMaps = [] } = useProducerTableMaps();
+  const publishEvent = usePublishEvent();
+  const unpublishEvent = useUnpublishEvent();
+
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const isPublished = event?.status === 'published';
 
   const originalType: EventType = (event?.event_type as EventType) ?? 'ingresso';
 
@@ -141,6 +149,7 @@ export default function EditarEvento() {
       is_hot: !!event.is_hot,
       status: event.status,
       event_type: ((event.event_type as EventType) ?? 'ingresso') as EventType,
+      table_map_id: event.table_map_id ?? null,
     } as EventFormData;
   }, [event]);
 
@@ -158,6 +167,7 @@ export default function EditarEvento() {
       is_hot: false,
       status: 'draft',
       event_type: 'ingresso',
+      table_map_id: null,
     },
     values: formValues,
     resetOptions: { keepDirtyValues: true },
@@ -201,6 +211,20 @@ export default function EditarEvento() {
       return;
     }
 
+    const oldStatus = event?.status;
+    const newStatus = data.status;
+    const statusChanged = oldStatus !== newStatus;
+    const goingToPublished = statusChanged && newStatus === 'published';
+    const leavingPublished = statusChanged && oldStatus === 'published' && newStatus !== 'published';
+
+    // Guard: cannot change linked map while event is published
+    if (isPublished && (data.table_map_id ?? null) !== (event?.table_map_id ?? null)) {
+      toast.error('Não é possível trocar o mapa de um evento publicado', {
+        description: 'Despublique o evento antes de alterar o mapa.',
+      });
+      return;
+    }
+
     const eventData: any = {
       title: data.title,
       description: data.description,
@@ -214,13 +238,31 @@ export default function EditarEvento() {
       address: data.address,
       image_url: imageUrl,
       is_hot: data.is_hot,
-      status: data.status,
       event_type: data.event_type,
+      // Only send table_map_id when not published (server is the source of truth)
+      ...(isPublished ? {} : { table_map_id: data.table_map_id ?? null }),
+      // Status is handled by RPC when crossing the published boundary
+      ...(statusChanged && !goingToPublished && !leavingPublished
+        ? { status: newStatus }
+        : {}),
     };
 
     updateEvent.mutate(
       { id, data: eventData },
-      { onSuccess: () => reset(data) }
+      {
+        onSuccess: async () => {
+          if (goingToPublished) {
+            await publishEvent.mutateAsync(id);
+          } else if (leavingPublished && newStatus === 'draft') {
+            await unpublishEvent.mutateAsync(id);
+          } else if (leavingPublished) {
+            // cancelled/finished from published: persist status directly after RPC unpublish
+            await unpublishEvent.mutateAsync(id);
+            updateEvent.mutate({ id, data: { status: newStatus } });
+          }
+          reset(data);
+        },
+      }
     );
   };
 
@@ -455,6 +497,42 @@ export default function EditarEvento() {
                       hasSoldSeats={hasSoldSeats}
                     />
                   </div>
+
+                  {(watchedValues.event_type === 'mesa' || watchedValues.event_type === 'hibrido') && (
+                    <div className="space-y-2">
+                      <Label>Mapa de assentos</Label>
+                      <Select
+                        value={watchedValues.table_map_id ?? '__none__'}
+                        onValueChange={(v) =>
+                          setValue('table_map_id', v === '__none__' ? null : v, { shouldDirty: true })
+                        }
+                        disabled={isPublished}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um mapa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sem mapa</SelectItem>
+                          {producerMaps.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name} — {m.venue_name} ({m.seats_count} assentos)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {isPublished && (
+                        <p className="text-xs text-muted-foreground">
+                          Despublique o evento para trocar o mapa vinculado.
+                        </p>
+                      )}
+                      {!isPublished && producerMaps.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum mapa disponível. Crie um em Locais &amp; Mapas.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex items-center justify-between p-4 bg-muted rounded-lg">

@@ -28,6 +28,8 @@ export interface Event {
   event_type: EventType;
   fake_scarcity_enabled: boolean | null;
   fake_scarcity_percentage: number | null;
+  table_map_id: string | null;
+  map_snapshot_at: string | null;
   created_at: string;
   updated_at: string;
   event_lots?: Array<{
@@ -60,6 +62,7 @@ export interface EventFormData {
   event_type?: EventType;
   fake_scarcity_enabled?: boolean;
   fake_scarcity_percentage?: number;
+  table_map_id?: string | null;
 }
 
 export function useEvents() {
