@@ -42,8 +42,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useEvent, useEvents } from '@/hooks/useEvents';
+import { useEvent, useEvents, type EventType } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
+import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -60,6 +63,7 @@ const eventSchema = z.object({
   address: z.string().optional(),
   is_hot: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'cancelled', 'finished']).default('draft'),
+  event_type: z.enum(['ingresso', 'mesa', 'hibrido']).default('ingresso'),
 });
 
 type EventFormData = z.infer<typeof eventSchema>;
@@ -102,6 +106,25 @@ export default function EditarEvento() {
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  const originalType: EventType = (event?.event_type as EventType) ?? 'ingresso';
+
+  // Conta assentos vendidos para bloquear regressão mesa/hibrido -> ingresso
+  const { data: soldSeatsCount = 0 } = useQuery({
+    queryKey: ['event-sold-seats-count', id],
+    queryFn: async () => {
+      if (!id) return 0;
+      const { count, error } = await supabase
+        .from('event_seats')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', id)
+        .eq('status', 'sold');
+      if (error) return 0;
+      return count ?? 0;
+    },
+    enabled: !!id && (originalType === 'mesa' || originalType === 'hibrido'),
+  });
+  const hasSoldSeats = soldSeatsCount > 0;
+
   const formValues = useMemo(() => {
     if (!event) return undefined;
     return {
@@ -117,6 +140,7 @@ export default function EditarEvento() {
       address: event.address ?? '',
       is_hot: !!event.is_hot,
       status: event.status,
+      event_type: ((event.event_type as EventType) ?? 'ingresso') as EventType,
     } as EventFormData;
   }, [event]);
 
@@ -133,6 +157,7 @@ export default function EditarEvento() {
       address: '',
       is_hot: false,
       status: 'draft',
+      event_type: 'ingresso',
     },
     values: formValues,
     resetOptions: { keepDirtyValues: true },
@@ -161,6 +186,18 @@ export default function EditarEvento() {
   const onSubmit = async (data: EventFormData) => {
     if (!id) return;
 
+    // Bloqueio: mesa/hibrido -> ingresso com assentos vendidos
+    if (
+      (originalType === 'mesa' || originalType === 'hibrido') &&
+      data.event_type === 'ingresso' &&
+      hasSoldSeats
+    ) {
+      toast.error('Não é possível voltar para Ingresso', {
+        description: 'Este evento já possui assentos vendidos no mapa de reservas.',
+      });
+      return;
+    }
+
     const eventData: any = {
       title: data.title,
       description: data.description,
@@ -175,6 +212,7 @@ export default function EditarEvento() {
       image_url: imageUrl,
       is_hot: data.is_hot,
       status: data.status,
+      event_type: data.event_type,
     };
 
     updateEvent.mutate(
@@ -404,6 +442,16 @@ export default function EditarEvento() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <ImageUpload value={imageUrl} onChange={setImageUrl} />
+
+                  <div className="space-y-2">
+                    <Label>Tipo de venda *</Label>
+                    <EventTypeSelector
+                      value={(watchedValues.event_type as EventType) ?? 'ingresso'}
+                      onChange={(v) => setValue('event_type', v, { shouldDirty: true, shouldValidate: true })}
+                      originalType={originalType}
+                      hasSoldSeats={hasSoldSeats}
+                    />
+                  </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
