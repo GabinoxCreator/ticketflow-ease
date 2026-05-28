@@ -74,10 +74,14 @@ export function useEvents() {
     queryFn: async () => {
       if (!user) return [];
       
+      // Lista de produtor: enumeramos colunas para evitar puxar map_snapshot (jsonb pesado).
       const { data, error } = await supabase
         .from('events')
         .select(`
-          *,
+          id, producer_id, producer_profile_id, slug, title, description, short_description,
+          date, time, end_date, end_time, venue, city, state, address, category, image_url,
+          is_hot, status, event_type, fake_scarcity_enabled, fake_scarcity_percentage,
+          table_map_id, map_snapshot_at, created_at, updated_at,
           event_lots ( id, price, total_quantity, sold_quantity, reserved_quantity, is_active )
         `)
         .eq('producer_id', user.id)
@@ -250,7 +254,10 @@ export function usePublicEvents() {
       const { data, error } = await supabase
         .from('events')
         .select(`
-          *,
+          id, slug, title, description, short_description,
+          date, time, end_date, end_time, venue, city, state, address, category, image_url,
+          is_hot, status, event_type, fake_scarcity_enabled, fake_scarcity_percentage,
+          table_map_id, map_snapshot_at, created_at, updated_at,
           event_lots (
             id,
             name,

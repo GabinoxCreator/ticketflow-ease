@@ -59,6 +59,12 @@
     --category-festival: 170 70% 50%;
     --category-balada: 330 85% 60%;
 
+    /* Seat status tokens (mesa/híbrido map view) */
+    --seat-available: 150 60% 45%;
+    --seat-selected: 250 85% 60%;
+    --seat-held: 40 95% 55%;
+    --seat-sold: 0 0% 35%;
+
     --font-display: 'Sora', sans-serif;
     --font-body: 'Inter', sans-serif;
 
