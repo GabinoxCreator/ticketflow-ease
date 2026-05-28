@@ -28,7 +28,9 @@ import { CheckoutStepProgressiveForm } from '@/components/checkout/CheckoutStepP
 import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
 import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { SeatCheckoutCard, CARD_ERROR_MESSAGES } from '@/components/checkout/SeatCheckoutCard';
+import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
+
 
 type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'success';
 
