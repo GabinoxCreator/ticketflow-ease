@@ -221,6 +221,13 @@ export default function SeatCheckout() {
           handleHoldErrorRedirect(data.error);
           return;
         }
+        if (data.error === 'payment_already_started') {
+          updateHoldExpiresAt(data.holdExpiresAt ?? null);
+          if (data.orderId) setOrderId(data.orderId);
+          if (data.paymentId) setPaymentId(String(data.paymentId));
+          handleProviderUnreachable(data.orderId ?? null);
+          return;
+        }
         if (data.error === 'payment_provider_unreachable') {
           handleProviderUnreachable(data.orderId ?? null);
           return;
