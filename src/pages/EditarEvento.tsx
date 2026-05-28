@@ -44,6 +44,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useEvent, useEvents, type EventType } from '@/hooks/useEvents';
 import { useEventLots } from '@/hooks/useEventLots';
+import { useProducerTableMaps } from '@/hooks/useProducerTableMaps';
+import { usePublishEvent, useUnpublishEvent } from '@/hooks/useEventPublishing';
 import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
