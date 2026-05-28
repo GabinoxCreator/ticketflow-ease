@@ -117,6 +117,8 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
         addons: initialAddons ? { ...initialAddons } : {},
       };
       persist(next);
+      // Anti-double-payment: novo hold => esquece orderId anterior desse evento.
+      clearStoredOrderId(eventId);
       setHold(next);
 
       if (userId) {
