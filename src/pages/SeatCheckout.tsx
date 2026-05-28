@@ -581,13 +581,40 @@ export default function SeatCheckout() {
                 />
               </motion.div>
             )}
-
             {step === 'awaiting' && (
               <motion.div key="awaiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12 space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
                 <h2 className="font-display font-semibold text-lg">Finalizando pagamento…</h2>
                 <p className="text-sm text-muted-foreground">Estamos confirmando sua transação. Não feche esta janela.</p>
               </motion.div>
+            )}
+
+            {step === 'verifying' && (
+              <motion.div key="verifying" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10 space-y-5">
+                <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/15 flex items-center justify-center">
+                  <Clock className="w-8 h-8 text-amber-500" />
+                </div>
+                <h2 className="font-display font-semibold text-lg">Pagamento em verificação</h2>
+                <p className="text-sm text-muted-foreground">
+                  Sua transação foi enviada e está sendo confirmada. Se já foi aprovada, seus ingressos aparecerão em Meus Ingressos em alguns instantes.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <Button variant="hero" size="lg" onClick={() => navigate('/meus-ingressos')}>
+                    Ver meus ingressos
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      const paid = await checkPaymentStatus();
+                      if (paid) handlePaymentConfirmed();
+                      else toast.info('Ainda não confirmado. Tente novamente em alguns segundos.');
+                    }}
+                  >
+                    Verificar de novo
+                  </Button>
+                </div>
+              </motion.div>
+            )}
             )}
 
             {step === 'success' && (
