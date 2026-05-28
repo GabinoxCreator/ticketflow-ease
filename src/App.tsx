@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { ColaboradorProtectedRoute } from "@/components/colaborador/ColaboradorProtectedRoute";
 import Index from "./pages/Index";
 import EventDetails from "./pages/EventDetails";
+import EventMapPage from "./pages/EventMapPage";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
@@ -70,6 +71,7 @@ const App = () => (
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
+                <Route path="/evento/:id/mapa" element={<EventMapPage />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Navigate to="/" replace />} />
                 {/* Mantido temporariamente para back_url legacy do Mercado Pago.
