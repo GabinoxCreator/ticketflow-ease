@@ -121,16 +121,19 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           ) : (
-            <SeatMapRenderer
-              snapshot={event.map_snapshot}
-              seats={seats ?? []}
-              resolveVisualStatus={resolveVisualStatus}
-              onToggleSeat={handleToggleSeat}
-              zoom={zoom}
-              fillHeight
-            />
+            <div className="flex-1 min-h-0">
+              <SeatMapRenderer
+                snapshot={event.map_snapshot}
+                seats={seats ?? []}
+                resolveVisualStatus={resolveVisualStatus}
+                onToggleSeat={handleToggleSeat}
+                zoom={zoom}
+                fillHeight
+              />
+            </div>
           )}
-          <div className="flex flex-wrap gap-3 px-3 py-2 text-xs text-muted-foreground border-t border-border bg-card/60">
+          <div className="flex flex-wrap gap-3 px-3 py-2 text-xs text-muted-foreground border-t border-border bg-card/60 shrink-0">
+
             <Legend color="hsl(var(--seat-available))" label="Disponível" />
             <Legend color="hsl(var(--seat-selected))" label="Sua reserva" />
             <Legend color="hsl(var(--seat-held))" label="Em uso" />
