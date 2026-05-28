@@ -563,6 +563,7 @@ export default function SeatCheckout() {
                   onRejected={(errorCode) => {
                     const msg = CARD_ERROR_MESSAGES[errorCode] || 'Pagamento recusado. Tente outro cartão.';
                     toast.error(msg);
+                    if (eventId) clearStoredOrderId(eventId);
                     clearLocalHold();
                     navigate(`/evento/${eventId}`, { replace: true });
                   }}
