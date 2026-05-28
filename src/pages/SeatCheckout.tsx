@@ -188,7 +188,7 @@ export default function SeatCheckout() {
   }, [customer, user, step]);
 
 
-  const totalAmount = useMemo(() => {
+  const subtotal = useMemo(() => {
     if (!hold) return 0;
     return seats.reduce((acc, s) => {
       const base = Number(s.base_price ?? 0);
@@ -197,6 +197,37 @@ export default function SeatCheckout() {
       return acc + base + extra * qty;
     }, 0);
   }, [hold, seats, addons]);
+
+  // Taxa do evento (mesma fonte usada pelas edges create-seat-pix / charge-seat-card).
+  const [feePercent, setFeePercent] = useState<number>(10);
+  const [feeFixed, setFeeFixed] = useState<number>(0);
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.rpc('get_event_fee', { _event_id: eventId, _method: 'pix' });
+        const row = Array.isArray(data) ? data[0] : data;
+        if (cancelled || !row) return;
+        if (row.fee_percent != null) setFeePercent(Number(row.fee_percent));
+        if (row.fee_fixed != null) setFeeFixed(Number(row.fee_fixed));
+      } catch {
+        // mantém defaults (10% / 0)
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [eventId]);
+
+  const serviceFee = useMemo(() => {
+    if (subtotal <= 0) return 0;
+    return Math.max(0, Math.round((subtotal * feePercent / 100 + feeFixed) * 100) / 100);
+  }, [subtotal, feePercent, feeFixed]);
+
+  const totalAmount = useMemo(
+    () => Math.round((subtotal + serviceFee) * 100) / 100,
+    [subtotal, serviceFee]
+  );
+
 
   const seatPayload = useMemo(
     () => (hold?.seatIds ?? []).map((id) => ({ seatId: id, addons: addons[id] ?? 0 })),
