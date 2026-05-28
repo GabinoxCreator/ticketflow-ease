@@ -70,7 +70,13 @@ export function TableMapFormDialog({ open, onOpenChange, venueId, map }: Props) 
     }
     try {
       if (isEdit && map) {
-        await updateMut.mutateAsync({ id: map.id, formData: parsed.data });
+        await updateMut.mutateAsync({
+          id: map.id,
+          formData: {
+            name: parsed.data.name,
+            background_color: parsed.data.background_color ?? '#ffffff',
+          },
+        });
         onOpenChange(false);
       } else {
         const created = await createMut.mutateAsync({
