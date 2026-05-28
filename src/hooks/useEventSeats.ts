@@ -43,7 +43,7 @@ export function useEventSeats(eventId: string | undefined) {
         .select(SEAT_COLS)
         .eq('event_id', eventId!);
       if (error) throw error;
-      return (data ?? []) as EventSeatRow[];
+      return (data ?? []) as unknown as EventSeatRow[];
     },
   });
 
