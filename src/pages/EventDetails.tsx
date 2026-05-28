@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
+import EventDetailsSeated from './EventDetailsSeated';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -145,6 +146,15 @@ const EventDetails = () => {
         </div>
       </div>
     );
+  }
+
+  // Branch hasMap: roteamento NÃO depende de map_snapshot (a view trata a ausência).
+  const hasMap =
+    event.status === 'published' &&
+    (event.event_type === 'mesa' || event.event_type === 'hibrido') &&
+    !!event.table_map_id;
+  if (hasMap) {
+    return <EventDetailsSeated event={event} />;
   }
 
   const getEventEnd = () => {
