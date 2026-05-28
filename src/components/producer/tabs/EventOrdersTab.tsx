@@ -23,7 +23,7 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 
 export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const { orders, paidOrders, pendingOrders, cancelledOrders, totalRevenue, isLoading, updateOrderStatus } = useEventOrders(eventId);
+  const { orders, paidOrders, pendingOrders, cancelledOrders, flaggedOrders, totalRevenue, isLoading, updateOrderStatus } = useEventOrders(eventId);
 
   const handleUpdateStatus = (orderId: string, status: Order['status']) => {
     updateOrderStatus.mutate({ orderId, status });
