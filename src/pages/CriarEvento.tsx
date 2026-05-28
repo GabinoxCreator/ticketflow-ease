@@ -210,6 +210,7 @@ export default function CriarEvento() {
 
   const handleSubmit = async (status: 'draft' | 'published') => {
     if (!startDate || !endDate) return;
+    // Always create as draft; publish via RPC after lots are inserted
     const eventResult = await new Promise<any>((resolve, reject) => {
       createEvent.mutate(
         {
@@ -226,8 +227,9 @@ export default function CriarEvento() {
           category: 'Outros',
           image_url: imageUrl,
           is_hot: true,
-          status,
+          status: 'draft',
           event_type: eventType,
+          table_map_id: tableMapId,
         },
         { onSuccess: (data) => resolve(data), onError: (err) => reject(err) }
       );
@@ -251,6 +253,14 @@ export default function CriarEvento() {
           fake_scarcity_enabled: lot.fake_scarcity_enabled,
           fake_scarcity_percentage: lot.fake_scarcity_percentage,
         });
+      }
+    }
+
+    if (status === 'published' && eventResult?.id) {
+      try {
+        await publishEvent.mutateAsync(eventResult.id);
+      } catch {
+        // toast already shown by hook; keep event as draft
       }
     }
     navigate(eventResult?.id ? `/produtor/eventos/${eventResult.id}` : '/produtor/eventos');
