@@ -65,6 +65,31 @@ interface SeatSummary {
 
 const HONEST_HOLD_ERRORS = new Set(['hold_expired', 'seat_not_held', 'seat_not_found']);
 
+function ReservedPill({ expiresAt }: { expiresAt: string }) {
+  const [ms, setMs] = useState(() => new Date(expiresAt).getTime() - Date.now());
+  useEffect(() => {
+    setMs(new Date(expiresAt).getTime() - Date.now());
+    const id = setInterval(() => setMs(new Date(expiresAt).getTime() - Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  const safe = Math.max(0, ms);
+  const m = Math.floor(safe / 60000);
+  const s = Math.floor((safe % 60000) / 1000);
+  const urgent = safe <= 60_000;
+  return (
+    <div
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium tabular-nums border ${
+        urgent
+          ? 'bg-destructive/10 border-destructive/30 text-destructive'
+          : 'bg-primary/10 border-primary/25 text-primary'
+      }`}
+    >
+      <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+      <span>Reservada · {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}</span>
+    </div>
+  );
+}
+
 export default function SeatCheckout() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
