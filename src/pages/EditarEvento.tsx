@@ -149,6 +149,7 @@ export default function EditarEvento() {
       is_hot: !!event.is_hot,
       status: event.status,
       event_type: ((event.event_type as EventType) ?? 'ingresso') as EventType,
+      table_map_id: event.table_map_id ?? null,
     } as EventFormData;
   }, [event]);
 
