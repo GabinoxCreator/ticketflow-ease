@@ -105,9 +105,14 @@ export default function EditarEvento() {
   const { data: event, isLoading: isLoadingEvent } = useEvent(id);
   const { updateEvent, deleteEvent } = useEvents();
   const { lots, createLot, updateLot, deleteLot, isLoading: isLoadingLots } = useEventLots(id);
-  
+  const { data: producerMaps = [] } = useProducerTableMaps();
+  const publishEvent = usePublishEvent();
+  const unpublishEvent = useUnpublishEvent();
+
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const isPublished = event?.status === 'published';
 
   const originalType: EventType = (event?.event_type as EventType) ?? 'ingresso';
 
