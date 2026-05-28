@@ -6,6 +6,7 @@ import {
   User,
   Wallet,
   Users,
+  Armchair,
   Settings,
   LogOut,
 } from 'lucide-react';
