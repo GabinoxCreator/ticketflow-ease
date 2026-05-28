@@ -11,7 +11,7 @@
 // - payment_failed (manipulation/desconhecido) → mensagem genérica, mantém o step.
 // - payment_provider_unreachable → toast "em verificação" + awaiting.
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -87,6 +87,8 @@ export default function SeatCheckout() {
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [pixCode, setPixCode] = useState('');
   const [pixExpiresAt, setPixExpiresAt] = useState<Date | null>(null);
+  const [isStartingPix, setIsStartingPix] = useState(false);
+  const pixRequestInFlightRef = useRef(false);
 
   // Guard contra loop de redirect quando hold ausente
   const [hasCheckedHold, setHasCheckedHold] = useState(false);
@@ -197,6 +199,9 @@ export default function SeatCheckout() {
   // ----- PIX -----
   const handleStartPix = useCallback(async () => {
     if (!hold || !eventId || !customer) return;
+    if (pixRequestInFlightRef.current) return;
+    pixRequestInFlightRef.current = true;
+    setIsStartingPix(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-seat-pix', {
         body: {
@@ -214,6 +219,13 @@ export default function SeatCheckout() {
       if (data?.error) {
         if (HONEST_HOLD_ERRORS.has(data.error)) {
           handleHoldErrorRedirect(data.error);
+          return;
+        }
+        if (data.error === 'payment_already_started') {
+          updateHoldExpiresAt(data.holdExpiresAt ?? null);
+          if (data.orderId) setOrderId(data.orderId);
+          if (data.paymentId) setPaymentId(String(data.paymentId));
+          handleProviderUnreachable(data.orderId ?? null);
           return;
         }
         if (data.error === 'payment_provider_unreachable') {
@@ -236,6 +248,9 @@ export default function SeatCheckout() {
     } catch (err: any) {
       console.error('create-seat-pix error', err);
       handlePaymentFailedGeneric();
+    } finally {
+      pixRequestInFlightRef.current = false;
+      setIsStartingPix(false);
     }
   }, [hold, eventId, customer, seatPayload, updateHoldExpiresAt, handleHoldErrorRedirect, handleProviderUnreachable, handlePaymentFailedGeneric]);
 
@@ -355,8 +370,9 @@ export default function SeatCheckout() {
 
             {step === 'method' && (
               <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-3">
-                <Button variant="hero" size="lg" className="w-full justify-start gap-3 h-14" onClick={handleStartPix}>
-                  <QrCode className="w-5 h-5" /> Pagar com PIX
+                <Button variant="hero" size="lg" className="w-full justify-start gap-3 h-14" onClick={handleStartPix} disabled={isStartingPix}>
+                  {isStartingPix ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
+                  {isStartingPix ? 'Gerando PIX...' : 'Pagar com PIX'}
                 </Button>
                 <Button variant="outline" size="lg" className="w-full justify-start gap-3 h-14" onClick={() => setStep('card')}>
                   <CreditCard className="w-5 h-5" /> Pagar com cartão

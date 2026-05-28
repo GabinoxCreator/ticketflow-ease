@@ -47,7 +47,7 @@ const json = (body: any, status = 200) =>
 // Mapeia códigos do create_seat_order para resposta HTTP.
 // honest = erro que usuário comum vê (toast claro).
 // manipulation = erro só atingível por payload manipulado → resposta genérica + log.
-function mapSeatOrderError(message: string): { code: string; kind: 'honest' | 'manipulation' | 'unknown'; httpStatus: number } {
+function mapSeatOrderError(message: string): { code: string; kind: 'honest' | 'manipulation' | 'already_in_progress' | 'unknown'; httpStatus: number } {
   const m = (message || '').toLowerCase();
   if (m.includes('hold_expired')) return { code: 'hold_expired', kind: 'honest', httpStatus: 409 };
   if (m.includes('seat_not_held')) return { code: 'seat_not_held', kind: 'honest', httpStatus: 409 };
@@ -55,8 +55,52 @@ function mapSeatOrderError(message: string): { code: string; kind: 'honest' | 'm
   if (m.includes('addons_exceed_max')) return { code: 'addons_exceed_max', kind: 'manipulation', httpStatus: 422 };
   if (m.includes('seat_not_yours')) return { code: 'seat_not_yours', kind: 'manipulation', httpStatus: 422 };
   if (m.includes('invalid_hold_token')) return { code: 'invalid_hold_token', kind: 'manipulation', httpStatus: 422 };
-  if (m.includes('order_already_in_progress')) return { code: 'order_already_in_progress', kind: 'manipulation', httpStatus: 422 };
+  if (m.includes('order_already_in_progress')) return { code: 'order_already_in_progress', kind: 'already_in_progress', httpStatus: 200 };
   return { code: 'create_seat_order_failed', kind: 'unknown', httpStatus: 500 };
+}
+
+async function findExistingSeatOrder(supabase: any, eventId: string, userId: string, holdToken: string) {
+  const { data: seatRows, error: seatError } = await supabase
+    .from('event_seats')
+    .select('order_id, hold_expires_at')
+    .eq('event_id', eventId)
+    .eq('held_by_user_id', userId)
+    .eq('hold_token', holdToken)
+    .eq('status', 'held')
+    .not('order_id', 'is', null);
+
+  if (seatError || !seatRows?.length) return null;
+
+  const orderIds = [...new Set(seatRows.map((row: any) => row.order_id).filter(Boolean))];
+  if (orderIds.length !== 1) return null;
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, total_amount, service_fee_amount, mp_payment_id, expires_at, status, payment_method')
+    .eq('id', orderIds[0])
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .eq('payment_method', 'pix')
+    .maybeSingle();
+
+  if (orderError || !order) return null;
+
+  return {
+    orderId: order.id,
+    amount: Number(order.total_amount || 0),
+    serviceFee: Number(order.service_fee_amount || 0),
+    paymentId: order.mp_payment_id ? String(order.mp_payment_id) : null,
+    holdExpiresAt: seatRows.map((row: any) => row.hold_expires_at).filter(Boolean).sort().pop() || order.expires_at || null,
+  };
+}
+
+async function fetchExistingPixPayment(mercadopagoToken: string, paymentId: string) {
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    headers: { Authorization: `Bearer ${mercadopagoToken}` },
+  });
+  if (!response.ok) return null;
+  return await response.json();
 }
 
 serve(async (req) => {
@@ -146,10 +190,40 @@ serve(async (req) => {
       if (rpcErr) {
         const mapped = mapSeatOrderError(rpcErr.message || '');
         logStep('create_seat_order failed', { code: mapped.code, kind: mapped.kind, raw: rpcErr.message });
-        if (mapped.kind === 'manipulation' || mapped.kind === 'unknown') {
-          return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, mapped.httpStatus);
+        if (mapped.kind === 'already_in_progress') {
+          const existing = await findExistingSeatOrder(supabase, eventId, userId, holdToken);
+          if (existing?.paymentId) {
+            const existingPayment = await fetchExistingPixPayment(mercadopagoToken, existing.paymentId).catch(() => null);
+            const pixInfo = existingPayment?.point_of_interaction?.transaction_data;
+            if (pixInfo?.qr_code) {
+              return json({
+                success: true,
+                resumed: true,
+                orderId: existing.orderId,
+                pixCode: pixInfo.qr_code,
+                qrCodeBase64: pixInfo.qr_code_base64 || '',
+                expiresAt: pixInfo.expiration_date || existing.holdExpiresAt,
+                holdExpiresAt: existing.holdExpiresAt,
+                paymentId: existing.paymentId,
+                amount: existing.amount,
+                serviceFeeAmount: existing.serviceFee,
+              });
+            }
+            return json({
+              error: 'payment_already_started',
+              orderId: existing.orderId,
+              paymentId: existing.paymentId,
+              holdExpiresAt: existing.holdExpiresAt,
+              amount: existing.amount,
+              serviceFeeAmount: existing.serviceFee,
+            });
+          }
+          return json({ error: 'payment_already_started', orderId: existing?.orderId ?? null, holdExpiresAt: existing?.holdExpiresAt ?? null });
         }
-        return json({ error: mapped.code }, mapped.httpStatus);
+        if (mapped.kind === 'manipulation' || mapped.kind === 'unknown') {
+          return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' });
+        }
+        return json({ error: mapped.code });
       }
 
       orderId = rpcData.order_id;
@@ -159,10 +233,40 @@ serve(async (req) => {
     } catch (e: any) {
       const mapped = mapSeatOrderError(e?.message || '');
       logStep('create_seat_order exception', { code: mapped.code, raw: e?.message });
-      if (mapped.kind === 'manipulation' || mapped.kind === 'unknown') {
-        return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, mapped.httpStatus);
+      if (mapped.kind === 'already_in_progress') {
+        const existing = await findExistingSeatOrder(supabase, eventId, userId, holdToken);
+        if (existing?.paymentId) {
+          const existingPayment = await fetchExistingPixPayment(mercadopagoToken, existing.paymentId).catch(() => null);
+          const pixInfo = existingPayment?.point_of_interaction?.transaction_data;
+          if (pixInfo?.qr_code) {
+            return json({
+              success: true,
+              resumed: true,
+              orderId: existing.orderId,
+              pixCode: pixInfo.qr_code,
+              qrCodeBase64: pixInfo.qr_code_base64 || '',
+              expiresAt: pixInfo.expiration_date || existing.holdExpiresAt,
+              holdExpiresAt: existing.holdExpiresAt,
+              paymentId: existing.paymentId,
+              amount: existing.amount,
+              serviceFeeAmount: existing.serviceFee,
+            });
+          }
+          return json({
+            error: 'payment_already_started',
+            orderId: existing.orderId,
+            paymentId: existing.paymentId,
+            holdExpiresAt: existing.holdExpiresAt,
+            amount: existing.amount,
+            serviceFeeAmount: existing.serviceFee,
+          });
+        }
+        return json({ error: 'payment_already_started', orderId: existing?.orderId ?? null, holdExpiresAt: existing?.holdExpiresAt ?? null });
       }
-      return json({ error: mapped.code }, mapped.httpStatus);
+      if (mapped.kind === 'manipulation' || mapped.kind === 'unknown') {
+        return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' });
+      }
+      return json({ error: mapped.code });
     }
 
     // Lê hold_expires_at autoritativo (estendido pra janela do método)
@@ -247,7 +351,7 @@ serve(async (req) => {
       // Exceção AMBÍGUA pós-POST: pagamento pode ter sido criado mesmo sem resposta.
       // NÃO solta seat — sweeper/webhook resolve quando vier o veredito.
       logStep('MP POST network exception', { msg: e?.message });
-      return json({ error: 'payment_provider_unreachable', orderId }, 502);
+      return json({ error: 'payment_provider_unreachable', orderId });
     }
 
     if (!mpResponse.ok) {
@@ -268,7 +372,7 @@ serve(async (req) => {
         logStep('release after MP !ok failed', { msg: relErr?.message });
       }
 
-      return json({ error: mpError.message || 'pix_create_failed', errorCode: mpError.status_detail || 'unknown' }, 422);
+      return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.', errorCode: mpError.status_detail || 'unknown' });
     }
 
     let mpPayment: any;
@@ -277,7 +381,7 @@ serve(async (req) => {
     } catch (e: any) {
       // Parse ambíguo. NÃO solta seat.
       logStep('MP response parse error', { msg: e?.message });
-      return json({ error: 'payment_provider_unreachable', orderId }, 502);
+      return json({ error: 'payment_provider_unreachable', orderId });
     }
 
     const pixInfo = mpPayment.point_of_interaction?.transaction_data;
@@ -305,6 +409,6 @@ serve(async (req) => {
   } catch (error: any) {
     // Catch externo: erro pré-RPC (validação, auth, etc.). Nenhum side effect criado.
     console.error('[CREATE-SEAT-PIX] UNHANDLED', error);
-    return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' }, 500);
+    return json({ error: 'payment_failed', message: 'Não foi possível processar. Tente novamente.' });
   }
 });
