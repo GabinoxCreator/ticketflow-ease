@@ -145,14 +145,16 @@ export function useSoftDeleteVenue() {
 }
 
 export function useVenueById(venueId: string | undefined) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ['venue', venueId],
-    enabled: !!venueId,
+    queryKey: ['venue', venueId, user?.id],
+    enabled: !!venueId && !!user?.id,
     queryFn: async (): Promise<Venue | null> => {
       const { data, error } = await supabase
         .from('venues')
         .select('*')
         .eq('id', venueId!)
+        .eq('producer_id', user!.id)
         .maybeSingle();
       if (error) throw error;
       return data as Venue | null;
