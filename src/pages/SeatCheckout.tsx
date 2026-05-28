@@ -25,10 +25,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSeatHold, type HoldState } from '@/hooks/useSeatHold';
 import { HoldCountdown } from '@/components/seated/HoldCountdown';
 import { CheckoutStepProgressiveForm } from '@/components/checkout/CheckoutStepProgressiveForm';
+import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
 import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { SeatCheckoutCard, CARD_ERROR_MESSAGES } from '@/components/checkout/SeatCheckoutCard';
+import { validateCPF } from '@/utils/cpfValidator';
 
-type Step = 'form' | 'method' | 'pix' | 'card' | 'awaiting' | 'success';
+type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'success';
+
 
 interface CustomerData {
   name: string;
