@@ -1,199 +1,57 @@
+# Popular o mapa com mesas, bistrôs e setores
 
-# Fase 10 — Detecção de entrega parcial/falha em mesa (revisado)
+Atualmente o mapa `Mapa Copa 2026` (canvas 1200×800) está vazio. Vou popular ele via migração SQL direto no banco, espelhando a referência que você mandou.
 
-## Escopo
+## O que vou inserir
 
-Detectar + alertar quando o webhook MP confirma pagamento aprovado mas a entrega de assentos não foi completa. **Não** chama refund, **não** solta assento, **não** mexe em dinheiro. Produtor revisa e age na mão.
+### 80 assentos vendáveis (`venue_seats`)
 
-Dois sabores:
+- **40 Mesas** (seat_type `Mesa Padrão`, retângulo azul, cap 4–8) — códigos `M01`–`M40`, dispostas em grade 8 colunas × 5 linhas dentro do "Setor Mesas".
+- **40 Bistrôs** (seat_type `Bistrô`, círculo vermelho, cap 4) — códigos `B01`–`B40`, mesma grade 8×5 dentro do "Setor Bistrôs".
 
-- **(a) Promoção parcial**: order ainda `pending`, RPC promove, mas alguns `event_seats` foram perdidos no race (hold expirou e outro pegou).
-- **(b) Pagamento sem entrega**: webhook chega `approved` com `transaction_amount` batido, **mas** a order já não está `pending` (foi `expired`/`failed`/`cancelled` pelo `expire-pending-orders`) — RPC bloqueia, dinheiro entrou, nada entregue.
+Numeração igual à imagem: começa pela direita-cima (1, 2, 3...) descendo a coluna, depois pula pra próxima coluna à esquerda.
 
-Ingresso (lot-based) fica fora.
+### Elementos decorativos (`map_objects`) — não vendáveis
 
----
+| Elemento | Tipo | Cor | Função |
+|---|---|---|---|
+| Setor Bistrôs (fundo) | `rect` | azul | bloco do setor à esquerda |
+| Setor Mesas (fundo) | `rect` | amarelo | bloco do setor à direita |
+| Espaço Coberto | `rect` + `text` | verde | faixa lateral esquerda |
+| Palco | `rect` + `text` | laranja | bloco direita |
+| Telão 6×2 | `rect` + `text` | verde | bloco mais à direita |
+| B1 Maresias | `rect` azul-escuro + `text` | — | header do bloco mesas (topo) |
+| B2 Riviera de São Lourenço | `rect` azul-escuro + `text` | — | footer bloco mesas |
+| B3 Ilhabela | `rect` azul-escuro + `text` | — | footer bloco bistrôs |
+| WC | `rect` + `text` | laranja | rodapé |
+| BAR | `rect` + `text` | azul | rodapé |
 
-## 1) Schema (migration)
+## Layout no canvas 1200×800
 
-Adicionar à tabela `orders`:
-
-- `review_status text` — `NULL` (ok), `'partial_delivery'`, `'paid_no_delivery'`.
-- `review_reason jsonb` — `{expected, delivered, mp_payment_id, transaction_amount, detected_at, flavor}`.
-- `review_flagged_at timestamptz`.
-
-Index parcial `WHERE review_status IS NOT NULL`.
-
-`orders.status` **não muda** — finanças seguem lendo `status='paid'`. A flag é canal separado.
-
----
-
-## 2) Sabor (a) — dentro de `apply_order_approved` (RPC)
-
-Detecção **na mesma transação** da promoção, comparando estado atual (idempotente):
-
-```sql
-_expected_seats := (
-  SELECT count(DISTINCT event_seat_id)
-    FROM tickets
-   WHERE order_id = _order_id AND event_seat_id IS NOT NULL
-);
-
-IF _expected_seats > 0 THEN
-  _delivered_seats := (
-    SELECT count(DISTINCT id) FROM event_seats
-     WHERE order_id = _order_id AND status = 'sold'
-  );
-
-  IF _delivered_seats < _expected_seats THEN
-    UPDATE orders
-       SET review_status = 'partial_delivery',
-           review_reason = jsonb_build_object(
-             'expected', _expected_seats,
-             'delivered', _delivered_seats,
-             'mp_payment_id', _mp_payment_id,
-             'detected_at', now(),
-             'flavor', 'a_partial'
-           ),
-           review_flagged_at = now()
-     WHERE id = _order_id AND review_status IS NULL;
-
-    IF FOUND THEN
-      INSERT INTO audit_logs(...) VALUES (..., 'order_partial_delivery_detected', ...);
-    END IF;
-  END IF;
-END IF;
+```text
++----------------------------------------------------------+
+| Espaço |  SETOR BISTRÔS    |  SETOR MESAS    | PALCO|TEL |
+| Coberto|  (8×5 círculos)   |  (8×5 retâng.)  |      |    |
+|        |                   | [B1 Maresias]   |      |    |
+|        |  [B3 Ilhabela]    | [B2 Riviera]    |      |    |
++----------------------------------------------------------+
+|              WC    BAR                                    |
++----------------------------------------------------------+
 ```
 
-Inserido nos **dois ramos** que mexem em seats: `IF _order.status='pending'` (após promoção) **e** `ELSIF _order.status='paid'` (sweep de reentrega). Em ambos a comparação é estado atual + `WHERE review_status IS NULL` → reentrega é no-op.
+- Setor Bistrôs: x≈110, y≈60, 8 cols × 5 rows, espaçamento 55px (círculos 50×50)
+- Setor Mesas: x≈540, y≈60, mesmo grid (retângulos 50×50)
+- Cada seat usa `width/height = 50` (menor que o default 60/80 pra caber 8×5 sem estourar)
 
-**Não** solta assentos parcialmente entregues. Decisão do produtor.
+## Como vou executar
 
----
+1. Migração SQL única que: limpa qualquer `venue_seats` + `map_objects` órfão deste `table_map_id` (idempotente), insere os 80 seats e ~18 objetos decorativos com coordenadas calculadas.
+2. Códigos `M01`–`M40` e `B01`–`B40` são únicos por `venue_id` — se já existirem códigos iguais nesse venue, a inserção falha. Posso conferir antes de rodar.
 
-## 3) Sabor (b) — NO WEBHOOK, depois do gate approved+amount
+## Pendências antes de aprovar
 
-**Mudança chave em relação ao plano anterior**: o flag (b) **sai do ramo ELSE da RPC** e vai pro `mercadopago-webhook/index.ts`, **depois** que o webhook já validou:
+1. **Códigos**: usar `M01–M40` / `B01–B40` ou `MESA-01` / `BISTRO-01`? (Os códigos aparecem em ingressos/checkin.)
+2. **Preço base**: o seat_type Mesa Padrão e Bistrô estão com `base_price` cadastrado? Se sim, deixo os seats sem override (herdam do tipo). Se você quiser preços diferentes por mesa, me diz.
+3. **Substituir / preservar**: o mapa está vazio hoje, então só vou inserir. Mas se rodar 2x, a 2ª falha pelo unique `(venue_id, code)`. Posso adicionar um `ON CONFLICT DO NOTHING` ou um delete prévio dos seats deste map_id — confirma qual prefere.
 
-1. `mpStatus === 'approved'`
-2. `Math.abs(expected - received) <= 0.01` (amount batido)
-
-Ou seja, no mesmo bloco onde hoje chama `applyOrderApproved`. Sequência:
-
-```ts
-// dentro de if (mpStatus === 'approved') { ... } depois do amount check:
-
-await supabase.from('orders').update({ mp_payment_id: paymentId }).eq('id', order.id);
-
-const result = await applyOrderApproved(supabase, { orderId, mpPaymentId, source });
-
-// NOVO: sabor (b) — só dispara aqui porque chegamos depois de:
-//   • mpStatus === 'approved'
-//   • transaction_amount bateu com order.total_amount
-//   • mp_webhook_events já fez dedupe (UNIQUE mp_payment_id+mp_status)
-// Logo: pagamento REAL e confirmado pelo MP, sem chance de PIX abandonado.
-if (result.mismatch && result.order_status && result.order_status !== 'paid') {
-  // RPC bloqueou porque order não estava pending nem paid (expired/failed/cancelled).
-  // Só flaggar se a order tem tickets de mesa (event_seat_id IS NOT NULL).
-  await supabase.rpc('flag_order_paid_no_delivery', {
-    _order_id: order.id,
-    _mp_payment_id: paymentId,
-    _transaction_amount: received,
-    _order_status: result.order_status,
-  });
-}
-```
-
-Nova RPC `flag_order_paid_no_delivery` (security definer), curta:
-
-```sql
--- só flagga se tem tickets de mesa E ainda não está flagged (idempotente)
-UPDATE orders
-   SET review_status = 'paid_no_delivery',
-       review_reason = jsonb_build_object(
-         'order_status', _order_status,
-         'mp_payment_id', _mp_payment_id,
-         'transaction_amount', _transaction_amount,
-         'detected_at', now(),
-         'flavor', 'b_terminal'
-       ),
-       review_flagged_at = now()
- WHERE id = _order_id
-   AND review_status IS NULL
-   AND EXISTS (
-     SELECT 1 FROM tickets
-      WHERE order_id = _order_id AND event_seat_id IS NOT NULL
-   );
-
--- audit só se FOUND
-```
-
-**O ramo `ELSE` da RPC `apply_order_approved` NÃO ganha flag nenhuma.** Continua só com o audit `apply_order_approved_terminal_mismatch` existente (essa é a fonte de diagnóstico interno; não vira alerta de dinheiro até o webhook confirmar amount).
-
-### Por que isto elimina o falso positivo
-
-| Cenário | Webhook chega? | mpStatus | amount bate? | Flag (b)? |
-|---|---|---|---|---|
-| PIX abandonado, order virou expired | Não | – | – | Não — webhook nem roda |
-| PIX abandonado, MP manda webhook `cancelled` | Sim | cancelled | – | Não — não entra no ramo approved |
-| Pagamento aprovado mas amount divergente | Sim | approved | Não | Não — webhook devolve `amount_mismatch` antes de chamar RPC |
-| Pagamento aprovado, amount ok, order ainda pending | Sim | approved | Sim | Sabor (a) cuida via RPC |
-| Pagamento aprovado, amount ok, order já expired | Sim | approved | Sim | **Sim — sabor (b), dinheiro real entrou** |
-| Reentrega de qualquer caso (dedupe UNIQUE) | – | – | – | Não — `mp_webhook_events.insert` retorna 23505 antes de chegar na lógica |
-
-A guarda extra `EXISTS tickets event_seat_id IS NOT NULL` na RPC do flag garante que ingresso não é flaggado por engano.
-
----
-
-## 4) Alerta — canal: dashboard do produtor
-
-Sem email nesta fase. Só visual no dashboard:
-
-- `useEventOrders.ts`: selecionar `review_status`, `review_reason`, `review_flagged_at`; adicionar ao tipo `Order`.
-- `OrderListItem.tsx`: badge vermelho `Revisar pagamento` quando `review_status != null`, com tooltip:
-  - sabor (a): "Pagamento confirmado, mas só X de Y assentos foram entregues. Verifique no Mercado Pago e reembolse a diferença manualmente se necessário."
-  - sabor (b): "Pagamento confirmado no Mercado Pago, mas o pedido expirou antes da confirmação. Nenhum assento foi entregue. Verifique e reembolse manualmente no painel do MP."
-- `EventDashboard.tsx` (aba Pedidos): chip vermelho no topo "N pedidos com problema" quando count > 0.
-
-Order continua aparecendo no fluxo normal — flag é overlay informativo.
-
----
-
-## 5) Resolução manual
-
-Não tem UI de "resolver" nesta entrega. Produtor reembolsa no painel do MP; flag fica como histórico. Próxima fase pode adicionar botão "Marcar como resolvido".
-
----
-
-## 6) Arquivos
-
-**Migrations:**
-- `ALTER TABLE orders ADD review_status / review_reason / review_flagged_at` + index parcial.
-- `CREATE OR REPLACE FUNCTION apply_order_approved` com bloco de detecção (a) nos 2 ramos (pending e paid). Ramo ELSE intocado.
-- `CREATE FUNCTION flag_order_paid_no_delivery(...)` — security definer, idempotente.
-
-**Edge:**
-- `supabase/functions/mercadopago-webhook/index.ts`: após `applyOrderApproved`, se `result.mismatch && order_status !== 'paid'`, chama `flag_order_paid_no_delivery`.
-
-**Front:**
-- `src/hooks/useEventOrders.ts`: tipos e select.
-- `src/components/producer/OrderListItem.tsx`: badge + tooltip.
-- `src/pages/EventDashboard.tsx` (aba Pedidos): contador.
-
-**Não toca:** `_shared/applyOrderApproved.ts`, `expire-pending-orders`, `release_seats_for_order`, `confirm_seats`.
-
----
-
-## 7) Garantias
-
-- **Idempotência por estado atual**: ambos sabores comparam estado vs `WHERE review_status IS NULL`. Reentrega é no-op.
-- **Gate de dinheiro real**: sabor (b) só dispara depois de `approved + amount match + dedupe MP`. Sem falso positivo de PIX abandonado.
-- **Sem auto-refund, sem auto-release**: produtor decide.
-- **Finanças não mudam**: order continua `paid` (sabor a) ou terminal (sabor b); cálculo de repasse não é afetado por esta fase. Se produtor reembolsar no MP, webhook `refunded` cuida do resto pelo fluxo existente.
-
----
-
-## 8) Aberto pra revisão
-
-1. Filtrar flag fora do repasse no `useProducerFinance`? Proposta: **não** — produtor lida na mão; reembolso real vira `status='refunded'` e cai do cálculo sozinho.
-2. Email diário com resumo das flags não-resolvidas — fica pra fase futura.
+Posiciono tudo pixel-perfeito assim que você aprovar.
