@@ -2071,6 +2071,7 @@ export type Database = {
         Args: { _event_id: string; _hold_token: string; _user_id: string }
         Returns: Json
       }
+      release_seats_for_order: { Args: { _order_id: string }; Returns: number }
       reserve_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
