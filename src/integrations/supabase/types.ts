@@ -545,6 +545,107 @@ export type Database = {
           },
         ]
       }
+      event_seat_pricing: {
+        Row: {
+          created_at: string
+          event_id: string
+          global_base_multiplier: number | null
+          notes: string | null
+          seat_types_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          global_base_multiplier?: number | null
+          notes?: string | null
+          seat_types_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          global_base_multiplier?: number | null
+          notes?: string | null
+          seat_types_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_seat_pricing_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_seats: {
+        Row: {
+          created_at: string
+          event_id: string
+          held_by_user_id: string | null
+          hold_expires_at: string | null
+          hold_token: string | null
+          id: string
+          manual_close_reason: string | null
+          manually_closed_at: string | null
+          manually_closed_by: string | null
+          pending_order_id: string | null
+          sold_order_id: string | null
+          status: string
+          updated_at: string
+          venue_seat_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          held_by_user_id?: string | null
+          hold_expires_at?: string | null
+          hold_token?: string | null
+          id?: string
+          manual_close_reason?: string | null
+          manually_closed_at?: string | null
+          manually_closed_by?: string | null
+          pending_order_id?: string | null
+          sold_order_id?: string | null
+          status?: string
+          updated_at?: string
+          venue_seat_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          held_by_user_id?: string | null
+          hold_expires_at?: string | null
+          hold_token?: string | null
+          id?: string
+          manual_close_reason?: string | null
+          manually_closed_at?: string | null
+          manually_closed_by?: string | null
+          pending_order_id?: string | null
+          sold_order_id?: string | null
+          status?: string
+          updated_at?: string
+          venue_seat_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_seats_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_seats_venue_seat_id_fkey"
+            columns: ["venue_seat_id"]
+            isOneToOne: false
+            referencedRelation: "venue_seats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           address: string | null
@@ -555,6 +656,7 @@ export type Database = {
           description: string | null
           end_date: string | null
           end_time: string | null
+          event_type: string
           fake_scarcity_enabled: boolean | null
           fake_scarcity_percentage: number | null
           id: string
@@ -566,10 +668,12 @@ export type Database = {
           slug: string | null
           state: string
           status: string
+          table_map_id: string | null
           time: string
           title: string
           updated_at: string
           venue: string
+          venue_id: string | null
         }
         Insert: {
           address?: string | null
@@ -580,6 +684,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           end_time?: string | null
+          event_type?: string
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
           id?: string
@@ -591,10 +696,12 @@ export type Database = {
           slug?: string | null
           state: string
           status?: string
+          table_map_id?: string | null
           time: string
           title: string
           updated_at?: string
           venue: string
+          venue_id?: string | null
         }
         Update: {
           address?: string | null
@@ -605,6 +712,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           end_time?: string | null
+          event_type?: string
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
           id?: string
@@ -616,10 +724,12 @@ export type Database = {
           slug?: string | null
           state?: string
           status?: string
+          table_map_id?: string | null
           time?: string
           title?: string
           updated_at?: string
           venue?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -634,6 +744,20 @@ export type Database = {
             columns: ["producer_profile_id"]
             isOneToOne: false
             referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_table_map_id_fkey"
+            columns: ["table_map_id"]
+            isOneToOne: false
+            referencedRelation: "table_maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -737,6 +861,77 @@ export type Database = {
           last_sent_at?: string
         }
         Relationships: []
+      }
+      map_objects: {
+        Row: {
+          created_at: string
+          fill_color: string | null
+          font_size: number | null
+          height: number | null
+          icon_name: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          object_type: string
+          rotation: number
+          stroke_color: string | null
+          stroke_width: number | null
+          table_map_id: string
+          text_content: string | null
+          width: number | null
+          x: number
+          y: number
+          z_index: number
+        }
+        Insert: {
+          created_at?: string
+          fill_color?: string | null
+          font_size?: number | null
+          height?: number | null
+          icon_name?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          object_type: string
+          rotation?: number
+          stroke_color?: string | null
+          stroke_width?: number | null
+          table_map_id: string
+          text_content?: string | null
+          width?: number | null
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Update: {
+          created_at?: string
+          fill_color?: string | null
+          font_size?: number | null
+          height?: number | null
+          icon_name?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          object_type?: string
+          rotation?: number
+          stroke_color?: string | null
+          stroke_width?: number | null
+          table_map_id?: string
+          text_content?: string | null
+          width?: number | null
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "map_objects_table_map_id_fkey"
+            columns: ["table_map_id"]
+            isOneToOne: false
+            referencedRelation: "table_maps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mp_webhook_events: {
         Row: {
@@ -1311,6 +1506,71 @@ export type Database = {
         }
         Relationships: []
       }
+      seat_types: {
+        Row: {
+          base_capacity: number
+          base_price: number
+          created_at: string
+          default_color: string | null
+          default_height: number
+          default_width: number
+          description: string | null
+          extra_price: number
+          icon: string | null
+          id: string
+          is_active: boolean
+          max_capacity: number
+          name: string
+          producer_id: string
+          shape: string
+          updated_at: string
+        }
+        Insert: {
+          base_capacity: number
+          base_price?: number
+          created_at?: string
+          default_color?: string | null
+          default_height?: number
+          default_width?: number
+          description?: string | null
+          extra_price?: number
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          max_capacity: number
+          name: string
+          producer_id: string
+          shape?: string
+          updated_at?: string
+        }
+        Update: {
+          base_capacity?: number
+          base_price?: number
+          created_at?: string
+          default_color?: string | null
+          default_height?: number
+          default_width?: number
+          description?: string | null
+          extra_price?: number
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          max_capacity?: number
+          name?: string
+          producer_id?: string
+          shape?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seat_types_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_health_snapshots: {
         Row: {
           captured_at: string
@@ -1334,6 +1594,56 @@ export type Database = {
           overall_severity?: string
         }
         Relationships: []
+      }
+      table_maps: {
+        Row: {
+          background_color: string | null
+          background_image_url: string | null
+          canvas_height: number
+          canvas_width: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          orientation: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          background_color?: string | null
+          background_image_url?: string | null
+          canvas_height?: number
+          canvas_width?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          orientation?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          background_color?: string | null
+          background_image_url?: string | null
+          canvas_height?: number
+          canvas_width?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          orientation?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_maps_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tickets: {
         Row: {
@@ -1419,6 +1729,144 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      venue_seats: {
+        Row: {
+          code: string
+          created_at: string
+          custom_base_capacity: number | null
+          custom_base_price: number | null
+          custom_extra_price: number | null
+          custom_max_capacity: number | null
+          height: number | null
+          id: string
+          is_active: boolean
+          label: string | null
+          radius: number | null
+          rotation: number
+          seat_type_id: string
+          table_map_id: string | null
+          updated_at: string
+          venue_id: string
+          width: number | null
+          x: number
+          y: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          custom_base_capacity?: number | null
+          custom_base_price?: number | null
+          custom_extra_price?: number | null
+          custom_max_capacity?: number | null
+          height?: number | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          radius?: number | null
+          rotation?: number
+          seat_type_id: string
+          table_map_id?: string | null
+          updated_at?: string
+          venue_id: string
+          width?: number | null
+          x?: number
+          y?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          custom_base_capacity?: number | null
+          custom_base_price?: number | null
+          custom_extra_price?: number | null
+          custom_max_capacity?: number | null
+          height?: number | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          radius?: number | null
+          rotation?: number
+          seat_type_id?: string
+          table_map_id?: string | null
+          updated_at?: string
+          venue_id?: string
+          width?: number | null
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_venue_seats_table_map"
+            columns: ["table_map_id"]
+            isOneToOne: false
+            referencedRelation: "table_maps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_seats_seat_type_id_fkey"
+            columns: ["seat_type_id"]
+            isOneToOne: false
+            referencedRelation: "seat_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_seats_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venues: {
+        Row: {
+          address: string | null
+          capacity: number | null
+          city: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          producer_id: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          capacity?: number | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          producer_id: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          capacity?: number | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          producer_id?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venues_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
