@@ -113,7 +113,7 @@ const EMPTY_FORM: SeatTypeFormData = {
 
 export default function SeatTypes() {
   const navigate = useNavigate();
-  const { seatTypes, isLoading, createSeatType, updateSeatType, deleteSeatType } = useSeatTypes();
+  const { seatTypes, isLoading, createSeatType, updateSeatType, deleteSeatType, seedDefaultTemplates } = useSeatTypes();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -149,16 +149,17 @@ export default function SeatTypes() {
   };
 
   const validate = (): boolean => {
-    const errs: Record<string, string> = {};
-    if (!formData.name.trim()) errs.name = 'Nome é obrigatório';
-    if ((formData.base_capacity ?? 0) <= 0) errs.base_capacity = 'Capacidade base deve ser maior que 0';
-    if ((formData.max_capacity ?? 0) < (formData.base_capacity ?? 0)) {
-      errs.max_capacity = 'Capacidade máxima deve ser maior ou igual à base';
+    const result = seatTypeSchema.safeParse(formData);
+    if (result.success) {
+      setFormErrors({});
+      return true;
     }
-    if ((formData.base_price ?? 0) < 0) errs.base_price = 'Preço base não pode ser negativo';
-    if ((formData.extra_price ?? 0) < 0) errs.extra_price = 'Preço extra não pode ser negativo';
+    const errs: Record<string, string> = {};
+    for (const [key, messages] of Object.entries(result.error.flatten().fieldErrors)) {
+      if (messages && messages.length > 0) errs[key] = messages[0]!;
+    }
     setFormErrors(errs);
-    return Object.keys(errs).length === 0;
+    return false;
   };
 
   const handleSubmit = () => {
@@ -294,10 +295,20 @@ export default function SeatTypes() {
                   Crie tipos de assento (mesa, cadeira, bistrô, etc.) para usá-los no mapa de reservas dos seus eventos.
                 </p>
               </div>
-              <Button onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-2" />
-                Criar primeiro tipo
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+                <Button onClick={openCreate}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar primeiro tipo
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => seedDefaultTemplates.mutate()}
+                  disabled={seedDefaultTemplates.isPending}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {seedDefaultTemplates.isPending ? 'Criando...' : 'Criar templates padrão'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
