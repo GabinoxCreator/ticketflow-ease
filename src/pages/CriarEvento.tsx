@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useEvents, type EventType } from '@/hooks/useEvents';
+import { useProducerTableMaps } from '@/hooks/useProducerTableMaps';
+import { usePublishEvent } from '@/hooks/useEventPublishing';
 import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { cn } from '@/lib/utils';
 
