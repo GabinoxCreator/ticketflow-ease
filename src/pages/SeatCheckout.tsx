@@ -209,6 +209,7 @@ export default function SeatCheckout() {
     } else {
       toast.error('Sua reserva não está mais disponível. Selecione novamente.');
     }
+    if (eventId) clearStoredOrderId(eventId);
     clearLocalHold();
     navigate(`/evento/${eventId}`, { replace: true });
   }, [clearLocalHold, navigate, eventId]);
