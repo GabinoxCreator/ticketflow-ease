@@ -1,57 +1,108 @@
-# Popular o mapa com mesas, bistrôs e setores
+# Fase 11 — Página pública do evento estilo Made in Brazil Bar
 
-Atualmente o mapa `Mapa Copa 2026` (canvas 1200×800) está vazio. Vou popular ele via migração SQL direto no banco, espelhando a referência que você mandou.
+## Objetivo
 
-## O que vou inserir
+Refazer `/evento/:id` numa única página linear (sem sidebar sticky desktop, sem split-hero), válida para os 3 tipos de evento (`ingresso`, `mesa`, `hibrido`). O mapa de mesas deixa de ser embutido — vira página separada acessada por botão "Ver Mapa de Mesas".
 
-### 80 assentos vendáveis (`venue_seats`)
-
-- **40 Mesas** (seat_type `Mesa Padrão`, retângulo azul, cap 4–8) — códigos `M01`–`M40`, dispostas em grade 8 colunas × 5 linhas dentro do "Setor Mesas".
-- **40 Bistrôs** (seat_type `Bistrô`, círculo vermelho, cap 4) — códigos `B01`–`B40`, mesma grade 8×5 dentro do "Setor Bistrôs".
-
-Numeração igual à imagem: começa pela direita-cima (1, 2, 3...) descendo a coluna, depois pula pra próxima coluna à esquerda.
-
-### Elementos decorativos (`map_objects`) — não vendáveis
-
-| Elemento | Tipo | Cor | Função |
-|---|---|---|---|
-| Setor Bistrôs (fundo) | `rect` | azul | bloco do setor à esquerda |
-| Setor Mesas (fundo) | `rect` | amarelo | bloco do setor à direita |
-| Espaço Coberto | `rect` + `text` | verde | faixa lateral esquerda |
-| Palco | `rect` + `text` | laranja | bloco direita |
-| Telão 6×2 | `rect` + `text` | verde | bloco mais à direita |
-| B1 Maresias | `rect` azul-escuro + `text` | — | header do bloco mesas (topo) |
-| B2 Riviera de São Lourenço | `rect` azul-escuro + `text` | — | footer bloco mesas |
-| B3 Ilhabela | `rect` azul-escuro + `text` | — | footer bloco bistrôs |
-| WC | `rect` + `text` | laranja | rodapé |
-| BAR | `rect` + `text` | azul | rodapé |
-
-## Layout no canvas 1200×800
+## Estrutura final da página (ordem fixa, mobile-first, replica em desktop)
 
 ```text
-+----------------------------------------------------------+
-| Espaço |  SETOR BISTRÔS    |  SETOR MESAS    | PALCO|TEL |
-| Coberto|  (8×5 círculos)   |  (8×5 retâng.)  |      |    |
-|        |                   | [B1 Maresias]   |      |    |
-|        |  [B3 Ilhabela]    | [B2 Riviera]    |      |    |
-+----------------------------------------------------------+
-|              WC    BAR                                    |
-+----------------------------------------------------------+
+┌─────────────────────────────────────────┐
+│ Header (existente)                      │
+├─────────────────────────────────────────┤
+│ [Banner: image_url, full-width]         │  ← object-cover, aspect 16/9 desktop, 4/5 mobile
+│   ❤ likes (overlay canto inferior)      │
+├─────────────────────────────────────────┤
+│ Título grande                           │
+│ Data formatada · Hora                   │
+│ Venue (negrito) · cidade/UF             │
+│ 📍 endereço completo                    │
+├─────────────────────────────────────────┤
+│ "A partir de R$ XX,XX"   [Compartilhar] │  ← faixa horizontal
+├─────────────────────────────────────────┤
+│ ┌─ Reserve sua Mesa ─────────────────┐ │  ← APENAS se mesa|hibrido c/ table_map_id
+│ │ Escolha sua mesa no mapa           │ │
+│ │ Setores: Mesas · Bistrôs           │ │  ← chips com contagem disponível
+│ │ A partir de R$ XX                  │ │
+│ │ [Ver Mapa de Mesas →]              │ │  ← Link para /evento/:slug/mapa
+│ └────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│ ┌─ Ingressos ────────────────────────┐ │  ← APENAS se ingresso|hibrido c/ lots ativos
+│ │ Agrupado por sector_name           │ │  ← reaproveita LotCard atual
+│ │ [- 0 +] por lote                   │ │
+│ └────────────────────────────────────┘ │
+├─────────────────────────────────────────┤
+│ Sobre o evento (descrição)              │
+├─────────────────────────────────────────┤
+│ Realização (produtora)                  │
+├─────────────────────────────────────────┤
+│ Políticas do Evento (acordeão)          │  ← NOVO: meia/cancelamento/idade
+├─────────────────────────────────────────┤
+│ Footer + Bottom bar mobile (carrinho)   │
+└─────────────────────────────────────────┘
 ```
 
-- Setor Bistrôs: x≈110, y≈60, 8 cols × 5 rows, espaçamento 55px (círculos 50×50)
-- Setor Mesas: x≈540, y≈60, mesmo grid (retângulos 50×50)
-- Cada seat usa `width/height = 50` (menor que o default 60/80 pra caber 8×5 sem estourar)
+## Mudanças em código
 
-## Como vou executar
+### 1. Substituir branch `hasMap` em `EventDetails.tsx`
+- **Remover** o `return <EventDetailsSeated event={event} />` (linhas 152–158).
+- `EventDetailsSeated.tsx` **não é apagado** — passa a ser usado APENAS pela nova rota `/evento/:slug/mapa` (Passo 4).
+- A página única passa a renderizar TODOS os blocos, condicionando `<MesaCTA>` por `hasMap` e `<IngressosSection>` por `activeLots.length > 0`.
 
-1. Migração SQL única que: limpa qualquer `venue_seats` + `map_objects` órfão deste `table_map_id` (idempotente), insere os 80 seats e ~18 objetos decorativos com coordenadas calculadas.
-2. Códigos `M01`–`M40` e `B01`–`B40` são únicos por `venue_id` — se já existirem códigos iguais nesse venue, a inserção falha. Posso conferir antes de rodar.
+### 2. Novo componente `<MesaReservaCTA>` em `src/components/event/MesaReservaCTA.tsx`
+Props: `event`, `tableMapId`. Internamente faz query leve em `event_seats` (count por `seat_type` agrupado, disponíveis = status `available`) e mostra:
+- Lista de setores derivada de `seat_types` do mapa (Mesa Padrão, Bistrô) com contagem `X disponíveis de Y`.
+- "A partir de R$ XX" (menor `base_price` entre `seat_types` do mapa).
+- Botão `Link to={`/evento/${slug ?? id}/mapa`}` variant hero.
+- Se 0 disponíveis em todos: badge "Esgotado" e botão desabilitado.
 
-## Pendências antes de aprovar
+### 3. Nova rota dedicada `/evento/:id/mapa`
+- Em `App.tsx`: `<Route path="/evento/:id/mapa" element={<EventMapPage />} />` (acima da rota `/evento/:id`).
+- Novo arquivo `src/pages/EventMapPage.tsx`: chama `useEvent(slugOrId)`, valida `hasMap`, e renderiza `<EventDetailsSeated event={event} />` (que já contém todo o fluxo de seleção/hold/checkout).
+- Se evento não for `mesa|hibrido` ou faltar `table_map_id`: redireciona para `/evento/:id`.
+- Adicionar breadcrumb/back: header com `< Voltar para o evento`.
 
-1. **Códigos**: usar `M01–M40` / `B01–B40` ou `MESA-01` / `BISTRO-01`? (Os códigos aparecem em ingressos/checkin.)
-2. **Preço base**: o seat_type Mesa Padrão e Bistrô estão com `base_price` cadastrado? Se sim, deixo os seats sem override (herdam do tipo). Se você quiser preços diferentes por mesa, me diz.
-3. **Substituir / preservar**: o mapa está vazio hoje, então só vou inserir. Mas se rodar 2x, a 2ª falha pelo unique `(venue_id, code)`. Posso adicionar um `ON CONFLICT DO NOTHING` ou um delete prévio dos seats deste map_id — confirma qual prefere.
+### 4. Faixa "A partir de + Compartilhar"
+- Novo componente `<PriceAndShareBar>` em `src/components/event/PriceAndShareBar.tsx`.
+- Preço: menor entre lots ativos + (se mesa) menor `seat_type.base_price`.
+- Botão Compartilhar: `navigator.share` com fallback para copiar link (toast).
 
-Posiciono tudo pixel-perfeito assim que você aprovar.
+### 5. Bloco "Políticas do Evento"
+- Componente `<EventPolicies>` em `src/components/event/EventPolicies.tsx`.
+- Acordeão (shadcn) com itens fixos por enquanto (textos genéricos): Meia-entrada · Cancelamento · Política de idade · Acesso ao local.
+- Conteúdo hardcoded nesta fase. Campo customizável fica para fase futura.
+
+### 6. Limpeza/reuso
+- LotCard interno em `EventDetails.tsx` → extrair para `src/components/event/LotCard.tsx` (mesma lógica, sem mudança visual).
+- Remover sidebar desktop "Resumo" (linhas 500–560): o fluxo de checkout passa a usar **apenas** a barra fixa mobile, agora visível também em desktop quando `totalTickets > 0` (full-width, sticky bottom).
+- Remover o split-hero desktop (linhas 280–343): banner único para os dois breakpoints.
+
+## Detalhes técnicos
+
+- **Rota do mapa antes da rota do evento**: React Router v6 casa por ordem; `/evento/:id/mapa` precisa vir antes de `/evento/:id`, senão `:id` captura "mapa".
+- **`useEvent`**: já busca por slug/uuid, sem alteração.
+- **`useSeatHold`**: continua usado APENAS dentro de `EventDetailsSeated` (que agora vive em `/evento/:id/mapa`). O hold persiste em `sessionStorage` por `eventId`, então se o usuário voltar pra `/evento/:id` e clicar de novo em "Ver Mapa", o hold é rehidratado normalmente.
+- **Preço "a partir de"**: calcular no parent (`EventDetails`) para evitar 2 queries duplicadas; passar via prop pro `<MesaReservaCTA>` e `<PriceAndShareBar>`.
+- **Contagem de disponíveis por seat_type**: nova query leve em `useEventSeats` ou novo hook `useEventSeatAvailability(eventId)` que retorna `{ seatTypeName, available, total, basePrice }[]`. Decisão: hook novo, evita reaproveitar payload pesado de `useEventSeats` que carrega 80 linhas.
+- **SEO**: manter `<Helmet>` igual. Adicionar `<link rel="alternate">` em `/evento/:id` apontando pra `/evento/:id/mapa` quando aplicável.
+- **Tracking**: `trackPageView` e `trackViewContent` permanecem em `EventDetails`. Na rota `/mapa`, replicar com `content_type: 'product_group'` para não duplicar conversão.
+
+## Fora de escopo (não fazer agora)
+- Editor visual de "Políticas" (campo no evento).
+- Animações novas do hero.
+- Mudanças no checkout/CheckoutModal.
+- Refazer `EventDetailsSeated` visual — só vira página standalone com um header de voltar.
+- Fase 12 (wizard criar evento) e Fase 10 (entrega parcial).
+
+## Arquivos a criar
+- `src/pages/EventMapPage.tsx`
+- `src/components/event/MesaReservaCTA.tsx`
+- `src/components/event/PriceAndShareBar.tsx`
+- `src/components/event/EventPolicies.tsx`
+- `src/components/event/LotCard.tsx`
+- `src/hooks/useEventSeatAvailability.ts`
+
+## Arquivos a editar
+- `src/pages/EventDetails.tsx` — refatoração grande (remoção branch, nova composição, remoção sidebar/split-hero).
+- `src/App.tsx` — adicionar rota `/evento/:id/mapa` ANTES de `/evento/:id`.
+- `src/pages/EventDetailsSeated.tsx` — adicionar header com "Voltar para o evento" e remover duplicação de título/data/hora (que agora vive no /evento/:id).
