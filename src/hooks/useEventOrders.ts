@@ -2,6 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export interface OrderReviewReason {
+  expected?: number;
+  delivered?: number;
+  mp_payment_id?: string;
+  transaction_amount?: number;
+  order_status?: string;
+  detected_at?: string;
+  flavor?: 'a_partial' | 'b_terminal';
+}
+
 export interface Order {
   id: string;
   event_id: string;
@@ -21,6 +31,10 @@ export interface Order {
   manual_payment_note?: string | null;
   manual_sold_by?: string | null;
   manual_fee_applied?: boolean;
+  // Fase 10: revisão manual (entrega parcial / pago sem entrega)
+  review_status?: 'partial_delivery' | 'paid_no_delivery' | null;
+  review_reason?: OrderReviewReason | null;
+  review_flagged_at?: string | null;
 }
 
 export function useEventOrders(eventId: string | undefined) {
