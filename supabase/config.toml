@@ -90,3 +90,9 @@ verify_jwt = false
 
 [functions.collaborator-door-sales-report]
 verify_jwt = false
+
+[functions.create-seat-pix]
+verify_jwt = true
+
+[functions.charge-seat-card]
+verify_jwt = true
