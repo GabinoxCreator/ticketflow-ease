@@ -582,52 +582,103 @@ export type Database = {
       }
       event_seats: {
         Row: {
+          base_capacity: number | null
+          base_price: number | null
+          code: string | null
+          color: string | null
           created_at: string
           event_id: string
+          extra_price: number | null
+          height: number | null
           held_by_user_id: string | null
           hold_expires_at: string | null
           hold_token: string | null
+          icon: string | null
           id: string
+          label: string | null
           manual_close_reason: string | null
           manually_closed_at: string | null
           manually_closed_by: string | null
+          max_capacity: number | null
           pending_order_id: string | null
+          radius: number | null
+          rotation: number
+          seat_type_id: string | null
+          seat_type_name: string | null
+          shape: string | null
           sold_order_id: string | null
           status: string
           updated_at: string
-          venue_seat_id: string
+          venue_seat_id: string | null
+          width: number | null
+          x: number | null
+          y: number | null
         }
         Insert: {
+          base_capacity?: number | null
+          base_price?: number | null
+          code?: string | null
+          color?: string | null
           created_at?: string
           event_id: string
+          extra_price?: number | null
+          height?: number | null
           held_by_user_id?: string | null
           hold_expires_at?: string | null
           hold_token?: string | null
+          icon?: string | null
           id?: string
+          label?: string | null
           manual_close_reason?: string | null
           manually_closed_at?: string | null
           manually_closed_by?: string | null
+          max_capacity?: number | null
           pending_order_id?: string | null
+          radius?: number | null
+          rotation?: number
+          seat_type_id?: string | null
+          seat_type_name?: string | null
+          shape?: string | null
           sold_order_id?: string | null
           status?: string
           updated_at?: string
-          venue_seat_id: string
+          venue_seat_id?: string | null
+          width?: number | null
+          x?: number | null
+          y?: number | null
         }
         Update: {
+          base_capacity?: number | null
+          base_price?: number | null
+          code?: string | null
+          color?: string | null
           created_at?: string
           event_id?: string
+          extra_price?: number | null
+          height?: number | null
           held_by_user_id?: string | null
           hold_expires_at?: string | null
           hold_token?: string | null
+          icon?: string | null
           id?: string
+          label?: string | null
           manual_close_reason?: string | null
           manually_closed_at?: string | null
           manually_closed_by?: string | null
+          max_capacity?: number | null
           pending_order_id?: string | null
+          radius?: number | null
+          rotation?: number
+          seat_type_id?: string | null
+          seat_type_name?: string | null
+          shape?: string | null
           sold_order_id?: string | null
           status?: string
           updated_at?: string
-          venue_seat_id?: string
+          venue_seat_id?: string | null
+          width?: number | null
+          x?: number | null
+          y?: number | null
         }
         Relationships: [
           {
@@ -635,6 +686,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_seats_seat_type_id_fkey"
+            columns: ["seat_type_id"]
+            isOneToOne: false
+            referencedRelation: "seat_types"
             referencedColumns: ["id"]
           },
           {
@@ -662,6 +720,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_hot: boolean | null
+          map_snapshot: Json | null
+          map_snapshot_at: string | null
           producer_id: string
           producer_profile_id: string | null
           short_description: string | null
@@ -690,6 +750,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_hot?: boolean | null
+          map_snapshot?: Json | null
+          map_snapshot_at?: string | null
           producer_id: string
           producer_profile_id?: string | null
           short_description?: string | null
@@ -718,6 +780,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_hot?: boolean | null
+          map_snapshot?: Json | null
+          map_snapshot_at?: string | null
           producer_id?: string
           producer_profile_id?: string | null
           short_description?: string | null
@@ -1943,6 +2007,10 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      publish_event_with_snapshot: {
+        Args: { _event_id: string }
+        Returns: Json
+      }
       release_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
@@ -1953,6 +2021,7 @@ export type Database = {
       }
       slugify: { Args: { _input: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
+      unpublish_event: { Args: { _event_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "cliente" | "produtor" | "admin"
