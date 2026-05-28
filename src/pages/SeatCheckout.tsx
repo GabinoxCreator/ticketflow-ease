@@ -62,17 +62,19 @@ interface SeatSummary {
 }
 
 const HONEST_HOLD_ERRORS = new Set(['hold_expired', 'seat_not_held', 'seat_not_found']);
-
-export default function SeatCheckout() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const {
     hold,
     addons,
     updateHoldExpiresAt,
     clearLocalHold,
     markProceeding,
+  } = useSeatHold(eventId, user?.id);
+
+  const [step, setStep] = useState<Step | null>(null);
+
   } = useSeatHold(eventId, user?.id);
 
   const [step, setStep] = useState<Step>('form');
