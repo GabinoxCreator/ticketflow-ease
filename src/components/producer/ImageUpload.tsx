@@ -57,11 +57,15 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
       />
 
       {value ? (
-        <div className="relative aspect-video rounded-lg overflow-hidden border">
+        <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
           <img
             src={value}
             alt="Preview"
             className="w-full h-full object-cover"
+            onError={() => {
+              // URL quebrada (ex.: arquivo removido do storage) — limpa para mostrar o uploader.
+              onChange(undefined);
+            }}
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <Button
@@ -84,6 +88,7 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
             </Button>
           </div>
         </div>
+
       ) : (
         <div
           className={cn(

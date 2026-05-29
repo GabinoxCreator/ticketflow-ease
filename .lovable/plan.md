@@ -1,31 +1,36 @@
-# Exibir taxa de conveniência no resumo do checkout
+## Diagnóstico
 
-## Problema
-O resumo do pedido (`SeatOrderSummary`) mostra apenas o subtotal dos assentos (ex.: R$ 80,00). O QR Code do PIX é gerado com o valor + taxa (10% = R$ 88,00) porque a edge `create-seat-pix` calcula `serviceFee` via `get_event_fee` e grava em `seat_orders.total_amount`. O front nunca lê essa taxa, então aparece R$ 80,00 no card e R$ 88,00 no QR — assustando o cliente.
+1. **Horário, Estado e Status vêm em branco ao abrir Editar Evento.**
+   O formulário em `src/pages/EditarEvento.tsx` usa `useForm({ defaultValues, values: formValues, resetOptions: { keepDirtyValues: true } })`. Os campos `time`, `end_time`, `state` e `status` têm valor inicial `''`/`'draft'` em `defaultValues`. Quando o evento chega da API, a RHF não atualiza esses campos controlados via `watch()` (Select da UI). Já a Data funciona porque não tem default (vai de `undefined` → Date).
 
-## Causa raiz
-`src/pages/SeatCheckout.tsx:191-199` calcula `totalAmount` localmente somando apenas `base_price + extra_price * addons`. Não busca a taxa do evento. `SeatOrderSummary` recebe só esse subtotal.
+2. **Imagem do evento aparece preta / não carrega.**
+   - Confirmado no storage: a URL salva em `events.image_url` aponta para um arquivo que não existe mais (HTTP 404). Uploads novos do mesmo usuário existem no bucket e retornam 200.
+   - O hook `src/hooks/useImageUpload.ts` faz um `fetch(url, { method: 'HEAD' })` pós-upload e retorna `null` se algo falhar. Isso é frágil e, em parte dos cenários, faz com que o `onChange` nunca seja chamado — o preview continua exibindo a URL antiga (quebrada). Storage do Cloud já é consistente após o `upload` resolver: a checagem extra não agrega segurança e atrapalha.
 
-## Fix (somente front)
+## Plano de correção (somente front)
 
-**1. `src/pages/SeatCheckout.tsx`**
-- Buscar a taxa do evento ao carregar (`useEffect` que chama `supabase.rpc('get_event_fee', { _event_id, _method: 'pix' })`). Fallback: `{ percent: 10, fixed: 0 }` se o RPC não retornar (mesma constante usada nas edges).
-- Guardar em estado: `feePercent`, `feeFixed`.
-- Derivar `subtotal` (o atual `totalAmount`), `serviceFee = round2(subtotal * feePercent/100 + feeFixed)`, `totalWithFee = subtotal + serviceFee`.
-- Passar `subtotal`, `serviceFee`, `totalWithFee` para `SeatOrderSummary`.
-- Manter `totalAmount` (= `totalWithFee`) para o card step e demais consumidores que já esperam o "valor a pagar".
+### A. Hidratação do formulário em Editar Evento
 
-**2. `src/components/checkout/SeatOrderSummary.tsx`**
-- Aceitar novas props: `subtotal: number`, `serviceFee: number`, `totalAmount: number` (= total com taxa).
-- Renderizar 3 linhas antes do divisor:
-  - Subtotal — `R$ 80,00`
-  - Taxa de conveniência — `R$ 8,00` (texto muted, ícone pequeno opcional)
-  - **Total** — `R$ 88,00` (gradient bold como hoje)
-- Manter compatibilidade: o componente também é usado no resumo da PIX step e card step.
+Em `src/pages/EditarEvento.tsx`:
 
-**3. Verificação**
-- Comparar valor exibido no resumo vs valor cobrado no QR PIX (`data.amount` retornado por `create-seat-pix`) — devem bater. Logar warning no console em dev se divergirem.
-- `tsc --noEmit` limpo.
+- Remover `values: formValues` e `resetOptions: { keepDirtyValues: true }` do `useForm`.
+- Trocar por um `useEffect` que dispara `reset(formValues)` quando `event?.id` mudar (carga inicial do evento ou troca de evento). Isso garante populamento confiável de todos os campos controlados (TimeSelect, Estado, Status, Tipo de venda).
+- Manter `defaultValues` enxutos.
 
-## Edges, RLS, e fluxo de pagamento
-Intocados. Só leitura via RPC `get_event_fee` (já existe e é segura).
+### B. Upload de imagem confiável
+
+Em `src/hooks/useImageUpload.ts`:
+
+- Remover o bloco de verificação HEAD pós-upload. Retornar a `publicUrl` imediatamente após `upload` bem-sucedido.
+- Manter validações de tipo e tamanho como hoje.
+
+Em `src/components/producer/ImageUpload.tsx`:
+
+- Adicionar tratamento `onError` no `<img>` para detectar URL quebrada (ex.: imagem antiga deletada) e exibir o uploader em vez do quadro preto. Isso resolve o caso visual da imagem antiga sumida.
+
+### C. Verificação
+
+- Abrir um evento existente em `/produtor/editar-evento/:id`: confirmar que Data, Horário, Estado, Status, Tipo de venda e Mapa vêm preenchidos.
+- Fazer upload de uma imagem nova: preview deve atualizar para a nova foto e salvar corretamente.
+- Abrir um evento com `image_url` quebrado: deve cair no estado de uploader (sem quadro preto travado).
+- Nada nas edges, RLS, ou fluxo de pagamento.
