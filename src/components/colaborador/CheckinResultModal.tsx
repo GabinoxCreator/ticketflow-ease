@@ -16,6 +16,7 @@ export interface CheckinResultData {
   message: string;
   holderName?: string;
   lotName?: string;
+  seatLabel?: string;
   validatedAt?: string;
   ticketCode?: string;
 }
