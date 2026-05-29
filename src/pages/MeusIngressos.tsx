@@ -68,10 +68,13 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
   const seatLabels = tickets
     .map((t) => t.seat?.label?.trim())
     .filter((s): s is string => !!s);
+  const allStartWithMesa = seatLabels.every((s) => /^mesa\b/i.test(s));
   const seatsSummary = seatLabels.length
-    ? seatLabels.length === 1
-      ? `Mesa ${seatLabels[0]}`
-      : `Mesas ${seatLabels.join(', ')}`
+    ? allStartWithMesa
+      ? seatLabels.join(', ')
+      : seatLabels.length === 1
+        ? `Mesa ${seatLabels[0]}`
+        : `Mesas ${seatLabels.join(', ')}`
     : null;
 
   const formatDate = (dateStr: string) =>
