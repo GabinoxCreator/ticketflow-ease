@@ -503,36 +503,31 @@ const EventDetails = () => {
               <EventPolicies />
             </div>
 
-            {/* Sidebar desktop sticky */}
-            {showSidebar && (
-              <aside className="hidden lg:block">
-                <div className="sticky top-24">
-                  <EventOrderSummary
-                    variant="sidebar"
-                    items={summaryItems}
-                    totalAmount={totalAmount}
-                    totalCount={totalTickets}
-                    hasMesa={hasMap}
-                    mesaCtaHref={mesaHref}
-                    onCheckout={handleCheckout}
-                  />
-                </div>
-              </aside>
-            )}
           </div>
         </main>
 
         <Footer />
 
+        {!isEventFinished && totalTickets > 0 && (
+          <EventCartMiniBar
+            count={totalTickets}
+            totalAmount={totalAmount}
+            visible={!isCartOpen}
+            onOpen={() => setIsCartOpen(true)}
+          />
+        )}
+
         {!isEventFinished && (
-          <EventOrderSummary
-            variant="bar"
+          <EventCartSheet
+            open={isCartOpen && totalTickets > 0}
+            onOpenChange={setIsCartOpen}
             items={summaryItems}
             totalAmount={totalAmount}
             totalCount={totalTickets}
-            hasMesa={hasMap}
-            mesaCtaHref={mesaHref}
             onCheckout={handleCheckout}
+            onIncrement={(lotId) => handleQuantityChange(lotId, 1)}
+            onDecrement={(lotId) => handleQuantityChange(lotId, -1)}
+            onRemove={handleRemoveLot}
           />
         )}
 
