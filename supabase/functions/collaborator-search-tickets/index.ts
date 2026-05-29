@@ -58,7 +58,9 @@ serve(async (req) => {
         holder_phone,
         status,
         validated_at,
-        event_lots ( name )
+        seat_label,
+        event_lots ( name ),
+        seat:event_seats ( label, seat_type_name )
       `)
       .eq('event_id', event_id)
       .or(`holder_name.ilike.${searchTerm},holder_email.ilike.${searchTerm},holder_phone.ilike.${searchTerm}`)
@@ -81,6 +83,8 @@ serve(async (req) => {
       status: t.status,
       validated_at: t.validated_at,
       lot_name: t.event_lots?.name,
+      seat_label: t.seat?.label ?? t.seat_label ?? null,
+      seat_type_name: t.seat?.seat_type_name ?? null,
     }));
 
     return new Response(
