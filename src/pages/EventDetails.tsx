@@ -106,6 +106,15 @@ const EventDetails = () => {
     }
   }, [eventId, liked]);
 
+  // Auto-abre sheet apenas na transição 0 -> 1; fecha quando esvazia
+  const totalForEffect = Object.values(selectedLots).reduce((s, q) => s + q, 0);
+  useEffect(() => {
+    const prev = prevTotalRef.current;
+    if (prev === 0 && totalForEffect > 0) setIsCartOpen(true);
+    if (totalForEffect === 0 && isCartOpen) setIsCartOpen(false);
+    prevTotalRef.current = totalForEffect;
+  }, [totalForEffect]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const pixelId: string | null =
     (event as any)?.producer_profiles?.tracking_enabled
       ? (event as any)?.producer_profiles?.meta_pixel_id || null
