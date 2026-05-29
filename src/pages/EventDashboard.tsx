@@ -15,9 +15,10 @@ import { EventCheckinTab } from '@/components/producer/tabs/EventCheckinTab';
 import { EventDoorSalesTab } from '@/components/producer/tabs/EventDoorSalesTab';
 import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
 import { EventFinanceiroTab } from '@/components/producer/tabs/EventFinanceiroTab';
+import { EventTablesTab } from '@/components/producer/tabs/EventTablesTab';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet, Armchair } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -61,10 +62,13 @@ export default function EventDashboard() {
     );
   }
 
+  const showTables = event.event_type === 'mesa' || event.event_type === 'hibrido';
+
   const tabItems = [
     { value: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
     { value: 'data', label: 'Dados', icon: FileText },
     { value: 'lots', label: 'Ingressos', icon: Ticket },
+    ...(showTables ? [{ value: 'tables', label: 'Mesas', icon: Armchair }] : []),
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'checkin', label: 'Check-in', icon: ScanLine },
@@ -127,6 +131,12 @@ export default function EventDashboard() {
         <TabsContent value="lots">
           <EventLotsTab eventId={event.id} />
         </TabsContent>
+
+        {showTables && (
+          <TabsContent value="tables">
+            <EventTablesTab eventId={event.id} />
+          </TabsContent>
+        )}
 
         <TabsContent value="orders">
           <EventOrdersTab eventId={event.id} />
