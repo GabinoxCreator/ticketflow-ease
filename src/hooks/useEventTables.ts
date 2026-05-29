@@ -51,7 +51,7 @@ export function useEventTables(eventId: string | undefined) {
         .eq('event_id', eventId!);
       if (error) throw error;
 
-      const seatRows = (seats ?? []) as Array<Omit<EventTableRow,
+      const seatRows = (seats ?? []) as unknown as Array<Omit<EventTableRow,
         'customer_name' | 'customer_email' | 'customer_phone' | 'order_total' | 'order_paid_at'>>;
 
       const orderIds = Array.from(
