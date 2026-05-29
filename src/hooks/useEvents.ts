@@ -187,18 +187,11 @@ export function useEvents() {
     },
   });
 
-  const getEventEndDate = (e: Event): Date => {
-    if (e.end_date) {
-      const t = e.end_time ? e.end_time.slice(0, 8) : '23:59:00';
-      return new Date(`${e.end_date}T${t}`);
-    }
-    const startTime = e.time ? e.time.slice(0, 8) : '00:00:00';
-    return new Date(new Date(`${e.date}T${startTime}`).getTime() + 6 * 60 * 60 * 1000);
-  };
   const _now = new Date();
-  const activeEvents = events?.filter(e => e.status === 'published' && getEventEndDate(e) >= _now) || [];
-  const pastEvents = events?.filter(e => e.status === 'finished' || (e.status !== 'draft' && getEventEndDate(e) < _now)) || [];
+  const activeEvents = events?.filter(e => e.status === 'published' && getEventEndInstant(e) >= _now) || [];
+  const pastEvents = events?.filter(e => e.status === 'finished' || (e.status !== 'draft' && getEventEndInstant(e) < _now)) || [];
   const draftEvents = events?.filter(e => e.status === 'draft') || [];
+
 
   return {
     events,
