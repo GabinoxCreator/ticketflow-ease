@@ -146,6 +146,13 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
               </div>
             </div>
 
+            {seatsSummary && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5 text-primary">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span className="text-sm font-bold leading-tight break-words">{seatsSummary}</span>
+              </div>
+            )}
+
             <Button
               variant="outline"
               className="w-full gap-2"
