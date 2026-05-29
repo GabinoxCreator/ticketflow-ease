@@ -15,6 +15,8 @@ import Footer from '@/components/Footer';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
+import { getEventEndInstant } from '@/lib/eventTime';
+
 import { useEventLots } from '@/hooks/useEventLots';
 import { useEventSeatAvailability } from '@/hooks/useEventSeatAvailability';
 import { CheckoutModal } from '@/components/checkout/CheckoutModal';
