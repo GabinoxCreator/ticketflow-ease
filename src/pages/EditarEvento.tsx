@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, type FieldErrors } from 'react-hook-form';
+import { useForm, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
@@ -186,7 +186,7 @@ export default function EditarEvento() {
     },
   });
 
-  const { register, handleSubmit, formState: { errors, isDirty }, watch, setValue, reset } = form;
+  const { register, handleSubmit, formState: { errors, isDirty }, watch, setValue, reset, control } = form;
   const watchedValues = watch();
 
   // Hydrate form whenever the loaded event values change (not just on id change),
@@ -209,6 +209,19 @@ export default function EditarEvento() {
   useEffect(() => {
     setImageUrl(event?.image_url ?? undefined);
   }, [event?.id, event?.image_url]);
+
+  // TEMP DIAG: Phase 1 — log raw vs control vs options once event loads.
+  useEffect(() => {
+    if (!event) return;
+    // eslint-disable-next-line no-console
+    console.table([
+      { field: 'time', raw: event.time, type: typeof event.time, normalized: formValues?.time, options: 'HH:mm grid' },
+      { field: 'end_time', raw: event.end_time, type: typeof event.end_time, normalized: formValues?.end_time, options: 'HH:mm grid' },
+      { field: 'state', raw: event.state, type: typeof event.state, normalized: formValues?.state, options: states.join(',') },
+      { field: 'status', raw: event.status, type: typeof event.status, normalized: formValues?.status, options: 'draft|published|cancelled|finished' },
+      { field: 'event_type', raw: event.event_type, type: typeof event.event_type, normalized: formValues?.event_type, options: 'ingresso|mesa|hibrido' },
+    ]);
+  }, [event?.id, formValues]);
 
 
   const onInvalid = (errs: FieldErrors<EventFormData>) => {
