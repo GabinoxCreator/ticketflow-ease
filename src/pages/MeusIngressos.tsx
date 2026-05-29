@@ -322,6 +322,12 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
                   {status.label}
                 </Badge>
               </div>
+              {seatDisplay && (
+                <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-primary">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-xs font-bold leading-tight break-words">{seatDisplay}</span>
+                </div>
+              )}
               <div className="flex gap-2 justify-end flex-wrap">
                 {ticket.status === 'valid' && (
                   <Button
