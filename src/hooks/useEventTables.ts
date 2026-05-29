@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export type TableStatus = 'available' | 'held' | 'sold' | 'blocked' | 'manual';
+
 export interface EventTableRow {
   id: string;
   event_id: string;
   code: string | null;
   label: string | null;
-  status: 'available' | 'held' | 'sold' | 'blocked';
+  status: TableStatus;
   color: string | null;
   shape: string | null;
   seat_type_name: string | null;
@@ -16,13 +18,26 @@ export interface EventTableRow {
   extra_price: number | null;
   sold_order_id: string | null;
   order_id: string | null;
+  hold_expires_at: string | null;
   manually_closed_at: string | null;
   manual_close_reason: string | null;
+  manual_holder_name: string | null;
+  manual_holder_phone: string | null;
+  manual_holder_notes: string | null;
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
   order_total: number | null;
   order_paid_at: string | null;
+}
+
+/** "Disponível na prática": available, ou held com hold já expirado (gate do hold_seats). */
+export function isEffectivelyAvailable(row: Pick<EventTableRow, 'status' | 'hold_expires_at'>): boolean {
+  if (row.status === 'available') return true;
+  if (row.status === 'held' && row.hold_expires_at && new Date(row.hold_expires_at).getTime() < Date.now()) {
+    return true;
+  }
+  return false;
 }
 
 interface OrderRow {
@@ -38,7 +53,9 @@ interface OrderRow {
 const SEAT_COLS =
   'id,event_id,code,label,status,color,shape,seat_type_name,' +
   'base_capacity,max_capacity,base_price,extra_price,' +
-  'sold_order_id,order_id,manually_closed_at,manual_close_reason';
+  'sold_order_id,order_id,hold_expires_at,' +
+  'manually_closed_at,manual_close_reason,' +
+  'manual_holder_name,manual_holder_phone,manual_holder_notes';
 
 export function useEventTables(eventId: string | undefined) {
   return useQuery({
