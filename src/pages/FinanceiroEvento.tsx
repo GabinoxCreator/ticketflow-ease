@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProducerFinance } from '@/hooks/useProducerFinance';
 import { PayoutPdfButton } from '@/components/producer/PayoutPdfButton';
-import { formatInSaoPaulo } from '@/lib/eventTime';
+import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
 
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -80,7 +80,7 @@ export default function FinanceiroEvento() {
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl font-bold break-words">{event.title}</h1>
             <p className="text-muted-foreground mt-1">
-              {format(parseDate(event.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {formatEventDate(event.date, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
             </p>
           </div>
 
