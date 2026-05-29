@@ -78,6 +78,8 @@ serve(async (req) => {
             validated_at: ticket.validated_at,
             lot_name: ticket.event_lots?.name,
             event_title: ticket.events?.title,
+            seat_label: ticket.seat?.label ?? ticket.seat_label ?? null,
+            seat_type_name: ticket.seat?.seat_type_name ?? null,
           },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
