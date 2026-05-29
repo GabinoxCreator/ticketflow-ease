@@ -440,9 +440,15 @@ export default function EditarEvento() {
                     </div>
                     <div className="space-y-2">
                       <Label>Horário de Início *</Label>
-                      <TimeSelect
-                        value={watchedValues.time || ''}
-                        onChange={(v) => setValue('time', v, { shouldDirty: true, shouldValidate: true })}
+                      <Controller
+                        control={control}
+                        name="time"
+                        render={({ field }) => (
+                          <TimeSelect
+                            value={field.value || ''}
+                            onChange={(v) => field.onChange(v)}
+                          />
+                        )}
                       />
                       {errors.time && <p className="text-sm text-destructive">{errors.time.message}</p>}
                     </div>
@@ -477,10 +483,16 @@ export default function EditarEvento() {
                     </div>
                     <div className="space-y-2">
                       <Label>Horário de Fim</Label>
-                      <TimeSelect
-                        value={watchedValues.end_time || ''}
-                        onChange={(v) => setValue('end_time', v, { shouldDirty: true })}
-                        placeholder="Selecione (opcional)"
+                      <Controller
+                        control={control}
+                        name="end_time"
+                        render={({ field }) => (
+                          <TimeSelect
+                            value={field.value || ''}
+                            onChange={(v) => field.onChange(v)}
+                            placeholder="Selecione (opcional)"
+                          />
+                        )}
                       />
                       {errors.end_time && <p className="text-sm text-destructive">{errors.end_time.message}</p>}
                     </div>
@@ -500,19 +512,22 @@ export default function EditarEvento() {
                     </div>
                     <div className="space-y-2">
                       <Label>Estado *</Label>
-                      <Select
-                        value={watchedValues.state || ''}
-                        onValueChange={(value) => setValue('state', value, { shouldDirty: true, shouldValidate: true })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="UF" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {states.map((s) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Controller
+                        control={control}
+                        name="state"
+                        render={({ field }) => (
+                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="UF" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {states.map((s) => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
                       {errors.state && <p className="text-sm text-destructive">{errors.state.message}</p>}
                     </div>
                   </div>
@@ -534,11 +549,17 @@ export default function EditarEvento() {
 
                   <div className="space-y-2">
                     <Label>Tipo de venda *</Label>
-                    <EventTypeSelector
-                      value={(watchedValues.event_type as EventType) ?? 'ingresso'}
-                      onChange={(v) => setValue('event_type', v, { shouldDirty: true, shouldValidate: true })}
-                      originalType={originalType}
-                      hasSoldSeats={hasSoldSeats}
+                    <Controller
+                      control={control}
+                      name="event_type"
+                      render={({ field }) => (
+                        <EventTypeSelector
+                          value={(field.value as EventType) ?? 'ingresso'}
+                          onChange={(v) => field.onChange(v)}
+                          originalType={originalType}
+                          hasSoldSeats={hasSoldSeats}
+                        />
+                      )}
                     />
                   </div>
 
@@ -593,19 +614,22 @@ export default function EditarEvento() {
 
                     <div className="space-y-2">
                       <Label>Status</Label>
-                      <Select
-                        value={watchedValues.status}
-                        onValueChange={(value: any) => setValue('status', value, { shouldDirty: true })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Controller
+                        control={control}
+                        name="status"
+                        render={({ field }) => (
+                          <Select value={field.value || ''} onValueChange={(v) => field.onChange(v as any)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusOptions.map((status) => (
+                                <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
                       {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
                     </div>
                   </div>
