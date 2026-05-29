@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, AlertCircle, Clock, Ban, ArrowRight, X } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, Clock, Ban, ArrowRight, X, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
@@ -16,6 +16,7 @@ export interface CheckinResultData {
   message: string;
   holderName?: string;
   lotName?: string;
+  seatLabel?: string;
   validatedAt?: string;
   ticketCode?: string;
 }
@@ -174,12 +175,20 @@ export default function CheckinResultModal({
               </h2>
               <p className="text-white/90 text-sm mb-5 px-2">{result.message}</p>
 
-              {(result.holderName || result.lotName || result.validatedAt) && (
+              {(result.holderName || result.lotName || result.seatLabel || result.validatedAt) && (
                 <div className="bg-white/15 rounded-2xl p-4 text-left space-y-1.5 mb-5">
                   {result.holderName && (
                     <p className="text-lg font-bold leading-tight break-words">
                       {result.holderName}
                     </p>
+                  )}
+                  {result.seatLabel && (
+                    <div className="mt-2 flex items-center gap-2 rounded-xl bg-white text-slate-900 px-3 py-2 shadow-sm">
+                      <MapPin className="w-5 h-5 shrink-0" strokeWidth={2.5} />
+                      <span className="text-base font-extrabold leading-tight break-words">
+                        {result.seatLabel}
+                      </span>
+                    </div>
                   )}
                   {result.lotName && (
                     <p className="text-sm text-white/90">{result.lotName}</p>

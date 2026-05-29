@@ -49,7 +49,7 @@ serve(async (req) => {
     const searchCode = ticket_code.toLowerCase();
     const { data: tickets } = await supabase
       .from('tickets')
-      .select(`*, events(id,title,date,time,venue), event_lots(id,name,price)`)
+      .select(`*, events(id,title,date,time,venue), event_lots(id,name,price), seat:event_seats(label, seat_type_name)`)
       .eq('event_id', event_id)
       .or(`ticket_code.eq.${ticket_code},ticket_code.ilike.${searchCode}%`);
 
@@ -78,6 +78,8 @@ serve(async (req) => {
             validated_at: ticket.validated_at,
             lot_name: ticket.event_lots?.name,
             event_title: ticket.events?.title,
+            seat_label: ticket.seat?.label ?? ticket.seat_label ?? null,
+            seat_type_name: ticket.seat?.seat_type_name ?? null,
           },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -204,6 +206,8 @@ serve(async (req) => {
             validated_at: validatedAt,
             lot_name: ticket.event_lots?.name,
             event_title: ticket.events?.title,
+            seat_label: ticket.seat?.label ?? ticket.seat_label ?? null,
+            seat_type_name: ticket.seat?.seat_type_name ?? null,
           },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

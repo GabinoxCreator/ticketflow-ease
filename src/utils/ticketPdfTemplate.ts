@@ -18,6 +18,7 @@ export interface TicketPdfData {
     state: string;
   };
   lot: { name: string };
+  seat?: { label: string; typeName?: string | null };
   ticket: {
     ticket_code: string;
     holder_name: string;
@@ -234,7 +235,20 @@ export async function renderTicketPage(pdf: jsPDF, data: TicketPdfData) {
   const badgeH = 6.5;
   const badgeW = Math.max(labelW + 14, 32);
   drawGradientPill(pdf, cx - badgeW / 2, y, badgeW, badgeH, lotLabel);
-  y += badgeH + 6;
+  y += badgeH + 4;
+
+  /* -------------------- SEAT (mesa) ------------------------------- */
+  if (data.seat?.label) {
+    const seatStr = data.seat.typeName &&
+      !data.seat.label.toLowerCase().startsWith(data.seat.typeName.toLowerCase())
+      ? `Mesa: ${data.seat.label} - ${data.seat.typeName}`
+      : `Mesa: ${data.seat.label}`;
+    pdf.setFontSize(10);
+    pdf.setTextColor(...COLORS.brandPurpleDeep);
+    drawBold(pdf, seatStr, cx, y + 3, { align: 'center' });
+    y += 6;
+  }
+  y += 2;
 
   /* -------------------- QR CODE ----------------------------------- */
   const qrSize = 70;

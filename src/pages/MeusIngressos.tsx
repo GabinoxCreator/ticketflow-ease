@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateTicketPDF } from '@/utils/ticketPdf';
+import { formatSeatLabel } from '@/utils/seatLabel';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -63,6 +64,18 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
   if (counts.used) statusBits.push(`${counts.used} utilizado${counts.used > 1 ? 's' : ''}`);
   if (counts.cancelled) statusBits.push(`${counts.cancelled} cancelado${counts.cancelled > 1 ? 's' : ''}`);
   if (counts.pending) statusBits.push(`${counts.pending} pendente${counts.pending > 1 ? 's' : ''}`);
+
+  const seatLabels = tickets
+    .map((t) => t.seat?.label?.trim())
+    .filter((s): s is string => !!s);
+  const allStartWithMesa = seatLabels.every((s) => /^mesa\b/i.test(s));
+  const seatsSummary = seatLabels.length
+    ? allStartWithMesa
+      ? seatLabels.join(', ')
+      : seatLabels.length === 1
+        ? `Mesa ${seatLabels[0]}`
+        : `Mesas ${seatLabels.join(', ')}`
+    : null;
 
   const formatDate = (dateStr: string) =>
     formatEventDate(dateStr, { day: '2-digit', month: 'long' });
@@ -133,6 +146,13 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
               </div>
             </div>
 
+            {seatsSummary && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5 text-primary">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span className="text-sm font-bold leading-tight break-words">{seatsSummary}</span>
+              </div>
+            )}
+
             <Button
               variant="outline"
               className="w-full gap-2"
@@ -166,6 +186,7 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const seatDisplay = formatSeatLabel(ticket.seat?.label, ticket.seat?.seat_type_name);
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
@@ -322,6 +343,12 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
                   {status.label}
                 </Badge>
               </div>
+              {seatDisplay && (
+                <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-2.5 py-1.5 text-primary">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-xs font-bold leading-tight break-words">{seatDisplay}</span>
+                </div>
+              )}
               <div className="flex gap-2 justify-end flex-wrap">
                 {ticket.status === 'valid' && (
                   <Button
@@ -535,6 +562,12 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
                   {ticket.ticket_code.slice(0, 8).toUpperCase()}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">{ticket.holder_name}</p>
+                {seatDisplay && (
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/30 px-3 py-1.5 text-primary">
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    <span className="text-sm font-extrabold">{seatDisplay}</span>
+                  </div>
+                )}
               </motion.div>
 
               {/* Detalhes do evento */}
