@@ -6,6 +6,7 @@ import { getEventEndInstant } from '@/lib/eventTime';
 
 export interface UserTicket {
   id: string;
+  order_id: string;
   ticket_code: string;
   holder_name: string;
   holder_email: string | null;
@@ -49,6 +50,7 @@ export function useUserTickets() {
         .from('tickets')
         .select(`
           id,
+          order_id,
           ticket_code,
           holder_name,
           holder_email,
