@@ -421,7 +421,10 @@ export default function SeatCheckout() {
       </div>
     );
   }
-  if (!hold || !event || !customer || step === null) {
+  // Steps terminais não dependem do hold (já foi limpo após pagamento).
+  // Sem essa exceção, o gate engole 'success'/'verifying' e fica em spinner eterno.
+  const isTerminalStep = step === 'success' || step === 'verifying';
+  if (!event || !customer || step === null || (!isTerminalStep && !hold)) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -445,7 +448,7 @@ export default function SeatCheckout() {
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Voltar ao mapa
             </button>
-            {step !== 'success' && <ReservedPill expiresAt={hold.expiresAt} />}
+            {hold && !isTerminalStep && <ReservedPill expiresAt={hold.expiresAt} />}
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
