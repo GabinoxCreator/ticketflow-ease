@@ -467,38 +467,35 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
 
       {/* Modal de Ingresso — visual premium estilo "ticket digital" */}
       <Dialog open={showQR} onOpenChange={setShowQR}>
-        <DialogContent className="max-w-md p-0 overflow-hidden border-0 bg-card">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-          >
-            {/* HERO — banner desfocado + gradiente colorido por status */}
-            <div className="relative overflow-hidden">
-              {ticket.event.image_url && (
-                <img
-                  src={ticket.event.image_url}
-                  alt=""
-                  aria-hidden
-                  className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
-                />
-              )}
-              <div className={`relative bg-gradient-to-br ${modal.heroGradient} px-6 pt-7 pb-6 text-white`}>
-                <div className="flex flex-col items-center text-center">
-                  <motion.div
-                    initial={{ scale: 0.6, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                    className="w-14 h-14 mb-3 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30"
-                  >
-                    <ModalHeroIcon className="w-7 h-7" />
-                  </motion.div>
-                  <h2 className="text-xl font-display font-bold">{modal.heroTitle}</h2>
-                  <p className="text-sm text-white/85 mt-0.5">{modal.heroSubtitle}</p>
-                </div>
+        <DialogContent className="max-w-md p-0 border-0 bg-card max-h-[100dvh] sm:max-h-[90dvh] h-[100dvh] sm:h-auto flex flex-col overflow-hidden gap-0">
+          {/* HEADER sticky (não rola) */}
+          <div className="shrink-0 relative overflow-hidden">
+            {ticket.event.image_url && (
+              <img
+                src={ticket.event.image_url}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
+              />
+            )}
+            <div className={`relative bg-gradient-to-br ${modal.heroGradient} px-6 pt-5 pb-4 text-white`}>
+              <div className="flex flex-col items-center text-center">
+                <motion.div
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+                  className="w-12 h-12 mb-2 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/30"
+                >
+                  <ModalHeroIcon className="w-6 h-6" />
+                </motion.div>
+                <h2 className="text-lg font-display font-bold">{modal.heroTitle}</h2>
+                <p className="text-xs text-white/85 mt-0.5">{modal.heroSubtitle}</p>
               </div>
             </div>
+          </div>
 
+          {/* BODY scrollável */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {/* PERFURAÇÃO estilo ticket */}
             <div className="relative h-6 bg-card">
               <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background" />
@@ -506,23 +503,21 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
               <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 border-t border-dashed border-border" />
             </div>
 
-            {/* QR + dados */}
-            <div className="px-6 pb-6 -mt-1">
+            <div className="px-6 pb-5 -mt-1">
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
-                className="bg-white rounded-2xl p-5 shadow-md text-center relative overflow-hidden"
+                className="bg-white rounded-2xl p-4 shadow-md text-center relative overflow-hidden"
               >
                 <div className="relative inline-block">
                   <QRCodeSVG
                     value={ticket.ticket_code}
-                    size={200}
+                    size={180}
                     level="H"
                     includeMargin={false}
                     className={`mx-auto transition-all ${modal.qrFaded ? 'opacity-30 grayscale' : ''}`}
                   />
-                  {/* Selo diagonal sobre o QR */}
                   {modal.stamp && (
                     <motion.div
                       initial={{ scale: 0, rotate: 0, opacity: 0 }}
@@ -536,15 +531,15 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
                     </motion.div>
                   )}
                 </div>
-                <p className="mt-4 font-mono text-lg font-bold text-gray-900">
+                <p className="mt-3 font-mono text-base font-bold text-gray-900">
                   {ticket.ticket_code.slice(0, 8).toUpperCase()}
                 </p>
-                <p className="text-sm text-gray-500 mt-0.5">{ticket.holder_name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{ticket.holder_name}</p>
               </motion.div>
 
               {/* Detalhes do evento */}
-              <div className="mt-5 space-y-2.5 text-sm">
-                <p className="font-semibold text-foreground text-center text-base mb-3">
+              <div className="mt-4 space-y-2 text-sm">
+                <p className="font-semibold text-foreground text-center text-base mb-2">
                   {ticket.event.title}
                 </p>
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -568,36 +563,37 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
               </div>
 
               {/* Banner de status */}
-              <div className={`mt-5 flex items-center gap-2 px-4 py-3 rounded-xl border ${modal.bannerBg}`}>
+              <div className={`mt-4 flex items-center gap-2 px-4 py-3 rounded-xl border ${modal.bannerBg}`}>
                 <ModalBannerIcon className="w-5 h-5 shrink-0" />
                 <span className="text-sm font-semibold">{modal.bannerText}</span>
               </div>
-
-              {/* Ações */}
-              <div className="mt-4 flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  onClick={handleDownloadPDF}
-                  disabled={isDownloading}
-                >
-                  <Download className="w-4 h-4" />
-                  {isDownloading ? 'Gerando...' : 'Baixar PDF'}
-                </Button>
-                {ticket.status === 'valid' && (
-                  <Button
-                    variant="gradient"
-                    className="flex-1 gap-2"
-                    onClick={handleShare}
-                  >
-                    <Share2 className="w-4 h-4" />
-                    Compartilhar
-                  </Button>
-                )}
-              </div>
             </div>
-          </motion.div>
+          </div>
+
+          {/* FOOTER sticky com ações */}
+          <div className="shrink-0 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 gap-2"
+              onClick={handleDownloadPDF}
+              disabled={isDownloading}
+            >
+              <Download className="w-4 h-4" />
+              {isDownloading ? 'Gerando...' : 'Baixar PDF'}
+            </Button>
+            {ticket.status === 'valid' && (
+              <Button
+                variant="gradient"
+                className="flex-1 gap-2"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4" />
+                Compartilhar
+              </Button>
+            )}
+          </div>
         </DialogContent>
+
       </Dialog>
     </>
   );
