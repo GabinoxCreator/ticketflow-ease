@@ -597,6 +597,9 @@ export type Database = {
           id: string
           label: string | null
           manual_close_reason: string | null
+          manual_holder_name: string | null
+          manual_holder_notes: string | null
+          manual_holder_phone: string | null
           manually_closed_at: string | null
           manually_closed_by: string | null
           max_capacity: number | null
@@ -631,6 +634,9 @@ export type Database = {
           id?: string
           label?: string | null
           manual_close_reason?: string | null
+          manual_holder_name?: string | null
+          manual_holder_notes?: string | null
+          manual_holder_phone?: string | null
           manually_closed_at?: string | null
           manually_closed_by?: string | null
           max_capacity?: number | null
@@ -665,6 +671,9 @@ export type Database = {
           id?: string
           label?: string | null
           manual_close_reason?: string | null
+          manual_holder_name?: string | null
+          manual_holder_notes?: string | null
+          manual_holder_phone?: string | null
           manually_closed_at?: string | null
           manually_closed_by?: string | null
           max_capacity?: number | null
