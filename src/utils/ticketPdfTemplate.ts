@@ -18,6 +18,7 @@ export interface TicketPdfData {
     state: string;
   };
   lot: { name: string };
+  seat?: { label: string; typeName?: string | null };
   ticket: {
     ticket_code: string;
     holder_name: string;
