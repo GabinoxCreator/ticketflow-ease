@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Download, Smartphone, Ban, Share2, Eye } from 'lucide-react';
+import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Download, Smartphone, Ban, Share2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +19,147 @@ import { useUserTickets, UserTicket } from '@/hooks/useUserTickets';
 import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+
+function groupByOrder(tickets: UserTicket[]): UserTicket[][] {
+  const map = new Map<string, UserTicket[]>();
+  const order: string[] = [];
+  for (const t of tickets) {
+    const key = t.order_id ?? t.id;
+    if (!map.has(key)) {
+      map.set(key, []);
+      order.push(key);
+    }
+    map.get(key)!.push(t);
+  }
+  // ordenação estável dentro do grupo
+  for (const key of order) {
+    map.get(key)!.sort((a, b) => {
+      const la = a.seat?.label ?? a.ticket_code;
+      const lb = b.seat?.label ?? b.ticket_code;
+      return la.localeCompare(lb, 'pt-BR', { numeric: true });
+    });
+  }
+  return order.map((k) => map.get(k)!);
+}
+
+const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
+
+  if (tickets.length === 1) {
+    return <TicketCardSimple ticket={tickets[0]} />;
+  }
+
+  const first = tickets[0];
+  const event = first.event;
+  const counts = {
+    valid: tickets.filter((t) => t.status === 'valid').length,
+    used: tickets.filter((t) => t.status === 'used').length,
+    cancelled: tickets.filter((t) => t.status === 'cancelled').length,
+    pending: tickets.filter((t) => t.status === 'pending').length,
+  };
+  const statusBits: string[] = [];
+  if (counts.valid) statusBits.push(`${counts.valid} válido${counts.valid > 1 ? 's' : ''}`);
+  if (counts.used) statusBits.push(`${counts.used} utilizado${counts.used > 1 ? 's' : ''}`);
+  if (counts.cancelled) statusBits.push(`${counts.cancelled} cancelado${counts.cancelled > 1 ? 's' : ''}`);
+  if (counts.pending) statusBits.push(`${counts.pending} pendente${counts.pending > 1 ? 's' : ''}`);
+
+  const formatDate = (dateStr: string) =>
+    formatEventDate(dateStr, { day: '2-digit', month: 'long' });
+  const formatTime = (timeStr: string) => timeStr.slice(0, 5);
+
+  const sideBar =
+    counts.valid > 0
+      ? 'bg-gradient-to-b from-primary to-accent'
+      : counts.used === tickets.length
+      ? 'bg-muted-foreground/40'
+      : counts.cancelled === tickets.length
+      ? 'bg-destructive'
+      : 'bg-yellow-500';
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
+        <div className={`absolute left-0 top-0 bottom-0 w-1 ${sideBar}`} />
+        <CardContent className="p-0">
+          <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
+            <img
+              src={event.image_url || '/placeholder.svg'}
+              alt={event.title}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
+            <Badge
+              variant="outline"
+              className="absolute top-3 right-3 bg-background/70 backdrop-blur-md border-primary/30 text-primary shadow-lg"
+            >
+              <Ticket className="w-3 h-3 mr-1" />
+              {tickets.length} ingressos
+            </Badge>
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <h3
+                className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
+                onClick={() => navigate(`/evento/${event.slug ?? event.id}`)}
+              >
+                {event.title}
+              </h3>
+              {statusBits.length > 0 && (
+                <p className="text-xs text-muted-foreground/90 drop-shadow">{statusBits.join(' · ')}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5">
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  <Calendar className="w-3 h-3" /><span>Data</span>
+                </div>
+                <p className="text-sm font-semibold text-foreground">{formatDate(event.date)}</p>
+              </div>
+              <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  <Clock className="w-3 h-3" /><span>Horário</span>
+                </div>
+                <p className="text-sm font-semibold text-foreground">{formatTime(event.time)}</p>
+              </div>
+              <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  <MapPin className="w-3 h-3" /><span>Local</span>
+                </div>
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {event.venue} — {event.city}/{event.state}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {expanded ? 'Ocultar ingressos' : `Ver ingressos (${tickets.length})`}
+            </Button>
+          </div>
+
+          {expanded && (
+            <div className="px-3 sm:px-4 pb-4 pt-1 space-y-4 border-t border-border/40 bg-muted/10">
+              <p className="text-xs text-muted-foreground pt-3 px-1">
+                Cada ingresso abaixo tem um QR code único — apresente individualmente na entrada.
+              </p>
+              {tickets.map((t) => (
+                <TicketCardSimple key={t.id} ticket={t} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+
 
 
 const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
@@ -552,8 +693,8 @@ const MeusIngressos = () => {
                   <TicketSkeleton />
                 </>
               ) : upcomingTickets.length > 0 ? (
-                upcomingTickets.map((ticket) => (
-                  <TicketCardSimple key={ticket.id} ticket={ticket} />
+                groupByOrder(upcomingTickets).map((group) => (
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
               ) : (
                 <EmptyState
@@ -570,8 +711,8 @@ const MeusIngressos = () => {
                   <TicketSkeleton />
                 </>
               ) : pastTickets.length > 0 ? (
-                pastTickets.map((ticket) => (
-                  <TicketCardSimple key={ticket.id} ticket={ticket} />
+                groupByOrder(pastTickets).map((group) => (
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
               ) : (
                 <EmptyState
@@ -585,8 +726,8 @@ const MeusIngressos = () => {
               {isLoading ? (
                 <TicketSkeleton />
               ) : cancelledTickets.length > 0 ? (
-                cancelledTickets.map((ticket) => (
-                  <TicketCardSimple key={ticket.id} ticket={ticket} />
+                groupByOrder(cancelledTickets).map((group) => (
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
               ) : (
                 <EmptyState

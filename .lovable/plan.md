@@ -1,59 +1,52 @@
-## Fix cirúrgico do gate de render no SeatCheckout
+# Agrupar Meus Ingressos por compra
 
-**Raiz (confirmada na Fase 1):** `src/pages/SeatCheckout.tsx:424` exige `hold` para qualquer render. Em `handlePaymentConfirmed` (linha 340-344), `clearLocalHold()` zera `hold` antes de `setStep('success')` — o gate engole a tela de success e mostra spinner de página inteira para sempre. Mesmo bug atinge o efeito de idempotência (386-407) ao recarregar com order paga.
+Hoje `/meus-ingressos` renderiza 1 card por ticket (`src/pages/MeusIngressos.tsx:555/573/589` → `<TicketCardSimple>`). Compras com várias unidades (mesa + adicionais) viram N cards soltos. Vou agrupar por `order_id` e mostrar 1 card-resumo por compra, expandindo os tickets individuais inline. Nada de geração/validação/QR/status muda — só apresentação.
 
-### Mudança 1 — gate de render (linhas 424-431)
+## Mudanças
 
-Antes:
-```tsx
-if (!hold || !event || !customer || step === null) {
-  return <spinner />;
-}
+### 1. `src/hooks/useUserTickets.ts`
+- Adicionar `order_id: string` ao `UserTicket` e incluí-lo no `.select(...)` do query.
+- Resto da lógica (filtros upcoming/past/cancelled por data do evento) permanece intacta.
+
+### 2. `src/pages/MeusIngressos.tsx`
+Novo componente local `OrderGroupCard({ tickets })` que recebe N tickets do mesmo `order_id` (todos do mesmo evento, já que orders são por evento).
+
+Função helper `groupByOrder(tickets)`:
+- Reduce em `Map<order_id, UserTicket[]>` preservando a ordem original (que já vem por `created_at desc` do hook → cards-resumo ordenados pela compra mais recente, igual hoje).
+- Dentro de cada grupo, ordena os tickets por `seat.label ?? ticket_code` (estável) para a expansão.
+
+Renderização por aba — substituir cada `upcomingTickets.map(t => <TicketCardSimple … />)` por:
 ```
-
-Depois:
-```tsx
-// Steps terminais não dependem do hold (já foi limpo após pagamento).
-// Só dependem de event + orderId/resultado. Esses precisam renderizar mesmo
-// com hold=null — senão o gate engole 'success' e fica em spinner eterno.
-const isTerminalStep = step === 'success' || step === 'verifying';
-if (!event || !customer || step === null || (!isTerminalStep && !hold)) {
-  return <spinner />;
-}
+groupByOrder(upcomingTickets).map(group => <OrderGroupCard tickets={group} />)
 ```
+Mesma troca em `past` e `cancelled`. Tabs e contadores no header continuam contando tickets (não grupos) — match com o badge atual.
 
-`hold` só é exigido em steps ativos (`form`, `cpf`, `method`, `pix`, `card`, `awaiting`). `success` e `verifying` passam pelo gate mesmo com `hold = null`.
+### 3. `OrderGroupCard` — comportamento
 
-### Mudança 2 — `ReservedPill` na linha 448
+**Caso 1 ingresso (decisão):** renderiza **direto o `<TicketCardSimple>` existente, sem wrapper nem botão de expandir.** Mantém UX atual idêntica pra quem comprou só 1 ingresso (sem clique extra).
 
-Antes:
-```tsx
-{step !== 'success' && <ReservedPill expiresAt={hold.expiresAt} />}
-```
+**Caso N ingressos:**
+- Card-resumo (mesmo visual base do TicketCardSimple — imagem do evento + título + data/hora/local em grid + faixa lateral colorida) mostrando:
+  - Imagem + título do evento (clica → vai pro evento)
+  - Badge "N ingressos" no topo direito (substitui o badge de status individual, já que vários tickets podem ter status diferentes)
+  - Sub-resumo de status: ex. "4 válidos · 2 utilizados" (só os contadores > 0)
+  - Data / Horário / Local (mesmos cards de info já usados)
+  - Botão **"Ver ingressos (N)"** com chevron — toggleia `expanded` (default `false`)
+- Quando `expanded`:
+  - Renderiza `tickets.map(t => <TicketCardSimple ticket={t} />)` numa lista indentada (`pl-4 border-l border-border/40`) abaixo do botão.
+  - **NÃO altera o `<TicketCardSimple>`** — cada um mantém seu QR, código único, badge Válido/Usado, PDF e botão "Usar Ingresso" individuais.
 
-Depois:
-```tsx
-{hold && !isTerminalStep && <ReservedPill expiresAt={hold.expiresAt} />}
-```
+### 4. Detalhes técnicos
+- `expanded` é estado local do `OrderGroupCard` (`useState(false)`).
+- Para contadores de status no resumo: `tickets.filter(t => t.status === 'valid').length` etc.
+- Não toca em `useUserTickets` além de adicionar `order_id` ao select e ao tipo.
+- Não toca em edges, checkout, validação, QR, PDF, TicketCardSimple.
+- Não cria abas novas — agrupa dentro das abas existentes (Próximos/Anteriores/Cancelados).
 
-Sem isso, `hold.expiresAt` quebra no step `verifying` quando o hold já foi limpo. A pílula só faz sentido enquanto a reserva está ativa.
+## Validação
+- `tsc --noEmit` limpo.
+- Screenshots: card-resumo colapsado mostrando "6 ingressos", mesmo card expandido com os 6 TicketCardSimple individuais (cada um com seu QR/PDF/Usar), e compra de 1 ingresso renderizando direto sem botão de expandir.
 
-### O que NÃO muda
-
-- `handlePaymentConfirmed` continua chamando `clearLocalHold()` (correto — após pagar não há mais reserva pra liberar).
-- Efeito de idempotência (386-407) continua igual; com o novo gate, `setStep('success')` agora renderiza mesmo com `hold = null`.
-- Edges (`create-seat-pix`, `mercadopago-webhook`, `check-mercadopago-payment`) intocadas — Fase 1 itens 1 e 2 provaram que `external_reference == orders.id` e RLS do cliente está correta.
-- Nada de logs temporários (a instrumentação não chegou a ser aplicada — `console.log` em `SeatCheckout.tsx` e `CheckoutStepPix.tsx` já está vazio, confirmado via `rg`).
-
-### Validação manual (Gabriel)
-
-- PIX aprovado → tela de Success (não spinner).
-- Recarregar `/checkout/mesa/:id` após pago → idempotência leva direto a Success, sem repedir pagamento.
-- Cartão aprovado / `approved_pending` → tela Success após webhook.
-
-### Técnico
-
-- 1 arquivo: `src/pages/SeatCheckout.tsx`.
-- 2 edits cirúrgicos (linhas 424-431 e linha 448).
-- `tsc --noEmit` rodará limpo (`isTerminalStep` é boolean simples, `Step` já inclui 'success' e 'verifying').
-- Sem migration, sem mudança em edges, sem alteração no `useSeatHold`.
+## Arquivos editados
+- `src/hooks/useUserTickets.ts` (adicionar `order_id`)
+- `src/pages/MeusIngressos.tsx` (novo `OrderGroupCard` + `groupByOrder` + trocar `.map` nas 3 abas)
