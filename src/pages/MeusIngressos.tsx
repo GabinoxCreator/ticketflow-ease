@@ -144,12 +144,12 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
           </div>
 
           {expanded && (
-            <div className="px-3 sm:px-4 pb-4 pt-1 space-y-4 border-t border-border/40 bg-muted/10">
+            <div className="px-3 sm:px-4 pb-4 pt-1 space-y-3 border-t border-border/40 bg-muted/10">
               <p className="text-xs text-muted-foreground pt-3 px-1">
-                Cada ingresso abaixo tem um QR code único — apresente individualmente na entrada.
+                Cada ingresso abaixo tem um QR code único — toque em "Usar Ingresso" para apresentar.
               </p>
               {tickets.map((t) => (
-                <TicketCardSimple key={t.id} ticket={t} />
+                <TicketCardSimple key={t.id} ticket={t} compact />
               ))}
             </div>
           )}
