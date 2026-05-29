@@ -133,22 +133,37 @@ export default function EditarEvento() {
   });
   const hasSoldSeats = soldSeatsCount > 0;
 
+  const normalizeTime = (t?: string | null) => {
+    if (!t) return '';
+    const s = String(t);
+    const m = s.match(/^(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : '';
+  };
+
   const formValues = useMemo(() => {
     if (!event) return undefined;
+    const allowedStatuses = ['draft', 'published', 'cancelled', 'finished'] as const;
+    const status = (allowedStatuses as readonly string[]).includes(event.status)
+      ? (event.status as EventFormData['status'])
+      : 'draft';
+    const allowedTypes = ['ingresso', 'mesa', 'hibrido'] as const;
+    const eventType = (allowedTypes as readonly string[]).includes(event.event_type)
+      ? (event.event_type as EventType)
+      : 'ingresso';
     return {
       title: event.title ?? '',
       description: event.description ?? '',
       date: event.date ? parseISO(`${event.date}T12:00:00`) : (undefined as any),
-      time: event.time ? event.time.slice(0, 5) : '',
+      time: normalizeTime(event.time),
       end_date: event.end_date ? parseISO(`${event.end_date}T12:00:00`) : null,
-      end_time: event.end_time ? event.end_time.slice(0, 5) : '',
+      end_time: normalizeTime(event.end_time),
       venue: event.venue ?? '',
       city: event.city ?? '',
-      state: event.state ?? '',
+      state: (event.state ?? '').toString().toUpperCase(),
       address: event.address ?? '',
       is_hot: !!event.is_hot,
-      status: event.status,
-      event_type: ((event.event_type as EventType) ?? 'ingresso') as EventType,
+      status,
+      event_type: eventType,
       table_map_id: event.table_map_id ?? null,
     } as EventFormData;
   }, [event]);
@@ -174,16 +189,26 @@ export default function EditarEvento() {
   const { register, handleSubmit, formState: { errors, isDirty }, watch, setValue, reset } = form;
   const watchedValues = watch();
 
-  // Hydrate form once per event load (avoids RHF `values`+keepDirtyValues
-  // not syncing controlled Selects like TimeSelect/Estado/Status).
-  useEffect(() => {
-    if (formValues) reset(formValues);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event?.id]);
+  // Hydrate form whenever the loaded event values change (not just on id change),
+  // so refetches/cache updates keep controlled Selects (TimeSelect/Estado/Status/Tipo) in sync.
+  // Signature avoids resetting on every render (Date objects would differ otherwise).
+  const formValuesSignature = useMemo(() => {
+    if (!formValues) return '';
+    return JSON.stringify({
+      ...formValues,
+      date: formValues.date ? (formValues.date as Date).toISOString() : null,
+      end_date: formValues.end_date ? (formValues.end_date as Date).toISOString() : null,
+    });
+  }, [formValues]);
 
   useEffect(() => {
-    if (event?.image_url) setImageUrl(event.image_url);
-  }, [event?.image_url]);
+    if (formValues) reset(formValues, { keepDirtyValues: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValuesSignature]);
+
+  useEffect(() => {
+    setImageUrl(event?.image_url ?? undefined);
+  }, [event?.id, event?.image_url]);
 
 
   const onInvalid = (errs: FieldErrors<EventFormData>) => {
