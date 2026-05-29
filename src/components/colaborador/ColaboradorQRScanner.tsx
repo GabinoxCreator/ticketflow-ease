@@ -3,6 +3,7 @@ import { X, Loader2, Flashlight } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { buildWindowMessage } from '@/lib/checkinWindow';
 import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
+import { formatSeatLabel } from '@/utils/seatLabel';
 
 interface ColaboradorQRScannerProps {
   open: boolean;
