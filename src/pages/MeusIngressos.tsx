@@ -167,6 +167,7 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const seatDisplay = formatSeatLabel(ticket.seat?.label, ticket.seat?.seat_type_name);
 
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
