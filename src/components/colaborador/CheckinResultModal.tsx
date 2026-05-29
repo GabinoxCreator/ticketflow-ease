@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, AlertCircle, Clock, Ban, ArrowRight, X } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, Clock, Ban, ArrowRight, X, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 
