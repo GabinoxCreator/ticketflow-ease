@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, ArrowLeft, CheckCircle, Ban, Pause, Calendar, Banknote, MessageSquare } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
+
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',

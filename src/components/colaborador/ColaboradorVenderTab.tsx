@@ -95,8 +95,9 @@ export default function ColaboradorVenderTab({ eventId, collaboratorId, sessionT
                       {METHOD_LABELS[s.payment_method] || s.payment_method}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {new Date(s.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(s.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
                     </span>
+
                   </div>
                 </div>
                 <p className="font-bold text-sm text-slate-900 tabular-nums whitespace-nowrap">

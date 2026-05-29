@@ -224,8 +224,9 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
           {/* Footer actions */}
           <div className="flex items-center justify-between gap-2 pt-1 mt-auto">
             <span className="text-[11px] text-muted-foreground">
-              Criado em {format(new Date(event.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+              Criado em {new Date(event.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
             </span>
+
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <Button
                 variant="ghost"
