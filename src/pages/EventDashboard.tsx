@@ -132,6 +132,12 @@ export default function EventDashboard() {
           <EventLotsTab eventId={event.id} />
         </TabsContent>
 
+        {showTables && (
+          <TabsContent value="tables">
+            <EventTablesTab eventId={event.id} />
+          </TabsContent>
+        )}
+
         <TabsContent value="orders">
           <EventOrdersTab eventId={event.id} />
         </TabsContent>
