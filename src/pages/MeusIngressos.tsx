@@ -291,118 +291,177 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
-          {/* Faixa lateral colorida por status */}
-          <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-            ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
-            ticket.status === 'used' ? 'bg-muted-foreground/40' :
-            ticket.status === 'cancelled' ? 'bg-destructive' :
-            'bg-yellow-500'
-          }`} />
-          <CardContent className="p-0">
-            {/* Event Image */}
-            <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
-              <img
-                src={ticket.event.image_url || '/placeholder.svg'}
-                alt={ticket.event.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
-              <Badge
-                variant="outline"
-                className={`absolute top-3 right-3 ${status.color} backdrop-blur-md bg-background/70 shadow-lg`}
-              >
-                <StatusIcon className="w-3 h-3 mr-1" />
-                {status.label}
-              </Badge>
-
-              {/* Título sobreposto na imagem */}
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <h3
-                  className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
-                  onClick={() => navigate(`/evento/${ticket.event.slug ?? ticket.event.id}`)}
-                >
-                  {ticket.event.title}
-                </h3>
-                <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
-              </div>
-            </div>
-
-            {/* Ticket Info */}
-            <div className="p-4 sm:p-5">
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                    <Calendar className="w-3 h-3" />
-                    <span>Data</span>
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">{formatDate(ticket.event.date)}</p>
-                </div>
-                <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Horário</span>
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">{formatTime(ticket.event.time)}</p>
-                </div>
-                <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
-                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                    <MapPin className="w-3 h-3" />
-                    <span>Local</span>
-                  </div>
-                  <p className="text-sm font-semibold text-foreground truncate">{ticket.event.venue} — {ticket.event.city}/{ticket.event.state}</p>
-                </div>
-              </div>
-
-              {/* Perfuração estilo ticket */}
-              <div className="relative my-4">
-                <div className="absolute -left-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
-                <div className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
-                <div className="border-t border-dashed border-border/60" />
-              </div>
-
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
+      {compact ? (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <Card className="relative overflow-hidden border-border/50 bg-card/80">
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+              ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
+              ticket.status === 'used' ? 'bg-muted-foreground/40' :
+              ticket.status === 'cancelled' ? 'bg-destructive' :
+              'bg-yellow-500'
+            }`} />
+            <CardContent className="p-3 sm:p-4 pl-4 sm:pl-5">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
                     <QrCode className="w-4 h-4 text-primary" />
                   </div>
-                  <code className="text-xs font-mono font-semibold text-foreground bg-muted/60 px-2 py-1 rounded border border-border/40">
+                  <code className="text-xs font-mono font-semibold text-foreground bg-muted/60 px-2 py-1 rounded border border-border/40 truncate">
                     {ticket.ticket_code.slice(0, 8).toUpperCase()}
                   </code>
                 </div>
-                <div className="flex gap-2">
-                  {ticket.status === 'valid' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={handleDownloadPDF}
-                      disabled={isDownloading}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      {isDownloading ? 'Gerando...' : 'PDF'}
-                    </Button>
-                  )}
+                <Badge
+                  variant="outline"
+                  className={`${status.color} shrink-0`}
+                >
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {status.label}
+                </Badge>
+              </div>
+              <div className="flex gap-2 justify-end flex-wrap">
+                {ticket.status === 'valid' && (
                   <Button
                     size="sm"
-                    variant={modal.ctaVariant}
-                    className={`gap-1.5 ${modal.cardBtnClass}`}
-                    onClick={() => setShowQR(true)}
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={handleDownloadPDF}
+                    disabled={isDownloading}
                   >
-                    <CtaIcon className="w-3.5 h-3.5" />
-                    {modal.ctaLabel}
+                    <Download className="w-3.5 h-3.5" />
+                    {isDownloading ? 'Gerando...' : 'PDF'}
                   </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant={modal.ctaVariant}
+                  className={`gap-1.5 ${modal.cardBtnClass}`}
+                  onClick={() => setShowQR(true)}
+                >
+                  <CtaIcon className="w-3.5 h-3.5" />
+                  {modal.ctaLabel}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
+            {/* Faixa lateral colorida por status */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+              ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
+              ticket.status === 'used' ? 'bg-muted-foreground/40' :
+              ticket.status === 'cancelled' ? 'bg-destructive' :
+              'bg-yellow-500'
+            }`} />
+            <CardContent className="p-0">
+              {/* Event Image */}
+              <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
+                <img
+                  src={ticket.event.image_url || '/placeholder.svg'}
+                  alt={ticket.event.title}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
+                <Badge
+                  variant="outline"
+                  className={`absolute top-3 right-3 ${status.color} backdrop-blur-md bg-background/70 shadow-lg`}
+                >
+                  <StatusIcon className="w-3 h-3 mr-1" />
+                  {status.label}
+                </Badge>
+
+                {/* Título sobreposto na imagem */}
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3
+                    className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
+                    onClick={() => navigate(`/evento/${ticket.event.slug ?? ticket.event.id}`)}
+                  >
+                    {ticket.event.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+
+              {/* Ticket Info */}
+              <div className="p-4 sm:p-5">
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      <Calendar className="w-3 h-3" />
+                      <span>Data</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{formatDate(ticket.event.date)}</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      <Clock className="w-3 h-3" />
+                      <span>Horário</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{formatTime(ticket.event.time)}</p>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      <MapPin className="w-3 h-3" />
+                      <span>Local</span>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground truncate">{ticket.event.venue} — {ticket.event.city}/{ticket.event.state}</p>
+                  </div>
+                </div>
+
+                {/* Perfuração estilo ticket */}
+                <div className="relative my-4">
+                  <div className="absolute -left-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
+                  <div className="absolute -right-5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-background border border-border/50" />
+                  <div className="border-t border-dashed border-border/60" />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-primary/10">
+                      <QrCode className="w-4 h-4 text-primary" />
+                    </div>
+                    <code className="text-xs font-mono font-semibold text-foreground bg-muted/60 px-2 py-1 rounded border border-border/40">
+                      {ticket.ticket_code.slice(0, 8).toUpperCase()}
+                    </code>
+                  </div>
+                  <div className="flex gap-2">
+                    {ticket.status === 'valid' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={handleDownloadPDF}
+                        disabled={isDownloading}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        {isDownloading ? 'Gerando...' : 'PDF'}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={modal.ctaVariant}
+                      className={`gap-1.5 ${modal.cardBtnClass}`}
+                      onClick={() => setShowQR(true)}
+                    >
+                      <CtaIcon className="w-3.5 h-3.5" />
+                      {modal.ctaLabel}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
 
 
