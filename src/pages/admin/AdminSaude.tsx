@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useLatestHealthSnapshot, useRecentHealthSnapshots, useHealthAlerts } from "@/hooks/useHealthSnapshots";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { formatInSaoPaulo } from "@/lib/eventTime";
 
 type Severity = "ok" | "warn" | "crit";
 
@@ -162,7 +162,7 @@ export default function AdminSaude() {
           <div className="flex items-center gap-2">
             <SeverityBadge s={latest.overall_severity} />
             <span className="text-xs text-muted-foreground">
-              {format(new Date(latest.captured_at), "dd/MM HH:mm:ss")}
+              {formatInSaoPaulo(latest.captured_at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </div>
         )}
@@ -205,7 +205,7 @@ export default function AdminSaude() {
               <SeverityBadge s={cron.severity ?? "ok"} />
             </CardHeader>
             <CardContent className="space-y-1 text-sm">
-              <div>Última execução: {cron.last_run_at ? format(new Date(cron.last_run_at), "HH:mm:ss") : "—"}</div>
+              <div>Última execução: {cron.last_run_at ? formatInSaoPaulo(cron.last_run_at, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "—"}</div>
               <div>Status: {cron.last_status ?? "—"}</div>
               <div>Runs (1h): {cron.runs_last_hour} | Falhas: {cron.failed_last_hour}</div>
             </CardContent>
@@ -236,7 +236,7 @@ export default function AdminSaude() {
                 <div key={a.id} className="flex items-center justify-between p-2 rounded border border-border text-sm">
                   <div className="flex items-center gap-2">
                     <SeverityBadge s={a.overall_severity} />
-                    <span>{format(new Date(a.captured_at), "dd/MM HH:mm:ss")}</span>
+                    <span>{formatInSaoPaulo(a.captured_at, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     pending={a.metrics?.orders?.pending_count} | wh_err={a.metrics?.webhooks?.error_last_hour} | drift={a.metrics?.inventory?.confirmed_drift_count}
