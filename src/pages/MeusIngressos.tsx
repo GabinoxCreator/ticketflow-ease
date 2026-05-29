@@ -694,7 +694,8 @@ const MeusIngressos = () => {
                 </>
               ) : upcomingTickets.length > 0 ? (
                 upcomingTickets.map((ticket) => (
-                  <TicketCardSimple key={ticket.id} ticket={ticket} />
+                groupByOrder(upcomingTickets).map((group) => (
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
               ) : (
                 <EmptyState
@@ -712,7 +713,8 @@ const MeusIngressos = () => {
                 </>
               ) : pastTickets.length > 0 ? (
                 pastTickets.map((ticket) => (
-                  <TicketCardSimple key={ticket.id} ticket={ticket} />
+                groupByOrder(pastTickets).map((group) => (
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
               ) : (
                 <EmptyState
@@ -727,7 +729,8 @@ const MeusIngressos = () => {
                 <TicketSkeleton />
               ) : cancelledTickets.length > 0 ? (
                 cancelledTickets.map((ticket) => (
-                  <TicketCardSimple key={ticket.id} ticket={ticket} />
+                groupByOrder(cancelledTickets).map((group) => (
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
               ) : (
                 <EmptyState
