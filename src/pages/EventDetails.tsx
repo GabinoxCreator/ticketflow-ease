@@ -139,26 +139,19 @@ const EventDetails = () => {
     );
   }
 
-  const getEventEnd = () => {
-    if (event.end_date) {
-      const t = event.end_time ? event.end_time.slice(0, 8) : '23:59:00';
-      return new Date(`${event.end_date}T${t}`);
-    }
-    const st = event.time ? event.time.slice(0, 8) : '00:00:00';
-    return new Date(new Date(`${event.date}T${st}`).getTime() + 6 * 60 * 60 * 1000);
-  };
-  const isEventFinished = event.status === 'finished' || getEventEnd() < new Date();
+  const isEventFinished = event.status === 'finished' || getEventEndInstant(event) < new Date();
   const activeLots = isEventFinished ? [] : lots?.filter((lot) => lot.is_active) || [];
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T12:00:00');
-    return date.toLocaleDateString('pt-BR', {
+    return new Intl.DateTimeFormat('pt-BR', {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
       year: 'numeric',
-    });
+      timeZone: 'America/Sao_Paulo',
+    }).format(new Date(`${dateString}T12:00:00Z`));
   };
+
 
   const formatPrice = (price: number) =>
     price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
