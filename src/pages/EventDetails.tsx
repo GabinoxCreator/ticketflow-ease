@@ -274,9 +274,8 @@ const EventDetails = () => {
   })();
 
   const canonicalUrl = `https://festpag.com.br/evento/${event.slug ?? event.id}`;
-  const mesaHref = `/evento/${event.slug ?? event.id}/mapa`;
 
-  const showSidebar = !isEventFinished && (hasMap || activeLots.length > 0);
+
 
   return (
     <>
