@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateTicketPDF } from '@/utils/ticketPdf';
+import { formatSeatLabel } from '@/utils/seatLabel';
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
