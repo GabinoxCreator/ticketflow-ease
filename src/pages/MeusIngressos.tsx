@@ -65,6 +65,15 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
   if (counts.cancelled) statusBits.push(`${counts.cancelled} cancelado${counts.cancelled > 1 ? 's' : ''}`);
   if (counts.pending) statusBits.push(`${counts.pending} pendente${counts.pending > 1 ? 's' : ''}`);
 
+  const seatLabels = tickets
+    .map((t) => t.seat?.label?.trim())
+    .filter((s): s is string => !!s);
+  const seatsSummary = seatLabels.length
+    ? seatLabels.length === 1
+      ? `Mesa ${seatLabels[0]}`
+      : `Mesas ${seatLabels.join(', ')}`
+    : null;
+
   const formatDate = (dateStr: string) =>
     formatEventDate(dateStr, { day: '2-digit', month: 'long' });
   const formatTime = (timeStr: string) => timeStr.slice(0, 5);
