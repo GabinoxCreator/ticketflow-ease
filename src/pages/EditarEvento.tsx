@@ -169,16 +169,22 @@ export default function EditarEvento() {
       event_type: 'ingresso',
       table_map_id: null,
     },
-    values: formValues,
-    resetOptions: { keepDirtyValues: true },
   });
 
   const { register, handleSubmit, formState: { errors, isDirty }, watch, setValue, reset } = form;
   const watchedValues = watch();
 
+  // Hydrate form once per event load (avoids RHF `values`+keepDirtyValues
+  // not syncing controlled Selects like TimeSelect/Estado/Status).
+  useEffect(() => {
+    if (formValues) reset(formValues);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id]);
+
   useEffect(() => {
     if (event?.image_url) setImageUrl(event.image_url);
   }, [event?.image_url]);
+
 
   const onInvalid = (errs: FieldErrors<EventFormData>) => {
     const keys = Object.keys(errs);
