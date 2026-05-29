@@ -5,6 +5,8 @@ import { MapPin, Clock, Flame, CalendarDays } from 'lucide-react';
 import { EventData, categoryLabels } from '@/data/mockEvents';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { formatEventDate } from '@/lib/eventTime';
+
 
 interface EventCardProps {
   event: EventData;
@@ -21,13 +23,9 @@ const categoryColorMap: Record<string, string> = {
 
 const EventCard = ({ event, index = 0 }: EventCardProps) => {
   const [imgFailed, setImgFailed] = useState(false);
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T12:00:00');
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-    });
-  };
+  const formatDate = (dateString: string) =>
+    formatEventDate(dateString, { day: '2-digit', month: 'short' });
+
 
   const formatPrice = (price: number) => {
     return price.toLocaleString('pt-BR', {
@@ -83,11 +81,12 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
             {/* Date Overlay */}
             <div className="absolute bottom-3 left-3 bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                {new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' })}
+                {formatEventDate(event.date, { weekday: 'short' })}
               </p>
               <p className="font-display font-bold text-lg leading-tight text-foreground">
                 {formatDate(event.date)}
               </p>
+
             </div>
           </div>
 

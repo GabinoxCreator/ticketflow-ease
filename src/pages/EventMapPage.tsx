@@ -4,18 +4,18 @@ import { Loader2, ArrowLeft, Minus, Plus, Maximize2, Minimize2 } from 'lucide-re
 import { useEvent } from '@/hooks/useEvents';
 import EventDetailsSeated from './EventDetailsSeated';
 import { Button } from '@/components/ui/button';
+import { formatEventDate } from '@/lib/eventTime';
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.1;
 
 const formatShortDate = (dateString: string, time?: string | null) => {
-  const date = new Date(dateString + 'T12:00:00');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dm = formatEventDate(dateString, { day: '2-digit', month: '2-digit' });
   const t = time ? ` · ${time.slice(0, 5)}` : '';
-  return `${dd}/${mm}${t}`;
+  return `${dm}${t}`;
 };
+
 
 const EventMapPage = () => {
   const { id: slugOrId } = useParams<{ id: string }>();
