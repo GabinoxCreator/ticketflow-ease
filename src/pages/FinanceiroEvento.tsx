@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProducerFinance } from '@/hooks/useProducerFinance';
 import { PayoutPdfButton } from '@/components/producer/PayoutPdfButton';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatInSaoPaulo } from '@/lib/eventTime';
+
 import { useAuth } from '@/contexts/AuthContext';
 
 const formatBRL = (v: number) => {
@@ -176,8 +176,9 @@ export default function FinanceiroEvento() {
                               : 'Transferência'}{' '}
                             ·{' '}
                             {p.paid_at
-                              ? format(new Date(p.paid_at), "dd 'de' MMM. 'de' yyyy HH:mm", { locale: ptBR })
-                              : format(new Date(p.created_at), "dd 'de' MMM. 'de' yyyy", { locale: ptBR })}
+                              ? formatInSaoPaulo(p.paid_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : formatInSaoPaulo(p.created_at, { day: '2-digit', month: 'short', year: 'numeric' })}
+
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">

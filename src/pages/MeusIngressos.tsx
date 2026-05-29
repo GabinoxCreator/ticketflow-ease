@@ -16,8 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket } from '@/hooks/useUserTickets';
+import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+
 
 const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
   const navigate = useNavigate();
@@ -47,10 +49,9 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
   const status = statusConfig[ticket.status];
   const StatusIcon = status.icon;
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00');
-    return format(date, "dd 'de' MMMM", { locale: ptBR });
-  };
+  const formatDate = (dateStr: string) =>
+    formatEventDate(dateStr, { day: '2-digit', month: 'long' });
+
 
   const formatTime = (timeStr: string) => {
     return timeStr.slice(0, 5);
@@ -361,7 +362,7 @@ const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
                 {ticket.status === 'used' && ticket.validated_at && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Validado em {format(new Date(ticket.validated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+                    <span>Validado em {formatInSaoPaulo(ticket.validated_at)}</span>
                   </div>
                 )}
               </div>

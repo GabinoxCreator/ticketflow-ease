@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatEventDate } from '@/lib/eventTime';
+
 import {
   CalendarDays,
   Ticket,
@@ -41,8 +41,9 @@ export default function Dashboard() {
   } = useProducerStats();
 
   const nextEventLabel = nextEventDate
-    ? format(new Date(nextEventDate + 'T12:00:00'), "dd 'de' MMM", { locale: ptBR })
+    ? formatEventDate(nextEventDate, { day: '2-digit', month: 'short' })
     : null;
+
 
   return (
     <ProducerLayout>
