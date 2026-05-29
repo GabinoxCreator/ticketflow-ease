@@ -543,6 +543,12 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
                   {ticket.ticket_code.slice(0, 8).toUpperCase()}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">{ticket.holder_name}</p>
+                {seatDisplay && (
+                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/30 px-3 py-1.5 text-primary">
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    <span className="text-sm font-extrabold">{seatDisplay}</span>
+                  </div>
+                )}
               </motion.div>
 
               {/* Detalhes do evento */}
