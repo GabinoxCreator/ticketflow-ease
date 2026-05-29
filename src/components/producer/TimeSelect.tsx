@@ -23,8 +23,11 @@ for (let h = 0; h < 24; h++) {
 
 export function TimeSelect({ value, onChange, placeholder = 'Horário', disabled, options }: TimeSelectProps) {
   const items = options || timeOptions;
+  // Tolerate HH:mm:ss coming directly from DB columns; normalize to HH:mm.
+  const m = typeof value === 'string' ? value.match(/^(\d{2}):(\d{2})/) : null;
+  const normalized = m ? `${m[1]}:${m[2]}` : '';
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled}>
+    <Select value={normalized} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

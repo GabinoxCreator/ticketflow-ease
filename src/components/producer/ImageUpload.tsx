@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Upload, X, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -15,6 +15,12 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, deleteImage, isUploading, progress } = useImageUpload();
   const [isDragOver, setIsDragOver] = useState(false);
+  const [broken, setBroken] = useState(false);
+
+  // Reset "broken" status whenever the source url changes (e.g. after a new upload).
+  useEffect(() => {
+    setBroken(false);
+  }, [value]);
 
   const handleFileSelect = async (file: File) => {
     const url = await uploadImage(file);
@@ -40,10 +46,10 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
   };
 
   const handleRemove = async () => {
-    if (value) {
+    if (value && !broken) {
       await deleteImage(value);
-      onChange(undefined);
     }
+    onChange(undefined);
   };
 
   return (
@@ -58,37 +64,59 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
 
       {value ? (
         <div className="relative aspect-video rounded-lg overflow-hidden border bg-muted">
-          <img
-            src={value}
-            alt="Preview"
-            className="w-full h-full object-cover"
-            onError={() => {
-              // URL quebrada (ex.: arquivo removido do storage) — limpa para mostrar o uploader.
-              onChange(undefined);
-            }}
-          />
-          <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => inputRef.current?.click()}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Trocar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={handleRemove}
-            >
-              <X className="w-4 h-4 mr-2" />
-              Remover
-            </Button>
-          </div>
+          {broken ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-6 bg-muted">
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-destructive" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Imagem indisponível</p>
+                <p className="text-xs text-muted-foreground">
+                  O arquivo original foi removido. Envie uma nova imagem.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={() => inputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Enviar nova
+                </Button>
+                <Button type="button" variant="destructive" size="sm" onClick={handleRemove}>
+                  <X className="w-4 h-4 mr-2" />
+                  Remover
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <img
+                src={value}
+                alt="Preview"
+                className="w-full h-full object-cover"
+                onError={() => setBroken(true)}
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Trocar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleRemove}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Remover
+                </Button>
+              </div>
+            </>
+          )}
         </div>
-
       ) : (
         <div
           className={cn(

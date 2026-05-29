@@ -1,36 +1,37 @@
 ## Diagnóstico
 
-1. **Horário, Estado e Status vêm em branco ao abrir Editar Evento.**
-   O formulário em `src/pages/EditarEvento.tsx` usa `useForm({ defaultValues, values: formValues, resetOptions: { keepDirtyValues: true } })`. Os campos `time`, `end_time`, `state` e `status` têm valor inicial `''`/`'draft'` em `defaultValues`. Quando o evento chega da API, a RHF não atualiza esses campos controlados via `watch()` (Select da UI). Já a Data funciona porque não tem default (vai de `undefined` → Date).
+- No banco, o evento `Brasil x Marrocos` está correto: `time=17:00:00`, `end_time=01:00:00`, `state=SP`, `status=published`, `event_type=hibrido`.
+- Portanto o problema não é dado ausente: é a tela de edição não aplicando os valores carregados nos componentes controlados.
+- O screenshot ainda mostra `Horário`, `UF` e validações porque o `reset(formValues)` atual roda só quando `event?.id` muda. Se a query atualiza com o mesmo ID (cache/refetch), o efeito não roda novamente e os Selects ficam com os defaults vazios.
+- A imagem preta/sem carregar tem outro motivo confirmado: a URL salva para esse evento aponta para um arquivo inexistente no armazenamento (`Object not found`). A tela precisa limpar visualmente esse preview quebrado e permitir reenviar sem travar.
 
-2. **Imagem do evento aparece preta / não carrega.**
-   - Confirmado no storage: a URL salva em `events.image_url` aponta para um arquivo que não existe mais (HTTP 404). Uploads novos do mesmo usuário existem no bucket e retornam 200.
-   - O hook `src/hooks/useImageUpload.ts` faz um `fetch(url, { method: 'HEAD' })` pós-upload e retorna `null` se algo falhar. Isso é frágil e, em parte dos cenários, faz com que o `onChange` nunca seja chamado — o preview continua exibindo a URL antiga (quebrada). Storage do Cloud já é consistente após o `upload` resolver: a checagem extra não agrega segurança e atrapalha.
+## Plano de correção
 
-## Plano de correção (somente front)
+1. **Editar `src/pages/EditarEvento.tsx`**
+   - Ajustar a hidratação do formulário para rodar quando os valores reais do evento mudarem, não só quando o ID muda.
+   - Usar `reset(formValues, { keepDirtyValues: false })` assim que o evento carregado estiver pronto.
+   - Preencher também `imageUrl` no mesmo fluxo de hidratação, garantindo que o editor reflita o evento carregado.
+   - Normalizar valores defensivamente:
+     - `time` e `end_time`: aceitar `HH:mm:ss` e converter para `HH:mm`.
+     - `state`: converter para UF maiúscula.
+     - `status`: fallback seguro para `draft` somente se vier ausente.
+     - `event_type`: fallback seguro para `ingresso` somente se vier ausente.
 
-### A. Hidratação do formulário em Editar Evento
+2. **Editar `src/components/producer/TimeSelect.tsx`**
+   - Tornar o componente tolerante a valores `HH:mm:ss`, normalizando para `HH:mm` antes de passar para o Select.
+   - Isso evita placeholder vazio caso algum dado venha direto do banco com segundos.
 
-Em `src/pages/EditarEvento.tsx`:
+3. **Editar `src/components/producer/ImageUpload.tsx`**
+   - Trocar o comportamento de imagem quebrada para não chamar `onChange(undefined)` automaticamente no render inicial.
+   - Em vez disso, mostrar um estado visual de “imagem indisponível” com botão de trocar/remover.
+   - Isso evita mutar o estado do formulário só porque a URL antiga está quebrada, mas permite reenviar imagem normalmente.
 
-- Remover `values: formValues` e `resetOptions: { keepDirtyValues: true }` do `useForm`.
-- Trocar por um `useEffect` que dispara `reset(formValues)` quando `event?.id` mudar (carga inicial do evento ou troca de evento). Isso garante populamento confiável de todos os campos controlados (TimeSelect, Estado, Status, Tipo de venda).
-- Manter `defaultValues` enxutos.
-
-### B. Upload de imagem confiável
-
-Em `src/hooks/useImageUpload.ts`:
-
-- Remover o bloco de verificação HEAD pós-upload. Retornar a `publicUrl` imediatamente após `upload` bem-sucedido.
-- Manter validações de tipo e tamanho como hoje.
-
-Em `src/components/producer/ImageUpload.tsx`:
-
-- Adicionar tratamento `onError` no `<img>` para detectar URL quebrada (ex.: imagem antiga deletada) e exibir o uploader em vez do quadro preto. Isso resolve o caso visual da imagem antiga sumida.
-
-### C. Verificação
-
-- Abrir um evento existente em `/produtor/editar-evento/:id`: confirmar que Data, Horário, Estado, Status, Tipo de venda e Mapa vêm preenchidos.
-- Fazer upload de uma imagem nova: preview deve atualizar para a nova foto e salvar corretamente.
-- Abrir um evento com `image_url` quebrado: deve cair no estado de uploader (sem quadro preto travado).
-- Nada nas edges, RLS, ou fluxo de pagamento.
+4. **Validação após implementar**
+   - Abrir `/produtor/editar-evento/6209242a-cc5d-4eda-b4ab-4f8d17d74745` em build estável.
+   - Confirmar visualmente:
+     - Horário de início: `17:00`
+     - Horário de fim: `01:00`
+     - Estado: `SP`
+     - Status: `Publicado`
+     - Tipo de venda: `Híbrido`
+   - Confirmar que imagem quebrada não fica preta e que o usuário consegue trocar por uma nova.
