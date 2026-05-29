@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, LogOut, QrCode, MapPin, ChevronRight, ScanLine } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { motion } from 'framer-motion';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useColaboradorAuth } from '@/contexts/ColaboradorAuthContext';
+import { getEventEndInstant, getEventStartInstant } from '@/lib/eventTime';
+
 
 export default function ColaboradorEventos() {
   const navigate = useNavigate();
@@ -21,21 +22,17 @@ export default function ColaboradorEventos() {
 
   const now = new Date();
 
-  const getEventEnd = (e: any): Date => {
-    if (e.end_date) {
-      const t = e.end_time ? e.end_time.slice(0, 8) : '23:59:00';
-      return new Date(`${e.end_date}T${t}`);
-    }
-    const st = e.time ? e.time.slice(0, 8) : '00:00:00';
-    return new Date(new Date(`${e.date}T${st}`).getTime() + 6 * 60 * 60 * 1000);
-  };
-
-  const upcomingEvents = events.filter((e) => getEventEnd(e) >= now);
-  const pastEvents = events.filter((e) => getEventEnd(e) < now);
+  const upcomingEvents = events.filter((e) => getEventEndInstant(e) >= now);
+  const pastEvents = events.filter((e) => getEventEndInstant(e) < now);
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(parseISO(dateStr + 'T12:00:00'), "EEE, d 'de' MMM", { locale: ptBR });
+      return new Intl.DateTimeFormat('pt-BR', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'America/Sao_Paulo',
+      }).format(new Date(`${dateStr}T12:00:00Z`));
     } catch {
       return dateStr;
     }
@@ -44,9 +41,10 @@ export default function ColaboradorEventos() {
   const formatTime = (timeStr: string) => timeStr?.slice(0, 5) || '';
 
   const isLive = (e: any) => {
-    const start = new Date(`${e.date}T${e.time?.slice(0, 8) || '00:00:00'}`);
-    return start <= now && getEventEnd(e) >= now;
+    const start = getEventStartInstant(e);
+    return start <= now && getEventEndInstant(e) >= now;
   };
+
 
   const initials = (collaborator?.name || 'C')
     .split(' ')

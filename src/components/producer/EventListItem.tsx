@@ -1,5 +1,5 @@
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatEventDate } from '@/lib/eventTime';
+
 import {
   CalendarDays,
   MapPin,
@@ -67,8 +67,8 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   const navigate = useNavigate();
   const status = statusStyles[event.status];
 
-  const eventDate = new Date(event.date + 'T12:00:00');
-  const formattedDate = format(eventDate, "dd 'de' MMM, yyyy", { locale: ptBR });
+  const formattedDate = formatEventDate(event.date, { day: '2-digit', month: 'short', year: 'numeric' });
+
 
   const lots = event.event_lots ?? [];
   const sold = lots.reduce((s, l) => s + (l.sold_quantity || 0), 0);
@@ -224,8 +224,9 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
           {/* Footer actions */}
           <div className="flex items-center justify-between gap-2 pt-1 mt-auto">
             <span className="text-[11px] text-muted-foreground">
-              Criado em {format(new Date(event.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+              Criado em {new Date(event.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
             </span>
+
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <Button
                 variant="ghost"

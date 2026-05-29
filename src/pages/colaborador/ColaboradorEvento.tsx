@@ -12,6 +12,8 @@ import ColaboradorListasTab from '@/components/colaborador/ColaboradorListasTab'
 import ColaboradorVenderTab from '@/components/colaborador/ColaboradorVenderTab';
 import ColaboradorRelatoriosTab from '@/components/colaborador/ColaboradorRelatoriosTab';
 import ColaboradorAoVivoTab from '@/components/colaborador/ColaboradorAoVivoTab';
+import { formatEventDate } from '@/lib/eventTime';
+
 
 export default function ColaboradorEvento() {
   const navigate = useNavigate();
@@ -76,10 +78,8 @@ export default function ColaboradorEvento() {
     );
   }
 
-  const formattedDate = new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-  });
+  const formattedDate = formatEventDate(event.date, { day: '2-digit', month: 'short' });
+
 
   const progress = stats.total > 0 ? Math.round((stats.checkins / stats.total) * 100) : 0;
 

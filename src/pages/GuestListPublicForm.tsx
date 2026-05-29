@@ -16,8 +16,8 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatEventDate, spWallToInstant } from '@/lib/eventTime';
+
 
 interface GuestListData {
   id: string;
@@ -153,14 +153,15 @@ export default function GuestListPublicForm() {
     if (!listData.is_active) return false;
     if (listData.max_guests && listData.entries_count >= listData.max_guests) return false;
 
-    // Build deadline in Brasília time (UTC-3) to avoid timezone shifts
+    // Deadlines resolvidos em America/Sao_Paulo (via fromZonedTime no helper).
     const now = new Date();
     const timePart = (listData.valid_until_time || '18:00').slice(0, 5);
-    const validUntil = new Date(`${listData.event.date}T${timePart}:00-03:00`);
-    const endOfEventDay = new Date(`${listData.event.date}T23:59:59-03:00`);
+    const validUntil = spWallToInstant(listData.event.date, timePart);
+    const endOfEventDay = spWallToInstant(listData.event.date, '23:59:59');
 
     if (now > endOfEventDay) return false;
     return now < validUntil;
+
   };
 
   if (isLoading) {
@@ -212,7 +213,8 @@ export default function GuestListPublicForm() {
           <div className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center justify-center gap-2">
               <Calendar className="h-4 w-4" />
-              {format(new Date(`${listData.event.date}T12:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {formatEventDate(listData.event.date)}
+
             </div>
             <div className="flex items-center justify-center gap-2">
               <Clock className="h-4 w-4" />
@@ -256,7 +258,7 @@ export default function GuestListPublicForm() {
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="h-4 w-4" />
-              {format(new Date(`${listData.event.date}T12:00:00`), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {listData.event.time.slice(0, 5)}
+              {formatEventDate(listData.event.date)} às {listData.event.time.slice(0, 5)}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <MapPin className="h-4 w-4" />

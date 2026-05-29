@@ -16,6 +16,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, ArrowLeft, CheckCircle, Ban, Pause, Calendar, Banknote, MessageSquare } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
+
 
 const statusColors: Record<string, string> = {
   active: 'bg-green-500/20 text-green-400',
@@ -163,8 +165,9 @@ const AdminProdutorDetalhe: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Cadastro em</p>
                   <p className="font-medium">
-                    {new Date(produtor.created_at).toLocaleDateString('pt-BR')}
+                    {formatInSaoPaulo(produtor.created_at, { day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </p>
+
                 </div>
               </CardContent>
             </Card>
@@ -180,8 +183,9 @@ const AdminProdutorDetalhe: React.FC = () => {
                   <div>
                     <p className="font-medium">{ev.title}</p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(ev.date).toLocaleDateString('pt-BR')} • {ev.city}/{ev.state}
+                      {formatEventDate(ev.date, { day: '2-digit', month: '2-digit', year: 'numeric' })} • {ev.city}/{ev.state}
                     </p>
+
                   </div>
                   <Badge variant={ev.status === 'published' ? 'default' : 'secondary'}>
                     {ev.status}
@@ -249,8 +253,9 @@ const AdminProdutorDetalhe: React.FC = () => {
                 <CardContent className="p-4">
                   <p className="text-sm">{note.content}</p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    {new Date(note.created_at).toLocaleString('pt-BR')}
+                    {formatInSaoPaulo(note.created_at)}
                   </p>
+
                 </CardContent>
               </Card>
             ))}

@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useProducerFinance } from '@/hooks/useProducerFinance';
 import { PayoutPdfButton } from '@/components/producer/PayoutPdfButton';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
+
 import { useAuth } from '@/contexts/AuthContext';
 
 const formatBRL = (v: number) => {
@@ -80,7 +80,7 @@ export default function FinanceiroEvento() {
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl font-bold break-words">{event.title}</h1>
             <p className="text-muted-foreground mt-1">
-              {format(parseDate(event.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {formatEventDate(event.date, { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
             </p>
           </div>
 
@@ -176,8 +176,9 @@ export default function FinanceiroEvento() {
                               : 'Transferência'}{' '}
                             ·{' '}
                             {p.paid_at
-                              ? format(new Date(p.paid_at), "dd 'de' MMM. 'de' yyyy HH:mm", { locale: ptBR })
-                              : format(new Date(p.created_at), "dd 'de' MMM. 'de' yyyy", { locale: ptBR })}
+                              ? formatInSaoPaulo(p.paid_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : formatInSaoPaulo(p.created_at, { day: '2-digit', month: 'short', year: 'numeric' })}
+
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">

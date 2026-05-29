@@ -192,7 +192,8 @@ export default function CheckinResultModal({
                   {result.validatedAt && (
                     <p className="text-xs text-white/80">
                       Validado em{' '}
-                      {new Date(result.validatedAt).toLocaleString('pt-BR')}
+                      {new Date(result.validatedAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+
                     </p>
                   )}
                 </div>
