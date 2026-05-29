@@ -126,12 +126,15 @@ export default function ColaboradorQRTab({
       const data = await response.json();
       if (data.session_expired) { onSessionExpired(); return; }
 
+      const seatLabel = formatSeatLabel(data.ticket?.seat_label, data.ticket?.seat_type_name) ?? undefined;
+
       if (data.success) {
         setManualResult({
           type: 'success',
           message: 'Pode entrar!',
           holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
           lotName: ticket.lot_name,
+          seatLabel,
           ticketCode: ticket.ticket_code,
         });
         if (navigator.vibrate) navigator.vibrate(200);
@@ -146,6 +149,7 @@ export default function ColaboradorQRTab({
           type: 'window_closed',
           message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
           holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
+          seatLabel,
         });
       } else if (data.error?.includes('já foi utilizado')) {
         setManualResult({
@@ -153,6 +157,7 @@ export default function ColaboradorQRTab({
           message: 'Esse ingresso já passou pela portaria.',
           holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
           lotName: ticket.lot_name,
+          seatLabel,
         });
         setAllTickets(prev =>
           prev.map(t => t.id === ticket.id ? { ...t, status: 'used' } : t)
@@ -162,6 +167,7 @@ export default function ColaboradorQRTab({
           type: 'error',
           message: data.error || 'Não foi possível validar agora.',
           holderName: ticket.holder_name || ticket.holder_email || "Sem identificação",
+          seatLabel,
         });
       }
     } catch {
