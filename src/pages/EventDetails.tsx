@@ -314,7 +314,7 @@ const EventDetails = () => {
       <div className="min-h-screen bg-background">
         <Header />
 
-        <main className={cn('pt-20 w-full pb-28 lg:pb-12')}>
+        <main className={cn('pt-20 w-full pb-28 lg:pb-28')}>
           {isEventFinished && (
             <div className="w-full bg-destructive/10 border-b border-destructive/20">
               <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
@@ -324,15 +324,8 @@ const EventDetails = () => {
             </div>
           )}
 
-          <div
-            className={cn(
-              'max-w-7xl mx-auto px-3 sm:px-4 py-4 lg:py-6 gap-6 lg:gap-8',
-              showSidebar
-                ? 'grid lg:grid-cols-[minmax(0,1fr)_360px]'
-                : 'flex flex-col',
-            )}
-          >
-            {/* Coluna principal */}
+          <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 lg:py-6">
+            {/* Coluna única */}
             <div className="min-w-0 space-y-5 sm:space-y-6">
               {/* Hero: info + banner side-by-side em desktop */}
               <section className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-4 lg:gap-6 items-start">
