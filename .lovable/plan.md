@@ -1,37 +1,59 @@
-## Diagnóstico
+## Fix cirúrgico do gate de render no SeatCheckout
 
-- No banco, o evento `Brasil x Marrocos` está correto: `time=17:00:00`, `end_time=01:00:00`, `state=SP`, `status=published`, `event_type=hibrido`.
-- Portanto o problema não é dado ausente: é a tela de edição não aplicando os valores carregados nos componentes controlados.
-- O screenshot ainda mostra `Horário`, `UF` e validações porque o `reset(formValues)` atual roda só quando `event?.id` muda. Se a query atualiza com o mesmo ID (cache/refetch), o efeito não roda novamente e os Selects ficam com os defaults vazios.
-- A imagem preta/sem carregar tem outro motivo confirmado: a URL salva para esse evento aponta para um arquivo inexistente no armazenamento (`Object not found`). A tela precisa limpar visualmente esse preview quebrado e permitir reenviar sem travar.
+**Raiz (confirmada na Fase 1):** `src/pages/SeatCheckout.tsx:424` exige `hold` para qualquer render. Em `handlePaymentConfirmed` (linha 340-344), `clearLocalHold()` zera `hold` antes de `setStep('success')` — o gate engole a tela de success e mostra spinner de página inteira para sempre. Mesmo bug atinge o efeito de idempotência (386-407) ao recarregar com order paga.
 
-## Plano de correção
+### Mudança 1 — gate de render (linhas 424-431)
 
-1. **Editar `src/pages/EditarEvento.tsx`**
-   - Ajustar a hidratação do formulário para rodar quando os valores reais do evento mudarem, não só quando o ID muda.
-   - Usar `reset(formValues, { keepDirtyValues: false })` assim que o evento carregado estiver pronto.
-   - Preencher também `imageUrl` no mesmo fluxo de hidratação, garantindo que o editor reflita o evento carregado.
-   - Normalizar valores defensivamente:
-     - `time` e `end_time`: aceitar `HH:mm:ss` e converter para `HH:mm`.
-     - `state`: converter para UF maiúscula.
-     - `status`: fallback seguro para `draft` somente se vier ausente.
-     - `event_type`: fallback seguro para `ingresso` somente se vier ausente.
+Antes:
+```tsx
+if (!hold || !event || !customer || step === null) {
+  return <spinner />;
+}
+```
 
-2. **Editar `src/components/producer/TimeSelect.tsx`**
-   - Tornar o componente tolerante a valores `HH:mm:ss`, normalizando para `HH:mm` antes de passar para o Select.
-   - Isso evita placeholder vazio caso algum dado venha direto do banco com segundos.
+Depois:
+```tsx
+// Steps terminais não dependem do hold (já foi limpo após pagamento).
+// Só dependem de event + orderId/resultado. Esses precisam renderizar mesmo
+// com hold=null — senão o gate engole 'success' e fica em spinner eterno.
+const isTerminalStep = step === 'success' || step === 'verifying';
+if (!event || !customer || step === null || (!isTerminalStep && !hold)) {
+  return <spinner />;
+}
+```
 
-3. **Editar `src/components/producer/ImageUpload.tsx`**
-   - Trocar o comportamento de imagem quebrada para não chamar `onChange(undefined)` automaticamente no render inicial.
-   - Em vez disso, mostrar um estado visual de “imagem indisponível” com botão de trocar/remover.
-   - Isso evita mutar o estado do formulário só porque a URL antiga está quebrada, mas permite reenviar imagem normalmente.
+`hold` só é exigido em steps ativos (`form`, `cpf`, `method`, `pix`, `card`, `awaiting`). `success` e `verifying` passam pelo gate mesmo com `hold = null`.
 
-4. **Validação após implementar**
-   - Abrir `/produtor/editar-evento/6209242a-cc5d-4eda-b4ab-4f8d17d74745` em build estável.
-   - Confirmar visualmente:
-     - Horário de início: `17:00`
-     - Horário de fim: `01:00`
-     - Estado: `SP`
-     - Status: `Publicado`
-     - Tipo de venda: `Híbrido`
-   - Confirmar que imagem quebrada não fica preta e que o usuário consegue trocar por uma nova.
+### Mudança 2 — `ReservedPill` na linha 448
+
+Antes:
+```tsx
+{step !== 'success' && <ReservedPill expiresAt={hold.expiresAt} />}
+```
+
+Depois:
+```tsx
+{hold && !isTerminalStep && <ReservedPill expiresAt={hold.expiresAt} />}
+```
+
+Sem isso, `hold.expiresAt` quebra no step `verifying` quando o hold já foi limpo. A pílula só faz sentido enquanto a reserva está ativa.
+
+### O que NÃO muda
+
+- `handlePaymentConfirmed` continua chamando `clearLocalHold()` (correto — após pagar não há mais reserva pra liberar).
+- Efeito de idempotência (386-407) continua igual; com o novo gate, `setStep('success')` agora renderiza mesmo com `hold = null`.
+- Edges (`create-seat-pix`, `mercadopago-webhook`, `check-mercadopago-payment`) intocadas — Fase 1 itens 1 e 2 provaram que `external_reference == orders.id` e RLS do cliente está correta.
+- Nada de logs temporários (a instrumentação não chegou a ser aplicada — `console.log` em `SeatCheckout.tsx` e `CheckoutStepPix.tsx` já está vazio, confirmado via `rg`).
+
+### Validação manual (Gabriel)
+
+- PIX aprovado → tela de Success (não spinner).
+- Recarregar `/checkout/mesa/:id` após pago → idempotência leva direto a Success, sem repedir pagamento.
+- Cartão aprovado / `approved_pending` → tela Success após webhook.
+
+### Técnico
+
+- 1 arquivo: `src/pages/SeatCheckout.tsx`.
+- 2 edits cirúrgicos (linhas 424-431 e linha 448).
+- `tsc --noEmit` rodará limpo (`isTerminalStep` é boolean simples, `Step` já inclui 'success' e 'verifying').
+- Sem migration, sem mudança em edges, sem alteração no `useSeatHold`.
