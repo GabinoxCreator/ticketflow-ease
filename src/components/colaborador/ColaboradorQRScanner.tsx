@@ -70,12 +70,14 @@ export default function ColaboradorQRScanner({
       }
 
       let r: CheckinResultData;
+      const seatLabel = formatSeatLabel(data.ticket?.seat_label, data.ticket?.seat_type_name) ?? undefined;
       if (data.success) {
         r = {
           type: 'success',
           message: 'Pode entrar!',
           holderName: data.ticket?.holder_name,
           lotName: data.ticket?.lot_name,
+          seatLabel,
           ticketCode: data.ticket?.ticket_code,
         };
         if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -85,6 +87,7 @@ export default function ColaboradorQRScanner({
           type: 'window_closed',
           message: buildWindowMessage(data.reason, data.starts_at, data.ends_at),
           holderName: data.ticket?.holder_name,
+          seatLabel,
         };
         if (navigator.vibrate) navigator.vibrate(300);
       } else if (data.error?.includes('já foi utilizado')) {
@@ -93,6 +96,7 @@ export default function ColaboradorQRScanner({
           message: 'Esse ingresso já passou pela portaria.',
           holderName: data.ticket?.holder_name,
           lotName: data.ticket?.lot_name,
+          seatLabel,
           validatedAt: data.ticket?.validated_at,
         };
         if (navigator.vibrate) navigator.vibrate(300);
@@ -102,6 +106,7 @@ export default function ColaboradorQRScanner({
           message: 'Pagamento ainda não confirmado.',
           holderName: data.ticket?.holder_name,
           lotName: data.ticket?.lot_name,
+          seatLabel,
         };
         if (navigator.vibrate) navigator.vibrate(300);
       } else if (data.error?.includes('não encontrado') || !data.found) {
@@ -115,6 +120,7 @@ export default function ColaboradorQRScanner({
           type: 'error',
           message: data.error || 'Não foi possível validar agora.',
           holderName: data.ticket?.holder_name,
+          seatLabel,
         };
         if (navigator.vibrate) navigator.vibrate(300);
       }
