@@ -29,7 +29,7 @@ import { LotCard } from '@/components/event/LotCard';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
 import { EventPolicies } from '@/components/event/EventPolicies';
-import { EventOrderSummary, type SummaryItem } from '@/components/event/EventOrderSummary';
+import type { SummaryItem } from '@/components/event/EventOrderSummary';
 import { EventCartSheet } from '@/components/event/EventCartSheet';
 import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
 
