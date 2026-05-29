@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface EventSeatRow {
   id: string;
   event_id: string;
-  status: 'available' | 'held' | 'sold' | 'blocked';
+  status: 'available' | 'held' | 'sold' | 'blocked' | 'manual';
   held_by_user_id: string | null;
   hold_expires_at: string | null;
   hold_token: string | null;

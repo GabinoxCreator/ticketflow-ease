@@ -40,6 +40,9 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
 
   const resolveVisualStatus = useCallback(
     (seat: EventSeatRow): VStatus => {
+      // 'manual' = mesa fechada pelo produtor fora do checkout. Tratada como
+      // indisponível no mapa público (não clicável, mesma aparência de sold).
+      if (seat.status === 'manual') return 'sold';
       if (seat.status === 'sold') return 'sold';
       if (seat.status === 'blocked') return 'blocked';
       if (seat.status === 'held') {
