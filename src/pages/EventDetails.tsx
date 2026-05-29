@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
@@ -29,7 +29,9 @@ import { LotCard } from '@/components/event/LotCard';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
 import { EventPolicies } from '@/components/event/EventPolicies';
-import { EventOrderSummary, type SummaryItem } from '@/components/event/EventOrderSummary';
+import type { SummaryItem } from '@/components/event/EventOrderSummary';
+import { EventCartSheet } from '@/components/event/EventCartSheet';
+import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -48,6 +50,8 @@ const EventDetails = () => {
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const prevTotalRef = useRef(0);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const { user } = useAuth();
@@ -101,6 +105,15 @@ const EventDetails = () => {
         .insert({ event_id: eventId, anonymous_id: anonymousId } as any);
     }
   }, [eventId, liked]);
+
+  // Auto-abre sheet apenas na transição 0 -> 1; fecha quando esvazia
+  const totalForEffect = Object.values(selectedLots).reduce((s, q) => s + q, 0);
+  useEffect(() => {
+    const prev = prevTotalRef.current;
+    if (prev === 0 && totalForEffect > 0) setIsCartOpen(true);
+    if (totalForEffect === 0 && isCartOpen) setIsCartOpen(false);
+    prevTotalRef.current = totalForEffect;
+  }, [totalForEffect]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pixelId: string | null =
     (event as any)?.producer_profiles?.tracking_enabled
@@ -167,6 +180,13 @@ const EventDetails = () => {
         return rest;
       }
       return { ...prev, [lotId]: newValue };
+    });
+  };
+
+  const handleRemoveLot = (lotId: string) => {
+    setSelectedLots((prev) => {
+      const { [lotId]: _, ...rest } = prev;
+      return rest;
     });
   };
 
@@ -254,9 +274,8 @@ const EventDetails = () => {
   })();
 
   const canonicalUrl = `https://festpag.com.br/evento/${event.slug ?? event.id}`;
-  const mesaHref = `/evento/${event.slug ?? event.id}/mapa`;
 
-  const showSidebar = !isEventFinished && (hasMap || activeLots.length > 0);
+
 
   return (
     <>
@@ -294,7 +313,7 @@ const EventDetails = () => {
       <div className="min-h-screen bg-background">
         <Header />
 
-        <main className={cn('pt-20 w-full pb-28 lg:pb-12')}>
+        <main className={cn('pt-20 w-full pb-28 lg:pb-28')}>
           {isEventFinished && (
             <div className="w-full bg-destructive/10 border-b border-destructive/20">
               <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-center gap-2">
@@ -304,15 +323,8 @@ const EventDetails = () => {
             </div>
           )}
 
-          <div
-            className={cn(
-              'max-w-7xl mx-auto px-3 sm:px-4 py-4 lg:py-6 gap-6 lg:gap-8',
-              showSidebar
-                ? 'grid lg:grid-cols-[minmax(0,1fr)_360px]'
-                : 'flex flex-col',
-            )}
-          >
-            {/* Coluna principal */}
+          <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 lg:py-6">
+            {/* Coluna única */}
             <div className="min-w-0 space-y-5 sm:space-y-6">
               {/* Hero: info + banner side-by-side em desktop */}
               <section className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-4 lg:gap-6 items-start">
@@ -490,36 +502,31 @@ const EventDetails = () => {
               <EventPolicies />
             </div>
 
-            {/* Sidebar desktop sticky */}
-            {showSidebar && (
-              <aside className="hidden lg:block">
-                <div className="sticky top-24">
-                  <EventOrderSummary
-                    variant="sidebar"
-                    items={summaryItems}
-                    totalAmount={totalAmount}
-                    totalCount={totalTickets}
-                    hasMesa={hasMap}
-                    mesaCtaHref={mesaHref}
-                    onCheckout={handleCheckout}
-                  />
-                </div>
-              </aside>
-            )}
           </div>
         </main>
 
         <Footer />
 
+        {!isEventFinished && totalTickets > 0 && (
+          <EventCartMiniBar
+            count={totalTickets}
+            totalAmount={totalAmount}
+            visible={!isCartOpen}
+            onOpen={() => setIsCartOpen(true)}
+          />
+        )}
+
         {!isEventFinished && (
-          <EventOrderSummary
-            variant="bar"
+          <EventCartSheet
+            open={isCartOpen && totalTickets > 0}
+            onOpenChange={setIsCartOpen}
             items={summaryItems}
             totalAmount={totalAmount}
             totalCount={totalTickets}
-            hasMesa={hasMap}
-            mesaCtaHref={mesaHref}
             onCheckout={handleCheckout}
+            onIncrement={(lotId) => handleQuantityChange(lotId, 1)}
+            onDecrement={(lotId) => handleQuantityChange(lotId, -1)}
+            onRemove={handleRemoveLot}
           />
         )}
 
