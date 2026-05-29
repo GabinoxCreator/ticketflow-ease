@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import ColaboradorQRScanner from './ColaboradorQRScanner';
 import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
 import { buildWindowMessage } from '@/lib/checkinWindow';
+import { formatSeatLabel } from '@/utils/seatLabel';
 
 interface TicketRow {
   id: string;
