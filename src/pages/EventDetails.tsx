@@ -183,6 +183,13 @@ const EventDetails = () => {
     });
   };
 
+  const handleRemoveLot = (lotId: string) => {
+    setSelectedLots((prev) => {
+      const { [lotId]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
   const totalAmount = Object.entries(selectedLots).reduce((total, [lotId, qty]) => {
     const lot = activeLots.find((l) => l.id === lotId);
     return total + (lot?.price || 0) * qty;
