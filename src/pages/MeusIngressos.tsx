@@ -693,7 +693,6 @@ const MeusIngressos = () => {
                   <TicketSkeleton />
                 </>
               ) : upcomingTickets.length > 0 ? (
-                upcomingTickets.map((ticket) => (
                 groupByOrder(upcomingTickets).map((group) => (
                   <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
@@ -712,7 +711,6 @@ const MeusIngressos = () => {
                   <TicketSkeleton />
                 </>
               ) : pastTickets.length > 0 ? (
-                pastTickets.map((ticket) => (
                 groupByOrder(pastTickets).map((group) => (
                   <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
@@ -728,7 +726,6 @@ const MeusIngressos = () => {
               {isLoading ? (
                 <TicketSkeleton />
               ) : cancelledTickets.length > 0 ? (
-                cancelledTickets.map((ticket) => (
                 groupByOrder(cancelledTickets).map((group) => (
                   <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
                 ))
