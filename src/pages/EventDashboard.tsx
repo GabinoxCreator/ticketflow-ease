@@ -62,10 +62,13 @@ export default function EventDashboard() {
     );
   }
 
+  const showTables = event.event_type === 'mesa' || event.event_type === 'hibrido';
+
   const tabItems = [
     { value: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
     { value: 'data', label: 'Dados', icon: FileText },
     { value: 'lots', label: 'Ingressos', icon: Ticket },
+    ...(showTables ? [{ value: 'tables', label: 'Mesas', icon: Armchair }] : []),
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'checkin', label: 'Check-in', icon: ScanLine },
