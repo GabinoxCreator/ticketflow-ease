@@ -50,6 +50,8 @@ const EventDetails = () => {
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const prevTotalRef = useRef(0);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const { user } = useAuth();
