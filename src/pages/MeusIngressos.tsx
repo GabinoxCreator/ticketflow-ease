@@ -162,7 +162,7 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
 
 
 
-const TicketCardSimple = ({ ticket }: { ticket: UserTicket }) => {
+const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; compact?: boolean }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
