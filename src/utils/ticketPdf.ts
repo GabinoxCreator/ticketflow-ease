@@ -14,6 +14,9 @@ export async function generateTicketPDF(ticket: UserTicket): Promise<void> {
       state: ticket.event.state,
     },
     lot: { name: ticket.lot.name },
+    seat: ticket.seat?.label
+      ? { label: ticket.seat.label, typeName: ticket.seat.seat_type_name }
+      : undefined,
     ticket: {
       ticket_code: ticket.ticket_code,
       holder_name: ticket.holder_name,
