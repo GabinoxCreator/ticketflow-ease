@@ -15,9 +15,10 @@ import { EventCheckinTab } from '@/components/producer/tabs/EventCheckinTab';
 import { EventDoorSalesTab } from '@/components/producer/tabs/EventDoorSalesTab';
 import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
 import { EventFinanceiroTab } from '@/components/producer/tabs/EventFinanceiroTab';
+import { EventTablesTab } from '@/components/producer/tabs/EventTablesTab';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet, Armchair } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
