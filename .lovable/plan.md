@@ -1,52 +1,44 @@
-# Agrupar Meus Ingressos por compra
+## Plan: Checklist operacional FestPag (admin-only)
 
-Hoje `/meus-ingressos` renderiza 1 card por ticket (`src/pages/MeusIngressos.tsx:555/573/589` → `<TicketCardSimple>`). Compras com várias unidades (mesa + adicionais) viram N cards soltos. Vou agrupar por `order_id` e mostrar 1 card-resumo por compra, expandindo os tickets individuais inline. Nada de geração/validação/QR/status muda — só apresentação.
+Adicionar um mapa de processo de eventos como ferramenta interna do admin. Dados hardcoded; sem Supabase nesta etapa.
 
-## Mudanças
+### 1. Novo componente — `src/components/admin/ProcessoEventoFestPag.tsx`
 
-### 1. `src/hooks/useUserTickets.ts`
-- Adicionar `order_id: string` ao `UserTicket` e incluí-lo no `.select(...)` do query.
-- Resto da lógica (filtros upcoming/past/cancelled por data do evento) permanece intacta.
+- React + TS + Tailwind, lucide-react (sem libs novas).
+- Container `max-w-[680px]` centralizado, light mode.
+- Tipos `Owner`, `Task`, `Phase` e array `phases` exatamente como na spec (7 fases, conteúdo literal — não reescrever copy).
+- Mapa de ícones lucide via objeto `{ Handshake, ClipboardList, Settings, MapPin, Truck, Users, PartyPopper, Check, ChevronDown, Zap }` para resolver `phase.icon` por string.
+- Estado em memória:
+  - `done: Set<string>` com chave `${phaseId}:${taskIdx}` — toggle ao clicar no card.
+  - `openPhases: Record<number, boolean>` — todas começam `true`.
+- UI:
+  - Topo: legenda (FestPag azul / Cliente âmbar / Ambos cinza / Bloqueador vermelho) + barra de progresso (trilho `#E8E6DF`, fill `#3B6D11`) + texto "X de Y tarefas concluídas · NN%".
+  - Cada fase: header clicável com badge colorida (HEX da paleta), ícone da fase, título peso 500, meta, contador `n/total`, chevron rotacionado 180° quando aberto.
+  - Corpo: cards de tarefa (`bg-#F7F6F2`, border `#E8E6DF`, radius 8px) com checkbox redondo à esquerda (verde `#EAF3DE`/`#3B6D11` quando done), título (riscado + opacidade reduzida quando done), sub, e linha de badges: responsável (fp/cli/amb com HEX da spec), `Bloqueador` (`#FCEBEB`/`#A32D2D` + ícone Zap) se `blocker`, `dep` (cinza tracejado) se houver.
+- Cores aplicadas via `style={{ backgroundColor, color, borderColor }}` (HEX literais da spec — exceção explícita à regra de tokens, pois a spec exige HEX validados).
+- Tipografia: títulos `font-medium`, corpo `font-normal`, sem `font-bold` no meio de frase.
 
-### 2. `src/pages/MeusIngressos.tsx`
-Novo componente local `OrderGroupCard({ tickets })` que recebe N tickets do mesmo `order_id` (todos do mesmo evento, já que orders são por evento).
+### 2. Nova rota — `src/App.tsx`
 
-Função helper `groupByOrder(tickets)`:
-- Reduce em `Map<order_id, UserTicket[]>` preservando a ordem original (que já vem por `created_at desc` do hook → cards-resumo ordenados pela compra mais recente, igual hoje).
-- Dentro de cada grupo, ordena os tickets por `seat.label ?? ticket_code` (estável) para a expansão.
+- Adicionar `/admin/checklist` junto das outras rotas `/admin/*`, protegida pelo **mesmo `AdminProtectedRoute` já usado** (ex.: `/admin/configuracoes`) e envolto em `AdminLayout` com `title="Checklist"` (mesmo padrão de `AdminSaude`).
+- Nova página fina `src/pages/admin/AdminChecklist.tsx` que renderiza `<AdminLayout title="Checklist"><ProcessoEventoFestPag /></AdminLayout>`.
 
-Renderização por aba — substituir cada `upcomingTickets.map(t => <TicketCardSimple … />)` por:
-```
-groupByOrder(upcomingTickets).map(group => <OrderGroupCard tickets={group} />)
-```
-Mesma troca em `past` e `cancelled`. Tabs e contadores no header continuam contando tickets (não grupos) — match com o badge atual.
+### 3. Item de menu — `src/components/admin/AdminSidebar.tsx`
 
-### 3. `OrderGroupCard` — comportamento
+- Adicionar entrada em `menuItems` entre `Repasses` e `Saúde` (ou antes de `Configurações`, mas fora dela — confirmado: `Configurações` é para taxas/convites):
+  ```ts
+  { title: 'Checklist', url: '/admin/checklist', icon: ClipboardCheck }
+  ```
+- Importar `ClipboardCheck` do `lucide-react`. Mesmo `NavLink`, mesmas classes laranja já usadas pelos outros itens — zero divergência de estilo.
 
-**Caso 1 ingresso (decisão):** renderiza **direto o `<TicketCardSimple>` existente, sem wrapper nem botão de expandir.** Mantém UX atual idêntica pra quem comprou só 1 ingresso (sem clique extra).
+### Fora de escopo
 
-**Caso N ingressos:**
-- Card-resumo (mesmo visual base do TicketCardSimple — imagem do evento + título + data/hora/local em grid + faixa lateral colorida) mostrando:
-  - Imagem + título do evento (clica → vai pro evento)
-  - Badge "N ingressos" no topo direito (substitui o badge de status individual, já que vários tickets podem ter status diferentes)
-  - Sub-resumo de status: ex. "4 válidos · 2 utilizados" (só os contadores > 0)
-  - Data / Horário / Local (mesmos cards de info já usados)
-  - Botão **"Ver ingressos (N)"** com chevron — toggleia `expanded` (default `false`)
-- Quando `expanded`:
-  - Renderiza `tickets.map(t => <TicketCardSimple ticket={t} />)` numa lista indentada (`pl-4 border-l border-border/40`) abaixo do botão.
-  - **NÃO altera o `<TicketCardSimple>`** — cada um mantém seu QR, código único, badge Válido/Usado, PDF e botão "Usar Ingresso" individuais.
+- Sem Supabase, sem edge function, sem persistência, sem multi-evento.
+- Sem dark mode nesta versão.
+- Sem alterações em outras telas admin, em rotas de produtor/cliente, ou em guards.
 
-### 4. Detalhes técnicos
-- `expanded` é estado local do `OrderGroupCard` (`useState(false)`).
-- Para contadores de status no resumo: `tickets.filter(t => t.status === 'valid').length` etc.
-- Não toca em `useUserTickets` além de adicionar `order_id` ao select e ao tipo.
-- Não toca em edges, checkout, validação, QR, PDF, TicketCardSimple.
-- Não cria abas novas — agrupa dentro das abas existentes (Próximos/Anteriores/Cancelados).
+### Validação
 
-## Validação
 - `tsc --noEmit` limpo.
-- Screenshots: card-resumo colapsado mostrando "6 ingressos", mesmo card expandido com os 6 TicketCardSimple individuais (cada um com seu QR/PDF/Usar), e compra de 1 ingresso renderizando direto sem botão de expandir.
-
-## Arquivos editados
-- `src/hooks/useUserTickets.ts` (adicionar `order_id`)
-- `src/pages/MeusIngressos.tsx` (novo `OrderGroupCard` + `groupByOrder` + trocar `.map` nas 3 abas)
+- Screenshot de `/admin/checklist` com o item "Checklist" ativo no sidebar e o accordion renderizado.
+- Reporta arquivo:linha das 3 mudanças (sidebar, rota, página).

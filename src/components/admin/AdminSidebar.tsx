@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity, ClipboardCheck } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,7 @@ const menuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
   { title: 'Produtores', url: '/admin/produtores', icon: Users },
   { title: 'Repasses', url: '/admin/repasses', icon: Banknote },
+  { title: 'Checklist', url: '/admin/checklist', icon: ClipboardCheck },
   { title: 'Saúde', url: '/admin/saude', icon: Activity },
   { title: 'Configurações', url: '/admin/configuracoes', icon: Settings },
 ];
