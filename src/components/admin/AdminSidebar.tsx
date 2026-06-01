@@ -32,6 +32,7 @@ export function AdminSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { hasSection, isManager } = useAdminPermissions();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -39,6 +40,8 @@ export function AdminSidebar() {
     await signOut();
     navigate('/admin/login');
   };
+
+  const visibleItems = menuItems.filter((it) => hasSection(it.section));
 
   return (
     <Sidebar collapsible="icon" className="border-r border-orange-500/20">
@@ -55,7 +58,7 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -70,6 +73,20 @@ export function AdminSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isManager && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/admin/equipe"
+                      className="hover:bg-orange-500/10"
+                      activeClassName="bg-orange-500/20 text-orange-400 font-medium"
+                    >
+                      <Users2 className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Equipe</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
