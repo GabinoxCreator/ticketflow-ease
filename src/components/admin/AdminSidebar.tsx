@@ -1,8 +1,8 @@
-import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Banknote, Settings, LogOut, Shield, Activity, ClipboardCheck, Users2 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import logoFestpag from '@/assets/logo-festpag.png';
+import { useAdminPermissions, type AdminSection } from '@/hooks/useAdminPermissions';
 import {
   Sidebar,
   SidebarContent,
@@ -17,13 +17,13 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
-const menuItems = [
-  { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
-  { title: 'Produtores', url: '/admin/produtores', icon: Users },
-  { title: 'Repasses', url: '/admin/repasses', icon: Banknote },
-  { title: 'Checklist', url: '/admin/checklist', icon: ClipboardCheck },
-  { title: 'Saúde', url: '/admin/saude', icon: Activity },
-  { title: 'Configurações', url: '/admin/configuracoes', icon: Settings },
+const menuItems: { title: string; url: string; icon: typeof LayoutDashboard; section: AdminSection }[] = [
+  { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard, section: 'dashboard' },
+  { title: 'Produtores', url: '/admin/produtores', icon: Users, section: 'produtores' },
+  { title: 'Repasses', url: '/admin/repasses', icon: Banknote, section: 'repasses' },
+  { title: 'Checklist', url: '/admin/checklist', icon: ClipboardCheck, section: 'checklist' },
+  { title: 'Saúde', url: '/admin/saude', icon: Activity, section: 'saude' },
+  { title: 'Configurações', url: '/admin/configuracoes', icon: Settings, section: 'configuracoes' },
 ];
 
 export function AdminSidebar() {
@@ -32,6 +32,7 @@ export function AdminSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { hasSection, isManager } = useAdminPermissions();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -39,6 +40,8 @@ export function AdminSidebar() {
     await signOut();
     navigate('/admin/login');
   };
+
+  const visibleItems = menuItems.filter((it) => hasSection(it.section));
 
   return (
     <Sidebar collapsible="icon" className="border-r border-orange-500/20">
@@ -55,7 +58,7 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -70,6 +73,20 @@ export function AdminSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isManager && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/admin/equipe"
+                      className="hover:bg-orange-500/10"
+                      activeClassName="bg-orange-500/20 text-orange-400 font-medium"
+                    >
+                      <Users2 className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Equipe</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

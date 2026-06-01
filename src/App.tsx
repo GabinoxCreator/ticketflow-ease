@@ -49,7 +49,9 @@ import AdminRepasses from "./pages/admin/AdminRepasses";
 import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
 import AdminChecklist from "./pages/admin/AdminChecklist";
+import AdminEquipe from "./pages/admin/AdminEquipe";
 import { AdminLayout } from "./components/admin/AdminLayout";
+import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
@@ -132,13 +134,14 @@ const App = () => (
                 
                 {/* Admin Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={<AdminProtectedRoute><AdminDashboard /></AdminProtectedRoute>} />
-                <Route path="/admin/produtores" element={<AdminProtectedRoute><AdminProdutores /></AdminProtectedRoute>} />
-                <Route path="/admin/produtores/:id" element={<AdminProtectedRoute><AdminProdutorDetalhe /></AdminProtectedRoute>} />
-                <Route path="/admin/repasses" element={<AdminProtectedRoute><AdminRepasses /></AdminProtectedRoute>} />
-                <Route path="/admin/configuracoes" element={<AdminProtectedRoute><AdminConfiguracoes /></AdminProtectedRoute>} />
-                <Route path="/admin/saude" element={<AdminProtectedRoute><AdminLayout><AdminSaude /></AdminLayout></AdminProtectedRoute>} />
-                <Route path="/admin/checklist" element={<AdminProtectedRoute><AdminChecklist /></AdminProtectedRoute>} />
+                <Route path="/admin/dashboard" element={<AdminProtectedRoute><SectionProtectedRoute section="dashboard"><AdminDashboard /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/produtores" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminProdutores /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/produtores/:id" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminProdutorDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/repasses" element={<AdminProtectedRoute><SectionProtectedRoute section="repasses"><AdminRepasses /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/configuracoes" element={<AdminProtectedRoute><SectionProtectedRoute section="configuracoes"><AdminConfiguracoes /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/saude" element={<AdminProtectedRoute><SectionProtectedRoute section="saude"><AdminLayout><AdminSaude /></AdminLayout></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/checklist" element={<AdminProtectedRoute><SectionProtectedRoute section="checklist"><AdminChecklist /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/equipe" element={<AdminProtectedRoute><SectionProtectedRoute section="_manage_team"><AdminEquipe /></SectionProtectedRoute></AdminProtectedRoute>} />
 
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
