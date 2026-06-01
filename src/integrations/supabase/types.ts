@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_section_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          section: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          section: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          section?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2048,6 +2069,7 @@ export type Database = {
           fee_percent: number
         }[]
       }
+      has_manage_team: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
