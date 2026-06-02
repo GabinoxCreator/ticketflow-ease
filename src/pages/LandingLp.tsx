@@ -631,7 +631,7 @@ export default function LandingLp() {
       <Helmet>
         <title>Festpag Digital — O banco oficial dos eventos</title>
         <link
-          href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500&display=swap"
           rel="stylesheet"
         />
         <style>{LP_CSS}</style>
@@ -641,17 +641,20 @@ export default function LandingLp() {
         <nav>
           <img src={logoFestpag} alt="Festpag" className="nav-logo" />
 
-          <a href="#contato" className="nav-cta">Quero mais informações</a>
+          <a href="#contato" className="btn btn-secondary">Falar com a equipe</a>
         </nav>
 
         {/* HERO */}
         <div className="hero">
+          <p className="hero-eyebrow">O banco oficial dos eventos</p>
           <img src={logoFestpag} alt="Festpag" className="hero-logo" />
-
           <h1 className="hero-headline">A operação inteligente para eventos que querem <span>vender mais</span></h1>
           <p className="hero-sub">Reduzir filas e operar com controle total. Do ingresso ao consumo, tudo conectado em um único ecossistema.</p>
-          <p className="hero-tag">O banco oficial dos eventos</p>
-          <a href="#contato" className="hero-btn">Quero mais informações</a>
+          <div className="hero-ctas">
+            <a href="#contato" className="btn btn-primary btn-lg">Falar com a equipe</a>
+            <a href="#ecossistema" className="btn btn-secondary btn-lg">Ver soluções</a>
+          </div>
+
         </div>
 
         {/* PROBLEMA */}
@@ -942,7 +945,7 @@ export default function LandingLp() {
           <p className="footer-tagline">O banco oficial dos eventos</p>
           <a href="https://festpag.digital" className="footer-url">festpag.digital</a>
           <br />
-          <a href="#contato" className="footer-cta">Quero mais informações</a>
+          <div className="footer-cta-wrap"><a href="#contato" className="btn btn-primary">Falar com a equipe</a></div>
         </footer>
       </div>
     </>
