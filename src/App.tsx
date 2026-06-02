@@ -50,8 +50,10 @@ import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
 import AdminChecklist from "./pages/admin/AdminChecklist";
 import AdminEquipe from "./pages/admin/AdminEquipe";
+import AdminLeads from "./pages/admin/AdminLeads";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
+import LandingLp from "./pages/LandingLp";
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
