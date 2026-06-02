@@ -616,12 +616,26 @@ const LP_CSS = `
   .lp-root .hero-logo { height: 44px; }
   .lp-root .hero-ctas { flex-direction: column; width: 100%; }
   .lp-root .hero-ctas .btn { width: 100%; }
-  .lp-root .hero { min-height: auto; padding: 72px 20px 48px; }
-  .lp-root .hero-grid { grid-template-columns: 1fr; gap: 20px; }
-  .lp-root .hero-copy { align-items: center; text-align: center; order: 2; }
-  .lp-root .hero-ctas { justify-content: center; }
-  .lp-root .hero-visual { max-width: 220px; aspect-ratio: 9 / 16; order: 1; }
-  .lp-root .hero-visual::before { filter: blur(50px); inset: -5%; }
+  .lp-root .hero { min-height: auto; padding: 64px 20px 48px; overflow: hidden; }
+  .lp-root .hero-grid { display: block; position: relative; }
+  .lp-root .hero-copy { align-items: flex-start; text-align: left; position: relative; z-index: 2; }
+  .lp-root .hero-ctas { justify-content: flex-start; }
+  .lp-root .hero-headline { max-width: 70%; }
+  .lp-root .hero-sub { max-width: 100%; }
+  .lp-root .hero-visual {
+    position: absolute;
+    top: 38%;
+    right: -36px;
+    width: 200px;
+    min-height: 0;
+    max-width: none;
+    transform: rotate(-4deg);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .lp-root .hero-visual::before { filter: blur(45px); inset: 10% -10%; opacity: 0.6; }
+  .lp-root .hero-visual img { max-height: 280px; }
+
 
 }
 `;
