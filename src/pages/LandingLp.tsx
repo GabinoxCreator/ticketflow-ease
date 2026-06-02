@@ -162,7 +162,7 @@ const LP_CSS = `
   padding: clamp(72px, 9vw, 112px) clamp(20px, 4vw, 32px);
   position: relative;
 }
-.lp-root .section-alt { background: var(--bg-1); }
+.lp-root section:nth-of-type(even) { background: var(--bg-1); }
 .lp-root .section-inner { max-width: 1040px; margin: 0 auto; }
 .lp-root .section-label {
   font-size: var(--fs-label);
