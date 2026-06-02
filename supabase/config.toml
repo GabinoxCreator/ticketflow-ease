@@ -96,3 +96,6 @@ verify_jwt = true
 
 [functions.charge-seat-card]
 verify_jwt = true
+
+[functions.submit-landing-lead]
+verify_jwt = false
