@@ -928,7 +928,7 @@ export default function LandingLp() {
                     />
                   </div>
                   <button className="submit-btn" onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? 'Enviando...' : 'Quero ser contactado'}
+                    {submitting ? 'Enviando...' : 'Enviar formulário'}
                   </button>
                   {errorMsg && <div className="err-msg">{errorMsg}</div>}
                 </div>
