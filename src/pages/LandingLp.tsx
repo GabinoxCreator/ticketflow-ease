@@ -696,15 +696,21 @@ export default function LandingLp() {
 
         {/* HERO */}
         <div className="hero">
-          <p className="hero-eyebrow">O banco oficial dos eventos</p>
-          <img src={logoFestpag} alt="Festpag" className="hero-logo" />
-          <h1 className="hero-headline">A operação inteligente para eventos que querem <span>vender mais</span></h1>
-          <p className="hero-sub">Reduzir filas e operar com controle total. Do ingresso ao consumo, tudo conectado em um único ecossistema.</p>
-          <div className="hero-ctas">
-            <a href="#contato" className="btn btn-primary btn-lg">Falar com a equipe</a>
-            <a href="#ecossistema" className="btn btn-secondary btn-lg">Ver soluções</a>
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <p className="hero-eyebrow">O banco oficial dos eventos</p>
+              <img src={logoFestpag} alt="Festpag" className="hero-logo" />
+              <h1 className="hero-headline">A operação inteligente para eventos que querem <span>vender mais</span></h1>
+              <p className="hero-sub">Reduzir filas e operar com controle total. Do ingresso ao consumo, tudo conectado em um único ecossistema.</p>
+              <div className="hero-ctas">
+                <a href="#contato" className="btn btn-primary btn-lg">Falar com a equipe</a>
+                <a href="#ecossistema" className="btn btn-secondary btn-lg">Ver soluções</a>
+              </div>
+            </div>
+            <div className="hero-visual">
+              <img src={totemAsset.url} alt="Totem FestPag com reconhecimento facial" loading="eager" />
+            </div>
           </div>
-
         </div>
 
         {/* PROBLEMA */}
