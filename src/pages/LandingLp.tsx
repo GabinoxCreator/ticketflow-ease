@@ -856,24 +856,9 @@ export default function LandingLp() {
           <div className="form-inner">
             <div className="form-card">
               <div className="form-logo">
-                <svg width="260" height="84" viewBox="0 0 520 168" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="form-lg" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#6B5CF0" />
-                      <stop offset="25%" stopColor="#8B5AE0" />
-                      <stop offset="55%" stopColor="#C040B5" />
-                      <stop offset="100%" stopColor="#E840A0" />
-                    </linearGradient>
-                    <linearGradient id="form-lg2" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#7060F0" />
-                      <stop offset="100%" stopColor="#D040B0" />
-                    </linearGradient>
-                  </defs>
-                  <text x="0" y="126" fontFamily="Arial Black, Arial, sans-serif" fontWeight="900" fontSize="140" fill="url(#form-lg)">festpag</text>
-                  <rect x="246" y="108" width="10" height="58" fill="#7260F2" rx="2" />
-                  <text x="256" y="164" fontFamily="Arial Black, Arial, sans-serif" fontWeight="700" fontSize="46" fill="url(#form-lg2)">.digital</text>
-                </svg>
+                <img src={logoFestpag} alt="Festpag" />
               </div>
+
 
               <p className="form-heading">Quer mais informações?</p>
               <h3 className="form-title">Fale com a <span>nossa equipe</span></h3>
@@ -954,23 +939,9 @@ export default function LandingLp() {
         {/* FOOTER */}
         <footer>
           <div className="footer-logo">
-            <svg width="200" height="60" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="ft-lg" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#6B5CF0" />
-                  <stop offset="50%" stopColor="#C040B0" />
-                  <stop offset="100%" stopColor="#E040A0" />
-                </linearGradient>
-                <linearGradient id="ft-lg2" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#7B6CF6" />
-                  <stop offset="100%" stopColor="#D040B0" />
-                </linearGradient>
-              </defs>
-              <text x="0" y="88" fontFamily="Arial Black,Arial,sans-serif" fontWeight="900" fontSize="96" fill="url(#ft-lg)">festpag</text>
-              <rect x="184" y="74" width="7" height="40" fill="#7060F0" rx="1" />
-              <text x="191" y="110" fontFamily="Arial Black,Arial,sans-serif" fontWeight="700" fontSize="34" fill="url(#ft-lg2)">.digital</text>
-            </svg>
+            <img src={logoFestpag} alt="Festpag" />
           </div>
+
           <p className="footer-tagline">O banco oficial dos eventos</p>
           <a href="https://festpag.digital" className="footer-url">festpag.digital</a>
           <br />
