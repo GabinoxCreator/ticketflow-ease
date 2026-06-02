@@ -1,96 +1,60 @@
-# Plano — Landing /lp + Leads no admin
+## Objetivo
+Refatorar `src/pages/LandingLp.tsx` para corrigir os problemas de harmonia visual: escala tipográfica inconsistente, SVGs de logo "festpag.digital" feitos à mão (que não batem com a marca), espaçamentos irregulares entre seções e cartões com pesos visuais desencontrados.
 
-## 1. Arquivos & migrations
+O HTML original era inspiração — vou manter a estrutura narrativa (hero → o que é → como funciona → ROI → Facepag → modelo antigo vs novo → para quem → formulário) mas reconstruir a camada visual de forma coerente.
 
-### Migration única
-`supabase/migrations/<ts>_landing_leads_and_section.sql`:
+## O que muda
 
-**a) Tabela `landing_leads`**
-```sql
-CREATE TABLE public.landing_leads (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  nome text NOT NULL,
-  cidade text NOT NULL,
-  tipo_evento text NOT NULL,
-  telefone text NOT NULL,
-  status text NOT NULL DEFAULT 'novo'
-    CHECK (status IN ('novo','contatado','convertido','descartado')),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-GRANT SELECT, UPDATE ON public.landing_leads TO authenticated;
-GRANT ALL ON public.landing_leads TO service_role;
--- sem grant pra anon; INSERT só via service-role na edge
-ALTER TABLE public.landing_leads ENABLE ROW LEVEL SECURITY;
+### 1. Logo
+- Trocar os 3 SVGs inline (nav, formulário, footer) pela logo oficial `src/assets/logo-festpag.png`.
+- Tamanhos coerentes: 32px no nav, 56px no hero, 48px no card do formulário, 40px no footer.
+
+### 2. Escala tipográfica (uma única escala harmônica)
+Sistema modular baseado em 1.25 (major third), Syne para títulos, DM Sans para corpo:
+
+```
+display   clamp(40px, 6vw, 72px)   hero headline
+h2        clamp(28px, 4vw, 44px)   section titles
+h3        22px                     card titles
+h4        16px                     sub-cards
+body-lg   18px                     hero sub, intro
+body      15px                     corpo padrão
+label     11px / tracking 2.5px    section labels
+micro     13px                     legendas
 ```
 
-**b) Função `has_section` (SECURITY DEFINER)**
-```sql
-CREATE OR REPLACE FUNCTION public.has_section(_user_id uuid, _section text)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.admin_section_permissions
-    WHERE user_id = _user_id AND (section = _section OR section = '_manage_team')
-  )
-$$;
-```
+Hoje tem `clamp(28,5vw,52)` no hero, `28px` em section-title, `15px` em corpo, `13/14/16` misturados em cards — vou unificar.
 
-**c) Policies `landing_leads`**
-- SELECT: `public.has_section(auth.uid(),'leads')`
-- UPDATE: `USING/WITH CHECK public.has_section(auth.uid(),'leads')`
-- Sem policy de INSERT/DELETE → bloqueado para `authenticated`; service-role bypassa RLS.
+### 3. Ritmo vertical
+- Padding de seção único: `clamp(80px, 10vw, 120px) 24px`.
+- `section-inner` max-width 1040px (hoje 900px, aperta em desktop).
+- Gap interno consistente entre label → title → divider → conteúdo: 16 / 24 / 40.
+- Remover o alternado `nth-of-type(even)` agressivo; usar fundo sutil só em 2 seções-chave para criar respiração, não zebra.
 
-**d) Atualizar CHECK de `admin_section_permissions`**
-Nome real: `admin_section_permissions_section_check`.
-```sql
-ALTER TABLE public.admin_section_permissions
-  DROP CONSTRAINT admin_section_permissions_section_check;
-ALTER TABLE public.admin_section_permissions
-  ADD CONSTRAINT admin_section_permissions_section_check
-  CHECK (section IN ('dashboard','produtores','repasses','leads','checklist','saude','configuracoes','_manage_team'));
-```
+### 4. Cards e componentes
+- Unificar border-radius (16px cards, 24px CTAs, 40px pills).
+- Unificar border (`1px solid hsl(var(--border) / 0.15)`) e hover.
+- Grid de "como funciona" / "Facepag" / ROI com mesmo tamanho de ícone (48px), mesmo padding (28px), mesma altura mínima.
+- "Modelo antigo vs novo": colunas com mesma altura, divisor central sutil.
 
-**e) Seed admin primário**
-```sql
-DO $$ DECLARE _uid uuid;
-BEGIN
-  SELECT id INTO _uid FROM auth.users WHERE email='gabinox54037@gmail.com';
-  IF _uid IS NOT NULL THEN
-    INSERT INTO public.admin_section_permissions (user_id, section)
-    VALUES (_uid, 'leads') ON CONFLICT DO NOTHING;
-  END IF;
-END $$;
-```
+### 5. Hero
+- Reduzir altura para `min-height: 88vh` e centralizar melhor.
+- Glow radial mais sutil, grid de fundo opacidade 0.03.
+- Espaço entre logo / headline / sub / tag / CTA padronizado (24/20/12/32).
 
-### Edge function (nova)
-- `supabase/functions/submit-landing-lead/index.ts` — pública (sem JWT), Zod, rate-limit por IP usando `_shared/rateLimit.ts`, INSERT via service-role e envio de email via Resend (mesmo padrão de `send-verification-code`: `new Resend(Deno.env.get("RESEND_API_KEY"))` com `from: "FestPag <naoresponda@festpag.com.br>"`, `to:` lista da equipe). Assunto: `Novo lead FestPag — {nome}, {cidade}`.
+### 6. Formulário
+- Card do formulário com mesma linguagem dos demais (mesmo radius, border, shadow).
+- Logo PNG no topo no lugar do SVG. Inputs com mesma altura (48px), mesmo radius (10px).
 
-### Frontend (novos)
-- `src/pages/LandingLp.tsx` — porte fiel do `festpag-landpage.html`. CSS escopado via `<style>` inline na própria rota (tag `<style>` no JSX) + `<link>` Google Fonts (Syne + DM Sans) injetado via `react-helmet-async` (já no projeto). Logo SVG inline. Máscara de telefone preservada. Submit chama `supabase.functions.invoke('submit-landing-lead', ...)`. Mensagem de sucesso idêntica.
-- `src/pages/admin/AdminLeads.tsx` — `AdminLayout` + tabela (shadcn `Table`), filtro por status (`Select`), busca por nome/telefone (`Input`), badge contagem `novo`, dropdown de status por linha com update otimista + rollback (`@tanstack/react-query`).
+### 7. Mobile
+- Mesma escala via `clamp()`, sem media queries adicionais.
+- Padding lateral de 20px em <640px.
+- Garantir que cards empilhem em 1 coluna < 768px.
 
-### Frontend (editados)
-- `src/App.tsx` — rota pública `/lp` → `<LandingLp />`; rota `/admin/leads` envolta em `<AdminProtectedRoute><SectionProtectedRoute section="leads"><AdminLeads /></SectionProtectedRoute></AdminProtectedRoute>`.
-- `src/components/admin/AdminSidebar.tsx` — novo item `{ title:'Leads', url:'/admin/leads', icon: Inbox, section:'leads' }` inserido após Repasses.
-- `src/hooks/useAdminPermissions.ts` — adicionar `'leads'` ao tipo `AdminSection`.
-- `src/components/admin/SectionProtectedRoute.tsx` — incluir `'leads'` na ordem de fallback após `'repasses'`.
+## Arquivos
+- **Editado**: `src/pages/LandingLp.tsx` — reescrita do bloco `LP_CSS` (sistema de design único) e troca dos 3 SVGs inline pelo `<img src={logoFestpag}>`. JSX da estrutura permanece igual (mesmo conteúdo, mesmas seções, mesmo formulário e mesma chamada à edge `submit-landing-lead`).
 
-## 2. CHECK constraint atual
-Consulta em `pg_constraint`:
-- **Nome:** `admin_section_permissions_section_check`
-- **Definição:** `CHECK ((section = ANY (ARRAY['dashboard','produtores','repasses','checklist','saude','configuracoes','_manage_team'])))`
-DROP + ADD com a lista nova incluindo `'leads'`.
-
-## 3. Helper de email Resend
-Não existe helper genérico reutilizável — `_shared/orderConfirmationEmail.ts` é específico de pedido. O padrão limpo usado em `send-verification-code` é `import { Resend } from "npm:resend@..."` direto. **Vou seguir esse mesmo padrão inline** na edge `submit-landing-lead` (sem criar novo helper compartilhado, pra não inflar a base — pode virar helper depois se surgir 3ª função). Email vai para lista fixa (sugestão: `gabinox54037@gmail.com`; me confirme se quer adicionar outros destinatários no momento de codar).
-
-## 4. Pontos do anexo que não portam 1:1
-- **CSS global escopado**: o HTML usa `body { overflow-x: hidden }` e fontes globais. Como a memória do projeto proíbe `overflow-x:hidden` global, vou aplicar via classe wrapper `.lp-root` na página (`<div className="lp-root">`) com escopo local — visualmente idêntico, sem vazar pro resto do app.
-- **Fontes Syne/DM Sans**: carregadas via `<link>` injetado por `Helmet` só nessa rota — não vão pro `index.html` global.
-- **Scripts inline do HTML** (smooth scroll, máscara de telefone, submit fake): reescritos em React (`useEffect`/handlers). Máscara `(00) 00000-0000` mantida idêntica.
-- **Form de sucesso**: mesma string "Recebemos seu contato!", mesmo visual — só troca o backend (fake → edge real).
-- **`<noscript>` / pixels**: não há no anexo, nada a portar.
-- **Tema do app**: a página NÃO usa `index.css` do projeto — fica standalone como pedido.
-
-Tudo o mais (copy, cores, gradientes, raios, breakpoint 600px, seções) é 1:1.
-
-Aguardando OK para implementar.
+## Fora de escopo
+- Nada de mudanças no backend, edge functions, RLS ou tabela `landing_leads`.
+- Nada de mudança no fluxo de submissão, validação ou em outras rotas.
+- Não toca no tema global do app (continua escopado em `.lp-root`).
