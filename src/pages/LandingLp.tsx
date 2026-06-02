@@ -715,13 +715,13 @@ export default function LandingLp() {
             <div className="divider" />
             <div className="eco-flow">
               <div className="eco-step"><h4>Ticketaria</h4><p>Venda, lotes, QR Code e check-in integrado.</p></div>
-              <div className="eco-arrow">↓</div>
+              <div className="eco-link" />
               <div className="eco-step"><h4>Totens</h4><p>Autoatendimento e redução de filas.</p></div>
-              <div className="eco-arrow">↓</div>
+              <div className="eco-link" />
               <div className="eco-step"><h4>Smart POS</h4><p>Venda móvel com controle total da equipe.</p></div>
-              <div className="eco-arrow">↓</div>
+              <div className="eco-link" />
               <div className="eco-step"><h4>Facepag</h4><p>Pagamento por biometria facial de alta precisão.</p></div>
-              <div className="eco-arrow">↓</div>
+              <div className="eco-link" />
               <div className="eco-step"><h4>Gestão</h4><p>Dados, relatórios e fechamento financeiro.</p></div>
             </div>
             <p className="section-foot">Do ingresso ao consumo, toda operação integrada.</p>
