@@ -969,6 +969,36 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_leads: {
+        Row: {
+          cidade: string
+          created_at: string
+          id: string
+          nome: string
+          status: string
+          telefone: string
+          tipo_evento: string
+        }
+        Insert: {
+          cidade: string
+          created_at?: string
+          id?: string
+          nome: string
+          status?: string
+          telefone: string
+          tipo_evento: string
+        }
+        Update: {
+          cidade?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          status?: string
+          telefone?: string
+          tipo_evento?: string
+        }
+        Relationships: []
+      }
       map_objects: {
         Row: {
           created_at: string
@@ -2075,6 +2105,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_section: {
+        Args: { _section: string; _user_id: string }
         Returns: boolean
       }
       hold_seats: {

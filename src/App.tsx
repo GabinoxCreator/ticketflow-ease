@@ -50,8 +50,10 @@ import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
 import AdminChecklist from "./pages/admin/AdminChecklist";
 import AdminEquipe from "./pages/admin/AdminEquipe";
+import AdminLeads from "./pages/admin/AdminLeads";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
+import LandingLp from "./pages/LandingLp";
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
@@ -74,6 +76,7 @@ const App = () => (
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
+                <Route path="/lp" element={<LandingLp />} />
                 <Route path="/evento/:id/mapa" element={<EventMapPage />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Navigate to="/" replace />} />
@@ -142,6 +145,7 @@ const App = () => (
                 <Route path="/admin/saude" element={<AdminProtectedRoute><SectionProtectedRoute section="saude"><AdminLayout><AdminSaude /></AdminLayout></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/checklist" element={<AdminProtectedRoute><SectionProtectedRoute section="checklist"><AdminChecklist /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/equipe" element={<AdminProtectedRoute><SectionProtectedRoute section="_manage_team"><AdminEquipe /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/leads" element={<AdminProtectedRoute><SectionProtectedRoute section="leads"><AdminLeads /></SectionProtectedRoute></AdminProtectedRoute>} />
 
                 {/* Public Routes */}
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
