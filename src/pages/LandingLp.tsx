@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import logoFestpag from '@/assets/logo-festpag.png';
+import totemAsset from '@/assets/festpag-totem.jpg.asset.json';
 
 
 const LP_CSS = `
@@ -114,11 +115,9 @@ const LP_CSS = `
    HERO
    ========================================================================== */
 .lp-root .hero {
-  min-height: 80vh;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  text-align: center;
-  padding: clamp(72px, 9vw, 112px) clamp(20px, 4vw, 32px);
+  min-height: 88vh;
+  display: flex; align-items: center;
+  padding: clamp(56px, 7vw, 96px) clamp(20px, 4vw, 32px);
   position: relative; overflow: hidden;
 }
 .lp-root .hero::before {
@@ -136,7 +135,17 @@ const LP_CSS = `
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 40%, transparent 100%);
 }
-.lp-root .hero > * { position: relative; z-index: 2; }
+.lp-root .hero-grid {
+  position: relative; z-index: 2;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: clamp(32px, 5vw, 64px);
+  align-items: center;
+}
+.lp-root .hero-copy { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
 .lp-root .hero-eyebrow {
   font-size: var(--fs-label);
   letter-spacing: 2px;
@@ -145,14 +154,14 @@ const LP_CSS = `
   font-weight: 600;
   margin-bottom: var(--s-3);
 }
-.lp-root .hero-logo { height: 56px; width: auto; margin-bottom: var(--s-4); }
+.lp-root .hero-logo { height: 52px; width: auto; margin-bottom: var(--s-4); }
 .lp-root .hero-headline {
   font-family: var(--font-head);
   font-size: var(--fs-display);
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.025em;
-  max-width: 760px;
+  max-width: 580px;
 }
 .lp-root .hero-headline span {
   background: var(--fest-grad);
@@ -163,12 +172,49 @@ const LP_CSS = `
   font-size: var(--fs-lead);
   color: var(--fg-soft);
   margin-top: var(--s-3);
-  max-width: 560px;
+  max-width: 520px;
   line-height: 1.5;
 }
 .lp-root .hero-ctas {
-  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+  display: flex; gap: 12px; flex-wrap: wrap;
   margin-top: var(--s-5);
+}
+.lp-root .hero-visual {
+  position: relative;
+  justify-self: center;
+  width: 100%;
+  max-width: 460px;
+  aspect-ratio: 3 / 4;
+  animation: heroFadeIn 700ms ease-out both;
+}
+.lp-root .hero-visual::before {
+  content: ''; position: absolute; inset: -8%;
+  background:
+    radial-gradient(ellipse 55% 45% at 30% 35%, rgba(107,92,240,0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 45% at 70% 65%, rgba(224,64,160,0.45) 0%, transparent 70%);
+  filter: blur(60px);
+  z-index: 0;
+}
+.lp-root .hero-visual img {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%; object-fit: cover;
+  border-radius: 22px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
+          mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
+  filter: saturate(1.05) contrast(1.02);
+}
+.lp-root .hero-visual::after {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(8,0,15,0.35) 0%, transparent 25%, transparent 70%, rgba(8,0,15,0.6) 100%),
+    linear-gradient(90deg, rgba(8,0,15,0.25) 0%, transparent 20%, transparent 80%, rgba(8,0,15,0.25) 100%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
+          mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
+}
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ==========================================================================
@@ -570,6 +616,10 @@ const LP_CSS = `
   .lp-root .hero-logo { height: 44px; }
   .lp-root .hero-ctas { flex-direction: column; width: 100%; }
   .lp-root .hero-ctas .btn { width: 100%; }
+  .lp-root .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  .lp-root .hero-copy { align-items: center; text-align: center; }
+  .lp-root .hero-ctas { justify-content: center; }
+  .lp-root .hero-visual { max-width: 320px; aspect-ratio: 3 / 4; }
 }
 `;
 
@@ -646,15 +696,21 @@ export default function LandingLp() {
 
         {/* HERO */}
         <div className="hero">
-          <p className="hero-eyebrow">O banco oficial dos eventos</p>
-          <img src={logoFestpag} alt="Festpag" className="hero-logo" />
-          <h1 className="hero-headline">A operação inteligente para eventos que querem <span>vender mais</span></h1>
-          <p className="hero-sub">Reduzir filas e operar com controle total. Do ingresso ao consumo, tudo conectado em um único ecossistema.</p>
-          <div className="hero-ctas">
-            <a href="#contato" className="btn btn-primary btn-lg">Falar com a equipe</a>
-            <a href="#ecossistema" className="btn btn-secondary btn-lg">Ver soluções</a>
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <p className="hero-eyebrow">O banco oficial dos eventos</p>
+              <img src={logoFestpag} alt="Festpag" className="hero-logo" />
+              <h1 className="hero-headline">A operação inteligente para eventos que querem <span>vender mais</span></h1>
+              <p className="hero-sub">Reduzir filas e operar com controle total. Do ingresso ao consumo, tudo conectado em um único ecossistema.</p>
+              <div className="hero-ctas">
+                <a href="#contato" className="btn btn-primary btn-lg">Falar com a equipe</a>
+                <a href="#ecossistema" className="btn btn-secondary btn-lg">Ver soluções</a>
+              </div>
+            </div>
+            <div className="hero-visual">
+              <img src={totemAsset.url} alt="Totem FestPag com reconhecimento facial" loading="eager" />
+            </div>
           </div>
-
         </div>
 
         {/* PROBLEMA */}
