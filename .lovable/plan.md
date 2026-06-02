@@ -1,119 +1,96 @@
-# Fase 1 — Equipe FestPag com permissões por seção (v3 — proteção do último gestor)
+# Plano — Landing /lp + Leads no admin
 
-## 1. Resumo do que vai ser criado/alterado
+## 1. Arquivos & migrations
 
-### Banco (1 migration)
-`supabase/migrations/<timestamp>_admin_section_permissions.sql`:
+### Migration única
+`supabase/migrations/<ts>_landing_leads_and_section.sql`:
 
-**Tabela**
-- `CREATE TABLE public.admin_section_permissions (id uuid PK default gen_random_uuid(), user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, section text NOT NULL, created_at timestamptz default now())`
-- `UNIQUE(user_id, section)`
-- `CHECK (section IN ('dashboard','produtores','repasses','checklist','saude','configuracoes','_manage_team'))`
-- GRANTs: `SELECT, INSERT, DELETE` → `authenticated`; `ALL` → `service_role`. Sem `anon`.
-- `ENABLE ROW LEVEL SECURITY`.
-
-**Função SECURITY DEFINER (anti-recursão)**
+**a) Tabela `landing_leads`**
 ```sql
-CREATE OR REPLACE FUNCTION public.has_manage_team(_user_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-AS $$
+CREATE TABLE public.landing_leads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome text NOT NULL,
+  cidade text NOT NULL,
+  tipo_evento text NOT NULL,
+  telefone text NOT NULL,
+  status text NOT NULL DEFAULT 'novo'
+    CHECK (status IN ('novo','contatado','convertido','descartado')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT, UPDATE ON public.landing_leads TO authenticated;
+GRANT ALL ON public.landing_leads TO service_role;
+-- sem grant pra anon; INSERT só via service-role na edge
+ALTER TABLE public.landing_leads ENABLE ROW LEVEL SECURITY;
+```
+
+**b) Função `has_section` (SECURITY DEFINER)**
+```sql
+CREATE OR REPLACE FUNCTION public.has_section(_user_id uuid, _section text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.admin_section_permissions
-    WHERE user_id = _user_id AND section = '_manage_team'
+    WHERE user_id = _user_id AND (section = _section OR section = '_manage_team')
   )
 $$;
 ```
-`SECURITY DEFINER` roda como owner → bypassa RLS na leitura interna → sem recursão.
 
-**Policies**
-- `SELECT`: `has_role(auth.uid(),'admin')`.
-- `INSERT`: `WITH CHECK has_manage_team(auth.uid())`.
-- `DELETE`: `USING has_manage_team(auth.uid())`.
-- Sem UPDATE.
+**c) Policies `landing_leads`**
+- SELECT: `public.has_section(auth.uid(),'leads')`
+- UPDATE: `USING/WITH CHECK public.has_section(auth.uid(),'leads')`
+- Sem policy de INSERT/DELETE → bloqueado para `authenticated`; service-role bypassa RLS.
 
-**Trigger BEFORE DELETE — guarda dupla**
+**d) Atualizar CHECK de `admin_section_permissions`**
+Nome real: `admin_section_permissions_section_check`.
 ```sql
-CREATE OR REPLACE FUNCTION public.guard_admin_section_delete()
-RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE _remaining int;
-BEGIN
-  IF OLD.section = '_manage_team' THEN
-    -- 1. bloqueia auto-remoção (mesmo via SQL direto)
-    IF OLD.user_id = auth.uid() THEN
-      RAISE EXCEPTION 'cannot_remove_own_manage_team'
-        USING HINT = 'Você não pode remover seu próprio acesso de gestor.';
-    END IF;
-    -- 2. bloqueia remoção do ÚLTIMO gestor (cobre A remove B / B remove A)
-    SELECT count(*) INTO _remaining
-      FROM public.admin_section_permissions
-     WHERE section = '_manage_team'
-       AND user_id <> OLD.user_id;
-    IF _remaining = 0 THEN
-      RAISE EXCEPTION 'cannot_remove_last_manage_team'
-        USING HINT = 'Não é possível remover o último gestor de equipe. Promova outro colaborador a gestor antes.';
-    END IF;
-  END IF;
-  RETURN OLD;
-END $$;
-
-CREATE TRIGGER trg_guard_admin_section_delete
-BEFORE DELETE ON public.admin_section_permissions
-FOR EACH ROW EXECUTE FUNCTION public.guard_admin_section_delete();
+ALTER TABLE public.admin_section_permissions
+  DROP CONSTRAINT admin_section_permissions_section_check;
+ALTER TABLE public.admin_section_permissions
+  ADD CONSTRAINT admin_section_permissions_section_check
+  CHECK (section IN ('dashboard','produtores','repasses','leads','checklist','saude','configuracoes','_manage_team'));
 ```
-A função do trigger é `SECURITY DEFINER` + `search_path=public`, então o `count(*)` interno **não dispara RLS** da própria tabela (sem recursão). E como roda em cada linha do DELETE, cobre tanto o DELETE direto da tabela quanto o ON DELETE CASCADE de `auth.users` (se um gestor for apagado do Auth e era o último, a cascade falha — comportamento desejado: força promover outro antes).
 
-**Seed admin primário**
-`DO $$ DECLARE _uid uuid; BEGIN SELECT id INTO _uid FROM auth.users WHERE email='gabinox54037@gmail.com'; IF _uid IS NOT NULL THEN INSERT ... 7 seções ... ON CONFLICT DO NOTHING; ELSE RAISE NOTICE; END IF; END $$;`. Migration nunca falha.
+**e) Seed admin primário**
+```sql
+DO $$ DECLARE _uid uuid;
+BEGIN
+  SELECT id INTO _uid FROM auth.users WHERE email='gabinox54037@gmail.com';
+  IF _uid IS NOT NULL THEN
+    INSERT INTO public.admin_section_permissions (user_id, section)
+    VALUES (_uid, 'leads') ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
+```
 
-### Edge functions novas
-1. **`admin-invite-collaborator/index.ts`**
-   - Valida JWT do chamador + `has_manage_team` server-side.
-   - Body (Zod): `{ email, nome_completo, sections: string[] }`.
-   - `supabase.auth.admin.inviteUserByEmail(email, { data: { nome_completo, tipo_conta: 'admin' } })` — trigger `handle_new_user` cria `profiles`+`user_roles`. Email via Resend SMTP do Supabase Auth.
-   - INSERT em `admin_section_permissions` com service-role para cada seção pedida.
-   - 409 se email já é admin.
+### Edge function (nova)
+- `supabase/functions/submit-landing-lead/index.ts` — pública (sem JWT), Zod, rate-limit por IP usando `_shared/rateLimit.ts`, INSERT via service-role e envio de email via Resend (mesmo padrão de `send-verification-code`: `new Resend(Deno.env.get("RESEND_API_KEY"))` com `from: "FestPag <naoresponda@festpag.com.br>"`, `to:` lista da equipe). Assunto: `Novo lead FestPag — {nome}, {cidade}`.
 
-2. **`admin-deactivate-collaborator/index.ts`**
-   - Valida JWT + `has_manage_team` do chamador.
-   - Rejeita `target_user_id === caller_id` (auto-desativação).
-   - **Checagem do último gestor**: se o alvo tem `_manage_team` E `count(*) WHERE section='_manage_team' AND user_id<>alvo = 0` → 409 `cannot_remove_last_manage_team` com a mensagem definida.
-   - DELETE `admin_section_permissions WHERE user_id=alvo` + DELETE `user_roles WHERE user_id=alvo AND role='admin'` (service-role).
-   - Audita em `audit_logs`.
-   - (Mesmo se o front esquecer a checagem, o trigger do banco rejeita a tentativa de remover o `_manage_team` do último; a edge faz a checagem antes só pra dar mensagem amigável.)
+### Frontend (novos)
+- `src/pages/LandingLp.tsx` — porte fiel do `festpag-landpage.html`. CSS escopado via `<style>` inline na própria rota (tag `<style>` no JSX) + `<link>` Google Fonts (Syne + DM Sans) injetado via `react-helmet-async` (já no projeto). Logo SVG inline. Máscara de telefone preservada. Submit chama `supabase.functions.invoke('submit-landing-lead', ...)`. Mensagem de sucesso idêntica.
+- `src/pages/admin/AdminLeads.tsx` — `AdminLayout` + tabela (shadcn `Table`), filtro por status (`Select`), busca por nome/telefone (`Input`), badge contagem `novo`, dropdown de status por linha com update otimista + rollback (`@tanstack/react-query`).
 
-### Frontend
-- **`src/hooks/useAdminPermissions.ts`**: react-query → `{ sections: Set, hasSection, isManager, isLoading }`.
-- **`src/components/admin/SectionProtectedRoute.tsx`**: `{ section }`. Se `isManager` ou `hasSection(section)` → render; senão redireciona pra 1ª seção permitida (ordem fixa); senão "Sem acesso".
-- **`src/App.tsx`**: cada rota `/admin/*` (exceto `/login`) ganha `<SectionProtectedRoute>`. Nova rota `/admin/equipe` gated por `_manage_team`.
-- **`AdminSidebar.tsx`**: menu filtrado por permissão. Item "Equipe" (`Users2`) só se `isManager`.
-- **`src/pages/admin/AdminEquipe.tsx`** (em `AdminLayout`):
-  - Lista admins (`user_roles` × `profiles`) + badges de seções.
-  - Modal "Convidar": email + nome + checkboxes → `admin-invite-collaborator`.
-  - Toggles por linha (INSERT/DELETE via client; RLS exige `_manage_team`). Optimistic + rollback. Toast amigável para `cannot_remove_own_manage_team` e `cannot_remove_last_manage_team`.
-  - "Desativar" → confirma → `admin-deactivate-collaborator`. Trata `cannot_remove_last_manage_team` com a mensagem padronizada.
-  - Travas UX: toggle `_manage_team` próprio desabilitado; "Desativar" próprio desabilitado; toggle `_manage_team` de outros gestores **fica habilitado** (a checagem do último gestor protege), mas se for o último na lista visível, frontend já mostra dica "Único gestor — promova outro antes de remover".
+### Frontend (editados)
+- `src/App.tsx` — rota pública `/lp` → `<LandingLp />`; rota `/admin/leads` envolta em `<AdminProtectedRoute><SectionProtectedRoute section="leads"><AdminLeads /></SectionProtectedRoute></AdminProtectedRoute>`.
+- `src/components/admin/AdminSidebar.tsx` — novo item `{ title:'Leads', url:'/admin/leads', icon: Inbox, section:'leads' }` inserido após Repasses.
+- `src/hooks/useAdminPermissions.ts` — adicionar `'leads'` ao tipo `AdminSection`.
+- `src/components/admin/SectionProtectedRoute.tsx` — incluir `'leads'` na ordem de fallback após `'repasses'`.
 
-### Arquivos
-- Novos: 1 migration, 2 edge functions, `useAdminPermissions.ts`, `SectionProtectedRoute.tsx`, `AdminEquipe.tsx`.
-- Editados: `src/App.tsx`, `src/components/admin/AdminSidebar.tsx`.
+## 2. CHECK constraint atual
+Consulta em `pg_constraint`:
+- **Nome:** `admin_section_permissions_section_check`
+- **Definição:** `CHECK ((section = ANY (ARRAY['dashboard','produtores','repasses','checklist','saude','configuracoes','_manage_team'])))`
+DROP + ADD com a lista nova incluindo `'leads'`.
 
-## 2. Convite — fluxo
-`auth.admin.inviteUserByEmail` em edge function gated por `_manage_team`. Email via Resend SMTP do Supabase Auth. Não reuso OTP de auto-signup. Trigger `handle_new_user` trata `tipo_conta:'admin'`.
+## 3. Helper de email Resend
+Não existe helper genérico reutilizável — `_shared/orderConfirmationEmail.ts` é específico de pedido. O padrão limpo usado em `send-verification-code` é `import { Resend } from "npm:resend@..."` direto. **Vou seguir esse mesmo padrão inline** na edge `submit-landing-lead` (sem criar novo helper compartilhado, pra não inflar a base — pode virar helper depois se surgir 3ª função). Email vai para lista fixa (sugestão: `gabinox54037@gmail.com`; me confirme se quer adicionar outros destinatários no momento de codar).
 
-## 3. Resposta direta às exigências da correção 2
-- ✅ Trigger `BEFORE DELETE` agora cobre **dois cenários**: auto-remoção E remoção do último `_manage_team` (qualquer que seja a vítima). Cobre o ataque "A remove B, B remove A".
-- ✅ Cascade de `auth.users` também passa pelo trigger → se apagar último gestor do Auth, o DELETE falha, forçando promover outro antes.
-- ✅ Edge `admin-deactivate-collaborator` faz a mesma checagem antes do DELETE pra retornar mensagem amigável (não só o RAISE cru do banco).
-- ✅ Mensagem padronizada: "Não é possível remover o último gestor de equipe. Promova outro colaborador a gestor antes."
-- ✅ Sem recursão de RLS: trigger function é `SECURITY DEFINER` com `search_path=public` → `count(*)` interno bypassa as policies da própria tabela.
+## 4. Pontos do anexo que não portam 1:1
+- **CSS global escopado**: o HTML usa `body { overflow-x: hidden }` e fontes globais. Como a memória do projeto proíbe `overflow-x:hidden` global, vou aplicar via classe wrapper `.lp-root` na página (`<div className="lp-root">`) com escopo local — visualmente idêntico, sem vazar pro resto do app.
+- **Fontes Syne/DM Sans**: carregadas via `<link>` injetado por `Helmet` só nessa rota — não vão pro `index.html` global.
+- **Scripts inline do HTML** (smooth scroll, máscara de telefone, submit fake): reescritos em React (`useEffect`/handlers). Máscara `(00) 00000-0000` mantida idêntica.
+- **Form de sucesso**: mesma string "Recebemos seu contato!", mesmo visual — só troca o backend (fake → edge real).
+- **`<noscript>` / pixels**: não há no anexo, nada a portar.
+- **Tema do app**: a página NÃO usa `index.css` do projeto — fica standalone como pedido.
 
-## 4. Conflitos com código atual
-1. `handle_new_user` aceita `tipo_conta:'admin'` → compatível.
-2. `AdminProtectedRoute` continua porta 1; `SectionProtectedRoute` é porta 2.
-3. Admin primário: seed seguro com fallback NOTICE.
-4. Memória `admin-global-permissions` ficou imprecisa após esta migration (admins não bypassam mais `admin_section_permissions` para escrita) — atualizo no final.
+Tudo o mais (copy, cores, gradientes, raios, breakpoint 600px, seções) é 1:1.
 
 Aguardando OK para implementar.
