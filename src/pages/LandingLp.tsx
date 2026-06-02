@@ -708,7 +708,8 @@ export default function LandingLp() {
         </section>
 
         {/* ECOSSISTEMA */}
-        <section>
+        <section id="ecossistema">
+
           <div className="section-inner">
             <div className="section-label">Ecossistema</div>
             <h2 className="section-title">A Festpag nasceu para<br /><em>profissionalizar a operação dos eventos</em></h2>
