@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import logoFestpag from '@/assets/logo-festpag.png';
-import totemAsset from '@/assets/festpag-totem.jpg.asset.json';
+import totemAsset from '@/assets/festpag-totem-cutout.png.asset.json';
 
 
 const LP_CSS = `
@@ -183,29 +183,38 @@ const LP_CSS = `
   position: relative;
   justify-self: center;
   width: 100%;
-  max-width: 420px;
-  aspect-ratio: 9 / 16;
+  max-width: 440px;
+  min-height: 520px;
+  display: flex; align-items: center; justify-content: center;
   animation: heroFadeIn 700ms ease-out both;
 }
 .lp-root .hero-visual::before {
-  content: ''; position: absolute; inset: -10%;
+  content: ''; position: absolute; inset: 5% 0;
   background:
-    radial-gradient(ellipse 55% 45% at 30% 35%, rgba(107,92,240,0.55) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 45% at 70% 65%, rgba(224,64,160,0.45) 0%, transparent 70%);
-  filter: blur(70px);
+    radial-gradient(ellipse 60% 50% at 50% 45%, rgba(107,92,240,0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 45% at 60% 65%, rgba(224,64,160,0.4) 0%, transparent 70%);
+  filter: blur(80px);
+  opacity: 0.85;
   z-index: 0;
+  pointer-events: none;
 }
 .lp-root .hero-visual img {
   position: relative; z-index: 1;
-  width: 100%; height: 100%; object-fit: contain;
-  -webkit-mask-image: radial-gradient(ellipse 80% 85% at 50% 50%, #000 60%, transparent 100%);
-          mask-image: radial-gradient(ellipse 80% 85% at 50% 50%, #000 60%, transparent 100%);
-  filter: saturate(1.05) contrast(1.02);
+  width: 100%; height: auto; max-height: 620px; object-fit: contain;
+  filter:
+    drop-shadow(0 30px 50px rgba(99, 102, 241, 0.45))
+    drop-shadow(0 12px 28px rgba(236, 72, 153, 0.35))
+    drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+  animation: heroFloat 6s ease-in-out infinite;
 }
 
 @keyframes heroFadeIn {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 /* ==========================================================================
@@ -607,12 +616,26 @@ const LP_CSS = `
   .lp-root .hero-logo { height: 44px; }
   .lp-root .hero-ctas { flex-direction: column; width: 100%; }
   .lp-root .hero-ctas .btn { width: 100%; }
-  .lp-root .hero { min-height: auto; padding: 72px 20px 48px; }
-  .lp-root .hero-grid { grid-template-columns: 1fr; gap: 20px; }
-  .lp-root .hero-copy { align-items: center; text-align: center; order: 2; }
-  .lp-root .hero-ctas { justify-content: center; }
-  .lp-root .hero-visual { max-width: 220px; aspect-ratio: 9 / 16; order: 1; }
-  .lp-root .hero-visual::before { filter: blur(50px); inset: -5%; }
+  .lp-root .hero { min-height: auto; padding: 64px 20px 48px; overflow: hidden; }
+  .lp-root .hero-grid { display: block; position: relative; }
+  .lp-root .hero-copy { align-items: flex-start; text-align: left; position: relative; z-index: 2; }
+  .lp-root .hero-ctas { justify-content: flex-start; }
+  .lp-root .hero-headline { max-width: 70%; }
+  .lp-root .hero-sub { max-width: 100%; }
+  .lp-root .hero-visual {
+    position: absolute;
+    top: 38%;
+    right: -36px;
+    width: 200px;
+    min-height: 0;
+    max-width: none;
+    transform: rotate(-4deg);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .lp-root .hero-visual::before { filter: blur(45px); inset: 10% -10%; opacity: 0.6; }
+  .lp-root .hero-visual img { max-height: 280px; }
+
 
 }
 `;
