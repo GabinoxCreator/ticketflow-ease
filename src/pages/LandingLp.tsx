@@ -616,6 +616,10 @@ const LP_CSS = `
   .lp-root .hero-logo { height: 44px; }
   .lp-root .hero-ctas { flex-direction: column; width: 100%; }
   .lp-root .hero-ctas .btn { width: 100%; }
+  .lp-root .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  .lp-root .hero-copy { align-items: center; text-align: center; }
+  .lp-root .hero-ctas { justify-content: center; }
+  .lp-root .hero-visual { max-width: 320px; aspect-ratio: 3 / 4; }
 }
 `;
 
