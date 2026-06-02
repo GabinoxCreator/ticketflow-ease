@@ -6,6 +6,7 @@ export type AdminSection =
   | 'dashboard'
   | 'produtores'
   | 'repasses'
+  | 'leads'
   | 'checklist'
   | 'saude'
   | 'configuracoes'
@@ -15,6 +16,7 @@ export const ADMIN_SECTION_ORDER: AdminSection[] = [
   'dashboard',
   'produtores',
   'repasses',
+  'leads',
   'checklist',
   'saude',
   'configuracoes',
