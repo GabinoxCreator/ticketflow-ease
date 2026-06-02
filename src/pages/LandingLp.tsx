@@ -642,42 +642,15 @@ export default function LandingLp() {
       <div className="lp-root">
         {/* NAV */}
         <nav>
-          <svg width="130" height="38" viewBox="0 0 340 96" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="nav-lg" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#6B5CF0" />
-                <stop offset="45%" stopColor="#A850D0" />
-                <stop offset="100%" stopColor="#E040A0" />
-              </linearGradient>
-            </defs>
-            <text x="0" y="72" fontFamily="Arial Black,Arial,sans-serif" fontWeight="900" fontSize="82" fill="url(#nav-lg)">festpag</text>
-            <rect x="155" y="60" width="5" height="32" fill="#7B6CF6" rx="1" />
-            <text x="160" y="90" fontFamily="Arial Black,Arial,sans-serif" fontWeight="700" fontSize="24" fill="url(#nav-lg)">.digital</text>
-          </svg>
+          <img src={logoFestpag} alt="Festpag" className="nav-logo" />
+
           <a href="#contato" className="nav-cta">Quero mais informações</a>
         </nav>
 
         {/* HERO */}
         <div className="hero">
-          <div className="hero-logo">
-            <svg width="360" height="108" viewBox="0 0 520 152" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="hero-lg" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#6B5CF0" />
-                  <stop offset="30%" stopColor="#8B5CE8" />
-                  <stop offset="60%" stopColor="#C040B0" />
-                  <stop offset="100%" stopColor="#E840A0" />
-                </linearGradient>
-                <linearGradient id="hero-lg2" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#7B6CF6" />
-                  <stop offset="100%" stopColor="#D040B0" />
-                </linearGradient>
-              </defs>
-              <text x="0" y="116" fontFamily="Arial Black,Arial,sans-serif" fontWeight="900" fontSize="130" fill="url(#hero-lg)">festpag</text>
-              <rect x="222" y="98" width="9" height="52" fill="#7260F0" rx="1.5" />
-              <text x="231" y="148" fontFamily="Arial Black,Arial,sans-serif" fontWeight="700" fontSize="42" fill="url(#hero-lg2)">.digital</text>
-            </svg>
-          </div>
+          <img src={logoFestpag} alt="Festpag" className="hero-logo" />
+
           <h1 className="hero-headline">A operação inteligente para eventos que querem <span>vender mais</span></h1>
           <p className="hero-sub">Reduzir filas e operar com controle total. Do ingresso ao consumo, tudo conectado em um único ecossistema.</p>
           <p className="hero-tag">O banco oficial dos eventos</p>
