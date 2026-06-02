@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
+import logoFestpag from '@/assets/logo-festpag.png';
+
 
 const LP_CSS = `
 .lp-root *, .lp-root *::before, .lp-root *::after { box-sizing: border-box; margin: 0; padding: 0; }
