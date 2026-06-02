@@ -183,29 +183,38 @@ const LP_CSS = `
   position: relative;
   justify-self: center;
   width: 100%;
-  max-width: 420px;
-  aspect-ratio: 9 / 16;
+  max-width: 440px;
+  min-height: 520px;
+  display: flex; align-items: center; justify-content: center;
   animation: heroFadeIn 700ms ease-out both;
 }
 .lp-root .hero-visual::before {
-  content: ''; position: absolute; inset: -10%;
+  content: ''; position: absolute; inset: 5% 0;
   background:
-    radial-gradient(ellipse 55% 45% at 30% 35%, rgba(107,92,240,0.55) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 45% at 70% 65%, rgba(224,64,160,0.45) 0%, transparent 70%);
-  filter: blur(70px);
+    radial-gradient(ellipse 60% 50% at 50% 45%, rgba(107,92,240,0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 45% at 60% 65%, rgba(224,64,160,0.4) 0%, transparent 70%);
+  filter: blur(80px);
+  opacity: 0.85;
   z-index: 0;
+  pointer-events: none;
 }
 .lp-root .hero-visual img {
   position: relative; z-index: 1;
-  width: 100%; height: 100%; object-fit: contain;
-  -webkit-mask-image: radial-gradient(ellipse 80% 85% at 50% 50%, #000 60%, transparent 100%);
-          mask-image: radial-gradient(ellipse 80% 85% at 50% 50%, #000 60%, transparent 100%);
-  filter: saturate(1.05) contrast(1.02);
+  width: 100%; height: auto; max-height: 620px; object-fit: contain;
+  filter:
+    drop-shadow(0 30px 50px rgba(99, 102, 241, 0.45))
+    drop-shadow(0 12px 28px rgba(236, 72, 153, 0.35))
+    drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+  animation: heroFloat 6s ease-in-out infinite;
 }
 
 @keyframes heroFadeIn {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+}
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 /* ==========================================================================
