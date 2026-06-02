@@ -685,7 +685,7 @@ export default function LandingLp() {
               <div className="fin-card"><span className="fin-bad">Venda manual</span><span className="fin-good">mais erros</span></div>
               <div className="fin-card"><span className="fin-bad">Sem dados</span><span className="fin-good">decisões cegas</span></div>
             </div>
-            <p style={{ marginTop: 24, fontSize: 14, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>Quando a operação trava, o evento vende menos.</p>
+            <p className="section-foot">Quando a operação trava, o evento vende menos.</p>
           </div>
         </section>
 
@@ -724,7 +724,7 @@ export default function LandingLp() {
               <div className="eco-arrow">↓</div>
               <div className="eco-step"><h4>Gestão</h4><p>Dados, relatórios e fechamento financeiro.</p></div>
             </div>
-            <p style={{ marginTop: 24, fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Do ingresso ao consumo, toda operação integrada.</p>
+            <p className="section-foot">Do ingresso ao consumo, toda operação integrada.</p>
           </div>
         </section>
 
@@ -737,7 +737,7 @@ export default function LandingLp() {
             <div className="card" style={{marginBottom:14}}><h4>Venda online</h4><p>Lotes, Pix, cartão e QR Code gerado automaticamente após confirmação.</p></div>
             <div className="card" style={{marginBottom:14}}><h4>Controle de acesso</h4><p>Check-in na portaria com validação em tempo real. Sem ingresso falso.</p></div>
             <div className="card" style={{marginBottom:14}}><h4>Gestão completa</h4><p>Cortesias, cupons, comissários, painel administrativo e rastreabilidade total.</p></div>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', marginTop: 8 }}>O evento começa na experiência de compra.</p>
+            <p className="section-foot">O evento começa na experiência de compra.</p>
           </div>
         </section>
 
@@ -759,7 +759,7 @@ export default function LandingLp() {
               <span className="chip">Identidade visual do evento</span>
               <span className="chip">Atualização em tempo real</span>
             </div>
-            <p style={{ marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>Menos tempo esperando. Mais tempo consumindo.</p>
+            <p className="section-foot">Menos tempo esperando. Mais tempo consumindo.</p>
           </div>
         </section>
 
@@ -798,7 +798,7 @@ export default function LandingLp() {
                 <div><h4>Zero atrito</h4><p>Sem cartão, pulseira ou celular. Só o rosto. Disponível nos totens.</p></div>
               </div>
             </div>
-            <p style={{ marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Tecnologia exclusiva FestPag. O público aproveita mais. A operação vende mais.</p>
+            <p className="section-foot">Tecnologia exclusiva FestPag. O público aproveita mais. A operação vende mais.</p>
           </div>
         </section>
 
@@ -847,7 +847,7 @@ export default function LandingLp() {
               <span className="who-tag">Food parks</span>
               <span className="who-tag">Eventos gastronômicos</span>
             </div>
-            <p style={{ marginTop: 24, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Do ingresso ao consumo, toda operação integrada.</p>
+            <p className="section-foot">Do ingresso ao consumo, toda operação integrada.</p>
           </div>
         </section>
 
