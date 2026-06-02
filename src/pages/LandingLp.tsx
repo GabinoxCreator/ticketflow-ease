@@ -663,13 +663,13 @@ export default function LandingLp() {
             <div className="section-label">O problema</div>
             <h2 className="section-title">O mercado de eventos evoluiu.<br /><em>A operação ainda não.</em></h2>
             <div className="divider" />
-            <div className="cards-grid">
-              <div className="prob-card"><h4>Filas longas</h4><p>Público espera. Venda para.</p></div>
-              <div className="prob-card"><h4>Check-in lento</h4><p>Entrada confusa e sem controle.</p></div>
-              <div className="prob-card"><h4>Venda manual</h4><p>Erros, fraudes e sem rastreio.</p></div>
-              <div className="prob-card"><h4>Falta de dados</h4><p>Decisões tomadas no escuro.</p></div>
+            <div className="grid-2">
+              <div className="card"><h4>Filas longas</h4><p>Público espera. Venda para.</p></div>
+              <div className="card"><h4>Check-in lento</h4><p>Entrada confusa e sem controle.</p></div>
+              <div className="card"><h4>Venda manual</h4><p>Erros, fraudes e sem rastreio.</p></div>
+              <div className="card"><h4>Falta de dados</h4><p>Decisões tomadas no escuro.</p></div>
             </div>
-            <p className="bottom-note">Cada gargalo operacional representa perda de faturamento.</p>
+            <p className="section-foot">Cada gargalo operacional representa perda de faturamento.</p>
           </div>
         </section>
 
@@ -734,9 +734,9 @@ export default function LandingLp() {
             <div className="section-label">Ticketaria</div>
             <h2 className="section-title">Venda ingressos com<br /><em>mais controle e menos atrito.</em></h2>
             <div className="divider" />
-            <div className="feat-card"><h4>Venda online</h4><p>Lotes, Pix, cartão e QR Code gerado automaticamente após confirmação.</p></div>
-            <div className="feat-card"><h4>Controle de acesso</h4><p>Check-in na portaria com validação em tempo real. Sem ingresso falso.</p></div>
-            <div className="feat-card"><h4>Gestão completa</h4><p>Cortesias, cupons, comissários, painel administrativo e rastreabilidade total.</p></div>
+            <div className="card" style={{marginBottom:14}}><h4>Venda online</h4><p>Lotes, Pix, cartão e QR Code gerado automaticamente após confirmação.</p></div>
+            <div className="card" style={{marginBottom:14}}><h4>Controle de acesso</h4><p>Check-in na portaria com validação em tempo real. Sem ingresso falso.</p></div>
+            <div className="card" style={{marginBottom:14}}><h4>Gestão completa</h4><p>Cortesias, cupons, comissários, painel administrativo e rastreabilidade total.</p></div>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic', marginTop: 8 }}>O evento começa na experiência de compra.</p>
           </div>
         </section>
@@ -769,11 +769,11 @@ export default function LandingLp() {
             <div className="section-label">Smart POS</div>
             <h2 className="section-title">Mobilidade para vender<br /><em>em qualquer ponto do evento.</em></h2>
             <div className="divider" />
-            <div className="pos-grid">
-              <div className="prob-card"><h4>Bares</h4><p>Venda rápida nos balcões com mobilidade total.</p></div>
-              <div className="prob-card"><h4>Camarotes</h4><p>Atendimento personalizado e integrado.</p></div>
-              <div className="prob-card"><h4>Pista e VIP</h4><p>Caixas móveis em circulação pelo evento.</p></div>
-              <div className="prob-card"><h4>Contingência</h4><p>Reforço onde há mais demanda.</p></div>
+            <div className="grid-2">
+              <div className="card"><h4>Bares</h4><p>Venda rápida nos balcões com mobilidade total.</p></div>
+              <div className="card"><h4>Camarotes</h4><p>Atendimento personalizado e integrado.</p></div>
+              <div className="card"><h4>Pista e VIP</h4><p>Caixas móveis em circulação pelo evento.</p></div>
+              <div className="card"><h4>Contingência</h4><p>Reforço onde há mais demanda.</p></div>
             </div>
           </div>
         </section>
