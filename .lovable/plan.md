@@ -1,45 +1,33 @@
 ## Objetivo
-Encaixar a imagem do totem de reconhecimento facial FestPag no hero da `/lp`, de forma harmoniosa com o layout atual (Space Grotesk, fundo escuro, paleta indigo→magenta).
+Substituir a imagem do hero da `/lp` pela nova foto enviada (`foto_land.png`) e garantir que no mobile ela apareça inteira logo no início (acima da dobra), sem cortar e sem empurrar o texto pra fora da tela. No desktop, manter o layout split atual.
 
-## Layout do hero (split assimétrico)
-Reorganizar o `.lp-hero` em duas colunas em desktop, mantendo stack em mobile:
+## Mudanças
 
-```
-┌─────────────────────────┬──────────────────┐
-│ eyebrow                 │                  │
-│ Headline grande         │   [TOTEM IMG]    │
-│ Subtítulo               │   com glow       │
-│ [CTA primário] [sec.]   │   atrás          │
-└─────────────────────────┴──────────────────┘
-```
+### 1. Asset
+- Upload de `/mnt/user-uploads/foto_land.png` via `lovable-assets` CLI → `src/assets/festpag-totem.jpg.asset.json` (substitui o pointer atual, mesma key usada no import).
+- Deletar o asset antigo para não deixar lixo no CDN.
 
-- Desktop (≥900px): grid `1.1fr 0.9fr`, gap 48px, alinhamento `center`.
-- Mobile: coluna única, imagem abaixo do bloco de texto, max-width 320px centralizada.
+### 2. Mobile (< 900px) — caber no início
+Hoje no mobile a imagem fica abaixo do texto. Vou inverter a ordem e reduzir altura pra caber acima da dobra:
 
-## Tratamento visual da imagem
-A foto tem fundo branco/claro que destoa do tema escuro. Para integrar:
+- `.hero-grid` em mobile: `grid-template-columns: 1fr`, `gap: 24px` (era 40px).
+- `.hero-visual` aparece **antes** do `.hero-copy` no mobile via `order: -1`.
+- `.hero-visual` mobile: `max-width: 220px` (era 320px), `aspect-ratio: 9/16` (era 3/4) — combina com a proporção vertical da nova foto.
+- Reduzir padding-top do `.hero` em mobile: `padding: 80px 20px 60px` (era ~120px) pra dar mais espaço.
+- Headline mobile: reduzir `clamp` mínimo de fonte se necessário pra equilibrar.
 
-1. **Upload** via `lovable-assets` (foto enviada em `/mnt/user-uploads/`), salvar pointer em `src/assets/festpag-totem.jpg.asset.json`.
-2. **Container** `.lp-hero-visual`:
-   - `position: relative`, `aspect-ratio: 3/4`, `max-width: 460px`.
-   - **Glow atrás**: pseudo `::before` com radial-gradient indigo→magenta a 40% opacidade, `filter: blur(80px)`, escala 1.15 — funde a foto no fundo escuro.
-   - **Máscara de fade**: `mask-image: radial-gradient(ellipse at center, black 55%, transparent 95%)` para suavizar bordas brancas da foto e dissolver no fundo.
-   - **Overlay**: gradiente sutil `linear-gradient(180deg, transparent 60%, rgba(10,5,20,0.5) 100%)` por cima para escurecer a base.
-   - `border-radius: 20px`, sem border visível (a máscara já dissolve).
-   - `box-shadow: 0 30px 80px -20px rgba(99,102,241,0.4)` para profundidade.
-3. **Animação de entrada** opcional: `opacity 0→1` + `translateY(20px→0)` em 600ms.
+### 3. Desktop (≥ 900px) — manter
+- Grid `1.1fr 0.9fr` permanece.
+- Ajustar `aspect-ratio` da `.hero-visual` para `9/16` e `max-width: 380px` (era 460px com 3/4) pra acomodar melhor a nova foto vertical sem dominar a coluna.
+- Manter glow, máscara radial e overlay.
 
-## Ajustes no texto do hero
-- Diminuir `max-width` do bloco de texto para `560px` (antes era centralizado em 720px).
-- Manter alinhamento à esquerda (em vez do centralizado atual) para combinar com o split.
-- CTAs alinhados à esquerda em desktop, centralizados em mobile.
+### 4. Máscara/glow
+- Manter o tratamento atual (radial mask, glow indigo→magenta, box-shadow). A nova imagem já tem fundo escuro/roxo, então a máscara dissolve naturalmente — sem precisar de ajustes pesados.
 
-## Arquivo
-- **Editado**: `src/pages/LandingLp.tsx`
-  - Adicionar import do pointer `festpag-totem.jpg.asset.json`.
-  - Substituir layout interno de `.lp-hero` por `.lp-hero-grid` com duas colunas (texto + visual).
-  - Adicionar regras CSS no `LP_CSS`: `.lp-hero-grid`, `.lp-hero-copy`, `.lp-hero-visual`, `.lp-hero-visual img`, `.lp-hero-visual::before` (glow), media query mobile.
-- **Criado**: `src/assets/festpag-totem.jpg.asset.json` (via CLI).
+## Arquivos
+- **Editado**: `src/pages/LandingLp.tsx` (apenas CSS no `LP_CSS` + ordem do JSX se necessário via `order`).
+- **Substituído**: `src/assets/festpag-totem.jpg.asset.json` (novo upload).
+- **Deletado**: asset antigo no CDN.
 
 ## Fora de escopo
-- Sem mudança em outras seções, formulário, edge function, copy, rotas ou tema global.
+Nenhuma mudança em copy, formulário, outras seções, rotas ou tema global.

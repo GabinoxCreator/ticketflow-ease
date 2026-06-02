@@ -183,35 +183,26 @@ const LP_CSS = `
   position: relative;
   justify-self: center;
   width: 100%;
-  max-width: 460px;
-  aspect-ratio: 3 / 4;
+  max-width: 420px;
+  aspect-ratio: 9 / 16;
   animation: heroFadeIn 700ms ease-out both;
 }
 .lp-root .hero-visual::before {
-  content: ''; position: absolute; inset: -8%;
+  content: ''; position: absolute; inset: -10%;
   background:
     radial-gradient(ellipse 55% 45% at 30% 35%, rgba(107,92,240,0.55) 0%, transparent 70%),
     radial-gradient(ellipse 55% 45% at 70% 65%, rgba(224,64,160,0.45) 0%, transparent 70%);
-  filter: blur(60px);
+  filter: blur(70px);
   z-index: 0;
 }
 .lp-root .hero-visual img {
   position: relative; z-index: 1;
-  width: 100%; height: 100%; object-fit: cover;
-  border-radius: 22px;
-  -webkit-mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
-          mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
+  width: 100%; height: 100%; object-fit: contain;
+  -webkit-mask-image: radial-gradient(ellipse 80% 85% at 50% 50%, #000 60%, transparent 100%);
+          mask-image: radial-gradient(ellipse 80% 85% at 50% 50%, #000 60%, transparent 100%);
   filter: saturate(1.05) contrast(1.02);
 }
-.lp-root .hero-visual::after {
-  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(8,0,15,0.35) 0%, transparent 25%, transparent 70%, rgba(8,0,15,0.6) 100%),
-    linear-gradient(90deg, rgba(8,0,15,0.25) 0%, transparent 20%, transparent 80%, rgba(8,0,15,0.25) 100%);
-  -webkit-mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
-          mask-image: radial-gradient(ellipse 75% 78% at 50% 48%, #000 55%, transparent 96%);
-}
+
 @keyframes heroFadeIn {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
@@ -616,10 +607,13 @@ const LP_CSS = `
   .lp-root .hero-logo { height: 44px; }
   .lp-root .hero-ctas { flex-direction: column; width: 100%; }
   .lp-root .hero-ctas .btn { width: 100%; }
-  .lp-root .hero-grid { grid-template-columns: 1fr; gap: 40px; }
-  .lp-root .hero-copy { align-items: center; text-align: center; }
+  .lp-root .hero { min-height: auto; padding: 72px 20px 48px; }
+  .lp-root .hero-grid { grid-template-columns: 1fr; gap: 20px; }
+  .lp-root .hero-copy { align-items: center; text-align: center; order: 2; }
   .lp-root .hero-ctas { justify-content: center; }
-  .lp-root .hero-visual { max-width: 320px; aspect-ratio: 3 / 4; }
+  .lp-root .hero-visual { max-width: 220px; aspect-ratio: 9 / 16; order: 1; }
+  .lp-root .hero-visual::before { filter: blur(50px); inset: -5%; }
+
 }
 `;
 
