@@ -319,6 +319,26 @@ export default function Financeiro() {
           )}
         </>
       )}
+
+      <AlertDialog open={selectedEvent != null} onOpenChange={(open) => { if (!open && !isSubmitting) setSelectedEvent(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Solicitar Saque</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEvent ? `Confirmar saque de ${formatBRL(selectedEvent.available)}?` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={(e) => { e.preventDefault(); handleConfirmPayout(); }}
+            >
+              {isSubmitting ? 'Solicitando...' : 'Confirmar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProducerLayout>
   );
 }
