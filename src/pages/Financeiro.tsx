@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar } from 'lucide-react';
+import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar, Banknote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { PinSetupCard } from '@/components/producer/PinSetupCard';
@@ -9,10 +9,31 @@ import { PinVerificationDialog } from '@/components/producer/PinVerificationDial
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useProducerFinance } from '@/hooks/useProducerFinance';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const PAYOUT_ERROR_MESSAGES: Record<string, string> = {
+  already_requested: 'Você já tem um saque solicitado para este evento.',
+  no_available_balance: 'Não há saldo disponível para saque.',
+  no_bank_account: 'Cadastre sua conta bancária antes de solicitar o saque.',
+  not_event_owner: 'Este evento não pertence à sua conta.',
+  event_not_found: 'Evento não encontrado.',
+};
 
 const formatBRL = (v: number) => {
   const [intPart, fracPart] = v.toFixed(2).split('.');
