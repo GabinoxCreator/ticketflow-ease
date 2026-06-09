@@ -48,6 +48,9 @@ export default function Financeiro() {
   const [hasPin, setHasPin] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState<{ id: string; title: string; available: number } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
   const checkPinStatus = useCallback(async () => {
     try {
