@@ -78,6 +78,41 @@ export default function Financeiro() {
     return finance.events.filter((e) => e.title.toLowerCase().includes(q));
   }, [finance, search]);
 
+  const handleConfirmPayout = async () => {
+    if (!selectedEvent) return;
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('request-payout', {
+        body: { event_id: selectedEvent.id },
+      });
+
+      let payload: any = data;
+      if (error && (error as any).context && typeof (error as any).context.json === 'function') {
+        try { payload = await (error as any).context.json(); } catch { /* noop */ }
+      }
+
+      if (error && !payload) {
+        toast.error('Não foi possível solicitar o saque. Tente novamente.');
+        return;
+      }
+
+      if (!payload?.ok) {
+        const code = payload?.error as string | undefined;
+        toast.error(PAYOUT_ERROR_MESSAGES[code ?? ''] ?? 'Não foi possível solicitar o saque. Tente novamente.');
+        return;
+      }
+
+      toast.success('Saque solicitado com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['producer-finance'] });
+    } catch {
+      toast.error('Não foi possível solicitar o saque. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+      setSelectedEvent(null);
+    }
+  };
+
+
   return (
     <ProducerLayout>
       <Helmet>
