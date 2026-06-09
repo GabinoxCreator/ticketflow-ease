@@ -268,12 +268,40 @@ export default function Financeiro() {
                                   <div className="font-semibold text-secondary">{formatBRL(event.available)}</div>
                                   <div className="text-xs text-muted-foreground">Disponível</div>
                                 </div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="hidden sm:inline-flex flex-shrink-0 gap-1.5"
+                                  disabled={event.available <= 0}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setSelectedEvent({ id: event.id, title: event.title, available: event.available });
+                                  }}
+                                >
+                                  <Banknote className="w-4 h-4" />
+                                  Solicitar Saque
+                                </Button>
                               </div>
-                              {/* mobile-only net */}
+                              {/* mobile-only net + saque */}
                               <div className="flex sm:hidden justify-between mt-3 pt-3 border-t border-border text-xs">
                                 <span className="text-muted-foreground">Receita Líquida</span>
                                 <span className="font-medium">{formatBRL(event.net)}</span>
                               </div>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="sm:hidden w-full mt-3 gap-1.5"
+                                disabled={event.available <= 0}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedEvent({ id: event.id, title: event.title, available: event.available });
+                                }}
+                              >
+                                <Banknote className="w-4 h-4" />
+                                Solicitar Saque
+                              </Button>
                             </CardContent>
                           </Card>
                         </Link>
