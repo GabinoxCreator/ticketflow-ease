@@ -1,202 +1,60 @@
-# Fase 2 — Motor de solicitação de saque
+## Fase 3 — Botão "Solicitar Saque" por evento (Financeiro do produtor)
 
-Duas peças, apenas. Sem frontend, sem RLS, sem storage, sem admin.
+Escopo restrito a `src/pages/Financeiro.tsx`, aba **Por Evento**. Nada de admin, RLS, storage, SQL ou edge functions.
 
-## Peça 1 — Função SQL `public.request_payout(p_event_id uuid, p_user_id uuid)`
+### Mudanças
 
-`SECURITY DEFINER`, `SET search_path = public`. Retorna `jsonb`. Toda lógica numa transação.
+**1. `src/pages/Financeiro.tsx`**
+- Importar `Button`, `AlertDialog*` (padrão shadcn já usado no projeto), `toast` do `sonner`, `useQueryClient` do `@tanstack/react-query`, e o ícone `Banknote` (lucide).
+- Adicionar estado local:
+  - `selectedEvent: { id: string; title: string; available: number } | null` — controla qual evento está no diálogo.
+  - `isSubmitting: boolean` — para desabilitar o "Confirmar" e mostrar "Solicitando…".
+- Obter `const queryClient = useQueryClient();` e o `user?.id` (via `useAuth` ou reaproveitando o que `useProducerFinance` já usa — confirmar no hook). Para invalidar basta `queryClient.invalidateQueries({ queryKey: ['producer-finance'] })` (prefix match, não precisa do user id).
+- Em cada card de evento, adicionar um botão **"Solicitar Saque"**:
+  - Desabilitado quando `event.available <= 0`.
+  - `onClick` precisa de `e.preventDefault(); e.stopPropagation();` porque o card inteiro é um `<Link>` para `/produtor/financeiro/:id`. Sem isso, clicar no botão navega.
+  - Define `selectedEvent` e abre o `AlertDialog`.
+  - Posição: no bloco `hidden sm:flex` (desktop) e também aparecer no bloco mobile (abaixo da linha "Receita Líquida"), para manter o layout responsivo atual.
+- Renderizar um único `AlertDialog` controlado por `selectedEvent != null`, fora do `.map`, com:
+  - Título: `Solicitar Saque`
+  - Descrição: `Confirmar saque de {formatBRL(selectedEvent.available)}?`
+  - `AlertDialogCancel`: "Cancelar" (desabilitado durante submit).
+  - `AlertDialogAction`: "Confirmar" / "Solicitando..." quando `isSubmitting`.
 
-```sql
-CREATE OR REPLACE FUNCTION public.request_payout(p_event_id uuid, p_user_id uuid)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  _event           RECORD;
-  _net_revenue     numeric;
-  _already_paid    numeric;
-  _already_req     numeric;
-  _available       numeric;
-  _bank            jsonb;
-  _payout_id       uuid;
-BEGIN
-  -- 1. evento
-  SELECT id, producer_id, producer_profile_id
-    INTO _event
-    FROM public.events
-   WHERE id = p_event_id;
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'event_not_found');
-  END IF;
-
-  -- 2. ownership
-  IF _event.producer_id IS DISTINCT FROM p_user_id THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'not_event_owner');
-  END IF;
-
-  -- 3. receita líquida (mesmo filtro do useProducerFinance)
-  SELECT GREATEST(0,
-           COALESCE(SUM(total_amount), 0) - COALESCE(SUM(service_fee_amount), 0))
-    INTO _net_revenue
-    FROM public.orders
-   WHERE event_id = p_event_id
-     AND status IN ('paid', 'completed')
-     AND sale_origin <> 'courtesy';
-
-  -- 4. já pago
-  SELECT COALESCE(SUM(net_amount), 0)
-    INTO _already_paid
-    FROM public.payouts
-   WHERE event_id = p_event_id
-     AND status = 'paid';
-
-  -- 5. já solicitado
-  SELECT COALESCE(SUM(net_amount), 0)
-    INTO _already_req
-    FROM public.payouts
-   WHERE event_id = p_event_id
-     AND status = 'requested';
-
-  -- 6. disponível
-  _available := _net_revenue - _already_paid - _already_req;
-  IF _available <= 0 THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'no_available_balance');
-  END IF;
-
-  -- 7. conta bancária do produtor
-  SELECT to_jsonb(b.*)
-    INTO _bank
-    FROM public.producer_bank_accounts b
-   WHERE b.user_id = p_user_id
-   LIMIT 1;
-  IF _bank IS NULL THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'no_bank_account');
-  END IF;
-
-  -- 8. insert (status gravado explicitamente)
-  INSERT INTO public.payouts (
-    producer_profile_id, event_id,
-    gross_amount, platform_fee, net_amount,
-    status, period_start, period_end,
-    bank_account_snapshot
-  ) VALUES (
-    _event.producer_profile_id, p_event_id,
-    _available, 0, _available,
-    'requested', now(), now(),
-    _bank
-  )
-  RETURNING id INTO _payout_id;
-
-  -- 9. ok
-  RETURN jsonb_build_object('ok', true, 'payout_id', _payout_id, 'amount', _available);
-
-EXCEPTION
-  WHEN unique_violation THEN
-    -- trava do índice uniq_payout_requested_per_event
-    RETURN jsonb_build_object('ok', false, 'error', 'already_requested');
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.request_payout(uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.request_payout(uuid, uuid) TO service_role;
-```
-
-Notas:
-- Usa `p_user_id` em vez de `auth.uid()` (vai ser chamada com service role pela Edge Function).
-- `unique_violation` cobre o índice parcial `uniq_payout_requested_per_event` da Fase 1.
-- Nada é alterado em outras tabelas. Sem trigger. Sem RLS nova.
-- `EXECUTE` só para `service_role`; o produtor nunca chama essa função diretamente do cliente.
-
-## Peça 2 — Edge Function `supabase/functions/request-payout/index.ts`
-
-Mesmo padrão de `process-card-payment`: client anon só para `getClaims`, client service-role para o RPC.
-
+**2. Handler `handleConfirm`**
 ```ts
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status,
-  });
-
-const log = (step: string, details?: unknown) => {
-  const d = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[REQUEST-PAYOUT] ${step}${d}`);
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  try {
-    // Auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
-    const token = authHeader.replace('Bearer ', '');
-
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const { data: claimsData, error: cErr } = await userClient.auth.getClaims(token);
-    if (cErr || !claimsData?.claims?.sub) return json({ error: 'Unauthorized' }, 401);
-    const userId: string = claimsData.claims.sub;
-
-    // Body
-    const body = await req.json().catch(() => ({}));
-    const eventId = body?.event_id;
-    if (!eventId || typeof eventId !== 'string') {
-      return json({ ok: false, error: 'missing_event_id' }, 400);
-    }
-
-    // Service-role client
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } },
-    );
-
-    log('calling request_payout', { eventId, userId });
-    const { data, error } = await admin.rpc('request_payout', {
-      p_event_id: eventId,
-      p_user_id: userId,
-    });
-
-    if (error) {
-      log('rpc_error', error);
-      return json({ ok: false, error: 'rpc_error', detail: error.message }, 500);
-    }
-
-    const ok = data?.ok === true;
-    return json(data, ok ? 200 : 400);
-  } catch (e) {
-    log('exception', String(e));
-    return json({ ok: false, error: 'internal_error' }, 500);
-  }
+setIsSubmitting(true);
+const { data, error } = await supabase.functions.invoke('request-payout', {
+  body: { event_id: selectedEvent.id },
 });
+setIsSubmitting(false);
+
+if (error || !data?.ok) {
+  const code = data?.error as string | undefined;
+  const messages: Record<string,string> = {
+    already_requested: 'Você já tem um saque solicitado para este evento.',
+    no_available_balance: 'Não há saldo disponível para saque.',
+    no_bank_account: 'Cadastre sua conta bancária antes de solicitar o saque.',
+    not_event_owner: 'Este evento não pertence à sua conta.',
+    event_not_found: 'Evento não encontrado.',
+  };
+  toast.error(messages[code ?? ''] ?? 'Não foi possível solicitar o saque. Tente novamente.');
+  setSelectedEvent(null);
+  return;
+}
+
+toast.success('Saque solicitado com sucesso');
+setSelectedEvent(null);
+queryClient.invalidateQueries({ queryKey: ['producer-finance'] });
 ```
 
-Sem PIN, sem rate limit, sem alteração de `config.toml` (verify_jwt já é false por default no Lovable).
+> Obs.: `supabase.functions.invoke` retorna `error` quando o HTTP status ≠ 2xx. A edge `request-payout` devolve 400 quando `ok:false`, então o corpo vem em `error.context` em alguns casos. Para cobrir os dois caminhos, o handler também tenta ler `await error.context?.json()` se `data` estiver vazio. (Detalhe técnico — vou tratar na implementação.)
 
-## O que NÃO entra nesta fase
+### Não fazer
+- Sem PIN no botão (já validado na entrada da aba).
+- Sem campo de valor (saque = `available` inteiro).
+- Sem alterações em admin, policies, storage, SQL, edge functions, ou no hook `useProducerFinance`.
+- Sem mudanças visuais fora dos cards de evento.
 
-- Frontend (botão "Solicitar saque" fica para a próxima).
-- Policies RLS de `payouts` (já existem 5; não toco).
-- Storage / comprovante.
-- Tela do admin para aprovar/recusar.
-- Nenhuma alteração em outras tabelas.
-
-## Resumo do que aplicar (após aprovação)
-
-1. Migration com `CREATE OR REPLACE FUNCTION public.request_payout(...)` + grants.
-2. Criar `supabase/functions/request-payout/index.ts` (deploy automático).
+### Arquivos tocados
+- `src/pages/Financeiro.tsx` (único arquivo modificado).

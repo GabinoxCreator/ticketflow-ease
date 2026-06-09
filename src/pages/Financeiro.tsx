@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar } from 'lucide-react';
+import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar, Banknote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { PinSetupCard } from '@/components/producer/PinSetupCard';
@@ -9,10 +9,31 @@ import { PinVerificationDialog } from '@/components/producer/PinVerificationDial
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useProducerFinance } from '@/hooks/useProducerFinance';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const PAYOUT_ERROR_MESSAGES: Record<string, string> = {
+  already_requested: 'Você já tem um saque solicitado para este evento.',
+  no_available_balance: 'Não há saldo disponível para saque.',
+  no_bank_account: 'Cadastre sua conta bancária antes de solicitar o saque.',
+  not_event_owner: 'Este evento não pertence à sua conta.',
+  event_not_found: 'Evento não encontrado.',
+};
 
 const formatBRL = (v: number) => {
   const [intPart, fracPart] = v.toFixed(2).split('.');
@@ -27,6 +48,9 @@ export default function Financeiro() {
   const [hasPin, setHasPin] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState<{ id: string; title: string; available: number } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
   const checkPinStatus = useCallback(async () => {
     try {
@@ -53,6 +77,41 @@ export default function Financeiro() {
     if (!q) return finance.events;
     return finance.events.filter((e) => e.title.toLowerCase().includes(q));
   }, [finance, search]);
+
+  const handleConfirmPayout = async () => {
+    if (!selectedEvent) return;
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('request-payout', {
+        body: { event_id: selectedEvent.id },
+      });
+
+      let payload: any = data;
+      if (error && (error as any).context && typeof (error as any).context.json === 'function') {
+        try { payload = await (error as any).context.json(); } catch { /* noop */ }
+      }
+
+      if (error && !payload) {
+        toast.error('Não foi possível solicitar o saque. Tente novamente.');
+        return;
+      }
+
+      if (!payload?.ok) {
+        const code = payload?.error as string | undefined;
+        toast.error(PAYOUT_ERROR_MESSAGES[code ?? ''] ?? 'Não foi possível solicitar o saque. Tente novamente.');
+        return;
+      }
+
+      toast.success('Saque solicitado com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['producer-finance'] });
+    } catch {
+      toast.error('Não foi possível solicitar o saque. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+      setSelectedEvent(null);
+    }
+  };
+
 
   return (
     <ProducerLayout>
@@ -209,12 +268,40 @@ export default function Financeiro() {
                                   <div className="font-semibold text-secondary">{formatBRL(event.available)}</div>
                                   <div className="text-xs text-muted-foreground">Disponível</div>
                                 </div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="hidden sm:inline-flex flex-shrink-0 gap-1.5"
+                                  disabled={event.available <= 0}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setSelectedEvent({ id: event.id, title: event.title, available: event.available });
+                                  }}
+                                >
+                                  <Banknote className="w-4 h-4" />
+                                  Solicitar Saque
+                                </Button>
                               </div>
-                              {/* mobile-only net */}
+                              {/* mobile-only net + saque */}
                               <div className="flex sm:hidden justify-between mt-3 pt-3 border-t border-border text-xs">
                                 <span className="text-muted-foreground">Receita Líquida</span>
                                 <span className="font-medium">{formatBRL(event.net)}</span>
                               </div>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="sm:hidden w-full mt-3 gap-1.5"
+                                disabled={event.available <= 0}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedEvent({ id: event.id, title: event.title, available: event.available });
+                                }}
+                              >
+                                <Banknote className="w-4 h-4" />
+                                Solicitar Saque
+                              </Button>
                             </CardContent>
                           </Card>
                         </Link>
@@ -232,6 +319,26 @@ export default function Financeiro() {
           )}
         </>
       )}
+
+      <AlertDialog open={selectedEvent != null} onOpenChange={(open) => { if (!open && !isSubmitting) setSelectedEvent(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Solicitar Saque</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEvent ? `Confirmar saque de ${formatBRL(selectedEvent.available)}?` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={(e) => { e.preventDefault(); handleConfirmPayout(); }}
+            >
+              {isSubmitting ? 'Solicitando...' : 'Confirmar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProducerLayout>
   );
 }
