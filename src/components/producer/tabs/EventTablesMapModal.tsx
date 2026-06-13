@@ -77,7 +77,7 @@ export function EventTablesMapModal({ eventId, open, onOpenChange }: Props) {
       if (seat.hold_expires_at && new Date(seat.hold_expires_at).getTime() < Date.now()) {
         return 'available';
       }
-      return 'reserved';
+      return 'held-other';
     }
     return 'available';
   };
