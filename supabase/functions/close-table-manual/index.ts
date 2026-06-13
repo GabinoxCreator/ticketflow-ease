@@ -72,28 +72,47 @@ serve(async (req) => {
     }
     if (!isOwner) return json({ ok: false, error: "forbidden" }, 403);
 
-    // UPDATE atômico — gate espelhando hold_seats (available OU held-expirado)
+    // UPDATE atômico em duas tentativas — evita .or() com timestamp ISO
+    // (caracteres `:` e `.` quebram o parser de filtro do PostgREST).
     const nowIso = new Date().toISOString();
-    const { data: updated, error: updErr } = await admin
+    const patch = {
+      status: "manual",
+      manually_closed_by: userId,
+      manually_closed_at: nowIso,
+      manual_close_reason: notes,
+      manual_holder_name: holderName,
+      manual_holder_phone: holderPhone,
+      manual_holder_notes: notes,
+      hold_token: null,
+      hold_expires_at: null,
+      held_by_user_id: null,
+    };
+
+    // 1) status = available
+    let { data: updated, error: updErr } = await admin
       .from("event_seats")
-      .update({
-        status: "manual",
-        manually_closed_by: userId,
-        manually_closed_at: nowIso,
-        manual_close_reason: notes,
-        manual_holder_name: holderName,
-        manual_holder_phone: holderPhone,
-        manual_holder_notes: notes,
-        hold_token: null,
-        hold_expires_at: null,
-        held_by_user_id: null,
-      })
+      .update(patch)
       .eq("id", body.seat_id)
-      .or(`status.eq.available,and(status.eq.held,hold_expires_at.lt.${nowIso})`)
+      .eq("status", "available")
       .select("id")
       .maybeSingle();
 
     if (updErr) return json({ ok: false, error: updErr.message }, 500);
+
+    // 2) status = held com hold expirado
+    if (!updated) {
+      const r2 = await admin
+        .from("event_seats")
+        .update(patch)
+        .eq("id", body.seat_id)
+        .eq("status", "held")
+        .lt("hold_expires_at", nowIso)
+        .select("id")
+        .maybeSingle();
+      if (r2.error) return json({ ok: false, error: r2.error.message }, 500);
+      updated = r2.data;
+    }
+
     if (!updated) return json({ ok: false, error: "seat_unavailable" }, 409);
 
     await admin.from("audit_logs").insert({
