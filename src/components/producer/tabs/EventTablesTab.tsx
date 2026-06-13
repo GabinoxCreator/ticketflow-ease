@@ -188,6 +188,8 @@ export function EventTablesTab({ eventId }: Props) {
         eventId={eventId}
         onClose={() => setSelected(null)}
       />
+
+      <EventTablesMapModal eventId={eventId} open={mapOpen} onOpenChange={setMapOpen} />
     </div>
   );
 }
@@ -238,7 +240,7 @@ function TableDetailModal({
   const closeMut = useMutation({
     mutationFn: async (input: { seat_id: string; holder_name?: string; holder_phone?: string; notes?: string }) => {
       const { data, error } = await supabase.functions.invoke('close-table-manual', { body: input });
-      if (error) throw error;
+      if (error) throw new Error(await parseInvokeError(error));
       if (!data?.ok) throw new Error(data?.error ?? 'unknown');
       return data;
     },
@@ -265,7 +267,7 @@ function TableDetailModal({
   const reopenMut = useMutation({
     mutationFn: async (seat_id: string) => {
       const { data, error } = await supabase.functions.invoke('reopen-table-manual', { body: { seat_id } });
-      if (error) throw error;
+      if (error) throw new Error(await parseInvokeError(error));
       if (!data?.ok) throw new Error(data?.error ?? 'unknown');
       return data;
     },
