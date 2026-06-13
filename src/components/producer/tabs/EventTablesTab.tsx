@@ -332,6 +332,13 @@ function TableDetailModal({
                   <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" />{table.customer_phone}</div>
                 )}
                 <div className="flex justify-between pt-2 text-xs text-muted-foreground">
+                  <span>Cadeiras compradas</span>
+                  <span className="text-foreground">
+                    {table.seats_sold ?? '—'}
+                    {table.max_capacity ? ` de ${table.max_capacity}` : ''}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Total pago</span>
                   <span className="text-foreground">{formatCurrency(table.order_total)}</span>
                 </div>
