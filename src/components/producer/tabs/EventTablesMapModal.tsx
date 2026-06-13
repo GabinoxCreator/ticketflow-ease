@@ -1,17 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useMemo, useState } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { SeatMapRenderer } from '@/components/seated/SeatMapRenderer';
-import type { EventSeatRow } from '@/hooks/useEventSeats';
-import type { VStatus } from '@/components/seated/SeatNode';
-import { useEventTables, type EventTableRow } from '@/hooks/useEventTables';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, RotateCcw, X, User, Armchair } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search, User, Phone, Armchair } from 'lucide-react';
+import { useEventTables, type EventTableRow } from '@/hooks/useEventTables';
 
 interface Props {
   eventId: string;
@@ -19,174 +15,91 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const SEAT_COLS =
-  'id,event_id,status,held_by_user_id,hold_expires_at,hold_token,' +
-  'code,label,x,y,width,height,radius,rotation,shape,color,icon,' +
-  'seat_type_name,base_price,extra_price,base_capacity,max_capacity';
+type Filter = 'all' | 'sold' | 'manual';
 
 export function EventTablesMapModal({ eventId, open, onOpenChange }: Props) {
-  const [zoom, setZoom] = useState(1);
-  const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
+  const { data: tables, isLoading } = useEventTables(eventId);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
-  useEffect(() => {
-    if (!open) {
-      setZoom(1);
-      setSelectedSeatId(null);
-    }
-  }, [open]);
+  const reserved = useMemo(
+    () => (tables ?? []).filter((t) => t.status === 'sold' || t.status === 'manual'),
+    [tables],
+  );
 
-  const { data: tables } = useEventTables(eventId);
-  const tablesById = useMemo(() => {
-    const m = new Map<string, EventTableRow>();
-    for (const t of tables ?? []) m.set(t.id, t);
-    return m;
-  }, [tables]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return reserved
+      .filter((t) => (filter === 'all' ? true : t.status === filter))
+      .filter((t) => {
+        if (!q) return true;
+        const name = (t.customer_name ?? t.manual_holder_name ?? '').toLowerCase();
+        const code = (t.code ?? '').toLowerCase();
+        const label = (t.label ?? '').toLowerCase();
+        return name.includes(q) || code.includes(q) || label.includes(q);
+      })
+      .sort((a, b) => (a.code ?? a.label ?? '').localeCompare(b.code ?? b.label ?? ''));
+  }, [reserved, filter, search]);
 
-  const { data: snapshot, isLoading: snapLoading } = useQuery({
-    queryKey: ['event-map-snapshot', eventId],
-    enabled: open && !!eventId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('map_snapshot')
-        .eq('id', eventId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data?.map_snapshot ?? null) as { table_map?: unknown; map_objects?: unknown[] } | null;
-    },
-  });
-
-  const { data: seats, isLoading: seatsLoading } = useQuery({
-    queryKey: ['event-seats-map', eventId],
-    enabled: open && !!eventId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('event_seats')
-        .select(SEAT_COLS)
-        .eq('event_id', eventId);
-      if (error) throw error;
-      return (data ?? []) as unknown as EventSeatRow[];
-    },
-  });
-
-  const resolveVisualStatus = (seat: EventSeatRow): VStatus => {
-    if (seat.status === 'sold') return 'sold';
-    if (seat.status === 'manual') return 'sold';
-    if (seat.status === 'blocked') return 'blocked';
-    if (seat.status === 'held') {
-      if (seat.hold_expires_at && new Date(seat.hold_expires_at).getTime() < Date.now()) {
-        return 'available';
-      }
-      return 'held-other';
-    }
-    return 'available';
-  };
-
-  const selected = selectedSeatId ? tablesById.get(selectedSeatId) : null;
+  const totalSeats = reserved.reduce(
+    (sum, t) => sum + (t.seats_sold ?? t.base_capacity ?? 0),
+    0,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 flex flex-col gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
-          <DialogTitle>Mapa do evento</DialogTitle>
+          <DialogTitle>Mapa de reservas</DialogTitle>
           <DialogDescription>
-            Visualização das mesas. Clique em uma mesa para ver o cliente e a quantidade de cadeiras.
+            Visão ilustrativa das mesas reservadas — cliente e quantidade de cadeiras de cada reserva.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-2 px-6 py-2 border-b border-border bg-card/30">
-          <Button size="sm" variant="outline" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setZoom((z) => Math.min(4, z + 0.25))}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setZoom(1)}>
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <span className="text-xs text-muted-foreground ml-2">{Math.round(zoom * 100)}%</span>
-          <div className="ml-auto flex items-center gap-3 text-xs">
-            <LegendDot color="bg-emerald-500" label="Vendida / Manual" />
-            <LegendDot color="bg-amber-500" label="Reservada" />
-            <LegendDot color="bg-primary" label="Disponível" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-3 border-b border-border bg-card/30">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nome ou código da mesa…"
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
+              Todas ({reserved.length})
+            </FilterChip>
+            <FilterChip active={filter === 'sold'} onClick={() => setFilter('sold')}>
+              Vendidas ({reserved.filter((t) => t.status === 'sold').length})
+            </FilterChip>
+            <FilterChip active={filter === 'manual'} onClick={() => setFilter('manual')}>
+              Manual ({reserved.filter((t) => t.status === 'manual').length})
+            </FilterChip>
+          </div>
+          <div className="text-xs text-muted-foreground sm:ml-auto whitespace-nowrap">
+            {totalSeats} cadeiras ocupadas
           </div>
         </div>
 
-        <div className="flex-1 relative overflow-hidden">
-          {snapLoading || seatsLoading ? (
-            <Skeleton className="absolute inset-4" />
-          ) : !snapshot ? (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-              Este evento não possui mapa publicado.
+        <div className="flex-1 overflow-auto p-6">
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-56 rounded-xl" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
+              <Armchair className="h-10 w-10 opacity-50" />
+              <div className="font-medium">Nenhuma mesa reservada</div>
+              <div className="text-xs">As mesas vendidas ou fechadas manualmente aparecerão aqui.</div>
             </div>
           ) : (
-            <SeatMapRenderer
-              snapshot={snapshot as { table_map?: { width?: number; height?: number; background_color?: string | null }; map_objects?: never[] }}
-              seats={seats ?? []}
-              resolveVisualStatus={resolveVisualStatus}
-              onToggleSeat={(id) => setSelectedSeatId(id)}
-              zoom={zoom}
-              fillHeight
-            />
-          )}
-
-          {selected && (
-            <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-sm bg-card border border-border rounded-xl shadow-lg p-4">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="min-w-0">
-                  <div className="font-semibold flex items-center gap-2">
-                    <Armchair className="h-4 w-4 text-muted-foreground" />
-                    {selected.label ?? 'Mesa'}
-                    {selected.code && (
-                      <span className="text-xs text-muted-foreground">({selected.code})</span>
-                    )}
-                  </div>
-                </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedSeatId(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="space-y-1.5 text-sm">
-                <Badge variant="outline" className={statusBadge(selected.status)}>
-                  {statusLabel(selected.status)}
-                </Badge>
-                {selected.status === 'sold' && (
-                  <>
-                    {selected.customer_name && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <User className="h-3.5 w-3.5 text-muted-foreground" />
-                        {selected.customer_name}
-                      </div>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                      Cadeiras: {selected.seats_sold ?? '—'}
-                      {selected.max_capacity ? ` de ${selected.max_capacity}` : ''}
-                    </div>
-                  </>
-                )}
-                {selected.status === 'manual' && (
-                  <>
-                    {selected.manual_holder_name && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <User className="h-3.5 w-3.5 text-muted-foreground" />
-                        {selected.manual_holder_name}
-                      </div>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                      Capacidade: {selected.base_capacity ?? '—'}
-                      {selected.max_capacity && selected.max_capacity !== selected.base_capacity
-                        ? ` / ${selected.max_capacity}` : ''}
-                    </div>
-                  </>
-                )}
-                {selected.status !== 'sold' && selected.status !== 'manual' && (
-                  <div className="text-xs text-muted-foreground">
-                    Capacidade: {selected.base_capacity ?? '—'}
-                    {selected.max_capacity && selected.max_capacity !== selected.base_capacity
-                      ? ` / ${selected.max_capacity}` : ''}
-                  </div>
-                )}
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map((t) => (
+                <TableCard key={t.id} table={t} />
+              ))}
             </div>
           )}
         </div>
@@ -195,31 +108,140 @@ export function EventTablesMapModal({ eventId, open, onOpenChange }: Props) {
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function FilterChip({
+  active, onClick, children,
+}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5 text-muted-foreground">
-      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-      {label}
-    </span>
+    <Button
+      type="button"
+      size="sm"
+      variant={active ? 'default' : 'outline'}
+      onClick={onClick}
+      className="h-8"
+    >
+      {children}
+    </Button>
   );
 }
 
-function statusLabel(s: EventTableRow['status']) {
-  switch (s) {
-    case 'sold': return 'Vendida';
-    case 'held': return 'Reservada';
-    case 'manual': return 'Manual';
-    case 'blocked': return 'Bloqueada';
-    default: return 'Disponível';
-  }
+function TableCard({ table }: { table: EventTableRow }) {
+  const isManual = table.status === 'manual';
+  const holder = table.customer_name ?? table.manual_holder_name ?? 'Sem nome';
+  const phone = table.customer_phone ?? table.manual_holder_phone ?? null;
+  const seats = table.seats_sold ?? table.base_capacity ?? 0;
+  const capacity = table.max_capacity ?? table.base_capacity ?? seats;
+  const drawSeats = Math.max(1, Math.min(12, seats || table.base_capacity || 4));
+
+  const accent = isManual
+    ? 'border-amber-500/40 bg-amber-500/5'
+    : 'border-emerald-500/40 bg-emerald-500/5';
+  const tableFill = isManual ? '#f59e0b' : '#10b981';
+
+  return (
+    <div className={`rounded-xl border ${accent} p-4 flex flex-col gap-3`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold truncate">
+            {table.label ?? 'Mesa'}
+            {table.code && (
+              <span className="text-xs text-muted-foreground ml-1.5">({table.code})</span>
+            )}
+          </div>
+          {table.seat_type_name && (
+            <div className="text-xs text-muted-foreground truncate">{table.seat_type_name}</div>
+          )}
+        </div>
+        <Badge
+          variant="outline"
+          className={
+            isManual
+              ? 'bg-amber-500/15 text-amber-200 border-amber-500/40'
+              : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+          }
+        >
+          {isManual ? 'Manual' : 'Vendida'}
+        </Badge>
+      </div>
+
+      <TableIllustration seats={drawSeats} fill={tableFill} />
+
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2 text-sm">
+          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="font-medium truncate">{holder}</span>
+        </div>
+        {phone && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Phone className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{phone}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 text-xs">
+          <Armchair className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-foreground font-medium">{seats}</span>
+          <span className="text-muted-foreground">de {capacity} cadeiras</span>
+        </div>
+        {isManual && table.manual_close_reason && (
+          <div className="text-xs text-muted-foreground italic line-clamp-2 pt-1">
+            “{table.manual_close_reason}”
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function statusBadge(s: EventTableRow['status']) {
-  switch (s) {
-    case 'sold': return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-    case 'held': return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-    case 'manual': return 'bg-amber-500/15 text-amber-200 border-amber-500/40';
-    case 'blocked': return 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30';
-    default: return 'bg-primary/15 text-primary border-primary/30';
-  }
+function TableIllustration({ seats, fill }: { seats: number; fill: string }) {
+  const size = 140;
+  const cx = size / 2;
+  const cy = size / 2;
+  const tableR = 26;
+  const chairR = 8;
+  const orbit = 48;
+
+  const chairs = Array.from({ length: seats }, (_, i) => {
+    const angle = (i / seats) * Math.PI * 2 - Math.PI / 2;
+    return {
+      x: cx + Math.cos(angle) * orbit,
+      y: cy + Math.sin(angle) * orbit,
+    };
+  });
+
+  return (
+    <div className="flex items-center justify-center bg-background/40 rounded-lg py-2">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {chairs.map((c, i) => (
+          <circle
+            key={i}
+            cx={c.x}
+            cy={c.y}
+            r={chairR}
+            fill={fill}
+            fillOpacity={0.25}
+            stroke={fill}
+            strokeWidth={1.5}
+          />
+        ))}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={tableR}
+          fill={fill}
+          fillOpacity={0.85}
+          stroke={fill}
+          strokeWidth={2}
+        />
+        <text
+          x={cx}
+          y={cy + 4}
+          textAnchor="middle"
+          fontSize={13}
+          fontWeight={700}
+          fill="#0b0b0f"
+        >
+          {seats}
+        </text>
+      </svg>
+    </div>
+  );
 }
