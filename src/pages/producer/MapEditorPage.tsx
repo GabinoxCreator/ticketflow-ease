@@ -116,20 +116,31 @@ export default function MapEditorPage() {
     enabled: !!mapId,
   });
 
-  // Read-only check: any published event using this map?
+  // Read-only check: any *active* (not yet ended) published event using this map?
   const { data: publishedEvent } = useQuery({
     queryKey: ['map-published-event', mapId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('events').select('id, title')
-        .eq('table_map_id', mapId!).eq('status', 'published').limit(1).maybeSingle();
+        .from('events')
+        .select('id, title, date, end_date, end_time')
+        .eq('table_map_id', mapId!).eq('status', 'published');
       if (error) throw error;
-      return data;
+      const now = Date.now();
+      const active = (data ?? []).find((e) => {
+        const endDate = e.end_date ?? e.date;
+        if (!endDate) return true; // sem data → trata como ativo (seguro)
+        const time = e.end_time ?? '23:59:59';
+        // Horário de Brasília (UTC-3); evita o shift de UTC para YYYY-MM-DD puro.
+        const endAt = new Date(`${endDate}T${time}-03:00`).getTime();
+        return Number.isFinite(endAt) ? endAt > now : true;
+      });
+      return active ?? null;
     },
     enabled: !!mapId,
   });
 
   const isReadOnly = !!publishedEvent;
+
 
   // Initialize from fetched data
   useEffect(() => {

@@ -1,16 +1,12 @@
-Plano para resolver o refresh repetindo:
+Liberar a edição do mapa quando o evento publicado já passou.
 
-1. Corrigir o erro provável no `EventTablesMapModal`
-   - O componente usa `React.ReactNode`, mas não importa `React` como valor/tipo.
-   - Isso pode quebrar o HMR/preview após a alteração recente e ficar tentando recarregar.
-   - Ajustar o import para incluir `type ReactNode` e usar esse tipo no `FilterChip`.
+### Problema
+`MapEditorPage` trava o editor em modo somente-leitura sempre que existe qualquer `event` com `status='published'` vinculado ao `table_map_id`. O evento "Brasil x Marrocos" terminou em 14/06/2026 (hoje é 15/06/2026), mas continua publicado, então o mapa fica bloqueado mesmo já tendo passado.
 
-2. Remover hardcodes problemáticos no SVG do modal
-   - Trocar cores hex diretas usadas na ilustração por classes/tokens ou props sem violar o padrão do projeto.
-   - Manter o visual da ilustração de mesas reservadas sem mexer na regra de negócio.
+### Mudança
+Em `src/pages/producer/MapEditorPage.tsx` (query `map-published-event`):
+1. Selecionar também `date`, `end_date`, `end_time` dos eventos publicados que usam o mapa.
+2. Considerar como "bloqueante" apenas eventos cujo fim ainda não passou (horário de São Paulo): usa `end_date + end_time` (ou `end_date` 23:59 se faltar `end_time`, ou `date` 23:59 como fallback).
+3. `isReadOnly = true` apenas se existir algum evento publicado e ainda não encerrado vinculado ao mapa. Eventos publicados já encerrados deixam o mapa editável.
 
-3. Verificar se o preview estabilizou
-   - Checar logs recentes do Vite após a mudança.
-   - Confirmar que não há erro de compilação/HMR e que o app não fica em reload loop.
-
-Escopo: só vou mexer na causa do refresh relacionada à última área alterada do mapa/modal de mesas; não vou alterar backend, autenticação ou fluxo de venda.
+Nada muda na lógica de salvar, RLS, ou em outras telas. Só o gate visual + o `throw` da mutation passam a respeitar o fim do evento.
