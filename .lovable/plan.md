@@ -1,12 +1,22 @@
-Liberar a edição do mapa quando o evento publicado já passou.
+### Corrigir visualização do mapa de mesas no desktop (EventDetailsSeated)
 
 ### Problema
-`MapEditorPage` trava o editor em modo somente-leitura sempre que existe qualquer `event` com `status='published'` vinculado ao `table_map_id`. O evento "Brasil x Marrocos" terminou em 14/06/2026 (hoje é 15/06/2026), mas continua publicado, então o mapa fica bloqueado mesmo já tendo passado.
+No desktop, o mapa publicado de mesas (`EventDetailsSeated`) não exibe completamente: fica cortado pela metade e não é possível arrastar/pan. No mobile o layout empilhado funciona corretamente.
+
+### Causa raiz
+O grid do desktop usa `lg:grid-cols-[1fr_360px]` mas não define `grid-template-rows`. Sem uma linha explícita, a altura da linha fica `auto`, e um filho com `h-full` dentro de `auto` colapsa — o container do SVG fica menor que o esperado, e `preserveAspectRatio="meet"` corta a visualização.
 
 ### Mudança
-Em `src/pages/producer/MapEditorPage.tsx` (query `map-published-event`):
-1. Selecionar também `date`, `end_date`, `end_time` dos eventos publicados que usam o mapa.
-2. Considerar como "bloqueante" apenas eventos cujo fim ainda não passou (horário de São Paulo): usa `end_date + end_time` (ou `end_date` 23:59 se faltar `end_time`, ou `date` 23:59 como fallback).
-3. `isReadOnly = true` apenas se existir algum evento publicado e ainda não encerrado vinculado ao mapa. Eventos publicados já encerrados deixam o mapa editável.
+Arquivo: `src/pages/EventDetailsSeated.tsx` (apenas classes CSS, zero lógica alterada)
 
-Nada muda na lógica de salvar, RLS, ou em outras telas. Só o gate visual + o `throw` da mutation passam a respeitar o fim do evento.
+1. Adicionar `lg:grid-rows-[minmax(0,1fr)]` ao grid raiz (linha 120) para forçar a linha desktop a ocupar toda a altura disponível sem estourar o container pai.
+2. Adicionar `min-h-0` ao flex container da coluna do mapa (linha 121) para permitir que ele encolha corretamente dentro do grid.
+3. Adicionar `min-h-0` ao `<aside>` do painel direito (linha 147) para consistência no grid e evitar overflow indesejado.
+
+Nenhuma alteração em `SeatMapRenderer`, zoom, pan, ou outro componente. O renderer já se adapta quando recebe um container com altura bem definida.
+
+### Como validar
+- Abrir a página de um evento com mapa de mesas no desktop.
+- Confirmar que o mapa ocupa a altura total da área visível.
+- Confirmar que o pan/drag funciona normalmente.
+- Verificar que o mobile continua funcionando como antes.
