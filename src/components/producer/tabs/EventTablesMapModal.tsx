@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -110,7 +110,7 @@ export function EventTablesMapModal({ eventId, open, onOpenChange }: Props) {
 
 function FilterChip({
   active, onClick, children,
-}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+}: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <Button
       type="button"
