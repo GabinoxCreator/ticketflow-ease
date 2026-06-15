@@ -117,8 +117,8 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
         <title>{event.title} - Mapa de Mesas - FestPag</title>
       </Helmet>
 
-      <div className="grid lg:grid-cols-[1fr_360px] gap-0 h-full">
-        <div className="min-w-0 h-full flex flex-col">
+      <div className="grid lg:grid-cols-[1fr_360px] lg:grid-rows-[minmax(0,1fr)] gap-0 h-full min-h-0">
+        <div className="min-w-0 min-h-0 h-full flex flex-col">
           {seatsLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
