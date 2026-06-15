@@ -144,7 +144,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
           </div>
         </div>
 
-        <aside className="border-t lg:border-t-0 lg:border-l border-border bg-background overflow-y-auto p-4">
+        <aside className="border-t lg:border-t-0 lg:border-l border-border bg-background overflow-y-auto p-4 min-h-0">
           <SelectionPanel
             seats={seats ?? []}
             hold={hold}
