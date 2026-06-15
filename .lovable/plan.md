@@ -1,32 +1,16 @@
-## Trocar "Ver mapa" por visão de reservas
+Plano para resolver o refresh repetindo:
 
-O modal atual carrega o snapshot real do venue (SeatMapRenderer + objetos do mapa) e isso não é o que você precisa. Vou substituir por uma **grade ilustrativa** focada só nas mesas reservadas.
+1. Corrigir o erro provável no `EventTablesMapModal`
+   - O componente usa `React.ReactNode`, mas não importa `React` como valor/tipo.
+   - Isso pode quebrar o HMR/preview após a alteração recente e ficar tentando recarregar.
+   - Ajustar o import para incluir `type ReactNode` e usar esse tipo no `FilterChip`.
 
-### O que muda
+2. Remover hardcodes problemáticos no SVG do modal
+   - Trocar cores hex diretas usadas na ilustração por classes/tokens ou props sem violar o padrão do projeto.
+   - Manter o visual da ilustração de mesas reservadas sem mexer na regra de negócio.
 
-Reescrever `src/components/producer/tabs/EventTablesMapModal.tsx` (mesmo nome de componente e botão "Ver mapa", então `EventTablesTab.tsx` não muda):
+3. Verificar se o preview estabilizou
+   - Checar logs recentes do Vite após a mudança.
+   - Confirmar que não há erro de compilação/HMR e que o app não fica em reload loop.
 
-- **Remove** `SeatMapRenderer`, fetch de `map_snapshot` e `event_seats` cru.
-- **Usa só** o hook `useEventTables(eventId)` que já temos (com `seats_sold`, cliente, status).
-- **Filtra** para mostrar apenas mesas com reserva: `status === 'sold' || status === 'manual'`.
-- Renderiza como **grade de cards ilustrativos** (uma "mesa" por card), com:
-  - Código + label da mesa no topo (ex.: "M12 — Mesa Padrão").
-  - Ilustração simples: ícone de mesa redonda/quadrada no centro com N cadeirinhas ao redor (SVG inline, gerado a partir de `seats_sold ?? base_capacity`). Cor da mesa = verde (vendida) ou âmbar (manual).
-  - Nome do cliente (`customer_name` ou `manual_holder_name`) em destaque.
-  - Linha "X de Y cadeiras" (`seats_sold` de `max_capacity`/`base_capacity`).
-  - Telefone do responsável quando manual.
-- **Header do modal**: contador "X mesas reservadas · Y cadeiras ocupadas", busca por nome/código e filtro Vendidas/Manual/Todas.
-- **Empty state**: "Nenhuma mesa reservada ainda."
-- Layout: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4`, scroll interno.
-- Mantém o `Dialog` grande já existente, sem zoom/pan (não é mapa de verdade).
-
-### Não muda
-
-- Botão "Ver mapa" em `EventTablesTab.tsx` continua igual.
-- Cards da grade principal continuam mostrando "X de Y cadeiras".
-- Bug do fechamento manual (já corrigido na rodada anterior) intacto.
-- Nada de RLS, edge functions, schema.
-
-### Arquivo tocado
-
-- `src/components/producer/tabs/EventTablesMapModal.tsx` — reescrito.
+Escopo: só vou mexer na causa do refresh relacionada à última área alterada do mapa/modal de mesas; não vou alterar backend, autenticação ou fluxo de venda.
