@@ -2099,6 +2099,13 @@ export type Database = {
           fee_percent: number
         }[]
       }
+      get_event_tracking: {
+        Args: { _event_id: string }
+        Returns: {
+          meta_pixel_id: string
+          tracking_enabled: boolean
+        }[]
+      }
       has_manage_team: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
