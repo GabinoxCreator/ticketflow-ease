@@ -115,10 +115,21 @@ const EventDetails = () => {
     prevTotalRef.current = totalForEffect;
   }, [totalForEffect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pixelId: string | null =
-    (event as any)?.producer_profiles?.tracking_enabled
-      ? (event as any)?.producer_profiles?.meta_pixel_id || null
-      : null;
+  // Pixel ID vem de RPC pública dedicada (producer_profiles tem RLS fechada
+  // pra anônimos, então o embed retornava null no site público).
+  const [pixelId, setPixelId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    supabase
+      .rpc('get_event_tracking', { _event_id: eventId })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const row = Array.isArray(data) ? data[0] : null;
+        setPixelId(row?.meta_pixel_id ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [eventId]);
 
   useEffect(() => {
     if (!pixelId || !event) return;
