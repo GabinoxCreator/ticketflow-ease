@@ -412,9 +412,230 @@ const AdminEventoDetalhe: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      <EditEventFeeDialog
+        eventId={ev.id}
+        open={feeDialogOpen}
+        onOpenChange={setFeeDialogOpen}
+        currentPix={currentPix}
+        currentCard={currentCard}
+        eventTitle={ev.title}
+        brandName={producer?.brand_name ?? null}
+      />
     </AdminLayout>
   );
 };
+
+interface EditEventFeeDialogProps {
+  eventId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  currentPix: { percent: number; fixed: number };
+  currentCard: { percent: number; fixed: number };
+  eventTitle: string;
+  brandName: string | null;
+}
+
+const EditEventFeeDialog: React.FC<EditEventFeeDialogProps> = ({
+  eventId,
+  open,
+  onOpenChange,
+  currentPix,
+  currentCard,
+  eventTitle,
+  brandName,
+}) => {
+  const queryClient = useQueryClient();
+  const [pixPercent, setPixPercent] = React.useState('');
+  const [pixFixed, setPixFixed] = React.useState('');
+  const [cardPercent, setCardPercent] = React.useState('');
+  const [cardFixed, setCardFixed] = React.useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setPixPercent(String(currentPix.percent));
+      setPixFixed(String(currentPix.fixed));
+      setCardPercent(String(currentCard.percent));
+      setCardFixed(String(currentCard.fixed));
+    }
+  }, [open, currentPix.percent, currentPix.fixed, currentCard.percent, currentCard.fixed]);
+
+  const parse = (v: string) => Number(v.replace(',', '.'));
+  const pPix = parse(pixPercent);
+  const fPix = parse(pixFixed);
+  const pCard = parse(cardPercent);
+  const fCard = parse(cardFixed);
+
+  const errPixPercent =
+    !Number.isFinite(pPix) || pPix < 0 || pPix > 100
+      ? 'Informe um número entre 0 e 100.'
+      : null;
+  const errPixFixed =
+    !Number.isFinite(fPix) || fPix < 0 ? 'Informe um valor não-negativo.' : null;
+  const errCardPercent =
+    !Number.isFinite(pCard) || pCard < 0 || pCard > 100
+      ? 'Informe um número entre 0 e 100.'
+      : null;
+  const errCardFixed =
+    !Number.isFinite(fCard) || fCard < 0 ? 'Informe um valor não-negativo.' : null;
+
+  const hasError = !!(errPixPercent || errPixFixed || errCardPercent || errCardFixed);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('admin_set_event_fee', {
+        p_event_id: eventId,
+        p_pix_percent: pPix,
+        p_pix_fixed: fPix,
+        p_card_percent: pCard,
+        p_card_fixed: fCard,
+      });
+      if (error) throw error;
+      return data as { ok?: boolean; error?: string } | null;
+    },
+    onSuccess: (data) => {
+      if (!data) {
+        toast.error('Não foi possível salvar. Tente novamente.');
+        return;
+      }
+      if (data.ok === true) {
+        toast.success('Taxas atualizadas');
+        queryClient.invalidateQueries({ queryKey: ['admin-event-fees', eventId] });
+        onOpenChange(false);
+        return;
+      }
+      const map: Record<string, string> = {
+        event_not_found: 'Evento não encontrado.',
+        invalid_value:
+          'Confira os valores: percentual de 0 a 100 e fixo não-negativo.',
+      };
+      toast.error(map[data.error ?? ''] ?? 'Não foi possível salvar. Tente novamente.');
+    },
+    onError: () => {
+      toast.error('Não foi possível salvar. Tente novamente.');
+    },
+  });
+
+  const handleSave = () => {
+    if (hasError || mutation.isPending) return;
+    mutation.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar taxas do evento</DialogTitle>
+          <DialogDescription>
+            {brandName ? `${brandName} · ` : ''}
+            {eventTitle}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">PIX</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="pixPercent">Percentual (%)</Label>
+                <Input
+                  id="pixPercent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={pixPercent}
+                  onChange={(e) => setPixPercent(e.target.value)}
+                />
+                {errPixPercent && (
+                  <p className="text-xs text-destructive">{errPixPercent}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pixFixed">Valor fixo (R$)</Label>
+                <Input
+                  id="pixFixed"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={pixFixed}
+                  onChange={(e) => setPixFixed(e.target.value)}
+                />
+                {errPixFixed && (
+                  <p className="text-xs text-destructive">{errPixFixed}</p>
+                )}
+              </div>
+            </div>
+            {!errPixPercent && pPix === 0 && (
+              <p className="text-xs text-amber-600">
+                Taxa zerada: a plataforma não cobra nada neste método para vendas novas.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Cartão</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="cardPercent">Percentual (%)</Label>
+                <Input
+                  id="cardPercent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={cardPercent}
+                  onChange={(e) => setCardPercent(e.target.value)}
+                />
+                {errCardPercent && (
+                  <p className="text-xs text-destructive">{errCardPercent}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cardFixed">Valor fixo (R$)</Label>
+                <Input
+                  id="cardFixed"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={cardFixed}
+                  onChange={(e) => setCardFixed(e.target.value)}
+                />
+                {errCardFixed && (
+                  <p className="text-xs text-destructive">{errCardFixed}</p>
+                )}
+              </div>
+            </div>
+            {!errCardPercent && pCard === 0 && (
+              <p className="text-xs text-amber-600">
+                Taxa zerada: a plataforma não cobra nada neste método para vendas novas.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Vale para vendas novas. Pedidos já pagos mantêm a taxa congelada.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={mutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={hasError || mutation.isPending}>
+              {mutation.isPending ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 const KpiCard: React.FC<{
   icon: React.ReactNode;
