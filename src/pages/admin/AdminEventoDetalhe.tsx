@@ -148,6 +148,16 @@ const AdminEventoDetalhe: React.FC = () => {
   }, [eventQ.error, lotsQ.error, feesQ.error, ordersQ.error]);
 
   const ev = eventQ.data;
+  const [feeDialogOpen, setFeeDialogOpen] = React.useState(false);
+
+  const pixRow = (feesQ.data || []).find((f) => f.payment_method === 'pix');
+  const cardRow = (feesQ.data || []).find((f) => f.payment_method === 'card');
+  const currentPix = pixRow
+    ? { percent: Number(pixRow.fee_percent), fixed: Number(pixRow.fee_fixed) }
+    : { percent: 10, fixed: 0 };
+  const currentCard = cardRow
+    ? { percent: Number(cardRow.fee_percent), fixed: Number(cardRow.fee_fixed) }
+    : { percent: 10, fixed: 0 };
 
   const ticketsSold = (lotsQ.data || []).reduce((s, l) => s + Number(l.sold_quantity || 0), 0);
   const grossRevenue = (ordersQ.data || []).reduce((s, o) => s + Number(o.total_amount || 0), 0);
