@@ -2032,6 +2032,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_payouts: {
+        Args: { p_status?: string }
+        Returns: {
+          bank_account_snapshot: Json
+          evento: string
+          id: string
+          net_amount: number
+          paid_at: string
+          period_start: string
+          produtor: string
+          receipt_url: string
+          status: string
+        }[]
+      }
       apply_order_approved: {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
