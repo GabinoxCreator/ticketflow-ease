@@ -344,16 +344,14 @@ const AdminEventoDetalhe: React.FC = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Taxas do evento</CardTitle>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button variant="outline" size="sm" disabled>
-                    Editar taxa
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Em breve (passo 2)</TooltipContent>
-            </Tooltip>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={feesQ.isLoading}
+              onClick={() => setFeeDialogOpen(true)}
+            >
+              Editar taxa
+            </Button>
           </CardHeader>
           <CardContent>
             {feesQ.isLoading ? (
@@ -379,6 +377,7 @@ const AdminEventoDetalhe: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
 
         {/* Map */}
         <Card>
