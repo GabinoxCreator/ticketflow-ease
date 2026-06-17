@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, Ticket, Banknote, Percent, Wallet, Map as MapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatEventDate } from '@/lib/eventTime';
@@ -139,6 +148,16 @@ const AdminEventoDetalhe: React.FC = () => {
   }, [eventQ.error, lotsQ.error, feesQ.error, ordersQ.error]);
 
   const ev = eventQ.data;
+  const [feeDialogOpen, setFeeDialogOpen] = React.useState(false);
+
+  const pixRow = (feesQ.data || []).find((f) => f.payment_method === 'pix');
+  const cardRow = (feesQ.data || []).find((f) => f.payment_method === 'card');
+  const currentPix = pixRow
+    ? { percent: Number(pixRow.fee_percent), fixed: Number(pixRow.fee_fixed) }
+    : { percent: 10, fixed: 0 };
+  const currentCard = cardRow
+    ? { percent: Number(cardRow.fee_percent), fixed: Number(cardRow.fee_fixed) }
+    : { percent: 10, fixed: 0 };
 
   const ticketsSold = (lotsQ.data || []).reduce((s, l) => s + Number(l.sold_quantity || 0), 0);
   const grossRevenue = (ordersQ.data || []).reduce((s, o) => s + Number(o.total_amount || 0), 0);
@@ -335,16 +354,14 @@ const AdminEventoDetalhe: React.FC = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Taxas do evento</CardTitle>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button variant="outline" size="sm" disabled>
-                    Editar taxa
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Em breve (passo 2)</TooltipContent>
-            </Tooltip>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={feesQ.isLoading}
+              onClick={() => setFeeDialogOpen(true)}
+            >
+              Editar taxa
+            </Button>
           </CardHeader>
           <CardContent>
             {feesQ.isLoading ? (
@@ -371,6 +388,7 @@ const AdminEventoDetalhe: React.FC = () => {
           </CardContent>
         </Card>
 
+
         {/* Map */}
         <Card>
           <CardHeader>
@@ -394,9 +412,230 @@ const AdminEventoDetalhe: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      <EditEventFeeDialog
+        eventId={ev.id}
+        open={feeDialogOpen}
+        onOpenChange={setFeeDialogOpen}
+        currentPix={currentPix}
+        currentCard={currentCard}
+        eventTitle={ev.title}
+        brandName={producer?.brand_name ?? null}
+      />
     </AdminLayout>
   );
 };
+
+interface EditEventFeeDialogProps {
+  eventId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  currentPix: { percent: number; fixed: number };
+  currentCard: { percent: number; fixed: number };
+  eventTitle: string;
+  brandName: string | null;
+}
+
+const EditEventFeeDialog: React.FC<EditEventFeeDialogProps> = ({
+  eventId,
+  open,
+  onOpenChange,
+  currentPix,
+  currentCard,
+  eventTitle,
+  brandName,
+}) => {
+  const queryClient = useQueryClient();
+  const [pixPercent, setPixPercent] = React.useState('');
+  const [pixFixed, setPixFixed] = React.useState('');
+  const [cardPercent, setCardPercent] = React.useState('');
+  const [cardFixed, setCardFixed] = React.useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setPixPercent(String(currentPix.percent));
+      setPixFixed(String(currentPix.fixed));
+      setCardPercent(String(currentCard.percent));
+      setCardFixed(String(currentCard.fixed));
+    }
+  }, [open, currentPix.percent, currentPix.fixed, currentCard.percent, currentCard.fixed]);
+
+  const parse = (v: string) => Number(v.replace(',', '.'));
+  const pPix = parse(pixPercent);
+  const fPix = parse(pixFixed);
+  const pCard = parse(cardPercent);
+  const fCard = parse(cardFixed);
+
+  const errPixPercent =
+    !Number.isFinite(pPix) || pPix < 0 || pPix > 100
+      ? 'Informe um número entre 0 e 100.'
+      : null;
+  const errPixFixed =
+    !Number.isFinite(fPix) || fPix < 0 ? 'Informe um valor não-negativo.' : null;
+  const errCardPercent =
+    !Number.isFinite(pCard) || pCard < 0 || pCard > 100
+      ? 'Informe um número entre 0 e 100.'
+      : null;
+  const errCardFixed =
+    !Number.isFinite(fCard) || fCard < 0 ? 'Informe um valor não-negativo.' : null;
+
+  const hasError = !!(errPixPercent || errPixFixed || errCardPercent || errCardFixed);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('admin_set_event_fee', {
+        p_event_id: eventId,
+        p_pix_percent: pPix,
+        p_pix_fixed: fPix,
+        p_card_percent: pCard,
+        p_card_fixed: fCard,
+      });
+      if (error) throw error;
+      return data as { ok?: boolean; error?: string } | null;
+    },
+    onSuccess: (data) => {
+      if (!data) {
+        toast.error('Não foi possível salvar. Tente novamente.');
+        return;
+      }
+      if (data.ok === true) {
+        toast.success('Taxas atualizadas');
+        queryClient.invalidateQueries({ queryKey: ['admin-event-fees', eventId] });
+        onOpenChange(false);
+        return;
+      }
+      const map: Record<string, string> = {
+        event_not_found: 'Evento não encontrado.',
+        invalid_value:
+          'Confira os valores: percentual de 0 a 100 e fixo não-negativo.',
+      };
+      toast.error(map[data.error ?? ''] ?? 'Não foi possível salvar. Tente novamente.');
+    },
+    onError: () => {
+      toast.error('Não foi possível salvar. Tente novamente.');
+    },
+  });
+
+  const handleSave = () => {
+    if (hasError || mutation.isPending) return;
+    mutation.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar taxas do evento</DialogTitle>
+          <DialogDescription>
+            {brandName ? `${brandName} · ` : ''}
+            {eventTitle}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">PIX</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="pixPercent">Percentual (%)</Label>
+                <Input
+                  id="pixPercent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={pixPercent}
+                  onChange={(e) => setPixPercent(e.target.value)}
+                />
+                {errPixPercent && (
+                  <p className="text-xs text-destructive">{errPixPercent}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pixFixed">Valor fixo (R$)</Label>
+                <Input
+                  id="pixFixed"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={pixFixed}
+                  onChange={(e) => setPixFixed(e.target.value)}
+                />
+                {errPixFixed && (
+                  <p className="text-xs text-destructive">{errPixFixed}</p>
+                )}
+              </div>
+            </div>
+            {!errPixPercent && pPix === 0 && (
+              <p className="text-xs text-amber-600">
+                Taxa zerada: a plataforma não cobra nada neste método para vendas novas.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">Cartão</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="cardPercent">Percentual (%)</Label>
+                <Input
+                  id="cardPercent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={cardPercent}
+                  onChange={(e) => setCardPercent(e.target.value)}
+                />
+                {errCardPercent && (
+                  <p className="text-xs text-destructive">{errCardPercent}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="cardFixed">Valor fixo (R$)</Label>
+                <Input
+                  id="cardFixed"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={cardFixed}
+                  onChange={(e) => setCardFixed(e.target.value)}
+                />
+                {errCardFixed && (
+                  <p className="text-xs text-destructive">{errCardFixed}</p>
+                )}
+              </div>
+            </div>
+            {!errCardPercent && pCard === 0 && (
+              <p className="text-xs text-amber-600">
+                Taxa zerada: a plataforma não cobra nada neste método para vendas novas.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Vale para vendas novas. Pedidos já pagos mantêm a taxa congelada.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={mutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={hasError || mutation.isPending}>
+              {mutation.isPending ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 const KpiCard: React.FC<{
   icon: React.ReactNode;
