@@ -2032,6 +2032,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_attach_payout_receipt: {
+        Args: { p_path: string; p_payout_id: string }
+        Returns: Json
+      }
       admin_list_payouts: {
         Args: { p_status?: string }
         Returns: {
