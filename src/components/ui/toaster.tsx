@@ -1,11 +1,22 @@
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@/components/ui/toast";
-import { useLocation } from "react-router-dom";
 
 export function Toaster() {
   const { toasts } = useToast();
-  const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  const [isAdmin, setIsAdmin] = useState(
+    typeof window !== "undefined" && window.location.pathname.startsWith("/admin")
+  );
+
+  useEffect(() => {
+    const update = () => setIsAdmin(window.location.pathname.startsWith("/admin"));
+    window.addEventListener("popstate", update);
+    const interval = window.setInterval(update, 500);
+    return () => {
+      window.removeEventListener("popstate", update);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
     <ToastProvider>

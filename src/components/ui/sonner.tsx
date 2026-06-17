@@ -1,11 +1,30 @@
+import { useEffect, useState } from "react";
 import { Toaster as Sonner, toast } from "sonner";
-import { useLocation } from "react-router-dom";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
+const useIsAdminPath = () => {
+  const [isAdmin, setIsAdmin] = useState(
+    typeof window !== "undefined" && window.location.pathname.startsWith("/admin")
+  );
+  useEffect(() => {
+    const update = () => setIsAdmin(window.location.pathname.startsWith("/admin"));
+    window.addEventListener("popstate", update);
+    window.addEventListener("pushstate", update as EventListener);
+    window.addEventListener("replacestate", update as EventListener);
+    const interval = window.setInterval(update, 500);
+    return () => {
+      window.removeEventListener("popstate", update);
+      window.removeEventListener("pushstate", update as EventListener);
+      window.removeEventListener("replacestate", update as EventListener);
+      window.clearInterval(interval);
+    };
+  }, []);
+  return isAdmin;
+};
+
 const Toaster = ({ theme, className, ...props }: ToasterProps) => {
-  const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  const isAdmin = useIsAdminPath();
 
   return (
     <Sonner
