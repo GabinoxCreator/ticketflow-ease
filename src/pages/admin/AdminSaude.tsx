@@ -276,5 +276,7 @@ export default function AdminSaude() {
         </Card>
       </Collapsible>
     </div>
+    </div>
   );
 }
+
