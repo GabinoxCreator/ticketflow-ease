@@ -1,69 +1,64 @@
-## Peça 4 — UI Admin de Repasses
-
-Substituir o placeholder de `src/pages/admin/AdminRepasses.tsx` por uma tela funcional. Nenhum outro arquivo é alterado (sem mexer em backend, bucket, produtor, colaborador ou site público).
+## Admin — Console do Evento, PASSO 1 (somente leitura)
 
 ### Arquivos
-- **Editar:** `src/pages/admin/AdminRepasses.tsx` (única alteração).
-- Mantém `AdminLayout`, tema `.admin-theme` (claro), shadcn/ui, `sonner` para toasts, Space Grotesk em números/títulos via classes já existentes do tema admin.
 
-### Estrutura da tela
-- Título `Repasses financeiros`.
-- `Tabs` shadcn: `Solicitados` / `Pagos` / `Todos`, cada um com contagem em badge.
-  - Aba controla o filtro passado ao RPC: `requested` / `paid` / `null`.
-- Para contagens, faço 1 `useQuery` por aba (3 queries: `['admin-payouts','requested'|'paid'|'all']`) com `staleTime` curto. Cada aba renderiza sua própria tabela a partir da sua query (simples, evita filtragem client-side e mantém contagem coerente).
+1. **Editar `src/App.tsx`** — adicionar rota:
+   - `import AdminEventoDetalhe from "./pages/admin/AdminEventoDetalhe";`
+   - `<Route path="/admin/eventos/:eventId" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminEventoDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />` (mesma seção `produtores` que já gateia a ficha do produtor).
 
-### Tabela (colunas)
-1. **Produtor / evento** — `produtor` em destaque, `evento` em muted abaixo.
-2. **Conta de destino** — render adaptativo de `bank_account_snapshot`:
-   - Se `pix_key` truthy → linha 1 `PIX · {pix_key}`, linha 2 `{bank_name} · {account_holder_name}` (cada campo omitido sem quebrar; separador `·` só entre campos presentes).
-   - Senão → linha 1 `{bank_name}`, linha 2 `Ag {agency} · Conta {account_number}`, linha 3 `{account_holder_name}`.
-   - Helper puro `formatDestino(snapshot)` retorna `string[]` de linhas não vazias.
-3. **Solicitado em** — `period_start` formatado `dd/mm/aaaa` (string `YYYY-MM-DD` + `T12:00:00` antes do `new Date`, conforme regra do projeto).
-4. **Valor** — `net_amount` formatado em `R$` (`Intl.NumberFormat pt-BR`), classe Space Grotesk.
-5. **Status / ação** — depende do status:
-   - `requested` → `Badge` "Solicitado" + botão `Marcar como pago`.
-   - `paid` → texto `Pago em {paid_at dd/mm/aaaa}` + bloco de comprovante (ver abaixo).
+2. **Editar `src/pages/admin/AdminProdutorDetalhe.tsx`** — só na aba "Eventos":
+   - Envolver o `<Card>` de cada evento em um `onClick={() => navigate(`/admin/eventos/${ev.id}`)}` + `cursor-pointer` + `hover:border-primary/40` + `role="button"`.
+   - Nenhuma outra alteração na página.
 
-### Marcar como pago (requested)
-- Botão abre `AlertDialog` com resumo: Valor + linhas de destino (titular/PIX ou banco/conta).
-- Confirmar dispara `useMutation` → `supabase.rpc('admin_mark_payout_paid', { p_payout_id })`.
-- `isPending` desabilita o botão (evita duplo clique).
-- Resposta:
-  - `ok: true` → `toast.success('Repasse marcado como pago')` + `invalidateQueries(['admin-payouts'])`.
-  - `ok: false` mapeado:
-    - `invalid_status` → "Este repasse não está mais como solicitado."
-    - `payout_not_found` → "Repasse não encontrado."
-    - outros / exception (inclui `not_admin`, rede) → "Não foi possível concluir. Tente novamente."
+3. **Criar `src/pages/admin/AdminEventoDetalhe.tsx`** — nova página, somente leitura.
 
-### Comprovante (paid)
-- Sem `receipt_url` → `Badge` "Sem comprovante" + botão `Anexar comprovante`.
-- Com `receipt_url` → `Badge` "Comprovante anexado" + botão `Ver`.
+### Página `AdminEventoDetalhe` — leituras (4 useQuery em paralelo via react-query)
 
-**Anexar:**
-- `<input type="file" accept="application/pdf,image/*" hidden>` disparado pelo botão.
-- `useMutation`:
-  1. `path = ${payout_id}/${Date.now()}-${sanitize(file.name)}`
-  2. `supabase.storage.from('payout-proofs').upload(path, file, { upsert: false })`.
-  3. Em sucesso → `supabase.rpc('admin_attach_payout_receipt', { p_payout_id, p_path: path })`.
-  4. `ok: true` → `toast.success('Comprovante anexado')` + invalidate.
-- Botão em estado `Enviando…` enquanto pendente (evita duplo clique).
-- Erros de upload / RPC → `toast.error("Não foi possível concluir. Tente novamente.")`.
+Tudo direto via `supabase` (admin bypassa RLS). Sem RPC nova, sem edge.
 
-**Ver:**
-- `onClick` → `supabase.storage.from('payout-proofs').createSignedUrl(receipt_url, 60)`; `window.open(data.signedUrl, '_blank', 'noopener')`. Nunca `getPublicUrl`.
-- Erro → toast genérico.
+- `['admin-event', eventId]` → `events` por `id`, com join `producer_profiles(id, brand_name)`.
+- `['admin-event-lots', eventId]` → `event_lots` por `event_id`, ordenado por `display_order` (campos: `id, name, price, total_quantity, sold_quantity, reserved_quantity`).
+- `['admin-event-fees', eventId]` → `event_fee_overrides` por `event_id` (`payment_method, fee_percent, fee_fixed`).
+- `['admin-event-orders-kpi', eventId]` → `orders` por `event_id` com `status in ('paid','completed')`, selecionando só `total_amount, service_fee_amount`. Agregação no client:
+  - **Receita bruta** = Σ `total_amount`.
+  - **Receita da plataforma** = Σ `service_fee_amount` (coalesce 0).
+  - **Líquido do produtor** = bruta − plataforma.
+  - Sem invenção: se vier vazio, mostra `R$ 0,00` exatamente como hoje no dashboard. O conserto fica para a frente D.
 
-### Estados auxiliares
-- Loading da query → skeleton de algumas linhas.
-- Lista vazia → estado vazio "Nenhum repasse neste filtro" (ícone `Banknote` muted).
-- Erro da query → toast + mensagem inline.
+### Layout (admin-theme, claro, reaproveitando shadcn já usado em AdminProdutorDetalhe)
+
+- `AdminLayout title="Evento"`.
+- **Breadcrumb** topo: `Admin / {brand_name do produtor (link p/ /admin/produtores/:producer_profile_id)} / {título do evento}` + botão "voltar" (`ArrowLeft`) p/ a ficha do produtor.
+- **Cabeçalho do evento**: título grande (`font-display`), linha com data formatada (`formatEventDate`, regra `T12:00:00`), `city · venue_name`, `Badge` de status (mesmo mapa de cores já usado: published/draft/etc).
+- **Selo**: `Badge variant="outline"` âmbar — "Visão administrativa — somente leitura nesta etapa".
+- **KPIs** — 4 `Card`s em grid `md:grid-cols-4`:
+  - Ingressos vendidos = Σ `sold_quantity` dos lotes.
+  - Receita bruta · Receita da plataforma · Líquido do produtor — `Intl.NumberFormat pt-BR` BRL.
+  - Cada card com ícone (`Ticket`, `Banknote`, `Percent`, `Wallet`) no estilo dos cards existentes.
+- **Card "Ingressos (lotes)"** — `Table` shadcn: Lote / Preço (BRL) / Vendidos / Disponíveis.
+  - Disponíveis = `total_quantity - sold_quantity - reserved_quantity`; se `<= 0`, exibir `Badge` "Esgotado".
+  - Loading → skeleton de 3 linhas. Vazio → "Nenhum lote cadastrado".
+- **Card "Taxas do evento"** — listar UMA linha para cada registro existente em `event_fee_overrides` do evento:
+  - Exibir o `payment_method` EXATAMENTE como está no banco (sem renomear/normalizar).
+  - Formato: `{payment_method} — {fee_percent}% + R$ {fee_fixed}`.
+  - Se NÃO houver nenhum override para o evento, exibir uma única linha:
+    "Sem taxa configurada — usando 10% padrão (todos os métodos)".
+  - Não assumir quais métodos existem; apenas refletir os dados.
+  - Botão `Editar taxa` (`Button variant="outline" disabled`) com tooltip "Em breve (passo 2)".
+- **Card "Mapa de mesa"**:
+  - `events.table_map_id` truthy → texto "Este evento usa um mapa de mesas." + nota "Pré-visualização disponível em breve."
+  - Caso contrário → "Evento sem mapa (venda por lote)."
+- **Estados globais**: enquanto qualquer query principal carrega, skeletons nos cards correspondentes. Se `events` não encontrar → estado vazio "Evento não encontrado" + botão voltar. Erro de query → mensagem inline + toast `sonner`.
 
 ### Helpers internos ao arquivo
-- `formatDateBR(dateStr | timestamptz)` (com fix `T12:00:00` apenas para `period_start` em formato `YYYY-MM-DD`).
-- `formatMoneyBRL(n)`.
-- `formatDestino(snapshot)` → `{ lines: string[] }`.
-- `mapMarkPaidError(payload | error)` → string.
+
+- `formatMoneyBRL(n: number)`.
+- Reutilizar `formatEventDate` de `@/lib/eventTime` (já trata fuso/data string).
+- Mapa de cores/labels de status reaproveitado do estilo da página do produtor (cópia local pequena, sem extrair componente).
 
 ### Fora do escopo
-- Nenhuma mudança em migrations, RLS, edge functions, bucket, ou outras páginas/admin sections.
-- Sem mexer em `AdminSidebar`, rotas, ou permissões (a rota `/admin/repasses` já existe e o gating é feito pelo `SectionProtectedRoute`).
+
+- Nenhuma escrita, RPC, edge function, bucket, RLS, migration.
+- Sem mexer no `AdminSidebar` (a navegação acontece via clique no card de evento dentro da ficha do produtor; rota direta funciona).
+- Sem tocar em produtor/colaborador/site público.
+- Sem corrigir a agregação financeira — os valores aparecem como vierem do banco hoje.
