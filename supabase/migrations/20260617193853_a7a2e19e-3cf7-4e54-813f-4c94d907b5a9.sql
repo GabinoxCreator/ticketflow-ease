@@ -1,13 +1,3 @@
-## PASSO 2 — RPC `admin_set_event_fee` (backend-only)
-
-### Estado atual verificado
-- `event_fee_overrides` **já tem** `UNIQUE (event_id, payment_method)` (constraint `event_fee_overrides_event_id_payment_method_key`). **Não é preciso criar índice.**
-- Há um `CHECK (payment_method IN ('pix','card'))` na coluna. As strings `'pix'` e `'card'` usadas no UPSERT são compatíveis.
-- `get_event_fee`, edges de pagamento, `orders.service_fee_amount` — **não serão tocados**. Taxa nova vale para vendas futuras.
-
-### Migration (uma única)
-
-```sql
 CREATE OR REPLACE FUNCTION public.admin_set_event_fee(
   p_event_id     uuid,
   p_pix_percent  numeric,
@@ -25,18 +15,15 @@ DECLARE
   _before jsonb;
   _after  jsonb;
 BEGIN
-  -- Guard: only admins
   IF NOT public.has_role(auth.uid(), 'admin'::app_role) THEN
     RAISE EXCEPTION 'not_admin' USING ERRCODE = '42501';
   END IF;
 
-  -- Event must exist
   SELECT EXISTS(SELECT 1 FROM public.events WHERE id = p_event_id) INTO _exists;
   IF NOT _exists THEN
     RETURN jsonb_build_object('ok', false, 'error', 'event_not_found');
   END IF;
 
-  -- Range validation
   IF p_pix_percent  IS NULL OR p_pix_percent  < 0 OR p_pix_percent  > 100
   OR p_card_percent IS NULL OR p_card_percent < 0 OR p_card_percent > 100
   OR p_pix_fixed    IS NULL OR p_pix_fixed    < 0
@@ -44,7 +31,6 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'invalid_value');
   END IF;
 
-  -- Snapshot before
   SELECT COALESCE(jsonb_object_agg(payment_method,
             jsonb_build_object('percent', fee_percent, 'fixed', fee_fixed)),
           '{}'::jsonb)
@@ -53,14 +39,12 @@ BEGIN
    WHERE event_id = p_event_id
      AND payment_method IN ('pix','card');
 
-  -- Upsert pix
   INSERT INTO public.event_fee_overrides (event_id, payment_method, fee_percent, fee_fixed)
   VALUES (p_event_id, 'pix', p_pix_percent, p_pix_fixed)
   ON CONFLICT (event_id, payment_method)
   DO UPDATE SET fee_percent = EXCLUDED.fee_percent,
                 fee_fixed   = EXCLUDED.fee_fixed;
 
-  -- Upsert card
   INSERT INTO public.event_fee_overrides (event_id, payment_method, fee_percent, fee_fixed)
   VALUES (p_event_id, 'card', p_card_percent, p_card_fixed)
   ON CONFLICT (event_id, payment_method)
@@ -72,7 +56,6 @@ BEGIN
     'card', jsonb_build_object('percent', p_card_percent, 'fixed', p_card_fixed)
   );
 
-  -- Audit
   INSERT INTO public.audit_logs (actor_id, action, target_type, target_id, metadata)
   VALUES (
     auth.uid(),
@@ -93,8 +76,3 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.admin_set_event_fee(uuid,numeric,numeric,numeric,numeric) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION public.admin_set_event_fee(uuid,numeric,numeric,numeric,numeric) TO authenticated;
-```
-
-### Fora de escopo (não toca)
-- Edges de pagamento, `get_event_fee`, `orders.service_fee_amount`, UI do console do evento.
-- Vendas já pagas mantêm a taxa congelada — só vendas novas usam o novo override.
