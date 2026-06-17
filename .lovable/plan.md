@@ -1,83 +1,69 @@
-Frente B / Peça 3 — comprovante de repasse. Backend somente (storage + função). Sem UI, sem tocar em produtor/colaborador/site público.
+## Peça 4 — UI Admin de Repasses
 
-## 1) Bucket de Storage
+Substituir o placeholder de `src/pages/admin/AdminRepasses.tsx` por uma tela funcional. Nenhum outro arquivo é alterado (sem mexer em backend, bucket, produtor, colaborador ou site público).
 
-Criar bucket privado via `supabase--storage_create_bucket`:
-- `name`: `payout-proofs`
-- `public`: `false`
+### Arquivos
+- **Editar:** `src/pages/admin/AdminRepasses.tsx` (única alteração).
+- Mantém `AdminLayout`, tema `.admin-theme` (claro), shadcn/ui, `sonner` para toasts, Space Grotesk em números/títulos via classes já existentes do tema admin.
 
-Nenhuma alteração no bucket existente `event-images`.
+### Estrutura da tela
+- Título `Repasses financeiros`.
+- `Tabs` shadcn: `Solicitados` / `Pagos` / `Todos`, cada um com contagem em badge.
+  - Aba controla o filtro passado ao RPC: `requested` / `paid` / `null`.
+- Para contagens, faço 1 `useQuery` por aba (3 queries: `['admin-payouts','requested'|'paid'|'all']`) com `staleTime` curto. Cada aba renderiza sua própria tabela a partir da sua query (simples, evita filtragem client-side e mantém contagem coerente).
 
-## 2) Policies em `storage.objects` (somente admin)
+### Tabela (colunas)
+1. **Produtor / evento** — `produtor` em destaque, `evento` em muted abaixo.
+2. **Conta de destino** — render adaptativo de `bank_account_snapshot`:
+   - Se `pix_key` truthy → linha 1 `PIX · {pix_key}`, linha 2 `{bank_name} · {account_holder_name}` (cada campo omitido sem quebrar; separador `·` só entre campos presentes).
+   - Senão → linha 1 `{bank_name}`, linha 2 `Ag {agency} · Conta {account_number}`, linha 3 `{account_holder_name}`.
+   - Helper puro `formatDestino(snapshot)` retorna `string[]` de linhas não vazias.
+3. **Solicitado em** — `period_start` formatado `dd/mm/aaaa` (string `YYYY-MM-DD` + `T12:00:00` antes do `new Date`, conforme regra do projeto).
+4. **Valor** — `net_amount` formatado em `R$` (`Intl.NumberFormat pt-BR`), classe Space Grotesk.
+5. **Status / ação** — depende do status:
+   - `requested` → `Badge` "Solicitado" + botão `Marcar como pago`.
+   - `paid` → texto `Pago em {paid_at dd/mm/aaaa}` + bloco de comprovante (ver abaixo).
 
-Migration SQL (somente bucket `payout-proofs`):
+### Marcar como pago (requested)
+- Botão abre `AlertDialog` com resumo: Valor + linhas de destino (titular/PIX ou banco/conta).
+- Confirmar dispara `useMutation` → `supabase.rpc('admin_mark_payout_paid', { p_payout_id })`.
+- `isPending` desabilita o botão (evita duplo clique).
+- Resposta:
+  - `ok: true` → `toast.success('Repasse marcado como pago')` + `invalidateQueries(['admin-payouts'])`.
+  - `ok: false` mapeado:
+    - `invalid_status` → "Este repasse não está mais como solicitado."
+    - `payout_not_found` → "Repasse não encontrado."
+    - outros / exception (inclui `not_admin`, rede) → "Não foi possível concluir. Tente novamente."
 
-```sql
-CREATE POLICY "admin_select_payout_proofs"
-ON storage.objects FOR SELECT TO authenticated
-USING (bucket_id = 'payout-proofs' AND public.has_role(auth.uid(), 'admin'::app_role));
+### Comprovante (paid)
+- Sem `receipt_url` → `Badge` "Sem comprovante" + botão `Anexar comprovante`.
+- Com `receipt_url` → `Badge` "Comprovante anexado" + botão `Ver`.
 
-CREATE POLICY "admin_insert_payout_proofs"
-ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'payout-proofs' AND public.has_role(auth.uid(), 'admin'::app_role));
+**Anexar:**
+- `<input type="file" accept="application/pdf,image/*" hidden>` disparado pelo botão.
+- `useMutation`:
+  1. `path = ${payout_id}/${Date.now()}-${sanitize(file.name)}`
+  2. `supabase.storage.from('payout-proofs').upload(path, file, { upsert: false })`.
+  3. Em sucesso → `supabase.rpc('admin_attach_payout_receipt', { p_payout_id, p_path: path })`.
+  4. `ok: true` → `toast.success('Comprovante anexado')` + invalidate.
+- Botão em estado `Enviando…` enquanto pendente (evita duplo clique).
+- Erros de upload / RPC → `toast.error("Não foi possível concluir. Tente novamente.")`.
 
-CREATE POLICY "admin_update_payout_proofs"
-ON storage.objects FOR UPDATE TO authenticated
-USING (bucket_id = 'payout-proofs' AND public.has_role(auth.uid(), 'admin'::app_role))
-WITH CHECK (bucket_id = 'payout-proofs' AND public.has_role(auth.uid(), 'admin'::app_role));
+**Ver:**
+- `onClick` → `supabase.storage.from('payout-proofs').createSignedUrl(receipt_url, 60)`; `window.open(data.signedUrl, '_blank', 'noopener')`. Nunca `getPublicUrl`.
+- Erro → toast genérico.
 
-CREATE POLICY "admin_delete_payout_proofs"
-ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'payout-proofs' AND public.has_role(auth.uid(), 'admin'::app_role));
-```
+### Estados auxiliares
+- Loading da query → skeleton de algumas linhas.
+- Lista vazia → estado vazio "Nenhum repasse neste filtro" (ícone `Banknote` muted).
+- Erro da query → toast + mensagem inline.
 
-- Sem policies para `anon`. Produtores/colaboradores não passam no `has_role(..., 'admin')`, então não acessam.
-- Policies existentes em outros buckets ficam intactas.
+### Helpers internos ao arquivo
+- `formatDateBR(dateStr | timestamptz)` (com fix `T12:00:00` apenas para `period_start` em formato `YYYY-MM-DD`).
+- `formatMoneyBRL(n)`.
+- `formatDestino(snapshot)` → `{ lines: string[] }`.
+- `mapMarkPaidError(payload | error)` → string.
 
-## 3) Função `admin_attach_payout_receipt`
-
-```sql
-CREATE OR REPLACE FUNCTION public.admin_attach_payout_receipt(p_payout_id uuid, p_path text)
-RETURNS jsonb
-LANGUAGE plpgsql
-VOLATILE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_id uuid;
-BEGIN
-  IF NOT public.has_role(auth.uid(), 'admin'::app_role) THEN
-    RAISE EXCEPTION 'not_admin' USING ERRCODE = '42501';
-  END IF;
-
-  SELECT id INTO v_id
-  FROM public.payouts
-  WHERE id = p_payout_id
-  FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'payout_not_found');
-  END IF;
-
-  UPDATE public.payouts
-  SET receipt_url = p_path
-  WHERE id = p_payout_id;
-
-  RETURN jsonb_build_object('ok', true, 'id', p_payout_id, 'receipt_url', p_path);
-END;
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.admin_attach_payout_receipt(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.admin_attach_payout_receipt(uuid, text) TO authenticated;
-```
-
-- Não altera `status`, `paid_at`, `net_amount`, nem qualquer cálculo.
-- `receipt_url` guarda o **path** dentro do bucket (não URL pública — o bucket é privado; o frontend usa signed URL depois).
-
-## Ordem de execução
-1. `storage_create_bucket(payout-proofs, public=false)`
-2. Migration única com as 4 policies + função + REVOKE/GRANT.
-
-## Fora de escopo
-Nenhuma UI, nenhuma edge function, nenhuma mudança no schema de `payouts` ou outros buckets/funções.
+### Fora do escopo
+- Nenhuma mudança em migrations, RLS, edge functions, bucket, ou outras páginas/admin sections.
+- Sem mexer em `AdminSidebar`, rotas, ou permissões (a rota `/admin/repasses` já existe e o gating é feito pelo `SectionProtectedRoute`).
