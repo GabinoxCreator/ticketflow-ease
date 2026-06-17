@@ -2051,6 +2051,16 @@ export type Database = {
         }[]
       }
       admin_mark_payout_paid: { Args: { p_payout_id: string }; Returns: Json }
+      admin_set_event_fee: {
+        Args: {
+          p_card_fixed: number
+          p_card_percent: number
+          p_event_id: string
+          p_pix_fixed: number
+          p_pix_percent: number
+        }
+        Returns: Json
+      }
       apply_order_approved: {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
