@@ -187,3 +187,79 @@
     display: none;
   }
 }
+
+/* ============================================================
+   /admin — Tema claro escopado FestPag
+   Aplicado via wrapper .admin-theme no AdminLayout/AdminLogin.
+   Não afeta tokens globais nem outras áreas do app.
+   ============================================================ */
+.admin-theme {
+  --background: 230 33% 97%;
+  --foreground: 252 35% 14%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 252 35% 14%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 252 35% 14%;
+
+  --primary: 233 93% 67%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 232 30% 96%;
+  --secondary-foreground: 252 35% 14%;
+
+  --muted: 232 30% 96%;
+  --muted-foreground: 230 9% 47%;
+
+  --accent: 232 92% 96%;
+  --accent-foreground: 233 93% 67%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 232 18% 94%;
+  --input: 232 18% 94%;
+  --ring: 233 93% 67%;
+
+  --sidebar-background: 0 0% 100%;
+  --sidebar-foreground: 252 35% 14%;
+  --sidebar-primary: 233 93% 67%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 232 92% 96%;
+  --sidebar-accent-foreground: 233 93% 67%;
+  --sidebar-border: 232 18% 94%;
+  --sidebar-ring: 233 93% 67%;
+
+  --font-display: 'Space Grotesk', 'Sora', sans-serif;
+
+  --gradient-brand: linear-gradient(135deg, #5F6EF9 0%, #B86AD9 55%, #F766C6 100%);
+
+  color: hsl(var(--foreground));
+}
+
+.admin-theme .admin-gradient-bg {
+  background: var(--gradient-brand);
+}
+
+.admin-theme .admin-gradient-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.admin-theme .admin-active-bar {
+  position: relative;
+}
+.admin-theme .admin-active-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--gradient-brand);
+}
+
