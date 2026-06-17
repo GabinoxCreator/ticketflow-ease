@@ -20,10 +20,10 @@ import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
 
 
 const statusColors: Record<string, string> = {
-  active: 'bg-green-500/20 text-green-400',
-  pending_review: 'bg-yellow-500/20 text-yellow-400',
-  suspended: 'bg-orange-500/20 text-orange-400',
-  blocked: 'bg-red-500/20 text-red-400',
+  active: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  pending_review: 'bg-amber-100 text-amber-700 border-amber-200',
+  suspended: 'bg-orange-100 text-orange-700 border-orange-200',
+  blocked: 'bg-red-100 text-red-700 border-red-200',
 };
 
 const statusLabels: Record<string, string> = {
@@ -32,6 +32,7 @@ const statusLabels: Record<string, string> = {
   suspended: 'Suspenso',
   blocked: 'Bloqueado',
 };
+
 
 const AdminProdutorDetalhe: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -69,7 +70,7 @@ const AdminProdutorDetalhe: React.FC = () => {
     return (
       <AdminLayout title="Produtor">
         <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </AdminLayout>
     );
@@ -78,7 +79,7 @@ const AdminProdutorDetalhe: React.FC = () => {
   if (!produtor) {
     return (
       <AdminLayout title="Produtor">
-        <p>Produtor não encontrado</p>
+        <p className="text-muted-foreground">Produtor não encontrado</p>
       </AdminLayout>
     );
   }
@@ -90,19 +91,20 @@ const AdminProdutorDetalhe: React.FC = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/admin/produtores')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{produtor.brand_name}</h1>
-            <Badge className={statusColors[produtor.admin_status] || statusColors.active}>
+          <div className="space-y-1">
+            <h1 className="font-display text-2xl font-semibold text-foreground">{produtor.brand_name}</h1>
+            <Badge variant="outline" className={statusColors[produtor.admin_status] || statusColors.active}>
               {statusLabels[produtor.admin_status] || produtor.admin_status}
             </Badge>
           </div>
         </div>
 
+
         {/* Status Actions */}
         <div className="flex gap-2 flex-wrap">
           <Button
             size="sm"
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={() => handleStatusChange('active')}
             disabled={produtor.admin_status === 'active'}
           >
@@ -111,7 +113,7 @@ const AdminProdutorDetalhe: React.FC = () => {
           <Button
             size="sm"
             variant="outline"
-            className="border-yellow-500 text-yellow-500 hover:bg-yellow-500/10"
+            className="border-amber-400 text-amber-600 hover:bg-amber-50"
             onClick={() => handleStatusChange('suspended')}
             disabled={produtor.admin_status === 'suspended'}
           >
@@ -126,6 +128,7 @@ const AdminProdutorDetalhe: React.FC = () => {
             <Ban className="h-4 w-4 mr-1" /> Bloquear
           </Button>
         </div>
+
 
         <Tabs defaultValue="dados">
           <TabsList>
@@ -239,12 +242,12 @@ const AdminProdutorDetalhe: React.FC = () => {
                 />
                 <Button
                   size="sm"
-                  className="bg-orange-500 hover:bg-orange-600"
                   onClick={handleAddNote}
                   disabled={addNote.isPending || !noteContent.trim()}
                 >
                   <MessageSquare className="h-4 w-4 mr-1" /> Adicionar
                 </Button>
+
               </CardContent>
             </Card>
 
