@@ -181,7 +181,19 @@ const AdminProdutorDetalhe: React.FC = () => {
               <p className="text-muted-foreground text-center py-8">Nenhum evento</p>
             )}
             {events?.map((ev) => (
-              <Card key={ev.id}>
+              <Card
+                key={ev.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/admin/eventos/${ev.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(`/admin/eventos/${ev.id}`);
+                  }
+                }}
+                className="cursor-pointer transition-colors hover:border-primary/40"
+              >
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{ev.title}</p>

@@ -45,6 +45,7 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProdutores from "./pages/admin/AdminProdutores";
 import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
+import AdminEventoDetalhe from "./pages/admin/AdminEventoDetalhe";
 import AdminRepasses from "./pages/admin/AdminRepasses";
 import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
 import AdminSaude from "./pages/admin/AdminSaude";
@@ -140,6 +141,7 @@ const App = () => (
                 <Route path="/admin/dashboard" element={<AdminProtectedRoute><SectionProtectedRoute section="dashboard"><AdminDashboard /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/produtores" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminProdutores /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/produtores/:id" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminProdutorDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/eventos/:eventId" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminEventoDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/repasses" element={<AdminProtectedRoute><SectionProtectedRoute section="repasses"><AdminRepasses /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/configuracoes" element={<AdminProtectedRoute><SectionProtectedRoute section="configuracoes"><AdminConfiguracoes /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/saude" element={<AdminProtectedRoute><SectionProtectedRoute section="saude"><AdminLayout><AdminSaude /></AdminLayout></SectionProtectedRoute></AdminProtectedRoute>} />
