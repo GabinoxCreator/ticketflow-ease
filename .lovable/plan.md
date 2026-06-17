@@ -1,77 +1,71 @@
-## Diagnóstico
+## Tema claro escopado para /admin (FestPag)
 
-Verifiquei o evento **Brasil x Haiti — Copa do Mundo na Estação Sambar** no banco:
+Apenas visual. Sem mexer em lógica, hooks, queries, RLS, edge functions. Sem tocar em site público, /produtor ou /colaborador. Repasses fica como está ("Em breve").
 
-- `producer_profiles.meta_pixel_id` = `1159549545767988`
-- `producer_profiles.tracking_enabled` = `true`
+### Estratégia de isolamento
 
-A configuração está correta. O Pixel **não dispara no site público** por causa de RLS, não de configuração.
+Wrapper `.admin-theme` no `AdminLayout` (e no `AdminLogin`). Dentro do escopo, redefinir os tokens semânticos shadcn (`--background`, `--card`, `--primary`, `--sidebar-*`, etc.) para o tema claro. Componentes shadcn renderizam claro **apenas** sob o wrapper. Nenhum token global em `:root` é alterado.
 
-### Causa raiz
+**Portais (Dialog, AlertDialog, DropdownMenu, Select, Popover, etc.):** auditei o admin e só **4 arquivos / 5 imports** usam portais (`AdminEquipe`, `AdminLeads`, `AdminProdutores`, `AdminSaude`). Volume pequeno → **não** vou criar `src/components/admin/ui/*`. Em vez disso, adiciono `className="admin-theme"` direto no `*Content`/`SheetContent`/`DropdownMenuContent`/`PopoverContent`/`SelectContent`/`DialogContent`/`AlertDialogContent` desses 4 arquivos. Sem trocar imports.
 
-`useEvent()` faz embed `events → producer_profiles ( brand_name, logo_url, meta_pixel_id, tracking_enabled )`. Mas a tabela `producer_profiles` **não tem policy de SELECT para visitantes anônimos** (só admins e membros da organização). Para qualquer usuário deslogado (o caso da página pública do evento), o embed retorna `null`, então `pixelId` em `EventDetails.tsx` resolve para `null` e `trackPageView` / `trackViewContent` nunca rodam. Por isso o Meta Pixel Helper não detecta nada.
+**Toasts:**
+- **Sonner**: manter o `<Toaster />` global único (dois Toasters duplicariam toasts). Editar `src/components/ui/sonner.tsx` (ou o ponto onde está montado) para alternar `theme`/`className` **condicionalmente pela rota** — quando `location.pathname.startsWith('/admin')`, aplicar `theme="light"` + `className="admin-theme"`; caso contrário, comportamento atual.
+- **Legado (Radix `useToast`)**: no `Toaster` em `src/components/ui/toaster.tsx`, aplicar `className="admin-theme"` no `<ToastViewport>` apenas quando a rota for `/admin/*`. Resto do app inalterado.
 
-Não dá para simplesmente abrir `producer_profiles` ao público — a tabela tem dados sensíveis (`document`, `email`, `phone`, `legal_name`).
+### Tokens novos (escopados em `.admin-theme`)
 
-## Plano de correção
+```text
+--background: 230 33% 97%       /* #F5F6FB */
+--foreground: 252 35% 14%       /* #1B1733 */
+--muted-foreground: 230 9% 47%  /* #6B6F82 */
+--card / --popover: 0 0% 100%   /* #FFFFFF */
+--border / --input: 232 18% 94% /* #ECEDF3 */
+--primary: 233 93% 67%          /* #5F6EF9 */
+--primary-foreground: 0 0% 100%
+--accent: 232 92% 96%           /* #EEF0FE */
+--ring: 233 93% 67%
+--sidebar-background: 0 0% 100%
+--sidebar-foreground: 252 35% 14%
+--sidebar-accent: 232 92% 96%
+--sidebar-border: 232 18% 94%
+--sidebar-primary: 233 93% 67%
 
-### 1. Backend — RPC pública só para os campos de tracking
-
-Migration nova criando função `SECURITY DEFINER`:
-
-```sql
-create or replace function public.get_event_tracking(_event_id uuid)
-returns table (meta_pixel_id text, tracking_enabled boolean)
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select pp.meta_pixel_id, pp.tracking_enabled
-  from events e
-  join producer_profiles pp on pp.id = e.producer_profile_id
-  where e.id = _event_id
-    and coalesce(pp.tracking_enabled, false) = true
-    and pp.meta_pixel_id is not null;
-$$;
-
-grant execute on function public.get_event_tracking(uuid) to anon, authenticated;
+--gradient-brand: linear-gradient(135deg,#5F6EF9 0%,#B86AD9 55%,#F766C6 100%);
+--font-display: 'Space Grotesk', sans-serif;
 ```
 
-Expõe **apenas** pixel id + flag, e somente quando o produtor optou por tracking. Nada sensível vaza.
+Utilitárias dentro do escopo: `.admin-gradient-bg`, `.admin-gradient-text`, `.admin-active-bar` (barra 3px à esquerda com gradiente).
 
-### 2. Frontend — `src/pages/EventDetails.tsx`
+### Arquivos a alterar
 
-Trocar a leitura atual:
+1. **`src/index.css`** — `@import` Space Grotesk. Bloco `.admin-theme { ... }` com tokens + utilitárias. Sem mudar `:root`.
 
-```ts
-const pixelId =
-  event?.producer_profiles?.tracking_enabled
-    ? event?.producer_profiles?.meta_pixel_id ?? null
-    : null;
-```
+2. **`src/components/admin/AdminLayout.tsx`** — root com `className="admin-theme"`. Topbar com placeholder de logo FestPag (quadrado `.admin-gradient-bg` + "F") + "ADMIN" + breadcrumb "Admin / {title}".
 
-por uma chamada à RPC quando o evento carregar:
+3. **`src/components/admin/AdminSidebar.tsx`** — header com logo placeholder + "ADMIN" em `.admin-gradient-text`. Item ativo: `bg-accent` + texto cor da marca + `.admin-active-bar`. Hover `bg-accent`. Substituir laranja pelos tokens novos. Sem mudar itens/permissões.
 
-```ts
-const [pixelId, setPixelId] = useState<string | null>(null);
-useEffect(() => {
-  if (!event?.id) return;
-  supabase.rpc('get_event_tracking', { _event_id: event.id })
-    .then(({ data }) => setPixelId(data?.[0]?.meta_pixel_id ?? null));
-}, [event?.id]);
-```
+4. **`src/pages/admin/AdminDashboard.tsx`** — KPIs no novo estilo: card branco, borda fina, rótulo `muted-foreground`, número grande `font-display text-3xl font-semibold`, chip de ícone arredondado com `.admin-gradient-bg`. Sem tocar em `useAdminStats`.
 
-O resto da lógica (`trackPageView`, `trackViewContent`, `trackInitiateCheckout`) permanece igual.
+5. **`src/pages/admin/AdminProdutores.tsx`** + **`AdminProdutorDetalhe.tsx`** — re-skin (cards/listas/tabela brancos, bordas `#ECEDF3`, títulos `font-display`, badges/buttons via tokens). Mesmo conteúdo, mesmos handlers. Em `AdminProdutores`, adicionar `className="admin-theme"` no Content do portal usado.
 
-### 3. Validação
+6. **`src/pages/admin/AdminLogin.tsx`** — envolver com `.admin-theme` (sem mexer em lógica).
 
-Após o deploy:
-1. Abrir `https://festpag.com.br/evento/brasil-x-haiti-...` em aba anônima.
-2. Meta Pixel Helper deve mostrar o pixel `1159549545767988` com eventos `PageView` e `ViewContent`.
-3. Iniciar checkout deve disparar `InitiateCheckout`.
+7. **Portais nos 4 arquivos do admin** — adicionar `className="admin-theme"` (mesclando com classes existentes via `cn`) em:
+   - `AdminEquipe.tsx` (2 imports de portal)
+   - `AdminLeads.tsx`
+   - `AdminProdutores.tsx`
+   - `AdminSaude.tsx`
 
-## Fora do escopo
+8. **`src/components/ui/sonner.tsx`** — usar `useLocation` para alternar `theme="light"` + `className="admin-theme"` quando `pathname.startsWith('/admin')`. Default (escuro) preservado fora do admin.
 
-- Não vou abrir `producer_profiles` ao público.
-- Não vou tocar em outros caminhos (checkout server-side, Conversions API). Se quiser CAPI no futuro, fica para outro plano.
+9. **`src/components/ui/toaster.tsx`** — `useLocation`; aplicar `className="admin-theme"` no `<ToastViewport>` só em `/admin/*`.
+
+### Não tocar
+
+- `AdminRepasses`, `AdminChecklist`, `AdminConfiguracoes` (herdam fundo claro, sem refinamento agora).
+- `tailwind.config.ts`, qualquer hook/query/política/função/schema.
+- Site público, `/produtor`, `/colaborador`.
+
+### Validação
+
+`/admin/dashboard` (KPIs novos), `/admin/produtores` (lista + detalhe + dropdown/dialog claros), disparar um toast no admin e fora (claro vs escuro, sem duplicação). Conferir `/`, `/produtor/*`, `/colaborador/*` inalterados.

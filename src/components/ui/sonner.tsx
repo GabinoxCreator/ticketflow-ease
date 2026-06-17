@@ -1,11 +1,16 @@
 import { Toaster as Sonner, toast } from "sonner";
+import { useLocation } from "react-router-dom";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ theme, className, ...props }: ToasterProps) => {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
+
   return (
     <Sonner
-      className="toaster group"
+      theme={isAdmin ? "light" : theme}
+      className={isAdmin ? `toaster group admin-theme ${className ?? ""}` : `toaster group ${className ?? ""}`}
       toastOptions={{
         classNames: {
           toast:

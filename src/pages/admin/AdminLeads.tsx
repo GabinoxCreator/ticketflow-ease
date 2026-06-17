@@ -149,7 +149,8 @@ export default function AdminLeads() {
             <SelectTrigger className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="admin-theme">
+
               <SelectItem value="all">Todos os status</SelectItem>
               {STATUS_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
@@ -203,7 +204,7 @@ export default function AdminLeads() {
                         <SelectTrigger className="h-8">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="admin-theme">
                           {STATUS_OPTIONS.map((opt) => (
                             <SelectItem key={opt.value} value={opt.value}>
                               {opt.label}

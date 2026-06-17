@@ -58,7 +58,7 @@ const ActionButton = ({ label, description, onConfirm }: { label: string; descri
       <AlertDialogTrigger asChild>
         <Button variant="outline" size="sm">{label}</Button>
       </AlertDialogTrigger>
-      <AlertDialogContent>
+      <AlertDialogContent className="admin-theme">
         <AlertDialogHeader>
           <AlertDialogTitle>{label}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
@@ -152,7 +152,9 @@ export default function AdminSaude() {
   };
 
   return (
+    <div className="admin-theme bg-background min-h-screen text-foreground">
     <div className="space-y-6 p-4 md:p-6">
+
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <Activity className="w-6 h-6 text-orange-400" />
@@ -274,5 +276,7 @@ export default function AdminSaude() {
         </Card>
       </Collapsible>
     </div>
+    </div>
   );
 }
+
