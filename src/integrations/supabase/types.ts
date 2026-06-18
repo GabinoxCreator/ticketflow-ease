@@ -2051,6 +2051,7 @@ export type Database = {
         }[]
       }
       admin_mark_payout_paid: { Args: { p_payout_id: string }; Returns: Json }
+      admin_sales_timeseries: { Args: never; Returns: Json }
       admin_set_event_fee: {
         Args: {
           p_card_fixed: number
