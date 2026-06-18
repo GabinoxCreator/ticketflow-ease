@@ -8,7 +8,7 @@ export function useAdminSalesTimeseries() {
   return useQuery({
     queryKey: ['admin-sales-timeseries'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_sales_timeseries');
+      const { data, error } = await (supabase.rpc as any)('admin_sales_timeseries');
       if (error) throw error;
       const obj = (data ?? {}) as { daily?: DailyPoint[]; hourly?: HourlyPoint[] };
       return {
