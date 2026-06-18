@@ -1,86 +1,55 @@
-# Frente D — Bloco 3: UI dos gráficos no AdminDashboard
+## Restaurar Bloco 2 + corrigir Repasses Pendentes no Admin Dashboard
 
-Escopo: só `src/pages/admin/AdminDashboard.tsx` + novo hook `src/hooks/useAdminSalesTimeseries.ts`. Sem mexer em backend, RLS, edges ou outras telas.
+Escopo: apenas `src/hooks/useAdminStats.ts` e `src/pages/admin/AdminDashboard.tsx`. Os dois gráficos existentes (AreaChart "Vendas ao longo do tempo" e BarChart "Horário de pico") permanecem intactos.
 
-## 1. Novo hook `src/hooks/useAdminSalesTimeseries.ts`
+---
 
-```ts
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+### 1) `src/hooks/useAdminStats.ts` — estender
 
-export type DailyPoint  = { dia: string;  gmv: number };
-export type HourlyPoint = { hora: number; pedidos: number };
+Mudanças no hook:
 
-export function useAdminSalesTimeseries() {
-  return useQuery({
-    queryKey: ['admin-sales-timeseries'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_sales_timeseries');
-      if (error) throw error;
-      const obj = (data ?? {}) as { daily?: DailyPoint[]; hourly?: HourlyPoint[] };
-      return {
-        daily:  Array.isArray(obj.daily)  ? obj.daily  : [],
-        hourly: Array.isArray(obj.hourly) ? obj.hourly : [],
-      };
-    },
-  });
-}
+- **Orders**: ampliar select para `'total_amount, service_fee_amount, payment_method, event_id'` com `.eq('status','paid')`.
+- **Payouts**: já é `select('net_amount, status')` — manter; **garantir** que `pendingPayouts` filtra `status === 'requested'` (NÃO `'pending'`). Esse é o fix do bug 1.
+- **Tickets**: nova query `supabase.from('tickets').select('id', { count:'exact', head:true }).in('status', ['valid','used'])` para contar ingressos vendidos/validados.
+- **Events**: nova query `supabase.from('events').select('id, title')` em paralelo no `Promise.all` (sem embed; não há FK declarada de orders.event_id → events.id).
+- Derivados client-side:
+  - `paidOrders = orders.length`
+  - `ticketsSold = ticketsRes.count || 0`
+  - `mix = { pix: number, card: number }` — soma `total_amount` agrupado por `payment_method` com igualdade exata: `=== 'pix'` → pix, `=== 'card'` → card; qualquer outro valor ignorado (conforme instrução do usuário).
+  - `topEvents`: agrupa soma de `total_amount` por `event_id`, junta com array de events pelo id para pegar `title`, ordena desc, fatia top 5 → `[{ eventId, title, gmv }]`. Eventos sem match caem com `title = 'Evento removido'`.
+- Retorno final: `{ totalProducers, totalEvents, gmv, platformRevenue, pendingPayouts, paidOrders, ticketsSold, mix, topEvents }`.
+
+---
+
+### 2) `src/pages/admin/AdminDashboard.tsx` — restaurar Bloco 2 sem remover gráficos
+
+Layout final (de cima para baixo):
+
+```text
+Linha 1  [ GMV ] [ Receita da Plataforma (destaque admin-gradient) ] [ Repasses Pendentes ]
+Linha 2  [ Pedidos pagos ] [ Ingressos vendidos ] [ Produtores ] [ Eventos ]    (4 cards menores)
+Bloco 2  [ Mix de pagamento (donut recharts) ] [ Top 5 eventos por vendas (lista + barras) ]
+Bloco 3  [ Vendas ao longo do tempo (AreaChart) — JÁ EXISTENTE, mantido           ]
+         [ Horário de pico (BarChart)       — JÁ EXISTENTE, mantido               ]
 ```
 
-- `data` é objeto jsonb único (não array) — leitura direta `data.daily` / `data.hourly`.
-- `data` nulo → ambos viram `[]`.
-- Coerção numérica: como vêm de jsonb, `gmv` e `pedidos` já chegam como number; sem normalização extra.
+Detalhes:
 
-## 2. `src/pages/admin/AdminDashboard.tsx` — adição abaixo do Bloco 2
-
-Manter Linha 1 (financeiro), Linha 2 (4 cards de contexto), faixa Mix+Top5. Adicionar **abaixo de tudo** uma seção com **duas cartas empilhadas, largura total**:
-
-```
-<div className="space-y-4">
-  <Card>…AreaChart daily…</Card>
-  <Card>…BarChart hourly…</Card>
-</div>
-```
-
-### Imports novos
-- `useAdminSalesTimeseries` do hook acima.
-- De `recharts`: `AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, defs/linearGradient` (via JSX).
-- `Skeleton` de `@/components/ui/skeleton`.
-
-### (a) Card "Vendas ao longo do tempo" — AreaChart
-- Dados: `daily` mapeado para `{ dia, gmv, label: formatDateBR(dia) }` onde `formatDateBR` faz `new Date(dia + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })` (regra do projeto para evitar UTC-3 shift — memória `mem://technical/date-parsing-logic`).
-- `<defs><linearGradient id="gradGmv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#5F6EF9" stopOpacity={0.45}/><stop offset="100%" stopColor="#5F6EF9" stopOpacity={0}/></linearGradient></defs>`
-- `<Area dataKey="gmv" stroke="#5F6EF9" strokeWidth={2} fill="url(#gradGmv)" type="monotone" />`
-- `XAxis dataKey="label"`, `YAxis tickFormatter={v => formatCurrencyCompact(v)}` (ex.: `R$ 1,2k`; reutilizar Intl).
-- `Tooltip` custom: `<div>{label}</div><div>{formatCurrency(value)}</div>` no padrão `bg-background border rounded-md p-2 text-xs shadow`.
-- `CartesianGrid strokeDasharray="3 3"` com `stroke="hsl(var(--border))"`.
-- Altura ~280px via `ResponsiveContainer width="100%" height={280}`.
-- **Vazio** (`daily.length === 0`): texto centralizado "Sem dados no período" (`text-sm text-muted-foreground py-12 text-center`).
-
-### (b) Card "Horário de pico" — BarChart
-- Dados: `hourly` (24 pontos garantidos pela RPC) mapeado para `{ hora, pedidos, label: \`${hora}h\` }`.
-- `XAxis dataKey="label"` com `interval={0}` e `tickFormatter` que mostra apenas múltiplos de 3 + a hora 23 (`(v) => { const h = parseInt(v); return (h % 3 === 0 || h === 23) ? v : ''; }`).
-- `YAxis allowDecimals={false}`.
-- Cor base barras: `#5F6EF9`. Destacar máximo(s): calcular `maxPedidos = Math.max(...hourly.map(h=>h.pedidos))`; usar `<Cell fill={p.pedidos === maxPedidos && maxPedidos > 0 ? '#F766C6' : '#5F6EF9'} />` por barra dentro de `<Bar>`.
-- `Tooltip` custom: `"${hora}h — ${pedidos} pedido${pedidos===1?'':'s'}"`.
-- `CartesianGrid` igual ao (a).
-- Altura ~280px.
-- **Vazio**: se `hourly.every(h => h.pedidos === 0)` → "Sem dados no período".
-
-### Loading
-Enquanto `isLoading` do novo hook: cada card renderiza `<Skeleton className="h-[280px] w-full rounded-md" />` no lugar do gráfico (header do card permanece).
-
-### Formatação
-- `formatCurrency` (já existente no arquivo) para tooltip.
-- Novo helper local `formatCurrencyCompact(n: number)`:
-  ```ts
-  new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL', notation:'compact', maximumFractionDigits:1 }).format(n)
-  ```
-
-### Identidade visual
-- Cores fixas só `#5F6EF9` (marca/indigo) e `#F766C6` (destaque/magenta) — alinhadas ao Bloco 2 (mix de pagamento).
-- Cards usam o mesmo padrão dos demais (`Card` + `CardContent p-5`), com header interno: título `text-sm font-medium text-muted-foreground uppercase tracking-wider` e subtítulo opcional.
-- Sem novas classes globais; herda `.admin-theme` do `AdminLayout`.
-
-## Fora de escopo
-Backend, RLS, edges, schema, outras telas, filtros de período (RPC já retorna histórico completo), exportação.
+- **Linha 1**: sem mudanças além de garantir o valor correto de Repasses Pendentes. Destaque atual no card "Receita da Plataforma" permanece.
+- **Linha 2**: expandir de 2 cards para **4 cards** no mesmo estilo discreto (`bg-muted/30 shadow-none p-3`), grid `grid-cols-2 md:grid-cols-4 max-w-3xl`. Cards:
+  - Pedidos pagos (ícone `ShoppingBag`): valor = `stats.paidOrders`
+  - Ingressos vendidos (ícone `Ticket`): valor = `stats.ticketsSold`
+  - Produtores (ícone `Users`): valor = `stats.totalProducers`
+  - Eventos (ícone `Calendar`): valor = `stats.totalEvents`
+- **Bloco 2 — Mix de pagamento** (`Card` lado esquerdo de grid `md:grid-cols-2 gap-4`):
+  - `PieChart` recharts em donut (`innerRadius=60, outerRadius=90`).
+  - Dados filtrados para `value > 0`: `[{ name:'PIX', value: mix.pix, color:'#5F6EF9' }, { name:'Cartão', value: mix.card, color:'#F766C6' }]`.
+  - Legenda custom abaixo do gráfico com: nome · valor `R$` formatado pt-BR · `%` do total.
+  - Vazio (`mix.pix + mix.card === 0`): renderiza "Sem dados no período".
+- **Bloco 2 — Top 5 eventos** (`Card` lado direito):
+  - Lista ordenada 1..5; cada linha: posição numérica, título do evento (`truncate`), valor `R$` alinhado à direita, barra horizontal proporcional ao maior GMV (gradiente da marca via `linear-gradient(90deg,#5F6EF9,#EC4899)`), largura `Math.max(2, gmv/maxGmv*100)%`.
+  - Vazio (lista zerada): "Sem dados no período".
+- **Bloco 3**: NÃO TOCAR — manter exatamente como está hoje.
+- **Formatação**: `Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' })` (helper `formatCurrency` já existe). `formatNumber` para contagem de pedidos/ingressos.
+- **Loading**: enquanto `isLoading`, Bloco 2 exibe `<Skeleton className="h-[280px] w-full rounded-md" />` em cada card.
+- **Estados vazios**: Bloco 2 inteiro exibe "Sem dados no período" quando `dailyEmpty` e `hourlyEmpty` também se aplicam — na prática, se não há orders pagas, mix e top5 também estarão vazios.
