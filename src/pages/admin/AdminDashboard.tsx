@@ -2,6 +2,7 @@ import React from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { useAdminSalesTimeseries } from '@/hooks/useAdminSalesTimeseries';
+import { useAdminPlatformNet } from '@/hooks/useAdminPlatformNet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -81,11 +82,17 @@ const EmptyState: React.FC = () => (
 const AdminDashboard: React.FC = () => {
   const { data: stats, isLoading } = useAdminStats();
   const { data: series, isLoading: seriesLoading } = useAdminSalesTimeseries();
+  const { data: platformNet, isLoading: netLoading } = useAdminPlatformNet();
+
+  const netValue = platformNet?.net ?? 0;
+  const mpCostValue = platformNet?.mpCost ?? 0;
+  const netNegative = netValue < 0;
 
   const financialCards = [
-    { title: 'GMV', value: stats?.gmv || 0, icon: DollarSign, highlight: false },
-    { title: 'Receita da Plataforma', value: stats?.platformRevenue || 0, icon: TrendingUp, highlight: true },
-    { title: 'Repasses Pendentes', value: stats?.pendingPayouts || 0, icon: Banknote, highlight: false },
+    { title: 'GMV', value: stats?.gmv || 0, icon: DollarSign, highlight: false, kind: 'plain' as const },
+    { title: 'Receita de Taxas (bruta)', value: stats?.platformRevenue || 0, icon: TrendingUp, highlight: false, kind: 'plain' as const },
+    { title: 'Receita Líquida (após MP)', value: netValue, icon: TrendingUp, highlight: true, kind: 'net' as const },
+    { title: 'Repasses Pendentes', value: stats?.pendingPayouts || 0, icon: Banknote, highlight: false, kind: 'plain' as const },
   ];
 
   const contextCards = [
@@ -134,45 +141,55 @@ const AdminDashboard: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {/* Linha 1 — financeiro */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4">
-              {financialCards.map((card) => (
-                <Card
-                  key={card.title}
-                  className={
-                    card.highlight
-                      ? 'relative border-transparent shadow-md hover:shadow-lg transition-shadow admin-gradient-bg p-[1px]'
-                      : 'border border-border bg-card shadow-sm hover:shadow-md transition-shadow'
-                  }
-                >
-                  <CardContent
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {financialCards.map((card) => {
+                const isNet = card.kind === 'net';
+                const showSkeleton = isNet && netLoading;
+                const valueClass = card.highlight
+                  ? `font-display text-3xl font-semibold tabular-nums ${
+                      isNet && netNegative ? 'text-destructive' : 'admin-gradient-text'
+                    }`
+                  : 'font-display text-3xl font-semibold text-foreground tabular-nums';
+                return (
+                  <Card
+                    key={card.title}
                     className={
                       card.highlight
-                        ? 'p-5 rounded-[calc(var(--radius)-1px)] bg-card'
-                        : 'p-5'
+                        ? 'relative border-transparent shadow-md hover:shadow-lg transition-shadow admin-gradient-bg p-[1px]'
+                        : 'border border-border bg-card shadow-sm hover:shadow-md transition-shadow'
                     }
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                          {card.title}
-                        </p>
-                        <p
-                          className={
-                            card.highlight
-                              ? 'font-display text-3xl font-semibold tabular-nums admin-gradient-text'
-                              : 'font-display text-3xl font-semibold text-foreground tabular-nums'
-                          }
-                        >
-                          {formatCurrency(card.value)}
-                        </p>
+                    <CardContent
+                      className={
+                        card.highlight
+                          ? 'p-5 rounded-[calc(var(--radius)-1px)] bg-card'
+                          : 'p-5'
+                      }
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2 min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            {card.title}
+                          </p>
+                          {showSkeleton ? (
+                            <Skeleton className="h-10 w-24" />
+                          ) : (
+                            <p className={valueClass}>{formatCurrency(card.value)}</p>
+                          )}
+                          {isNet && !showSkeleton && (
+                            <p className="text-xs text-muted-foreground">
+                              − {formatCurrency(mpCostValue)} em taxas Mercado Pago
+                            </p>
+                          )}
+                        </div>
+                        <div className="h-10 w-10 rounded-xl admin-gradient-bg flex items-center justify-center shadow-sm shrink-0">
+                          <card.icon className="h-5 w-5 text-white" />
+                        </div>
                       </div>
-                      <div className="h-10 w-10 rounded-xl admin-gradient-bg flex items-center justify-center shadow-sm shrink-0">
-                        <card.icon className="h-5 w-5 text-white" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Linha 2 — contexto (4 cards menores) */}
