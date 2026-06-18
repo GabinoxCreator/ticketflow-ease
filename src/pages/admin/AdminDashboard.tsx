@@ -4,7 +4,16 @@ import { useAdminStats } from '@/hooks/useAdminStats';
 import { useAdminSalesTimeseries } from '@/hooks/useAdminSalesTimeseries';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Calendar, DollarSign, Banknote, TrendingUp, Loader2 } from 'lucide-react';
+import {
+  Users,
+  Calendar,
+  DollarSign,
+  Banknote,
+  TrendingUp,
+  Loader2,
+  ShoppingBag,
+  Ticket,
+} from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -16,6 +25,8 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   Cell,
+  PieChart,
+  Pie,
 } from 'recharts';
 
 const BRAND_INDIGO = '#5F6EF9';
@@ -78,6 +89,8 @@ const AdminDashboard: React.FC = () => {
   ];
 
   const contextCards = [
+    { title: 'Pedidos pagos', value: stats?.paidOrders || 0, icon: ShoppingBag },
+    { title: 'Ingressos vendidos', value: stats?.ticketsSold || 0, icon: Ticket },
     { title: 'Produtores', value: stats?.totalProducers || 0, icon: Users },
     { title: 'Eventos', value: stats?.totalEvents || 0, icon: Calendar },
   ];
@@ -89,6 +102,18 @@ const AdminDashboard: React.FC = () => {
   const maxPedidos = hourlyData.reduce((m, p) => (p.pedidos > m ? p.pedidos : m), 0);
   const hourlyEmpty = hourlyData.length === 0 || maxPedidos === 0;
   const dailyEmpty = dailyData.length === 0;
+
+  const mix = stats?.mix ?? { pix: 0, card: 0 };
+  const mixTotal = mix.pix + mix.card;
+  const mixEmpty = mixTotal === 0;
+  const mixData = [
+    { name: 'PIX', value: mix.pix, color: BRAND_INDIGO },
+    { name: 'Cartão', value: mix.card, color: BRAND_MAGENTA },
+  ].filter((d) => d.value > 0);
+
+  const topEvents = stats?.topEvents ?? [];
+  const topEmpty = topEvents.length === 0;
+  const maxTopGmv = topEvents.reduce((m, e) => (e.gmv > m ? e.gmv : m), 0);
 
   return (
     <AdminLayout title="Dashboard">
@@ -150,8 +175,8 @@ const AdminDashboard: React.FC = () => {
               ))}
             </div>
 
-            {/* Linha 2 — contexto (cards menores e discretos) */}
-            <div className="grid grid-cols-2 gap-3 max-w-md">
+            {/* Linha 2 — contexto (4 cards menores) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl">
               {contextCards.map((card) => (
                 <Card
                   key={card.title}
@@ -174,6 +199,106 @@ const AdminDashboard: React.FC = () => {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+
+            {/* Bloco 2 — Mix de pagamento + Top 5 eventos */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="border border-border bg-card shadow-sm">
+                <CardContent className="p-5">
+                  <ChartCardHeader title="Mix de pagamento" subtitle="Distribuição por valor (R$)" />
+                  {mixEmpty ? (
+                    <EmptyState />
+                  ) : (
+                    <div className="space-y-4">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={mixData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            stroke="hsl(var(--background))"
+                            strokeWidth={2}
+                          >
+                            {mixData.map((d) => (
+                              <Cell key={d.name} fill={d.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: any) => formatCurrency(Number(value) || 0)}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="space-y-2">
+                        {mixData.map((d) => {
+                          const pct = mixTotal > 0 ? (d.value / mixTotal) * 100 : 0;
+                          return (
+                            <div key={d.name} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="h-3 w-3 rounded-sm"
+                                  style={{ backgroundColor: d.color }}
+                                />
+                                <span className="text-foreground font-medium">{d.name}</span>
+                                <span className="text-muted-foreground tabular-nums">
+                                  {pct.toFixed(1)}%
+                                </span>
+                              </div>
+                              <span className="text-foreground tabular-nums">
+                                {formatCurrency(d.value)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border border-border bg-card shadow-sm">
+                <CardContent className="p-5">
+                  <ChartCardHeader title="Top 5 eventos por vendas" subtitle="GMV acumulado" />
+                  {topEmpty ? (
+                    <EmptyState />
+                  ) : (
+                    <ol className="space-y-3">
+                      {topEvents.map((e, idx) => {
+                        const widthPct = maxTopGmv > 0 ? Math.max(2, (e.gmv / maxTopGmv) * 100) : 2;
+                        return (
+                          <li key={e.eventId} className="space-y-1">
+                            <div className="flex items-center justify-between gap-3 text-sm">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs font-semibold text-muted-foreground tabular-nums w-4 shrink-0">
+                                  {idx + 1}
+                                </span>
+                                <span className="text-foreground font-medium truncate">
+                                  {e.title}
+                                </span>
+                              </div>
+                              <span className="text-foreground tabular-nums shrink-0">
+                                {formatCurrency(e.gmv)}
+                              </span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${widthPct}%`,
+                                  background: `linear-gradient(90deg, ${BRAND_INDIGO}, #EC4899)`,
+                                }}
+                              />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Bloco 3 — séries temporais */}
