@@ -1,5 +1,10 @@
 project_id = "nsrromaqysgoxqvqagdm"
 
+# Federação FestPag Ingressos -> FestPay: emite o token de vínculo assinado.
+# verify_jwt = true (padrão das edges autenticadas de cliente) + getUser manual no código.
+[functions.federacao-emitir-token]
+verify_jwt = true
+
 [functions.check-stripe-connect-status]
 verify_jwt = true
 
