@@ -29,6 +29,7 @@ export interface EventTableRow {
   customer_phone: string | null;
   order_total: number | null;
   order_paid_at: string | null;
+  seats_sold: number | null;
 }
 
 /** "Disponível na prática": available, ou held com hold já expirado (gate do hold_seats). */
@@ -69,7 +70,7 @@ export function useEventTables(eventId: string | undefined) {
       if (error) throw error;
 
       const seatRows = (seats ?? []) as unknown as Array<Omit<EventTableRow,
-        'customer_name' | 'customer_email' | 'customer_phone' | 'order_total' | 'order_paid_at'>>;
+        'customer_name' | 'customer_email' | 'customer_phone' | 'order_total' | 'order_paid_at' | 'seats_sold'>>;
 
       const orderIds = Array.from(
         new Set(
@@ -80,13 +81,27 @@ export function useEventTables(eventId: string | undefined) {
       );
 
       let ordersById = new Map<string, OrderRow>();
+      const ticketsByOrder = new Map<string, number>();
       if (orderIds.length > 0) {
-        const { data: orders, error: ordErr } = await supabase
-          .from('orders')
-          .select('id,customer_name,customer_email,customer_phone,total_amount,updated_at,status')
-          .in('id', orderIds);
-        if (ordErr) throw ordErr;
-        ordersById = new Map((orders ?? []).map((o) => [o.id as string, o as OrderRow]));
+        const [ordersRes, ticketsRes] = await Promise.all([
+          supabase
+            .from('orders')
+            .select('id,customer_name,customer_email,customer_phone,total_amount,updated_at,status')
+            .in('id', orderIds),
+          supabase
+            .from('tickets')
+            .select('order_id')
+            .in('order_id', orderIds)
+            .in('status', ['valid', 'used']),
+        ]);
+        if (ordersRes.error) throw ordersRes.error;
+        if (ticketsRes.error) throw ticketsRes.error;
+        ordersById = new Map((ordersRes.data ?? []).map((o) => [o.id as string, o as OrderRow]));
+        for (const t of ticketsRes.data ?? []) {
+          const oid = (t as { order_id: string | null }).order_id;
+          if (!oid) continue;
+          ticketsByOrder.set(oid, (ticketsByOrder.get(oid) ?? 0) + 1);
+        }
       }
 
       return seatRows.map((s) => {
@@ -99,6 +114,7 @@ export function useEventTables(eventId: string | undefined) {
           customer_phone: o?.customer_phone ?? null,
           order_total: o?.total_amount ?? null,
           order_paid_at: o?.status === 'paid' ? o?.updated_at ?? null : null,
+          seats_sold: oid ? ticketsByOrder.get(oid) ?? null : null,
         };
       });
     },

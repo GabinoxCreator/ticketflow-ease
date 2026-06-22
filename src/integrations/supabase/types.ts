@@ -2032,6 +2032,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_attach_payout_receipt: {
+        Args: { p_path: string; p_payout_id: string }
+        Returns: Json
+      }
+      admin_list_payouts: {
+        Args: { p_status?: string }
+        Returns: {
+          bank_account_snapshot: Json
+          evento: string
+          id: string
+          net_amount: number
+          paid_at: string
+          period_start: string
+          produtor: string
+          receipt_url: string
+          status: string
+        }[]
+      }
+      admin_mark_payout_paid: { Args: { p_payout_id: string }; Returns: Json }
+      admin_platform_net: { Args: never; Returns: Json }
+      admin_sales_timeseries: { Args: never; Returns: Json }
+      admin_set_event_fee: {
+        Args: {
+          p_card_fixed: number
+          p_card_percent: number
+          p_event_id: string
+          p_pix_fixed: number
+          p_pix_percent: number
+        }
+        Returns: Json
+      }
       apply_order_approved: {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
@@ -2099,6 +2130,13 @@ export type Database = {
           fee_percent: number
         }[]
       }
+      get_event_tracking: {
+        Args: { _event_id: string }
+        Returns: {
+          meta_pixel_id: string
+          tracking_enabled: boolean
+        }[]
+      }
       has_manage_team: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -2158,6 +2196,10 @@ export type Database = {
         Returns: Json
       }
       release_seats_for_order: { Args: { _order_id: string }; Returns: number }
+      request_payout: {
+        Args: { p_event_id: string; p_user_id: string }
+        Returns: Json
+      }
       reserve_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean

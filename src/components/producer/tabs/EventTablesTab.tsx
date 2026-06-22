@@ -17,9 +17,19 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Armchair, Search, CheckCircle2, Circle, Lock, Mail, Phone, User, Loader2 } from 'lucide-react';
+import { Armchair, Search, CheckCircle2, Circle, Lock, Mail, Phone, User, Loader2, Map as MapIcon } from 'lucide-react';
 import { formatInSaoPaulo } from '@/lib/eventTime';
 import { toast } from 'sonner';
+import { EventTablesMapModal } from './EventTablesMapModal';
+
+async function parseInvokeError(error: unknown): Promise<string> {
+  const e = error as { context?: { json?: () => Promise<{ error?: string }> }; message?: string };
+  try {
+    const payload = await e.context?.json?.();
+    if (payload?.error) return payload.error;
+  } catch { /* noop */ }
+  return e.message ?? 'unknown';
+}
 
 type FilterKey = 'all' | 'sold' | 'available' | 'manual';
 
@@ -52,6 +62,7 @@ export function EventTablesTab({ eventId }: Props) {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<EventTableRow | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
 
   const stats = useMemo(() => {
     const rows = data ?? [];
@@ -119,6 +130,10 @@ export function EventTablesTab({ eventId }: Props) {
             <TabsTrigger value="available">Disponíveis</TabsTrigger>
           </TabsList>
         </Tabs>
+        <Button variant="outline" onClick={() => setMapOpen(true)} className="sm:ml-auto">
+          <MapIcon className="h-4 w-4 mr-2" />
+          Ver mapa
+        </Button>
       </div>
 
       {filtered.length === 0 ? (
@@ -145,8 +160,9 @@ export function EventTablesTab({ eventId }: Props) {
                     {t.seat_type_name && <div>{t.seat_type_name}</div>}
                     {t.base_capacity != null && (
                       <div>
-                        Cap. {t.base_capacity}
-                        {t.max_capacity && t.max_capacity !== t.base_capacity ? ` / ${t.max_capacity}` : ''}
+                        {t.status === 'sold' && t.seats_sold != null
+                          ? `${t.seats_sold} de ${t.max_capacity ?? t.base_capacity} cadeiras`
+                          : `Cap. ${t.base_capacity}${t.max_capacity && t.max_capacity !== t.base_capacity ? ` / ${t.max_capacity}` : ''}`}
                       </div>
                     )}
                     {t.status === 'sold' && t.customer_name && (
@@ -172,6 +188,8 @@ export function EventTablesTab({ eventId }: Props) {
         eventId={eventId}
         onClose={() => setSelected(null)}
       />
+
+      <EventTablesMapModal eventId={eventId} open={mapOpen} onOpenChange={setMapOpen} />
     </div>
   );
 }
@@ -222,7 +240,7 @@ function TableDetailModal({
   const closeMut = useMutation({
     mutationFn: async (input: { seat_id: string; holder_name?: string; holder_phone?: string; notes?: string }) => {
       const { data, error } = await supabase.functions.invoke('close-table-manual', { body: input });
-      if (error) throw error;
+      if (error) throw new Error(await parseInvokeError(error));
       if (!data?.ok) throw new Error(data?.error ?? 'unknown');
       return data;
     },
@@ -249,7 +267,7 @@ function TableDetailModal({
   const reopenMut = useMutation({
     mutationFn: async (seat_id: string) => {
       const { data, error } = await supabase.functions.invoke('reopen-table-manual', { body: { seat_id } });
-      if (error) throw error;
+      if (error) throw new Error(await parseInvokeError(error));
       if (!data?.ok) throw new Error(data?.error ?? 'unknown');
       return data;
     },
@@ -314,6 +332,13 @@ function TableDetailModal({
                   <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" />{table.customer_phone}</div>
                 )}
                 <div className="flex justify-between pt-2 text-xs text-muted-foreground">
+                  <span>Cadeiras compradas</span>
+                  <span className="text-foreground">
+                    {table.seats_sold ?? '—'}
+                    {table.max_capacity ? ` de ${table.max_capacity}` : ''}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Total pago</span>
                   <span className="text-foreground">{formatCurrency(table.order_total)}</span>
                 </div>

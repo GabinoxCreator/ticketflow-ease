@@ -1,58 +1,37 @@
-## Objetivo
-Recortar o totem da imagem (remover o fundo branco/clean da loja e a pessoa de costas), deixar só o kiosk FestPag flutuando com sombra, e no mobile encaixá-lo **sobreposto ao título** ao invés de ficar empilhado acima.
+## Plano: Adicionar Receita Líquida (após MP) na Linha 1 do Admin Dashboard
 
-## 1. Nova versão da imagem (fundo transparente)
-- Gerar via `imagegen` (premium, `transparent_background: true`) um totem FestPag de reconhecimento facial estilizado, fiel ao da foto original (tela vertical mostrando "RECONHECIMENTO FACIAL ATIVO", base roxa com logo "festpag digital", impressora de cupom + leitor NFC).
-- Salvar em `src/assets/festpag-totem-cutout.png` como asset Lovable (`.asset.json`).
-- Substituir o import em `LandingLp.tsx` para o novo pointer.
-- Deletar o asset antigo (`festpag-totem.jpg.asset.json` → CDN cleanup).
+Escopo: apenas `src/hooks/useAdminPlatformNet.ts` (novo) e `src/pages/admin/AdminDashboard.tsx`. Os gráficos, Bloco 2 (Mix/Top 5) e demais seções permanecem intactos.
 
-Por que gerar e não recortar a foto original: a foto tem a moça de costas e a base do display ofuscada; um cutout PNG limpo encaixa bem melhor sobreposto a texto e sombra fica realista.
+---
 
-## 2. Tratamento visual (desktop)
-Reescrever `.hero-visual` para PNG transparente:
-- Remover `mask-image`, `border-radius`, `aspect-ratio` fixo e overlay `::after` (não faz sentido com PNG recortado).
-- `img { object-fit: contain; filter: drop-shadow(0 30px 60px rgba(99,102,241,0.45)) drop-shadow(0 10px 30px rgba(236,72,153,0.35)); }` — sombra colorida real seguindo o contorno do totem.
-- `::before` mantém o glow radial indigo→magenta atrás, com `blur(80px)` e `opacity 0.7`.
-- `max-width: 440px`, `min-height: 520px`.
-- Sutil `float` animation (translateY ±6px, 6s ease-in-out infinite) pra dar vida.
+### 1) Novo hook `src/hooks/useAdminPlatformNet.ts`
 
-## 3. Mobile (< 900px) — sobrepondo o título
-Layout proposto (viewport 390px):
+- Criar hook que faz `useQuery({ queryKey: ['admin-platform-net'], queryFn: ... })`.
+- Chamar `supabase.rpc('admin_platform_net')` — a RPC já existe e retorna um objeto único `jsonb { gross, mpCost, net }`.
+- Tratar resposta nula como `{ gross: 0, mpCost: 0, net: 0 }`.
+- Retornar objeto tipado `{ gross: number; mpCost: number; net: number }`.
 
-```text
-┌───────────────────────────────┐
-│   O banco oficial dos eventos │
-│   [logo festpag]              │
-│                       ╭─────╮ │
-│   A operação         │     │ │
-│   inteligente para   │TOTEM│ │
-│   eventos que        │     │ │
-│   querem vender mais ╰─────╯ │
-│                               │
-│   Reduzir filas e operar...   │
-│   [Falar com a equipe]        │
-└───────────────────────────────┘
-```
+---
 
-Técnica:
-- Hero volta para layout de coluna única (sem grid split no mobile).
-- `.hero-copy` recebe `position: relative`.
-- `.hero-visual` no mobile: `position: absolute; top: 30%; right: -20px; width: 180px; height: auto; z-index: 0; opacity: 0.85;` — flutua sobre o lado direito da headline.
-- `.hero-headline` ganha `position: relative; z-index: 1` e o `<span>` colorido fica visível por cima quando há overlap.
-- Drop-shadow mantida pra dar profundidade quando overlap acontece sobre texto.
-- Remover `order: 1/2` que tínhamos; agora é overlay absoluto.
-- CTAs e sub-texto permanecem no fluxo normal sem serem cobertos (totem fica no terço superior direito).
+### 2) `src/pages/admin/AdminDashboard.tsx` — ajustar Linha 1 financeira
 
-Alternativa de fallback se ficar bagunçado: `right: -30px; width: 200px; top: 40%; transform: rotate(-3deg)` pra dar dinamismo estilo "produto in-situ".
+Mudanças na grid da Linha 1 (passa de 3 para 4 cards):
 
-## 4. Animação
-Adicionar `@keyframes heroFloat` (translateY 0 → -8px → 0, 6s, infinite, ease-in-out). Aplicada via wrapper para não brigar com drop-shadow.
+| Posição | Título | Valor | Destaque | Observações |
+|---------|--------|-------|----------|-------------|
+| 1 | GMV | `stats.gmv` | — | sem alteração |
+| 2 | Receita de Taxas (bruta) | `stats.platformRevenue` | — | **renomeado** de "Receita da Plataforma"; **remove** `.admin-gradient` |
+| 3 | Receita Líquida (após MP) | `net` da RPC | `.admin-gradient` | **novo card**; subtítulo "− R$X,XX em taxas Mercado Pago" usando `mpCost`; se `net < 0`, valor em `text-destructive` |
+| 4 | Repasses Pendentes | `stats.pendingPayouts` | — | sem alteração |
 
-## Arquivos
-- **Editado**: `src/pages/LandingLp.tsx` (import novo asset, CSS do `.hero-visual` reescrito, media query mobile).
-- **Criado**: `src/assets/festpag-totem-cutout.png.asset.json` (via imagegen + lovable-assets, transparente).
-- **Deletado**: `src/assets/festpag-totem.jpg.asset.json` (asset antigo).
+- Ajustar a grid de `grid-cols-1 md:grid-cols-3` para `md:grid-cols-4` na Linha 1.
+- Usar `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })` para todos os valores monetários (já existe helper `formatCurrency`).
+- Enquanto `seriesLoading` (ou novo estado de loading do hook), o card "Receita Líquida" exibe `<Skeleton className="h-10 w-24" />` no lugar do valor.
+- Não tocar em Bloco 2 (Mix de pagamento / Top 5 eventos) nem em Bloco 3 (gráficos de séries temporais).
 
-## Fora de escopo
-Sem mudanças em copy, formulário, outras seções, rotas ou tema global.
+---
+
+### Resumo de arquivos
+
+- **Criar:** `src/hooks/useAdminPlatformNet.ts`
+- **Editar:** `src/pages/admin/AdminDashboard.tsx` (Linha 1: 4 cards, renomear, mover gradiente, adicionar card novo)

@@ -297,7 +297,8 @@ export default function AdminEquipe() {
       </div>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent>
+        <DialogContent className="admin-theme">
+
           <DialogHeader>
             <DialogTitle>Convidar colaborador</DialogTitle>
           </DialogHeader>
@@ -355,7 +356,8 @@ export default function AdminEquipe() {
       </Dialog>
 
       <AlertDialog open={!!deactivateTarget} onOpenChange={(o) => !o && setDeactivateTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="admin-theme">
+
           <AlertDialogHeader>
             <AlertDialogTitle>Desativar colaborador?</AlertDialogTitle>
             <AlertDialogDescription>

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Shield, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import logoFestpag from '@/assets/logo-festpag.png';
 
 const AdminLogin: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -25,8 +24,6 @@ const AdminLogin: React.FC = () => {
         toast({ title: 'Erro ao entrar', description: error.message, variant: 'destructive' });
         return;
       }
-      // AuthContext will set userRole, we check it after redirect
-      // The AdminProtectedRoute will handle role validation
       navigate('/admin/dashboard');
     } catch (err) {
       toast({ title: 'Erro inesperado', variant: 'destructive' });
@@ -36,48 +33,51 @@ const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border-orange-500/30">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <img src={logoFestpag} alt="FestPag" className="h-16 w-auto" />
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <Shield className="h-5 w-5 text-orange-500" />
-            <CardTitle className="text-orange-500">Painel Administrativo</CardTitle>
-          </div>
-          <CardDescription>Acesso restrito à equipe interna FestPag</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+    <div className="admin-theme">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md border border-border bg-card shadow-lg">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="h-14 w-14 rounded-2xl admin-gradient-bg flex items-center justify-center text-white font-display font-bold text-2xl shadow-md">
+                F
+              </div>
+            </div>
+            <div className="space-y-1">
+              <CardTitle className="font-display admin-gradient-text">FestPag Admin</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Acesso restrito à equipe interna
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-background border-border"
               />
-            </div>
-            <div>
               <Input
                 type="password"
                 placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-background border-border"
               />
-            </div>
-            <Button
-              type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={isLoading}
-            >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Entrar'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Entrar'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
