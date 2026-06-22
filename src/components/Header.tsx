@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, User, LogOut, LayoutDashboard, Calendar, ChevronDown, ChevronRight, Ticket, ArrowUpRight, Sparkles } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Calendar, ChevronDown, ChevronRight, Ticket, ArrowUpRight, Sparkles, Wallet, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,11 +19,36 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import logoFestpag from '@/assets/logo-festpag.png';
 
+// Base da carteira FestPay (federação). Trocar quando tiver domínio custom.
+const FESTPAY_BASE = 'https://festpay.lovable.app';
+
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [openingWallet, setOpeningWallet] = useState(false);
   const navigate = useNavigate();
   const { user, profile, isProdutor, signOut, isLoading } = useAuth();
+
+  // Federação FestPag -> FestPay: emite o link_token (edge autenticada, o supabase-js
+  // anexa o Bearer da sessão) e redireciona na MESMA aba pra /vincular do FestPay.
+  const handleOpenWallet = async () => {
+    if (openingWallet) return;
+    setOpeningWallet(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('federacao-emitir-token', {
+        body: {},
+      });
+      if (error) throw error;
+      const linkToken = data?.link_token;
+      if (!linkToken) throw new Error('retorno sem link_token');
+      // sucesso: navega pra fora (não reseta o loading — a página está saindo)
+      window.location.href = `${FESTPAY_BASE}/vincular?token=${linkToken}`;
+    } catch (err) {
+      console.error('Erro ao abrir carteira:', err);
+      toast.error('Não foi possível abrir sua carteira. Tente de novo.');
+      setOpeningWallet(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,6 +231,28 @@ const Header = () => {
                               <User className="h-4 w-4 text-foreground/80" />
                             </div>
                             <span className="flex-1 text-sm font-medium">Minha Conta</span>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
+                          </DropdownMenuItem>
+                          {/* Federação FestPay: onSelect + preventDefault mantém o menu aberto
+                              durante o loading; o handler redireciona pra carteira ao concluir. */}
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              handleOpenWallet();
+                            }}
+                            disabled={openingWallet}
+                            className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
+                          >
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
+                              {openingWallet ? (
+                                <Loader2 className="h-4 w-4 text-foreground/80 animate-spin" />
+                              ) : (
+                                <Wallet className="h-4 w-4 text-foreground/80" />
+                              )}
+                            </div>
+                            <span className="flex-1 text-sm font-medium">
+                              {openingWallet ? 'Abrindo carteira…' : 'Minha Carteira'}
+                            </span>
                             <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
