@@ -64,8 +64,7 @@ serve(async (req) => {
     const cleanSections = Array.from(new Set(sections.filter((s) => ALLOWED_SECTIONS.has(s))));
 
     // Check if email already has an auth user that's admin
-    const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const existingUser = existing?.users.find((u) => u.email?.toLowerCase() === email);
+    const { data: { user: existingUser } } = await admin.auth.admin.getUserByEmail(email);
 
     let targetUserId: string;
     if (existingUser) {
