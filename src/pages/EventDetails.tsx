@@ -32,6 +32,9 @@ import { EventPolicies } from '@/components/event/EventPolicies';
 import type { SummaryItem } from '@/components/event/EventOrderSummary';
 import { EventCartSheet } from '@/components/event/EventCartSheet';
 import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
+import { EventDonationBanner } from '@/components/event/EventDonationBanner';
+import { DonationModal } from '@/components/event/DonationModal';
+import { getDonationCampaign, isDonationCampaignReady } from '@/data/donationCampaigns';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -51,6 +54,7 @@ const EventDetails = () => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isDonationOpen, setIsDonationOpen] = useState(false);
   const prevTotalRef = useRef(0);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -286,6 +290,9 @@ const EventDetails = () => {
 
   const canonicalUrl = `https://festpag.com.br/evento/${event.slug ?? event.id}`;
 
+  const donationCampaign = getDonationCampaign({ slug: event.slug, id: event.id });
+  const showDonation = isDonationCampaignReady(donationCampaign);
+
 
 
   return (
@@ -380,6 +387,10 @@ const EventDetails = () => {
                       shareTitle={event.title}
                       shareText={event.short_description || undefined}
                     />
+                  )}
+
+                  {showDonation && (
+                    <EventDonationBanner onDonate={() => setIsDonationOpen(true)} />
                   )}
                 </motion.div>
 
@@ -546,6 +557,14 @@ const EventDetails = () => {
           onClose={() => setIsAuthModalOpen(false)}
           onAuthenticated={handleAuthenticated}
         />
+
+        {showDonation && donationCampaign && (
+          <DonationModal
+            open={isDonationOpen}
+            onOpenChange={setIsDonationOpen}
+            campaign={donationCampaign}
+          />
+        )}
 
         <CheckoutModal
           isOpen={isCheckoutOpen}
