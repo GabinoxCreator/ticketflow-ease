@@ -93,6 +93,22 @@ serve(async (req) => {
         return json({ error: 'invite_failed', detail: inviteErr?.message }, 500);
       }
       targetUserId = invited.user.id;
+
+      // Concede o admin AQUI via service-role, sem depender do handle_new_user.
+      // Idempotente: hoje (antes do passo B) o trigger ainda honra tipo_conta='admin' e já
+      // cria essa linha no invite, então a UNIQUE(user_id, role) colidiria — onConflict +
+      // ignoreDuplicates = ON CONFLICT DO NOTHING, então convite repetido não dá 500. Vale
+      // também pós-passo B (quando o trigger parar de criar): o upsert passa a inserir.
+      const { error: roleErr } = await admin
+        .from('user_roles')
+        .upsert(
+          { user_id: targetUserId, role: 'admin' },
+          { onConflict: 'user_id,role', ignoreDuplicates: true },
+        );
+      if (roleErr) {
+        console.error('grant admin role error', roleErr);
+        return json({ error: 'role_grant_failed', detail: roleErr.message }, 500);
+      }
     }
 
     // Insert sections (service role bypasses RLS)
