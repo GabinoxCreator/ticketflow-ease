@@ -22,9 +22,10 @@ interface LotCardProps {
   quantity: number;
   onQuantityChange: (delta: number) => void;
   formatPrice: (price: number) => string;
+  maxQuantity?: number;
 }
 
-export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCardProps) => {
+export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuantity = 10 }: LotCardProps) => {
   const available = lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0);
   const isSoldOut = available === 0 || lot.manually_sold_out === true;
 
@@ -121,10 +122,10 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice }: LotCar
             </span>
             <button
               onClick={() => onQuantityChange(1)}
-              disabled={quantity >= 10 || quantity >= available}
+              disabled={quantity >= maxQuantity || quantity >= available}
               className={cn(
                 'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
-                quantity >= 10 || quantity >= available
+                quantity >= maxQuantity || quantity >= available
                   ? 'border-border/40 text-muted-foreground/50 cursor-not-allowed'
                   : 'border-border/60 bg-background/60 text-foreground hover:bg-primary/20 hover:border-primary/50',
               )}

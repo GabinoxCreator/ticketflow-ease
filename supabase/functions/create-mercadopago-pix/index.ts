@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
+import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -134,6 +135,23 @@ serve(async (req) => {
       lineItems.push({ lotId: lot.id, lotName: lot.name, quantity: item.quantity, price: Number(lot.price) });
     }
 
+    // Trava "1 ingresso por CPF" — só p/ eventos com limite. ANTES de reservar/criar order.
+    // Usa supabaseClient (service-role) para a contagem ignorar RLS.
+    const ticketLimit = getTicketLimitForEvent(eventId);
+    if (ticketLimit !== null) {
+      const requestedQty = lineItems.reduce((sum, i) => sum + i.quantity, 0);
+      const alreadyHas = await countTicketsForCpf(supabaseClient, eventId, cleanCPF);
+      if (alreadyHas + requestedQty > ticketLimit) {
+        logStep('CPF ticket limit reached', { eventId, alreadyHas, requestedQty, ticketLimit });
+        return json({
+          error: ticketLimit === 1
+            ? 'Este evento permite apenas 1 ingresso por CPF. Este CPF já possui um ingresso.'
+            : `Este evento permite apenas ${ticketLimit} ingressos por CPF. Este CPF já atingiu o limite.`,
+          errorCode: 'ticket_limit_reached',
+        }, 200);
+      }
+    }
+
     // ATOMIC RESERVATION — must succeed for all items
     for (const item of lineItems) {
       const { data: reserved, error: rpcErr } = await supabaseClient
@@ -189,6 +207,7 @@ serve(async (req) => {
         payment_method: 'pix',
         status: 'pending',
         user_id: userId,
+        customer_cpf: cleanCPF,
         expires_at: expiresAtIso,
       })
       .select()

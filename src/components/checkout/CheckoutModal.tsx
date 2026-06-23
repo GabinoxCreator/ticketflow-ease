@@ -121,6 +121,7 @@ export function CheckoutModal({
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error); // ex.: trava "1 ingresso por CPF"
       setOrderId(data.orderId);
       if (data.paymentId) setPaymentId(String(data.paymentId));
       setPixData({

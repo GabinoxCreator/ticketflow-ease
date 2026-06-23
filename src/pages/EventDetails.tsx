@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
 import { LotCard } from '@/components/event/LotCard';
+import { getTicketLimitForEvent } from '@/data/eventTicketLimits';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
 import { EventPolicies } from '@/components/event/EventPolicies';
@@ -49,6 +50,8 @@ const EventDetails = () => {
   const { id: slugOrId } = useParams<{ id: string }>();
   const { data: event, isLoading: eventLoading } = useEvent(slugOrId);
   const eventId: string | undefined = (event as any)?.id;
+  const ticketLimit = getTicketLimitForEvent(eventId); // null = sem limite
+  const maxPerLot = ticketLimit ?? 10;
   const { lots, isLoading: lotsLoading } = useEventLots(eventId);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -189,7 +192,7 @@ const EventDetails = () => {
   const handleQuantityChange = (lotId: string, delta: number) => {
     setSelectedLots((prev) => {
       const current = prev[lotId] || 0;
-      const newValue = Math.max(0, Math.min(10, current + delta));
+      const newValue = Math.max(0, Math.min(maxPerLot, current + delta));
       if (newValue === 0) {
         const { [lotId]: _, ...rest } = prev;
         return rest;
@@ -467,6 +470,7 @@ const EventDetails = () => {
                             quantity={selectedLots[lot.id] || 0}
                             onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
                             formatPrice={formatPrice}
+                            maxQuantity={maxPerLot}
                           />
                         ))}
                       </div>
