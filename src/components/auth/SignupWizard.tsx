@@ -15,9 +15,17 @@ import { useNavigate } from 'react-router-dom';
 interface SignupWizardProps {
   redirect: string;
   onSwitchToLogin: () => void;
+  // avisa o pai (Auth.tsx) que o convite de carteira está aberto, pra ele segurar o
+  // auto-redirect enquanto isso. Também é armado ANTES do signUp (o auto-login dispara
+  // o redirect do pai), então o gate já está de pé quando a sessão é criada.
+  onShowWalletInvite?: (open: boolean) => void;
 }
 
-const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }) => {
+const SignupWizard: React.FC<SignupWizardProps> = ({
+  redirect,
+  onSwitchToLogin,
+  onShowWalletInvite,
+}) => {
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
@@ -37,6 +45,10 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    // arma o gate ANTES do signUp: o signUp faz auto-login (seta user no AuthContext),
+    // o que dispararia o auto-redirect do Auth.tsx. Setando aqui, o gate já está de pé
+    // quando a sessão é criada — sem corrida. Em caso de erro, liberamos abaixo.
+    onShowWalletInvite?.(true);
     const { error } = await signUp({
       email,
       password,
@@ -48,6 +60,7 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
     setSubmitting(false);
 
     if (error) {
+      onShowWalletInvite?.(false); // deu erro -> libera o gate, fica no formulário
       if (error.message.includes('already registered')) {
         toast.error('Este email já está cadastrado');
       } else {

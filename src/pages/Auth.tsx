@@ -35,6 +35,10 @@ const Auth: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'login' | 'cadastrar'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // gate do auto-redirect: enquanto o convite de carteira (pós-cadastro) estiver
+  // ativo, o effect abaixo NÃO navega — senão o auto-login do signUp tiraria a
+  // pessoa da tela antes do convite aparecer. Só o fluxo de cadastro liga isto.
+  const [walletInviteOpen, setWalletInviteOpen] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -47,10 +51,10 @@ const Auth: React.FC = () => {
   const mode = searchParams.get('mode');
 
   useEffect(() => {
-    if (user && !isLoading) {
+    if (user && !isLoading && !walletInviteOpen) {
       navigate(redirect);
     }
-  }, [user, isLoading, navigate, redirect]);
+  }, [user, isLoading, navigate, redirect, walletInviteOpen]);
 
   // B4.4a: Auto-open password reset dialog when ?mode=forgot
   useEffect(() => {
@@ -320,6 +324,7 @@ const Auth: React.FC = () => {
                       <SignupWizard
                         redirect={redirect}
                         onSwitchToLogin={() => setActiveTab('login')}
+                        onShowWalletInvite={setWalletInviteOpen}
                       />
                     </motion.div>
                   )}
