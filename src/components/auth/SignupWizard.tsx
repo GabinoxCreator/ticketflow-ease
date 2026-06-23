@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Loader2, ScanFace } from 'lucide-react';
 import StepIndicator from './StepIndicator';
 import StepCPF from './signup-steps/StepCPF';
 import StepEmail from './signup-steps/StepEmail';
 import StepWhatsApp from './signup-steps/StepWhatsApp';
 import StepPassword from './signup-steps/StepPassword';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { openFestpayWallet } from '@/lib/festpay';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,6 +23,9 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  // convite de carteira (opcional) mostrado ao concluir o cadastro com sucesso
+  const [showWalletInvite, setShowWalletInvite] = useState(false);
+  const [activatingWallet, setActivatingWallet] = useState(false);
 
   const [cpf, setCpf] = useState('');
   const [nomeCompleto, setNomeCompleto] = useState('');
@@ -49,9 +55,76 @@ const SignupWizard: React.FC<SignupWizardProps> = ({ redirect, onSwitchToLogin }
       }
     } else {
       toast.success('Conta criada com sucesso!');
-      navigate(redirect);
+      // em vez de ir direto pro destino, oferece ativar a carteira (opcional)
+      setShowWalletInvite(true);
     }
   };
+
+  // "Ativar agora" -> mesmo fluxo do "Minha Carteira" (federação + redirect c/ return url).
+  // Erro não trava: avisa e deixa a pessoa pular (pode ativar depois no menu).
+  const handleActivateWallet = async () => {
+    if (activatingWallet) return;
+    setActivatingWallet(true);
+    try {
+      await openFestpayWallet(); // sucesso: a página sai (não reseta o loading)
+    } catch (err) {
+      console.error('Erro ao ativar carteira:', err);
+      toast.error('Não foi possível ativar sua carteira agora. Você pode ativar depois em "Minha Carteira".');
+      setActivatingWallet(false);
+    }
+  };
+
+  // "Agora não" -> segue pro destino normal pós-cadastro, sem ativar
+  const handleSkipWallet = () => navigate(redirect);
+
+  if (showWalletInvite) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6 text-center"
+      >
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-pink-500 text-primary-foreground">
+          <ScanFace className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="font-display text-xl font-bold tracking-tight">Ative sua carteira</h3>
+          <p className="text-sm text-muted-foreground">
+            Pague com o rosto nos eventos. Rápido e sem dinheiro na mão.
+          </p>
+        </div>
+        <div className="space-y-3 pt-2">
+          <Button
+            type="button"
+            variant="hero"
+            size="lg"
+            className="w-full gap-2"
+            onClick={handleActivateWallet}
+            disabled={activatingWallet}
+          >
+            {activatingWallet ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Abrindo carteira…
+              </>
+            ) : (
+              'Ativar agora'
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            className="w-full"
+            onClick={handleSkipWallet}
+            disabled={activatingWallet}
+          >
+            Agora não
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <div className="space-y-6">

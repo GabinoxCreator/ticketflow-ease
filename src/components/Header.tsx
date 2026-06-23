@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { openFestpayWallet } from '@/lib/festpay';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,9 +19,6 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import logoFestpag from '@/assets/logo-festpag.png';
 
-// Base da carteira FestPay (federação). Trocar quando tiver domínio custom.
-const FESTPAY_BASE = 'https://festpay.lovable.app';
-
 const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,20 +26,14 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, profile, isProdutor, signOut, isLoading } = useAuth();
 
-  // Federação FestPag -> FestPay: emite o link_token (edge autenticada, o supabase-js
-  // anexa o Bearer da sessão) e redireciona na MESMA aba pra /vincular do FestPay.
+  // Federação FestPag -> FestPay: emite o link_token e redireciona na MESMA aba pra
+  // /vincular do FestPay (com return url). Lógica no helper compartilhado openFestpayWallet.
   const handleOpenWallet = async () => {
     if (openingWallet) return;
     setOpeningWallet(true);
     try {
-      const { data, error } = await supabase.functions.invoke('federacao-emitir-token', {
-        body: {},
-      });
-      if (error) throw error;
-      const linkToken = data?.link_token;
-      if (!linkToken) throw new Error('retorno sem link_token');
       // sucesso: navega pra fora (não reseta o loading — a página está saindo)
-      window.location.href = `${FESTPAY_BASE}/vincular?token=${linkToken}`;
+      await openFestpayWallet();
     } catch (err) {
       console.error('Erro ao abrir carteira:', err);
       toast.error('Não foi possível abrir sua carteira. Tente de novo.');
