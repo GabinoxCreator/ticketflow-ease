@@ -12,7 +12,7 @@ export function EventDonationBanner({ onDonate }: EventDonationBannerProps) {
         <HeartHandshake className="h-6 w-6" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-pink-900">Apoie este evento</p>
+        <p className="font-semibold text-pink-900">Apoie a nossa Glória</p>
         <p className="text-sm text-pink-700">Faça uma doação voluntária via PIX</p>
       </div>
       <Button
