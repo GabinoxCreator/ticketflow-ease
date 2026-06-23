@@ -15,6 +15,10 @@ export const FESTPAY_RETURN_URL = 'https://festpag.com.br/';
 // redireciona na MESMA aba pra /vincular do FestPay, já com a return url. Lança em
 // caso de erro (sem sessão / edge falhou / sem link_token) — o caller mostra o toast
 // e reseta o loading. No sucesso a página sai (window.location.href).
+//
+// Os dois pontos que chamam isto (menu "Minha Carteira" e convite do cadastro) têm a
+// intenção de ATIVAR a carteira, então marcamos &kyc=1: o FestPay abre a facial direto
+// (Tijolo 8a) em vez de cair na carteira e esperar o modal de 3s. O &return= é igual.
 export async function openFestpayWallet(): Promise<void> {
   const { data, error } = await supabase.functions.invoke('federacao-emitir-token', {
     body: {},
@@ -25,5 +29,5 @@ export async function openFestpayWallet(): Promise<void> {
   // encodeURIComponent obrigatório: a return url vai dentro de um query param
   window.location.href = `${FESTPAY_BASE}/vincular?token=${linkToken}&return=${encodeURIComponent(
     FESTPAY_RETURN_URL,
-  )}`;
+  )}&kyc=1`;
 }
