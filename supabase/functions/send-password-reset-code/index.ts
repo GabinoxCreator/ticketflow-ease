@@ -43,21 +43,29 @@ serve(async (req) => {
     const rlIp = await checkRateLimit(supabase, `otp:ip:${ip}`, 10, 900, 1800);
     if (!rlIp.allowed) return rateLimitResponse(rlIp, corsHeaders);
 
-    // Verifica se o usuário existe (sem revelar para o cliente)
-    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
-
-    if (listError) {
-      console.error("[SEND-RESET] listUsers error:", listError);
-      // Por segurança, retorna sucesso mesmo em erro interno
-      return new Response(
-        JSON.stringify({ success: true, message: "Se o email existir, um código foi enviado." }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
+    // Verifica se o usuário existe (sem revelar para o cliente).
+    // listUsers é paginado (default 50/página); iteramos até achar ou esgotar as
+    // páginas — senão contas além da 1ª página caem falsamente em "User not found".
+    let userExists = false;
+    let page = 1;
+    const perPage = 1000;
+    while (true) {
+      const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (listError) {
+        console.error("[SEND-RESET] listUsers error:", listError);
+        // Por segurança, retorna sucesso mesmo em erro interno
+        return new Response(
+          JSON.stringify({ success: true, message: "Se o email existir, um código foi enviado." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+      if (usersData.users.some((u) => u.email?.toLowerCase() === normalizedEmail)) {
+        userExists = true;
+        break;
+      }
+      if (usersData.users.length < perPage) break; // última página
+      page++;
     }
-
-    const userExists = usersData.users.some(
-      (u) => u.email?.toLowerCase() === normalizedEmail
-    );
 
     if (!userExists) {
       console.log("[SEND-RESET] User not found, returning generic success");

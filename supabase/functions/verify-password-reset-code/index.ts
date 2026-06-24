@@ -61,17 +61,23 @@ serve(async (req) => {
       );
     }
 
-    // Localiza o usuário pelo email
-    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
-
-    if (listError) {
-      console.error("[VERIFY-RESET] listUsers error:", listError);
-      throw new Error("Failed to find user");
+    // Localiza o usuário pelo email. listUsers é paginado (default 50/página);
+    // iteramos até achar ou esgotar as páginas — senão contas além da 1ª página
+    // falham na troca de senha mesmo com código válido.
+    let user: { id: string } | null = null;
+    let page = 1;
+    const perPage = 1000;
+    while (true) {
+      const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (listError) {
+        console.error("[VERIFY-RESET] listUsers error:", listError);
+        throw new Error("Failed to find user");
+      }
+      const found = usersData.users.find((u) => u.email?.toLowerCase() === normalizedEmail);
+      if (found) { user = found; break; }
+      if (usersData.users.length < perPage) break; // última página
+      page++;
     }
-
-    const user = usersData.users.find(
-      (u) => u.email?.toLowerCase() === normalizedEmail
-    );
 
     if (!user) {
       console.log("[VERIFY-RESET] User not found");
