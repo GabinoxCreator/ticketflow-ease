@@ -409,7 +409,7 @@ export async function renderTicketPage(pdf: jsPDF, data: TicketPdfData) {
   pdf.line(M.left, footerY - 4, pageW - M.right, footerY - 4);
   pdf.setFontSize(7.5);
   pdf.setTextColor(...COLORS.footerGray);
-  drawBold(pdf, 'FestPag · festpag.com.br', M.left, footerY);
+  drawBold(pdf, 'FestPag · festpag.digital', M.left, footerY);
   pdf.text('Plataforma de eventos', pageW - M.right, footerY, { align: 'right' });
 }
 

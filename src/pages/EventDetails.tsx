@@ -291,7 +291,7 @@ const EventDetails = () => {
     });
   })();
 
-  const canonicalUrl = `https://festpag.com.br/evento/${event.slug ?? event.id}`;
+  const canonicalUrl = `https://festpag.digital/evento/${event.slug ?? event.id}`;
 
   const donationCampaign = getDonationCampaign({ slug: event.slug, id: event.id });
   const showDonation = isDonationCampaignReady(donationCampaign);

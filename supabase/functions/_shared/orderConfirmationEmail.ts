@@ -43,13 +43,13 @@ function buildHtml(args: {
   total: number;
 }): string {
   const linkedNote = args.hasUserId
-    ? `Acesse seus ingressos a qualquer momento em <a href="https://festpag.com.br/meus-ingressos" style="color:#7c3aed;">Meus Ingressos</a>.`
-    : `Seus ingressos foram vinculados ao email <strong>${args.customerEmail}</strong>. Crie uma conta com este mesmo email em <a href="https://festpag.com.br/cadastro" style="color:#7c3aed;">festpag.com.br/cadastro</a> para acessá-los.`;
+    ? `Acesse seus ingressos a qualquer momento em <a href="https://festpag.digital/meus-ingressos" style="color:#7c3aed;">Meus Ingressos</a>.`
+    : `Seus ingressos foram vinculados ao email <strong>${args.customerEmail}</strong>. Crie uma conta com este mesmo email em <a href="https://festpag.digital/cadastro" style="color:#7c3aed;">festpag.digital/cadastro</a> para acessá-los.`;
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
       <div style="text-align: center; margin-bottom: 30px;">
-        <img src="https://festpag.com.br/logo-festpag.png" alt="FestPag" width="160" style="display:inline-block; max-width:160px; height:auto;" />
+        <img src="https://festpag.digital/logo-festpag.png" alt="FestPag" width="160" style="display:inline-block; max-width:160px; height:auto;" />
       </div>
       <div style="background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); border-radius: 12px; padding: 28px; text-align: center; margin: 0 0 28px 0; color: white;">
         <p style="margin: 0 0 6px 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: .85;">Pagamento confirmado</p>
@@ -69,7 +69,7 @@ function buildHtml(args: {
         <p style="margin:4px 0;color:#10b981;font-size:14px;"><strong>Status: Pago</strong></p>
       </div>
       <div style="text-align:center;margin:24px 0;">
-        <a href="https://festpag.com.br/meus-ingressos"
+        <a href="https://festpag.digital/meus-ingressos"
            style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;">
           Ver meus ingressos
         </a>

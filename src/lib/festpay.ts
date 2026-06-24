@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 export const FESTPAY_BASE = 'https://festpay.lovable.app';
 
 // Return url (Tijolo 7a): pra onde o FestPay volta sozinho depois da facial. URL
-// absoluta https — o FestPay valida que é do domínio festpag.com.br antes de aceitar.
+// absoluta https — o FestPay valida que é de festpag.com.br ou festpag.digital antes de aceitar.
 export const FESTPAY_RETURN_URL = 'https://festpag.digital/';
 
 // Emite o link_token (edge autenticada: o supabase-js anexa o Bearer da sessão) e
