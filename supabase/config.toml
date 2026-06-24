@@ -104,3 +104,6 @@ verify_jwt = true
 
 [functions.submit-landing-lead]
 verify_jwt = false
+
+[functions.collaborator-list-events]
+verify_jwt = false
