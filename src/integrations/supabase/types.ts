@@ -1173,6 +1173,11 @@ export type Database = {
           mp_payment_id: string | null
           mp_status_detail: string | null
           payment_method: string | null
+          pos_authorization_code: string | null
+          pos_card_brand: string | null
+          pos_nsu: string | null
+          pos_nsu_host: string | null
+          pos_terminal_id: string | null
           review_flagged_at: string | null
           review_reason: Json | null
           review_status: string | null
@@ -1201,6 +1206,11 @@ export type Database = {
           mp_payment_id?: string | null
           mp_status_detail?: string | null
           payment_method?: string | null
+          pos_authorization_code?: string | null
+          pos_card_brand?: string | null
+          pos_nsu?: string | null
+          pos_nsu_host?: string | null
+          pos_terminal_id?: string | null
           review_flagged_at?: string | null
           review_reason?: Json | null
           review_status?: string | null
@@ -1229,6 +1239,11 @@ export type Database = {
           mp_payment_id?: string | null
           mp_status_detail?: string | null
           payment_method?: string | null
+          pos_authorization_code?: string | null
+          pos_card_brand?: string | null
+          pos_nsu?: string | null
+          pos_nsu_host?: string | null
+          pos_terminal_id?: string | null
           review_flagged_at?: string | null
           review_reason?: Json | null
           review_status?: string | null
