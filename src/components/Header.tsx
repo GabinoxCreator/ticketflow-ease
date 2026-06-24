@@ -33,7 +33,8 @@ const Header = () => {
     setOpeningWallet(true);
     try {
       // sucesso: navega pra fora (não reseta o loading — a página está saindo)
-      await openFestpayWallet();
+      // só entrar (sem return/kyc=1): usuário verificado fica na carteira, não volta pro Ingressos
+      await openFestpayWallet({ activate: false });
     } catch (err) {
       console.error('Erro ao abrir carteira:', err);
       toast.error('Não foi possível abrir sua carteira. Tente de novo.');

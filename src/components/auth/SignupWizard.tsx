@@ -79,7 +79,7 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
     if (activatingWallet) return;
     setActivatingWallet(true);
     try {
-      await openFestpayWallet(); // sucesso: a página sai (não reseta o loading)
+      await openFestpayWallet({ activate: true }); // ativar: manda return + kyc=1 (facial direto)
     } catch (err) {
       console.error('Erro ao ativar carteira:', err);
       toast.error('Não foi possível ativar sua carteira agora. Você pode ativar depois em "Minha Carteira".');
