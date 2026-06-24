@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 
 export interface EventSeatRow {
   id: string;
@@ -41,7 +42,9 @@ export function useEventSeats(eventId: string | undefined) {
     queryKey: key,
     enabled: !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Leitura pública: client sem sessão, não espera o refresh de token.
+      // (O realtime channel abaixo segue no supabase autenticado.)
+      const { data, error } = await supabasePublic
         .from('event_seats')
         .select(SEAT_COLS)
         .eq('event_id', eventId!);

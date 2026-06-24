@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 
 export interface EventFeeOverride {
   id: string;
@@ -33,7 +33,8 @@ export function useEventFees(eventId: string | undefined) {
     queryKey: ['event-fees', eventId],
     queryFn: async (): Promise<EventFees> => {
       if (!eventId) return DEFAULT;
-      const { data, error } = await supabase
+      // Leitura pública: client sem sessão, não espera o refresh de token.
+      const { data, error } = await supabasePublic
         .from('event_fee_overrides' as any)
         .select('*')
         .eq('event_id', eventId);

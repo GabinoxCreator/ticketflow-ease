@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 
 export interface SeatAvailabilityBySector {
   seatTypeName: string;
@@ -16,7 +16,8 @@ export function useEventSeatAvailability(eventId: string | undefined) {
     queryKey: ['event-seat-availability', eventId],
     enabled: !!eventId,
     queryFn: async (): Promise<SeatAvailabilityBySector[]> => {
-      const { data, error } = await supabase
+      // Leitura pública: client sem sessão, não espera o refresh de token.
+      const { data, error } = await supabasePublic
         .from('event_seats')
         .select('status, seat_type_name, base_price, extra_price, base_capacity, max_capacity')
         .eq('event_id', eventId!);

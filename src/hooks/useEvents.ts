@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getEventEndInstant } from '@/lib/eventTime';
@@ -218,14 +219,15 @@ export function useEvent(idOrSlug: string | undefined) {
       const select = '*, producer_profiles ( brand_name, logo_url, meta_pixel_id, tracking_enabled )';
 
       // Try slug first (most public URLs), fall back to id (legacy/UUID links)
-      let { data, error } = await supabase
+      // Leitura pública: client sem sessão, não espera o refresh de token.
+      let { data, error } = await supabasePublic
         .from('events')
         .select(select)
         .eq(isUuid ? 'id' : 'slug', idOrSlug)
         .maybeSingle();
 
       if (!data && !error) {
-        const fallback = await supabase
+        const fallback = await supabasePublic
           .from('events')
           .select(select)
           .eq(isUuid ? 'slug' : 'id', idOrSlug)
@@ -246,7 +248,8 @@ export function usePublicEvents() {
     queryKey: ['public-events'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
+      // Leitura pública (home): client sem sessão, não espera o refresh de token.
+      const { data, error } = await supabasePublic
         .from('events')
         .select(`
           id, slug, title, description, short_description,

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { toast } from 'sonner';
 
 export interface EventLot {
@@ -52,8 +53,9 @@ export function useEventLots(eventId: string | undefined) {
     queryKey: ['event-lots', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      
-      const { data, error } = await supabase
+
+      // Leitura pública: client sem sessão, não espera o refresh de token.
+      const { data, error } = await supabasePublic
         .from('event_lots')
         .select('*')
         .eq('event_id', eventId)
