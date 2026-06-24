@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.collaborator-list-lots]
 verify_jwt = false
+
+[functions.collaborator-reserve-order]
+verify_jwt = false
