@@ -107,3 +107,6 @@ verify_jwt = false
 
 [functions.collaborator-list-events]
 verify_jwt = false
+
+[functions.collaborator-list-lots]
+verify_jwt = false
