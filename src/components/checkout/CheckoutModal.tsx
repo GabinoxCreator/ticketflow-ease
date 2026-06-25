@@ -7,6 +7,7 @@ import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
 import { CheckoutStepCPF } from './CheckoutStepCPF';
 import { CheckoutStepPayment } from './CheckoutStepPayment';
 import { CheckoutStepCard } from './CheckoutStepCard';
+import { CheckoutStepCardMarcel } from './CheckoutStepCardMarcel';
 import { CheckoutStepPix } from './CheckoutStepPix';
 import { CheckoutStepAwaitingPayment } from './CheckoutStepAwaitingPayment';
 import { CheckoutStepSuccess } from './CheckoutStepSuccess';
@@ -346,7 +347,24 @@ export function CheckoutModal({
               />
             )}
 
-            {step === 'card' && (
+            {step === 'card' && paymentProvider === 'marcel' && (
+              <CheckoutStepCardMarcel
+                key="card-marcel"
+                eventId={eventId}
+                eventTitle={eventTitle}
+                items={items}
+                totalAmount={finalAmount}
+                couponId={appliedCoupon?.couponId}
+                customerName={customerData.name}
+                customerEmail={customerData.email}
+                customerPhone={customerData.phone}
+                customerCPF={customerData.cpf}
+                onSuccess={(newOrderId) => { setOrderId(newOrderId); setStep('success'); }}
+                onError={() => {}}
+              />
+            )}
+
+            {step === 'card' && paymentProvider !== 'marcel' && (
               <CheckoutStepCard
                 key="card"
                 eventId={eventId}
