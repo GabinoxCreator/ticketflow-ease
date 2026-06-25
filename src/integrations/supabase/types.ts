@@ -1181,6 +1181,7 @@ export type Database = {
           pos_nsu: string | null
           pos_nsu_host: string | null
           pos_terminal_id: string | null
+          provider_authorization_code: string | null
           provider_pix_code: string | null
           provider_transaction_id: string | null
           review_flagged_at: string | null
@@ -1216,6 +1217,7 @@ export type Database = {
           pos_nsu?: string | null
           pos_nsu_host?: string | null
           pos_terminal_id?: string | null
+          provider_authorization_code?: string | null
           provider_pix_code?: string | null
           provider_transaction_id?: string | null
           review_flagged_at?: string | null
@@ -1251,6 +1253,7 @@ export type Database = {
           pos_nsu?: string | null
           pos_nsu_host?: string | null
           pos_terminal_id?: string | null
+          provider_authorization_code?: string | null
           provider_pix_code?: string | null
           provider_transaction_id?: string | null
           review_flagged_at?: string | null
