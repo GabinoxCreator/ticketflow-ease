@@ -283,7 +283,7 @@ serve(async (req) => {
         .from('orders')
         .update({ status: 'failed', expires_at: new Date().toISOString() })
         .eq('id', order.id);
-      return json({ error: 'Pagamento não aprovado', status: 'rejected', orderId: order.id, marcelMessage: prov?.message || null, marcelRaw: prov || null });
+      return json({ error: 'Pagamento não aprovado', status: 'rejected', orderId: order.id });
     }
   } catch (error: any) {
     logStep('ERROR', { message: error.message });
