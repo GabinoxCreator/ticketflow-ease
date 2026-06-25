@@ -46,15 +46,15 @@ export function EventDonationBanner({
 
       {/* Loading discreto enquanto busca; em erro/sem dado a barra simplesmente não aparece. */}
       {progressLoading && !progress && (
-        <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-          <div className="h-2.5 w-full animate-pulse rounded-full bg-muted" />
+        <div className="rounded-2xl border border-pink-200 bg-pink-50 p-4 sm:p-5">
+          <div className="h-2.5 w-full animate-pulse rounded-full bg-pink-100" />
         </div>
       )}
 
       {progress && (
-        <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
+        <div className="rounded-2xl border border-pink-200 bg-pink-50 p-4 sm:p-5">
           <div
-            className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+            className="h-2.5 w-full overflow-hidden rounded-full bg-pink-100"
             role="progressbar"
             aria-valuenow={pct}
             aria-valuemin={0}
@@ -66,13 +66,13 @@ export function EventDonationBanner({
             />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">
-              <span className="font-semibold text-foreground">
+            <span className="text-pink-700">
+              <span className="font-semibold text-pink-900">
                 {brl(progress.raisedAmountCents)}
               </span>{' '}
               arrecadados de {brl(progress.goalAmountCents)}
             </span>
-            <span className="shrink-0 font-semibold text-foreground">{pct}%</span>
+            <span className="shrink-0 font-semibold text-pink-900">{pct}%</span>
           </div>
         </div>
       )}
