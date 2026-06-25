@@ -19,6 +19,14 @@ vocabulário **só** para o evento beneficente de slug `5-confra-do-bem`:
   (`EventDetails`/`DonationModal`); nenhum outro evento dispara. Tabela com RLS
   ligado e SEM policy (só service-role grava). Consulta por SQL, sem painel.
   Hardcoded sob o slug — generalizar junto no modo "evento beneficente"
+- barra de arrecadação curada (`donation_campaign_progress`, RLS ligado COM
+  select público; escrita só por SQL — número curado, NÃO soma pagamentos/cliques).
+  Leitura via `useDonationProgress` (client público `supabasePublic`, padrão do
+  projeto — sem edge). Renderizada em `EventDonationBanner` abaixo do card, atrás
+  do guard `isBeneficent`; em erro/sem dado a barra some. Hardcoded sob o slug.
+- badge "1 Convite por CPF" no bloco de convites (`EventDetails`), atrás do guard
+  `isBeneficent`; nenhum outro evento exibe. Hardcoded sob o slug — generalizar
+  junto no modo "evento beneficente"
 
 **Guard:** `isBeneficentEvent(event)` em `src/data/donationCampaigns.ts` (único ponto
 de verdade da string mágica `BENEFICENT_EVENT_SLUG`). Todo o caminho `else` é idêntico

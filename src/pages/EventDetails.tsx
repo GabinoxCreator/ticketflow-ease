@@ -37,6 +37,7 @@ import { EventDonationBanner } from '@/components/event/EventDonationBanner';
 import { DonationModal } from '@/components/event/DonationModal';
 import { getDonationCampaign, isDonationCampaignReady, isBeneficentEvent } from '@/data/donationCampaigns';
 import { trackDonationClick } from '@/lib/donationTelemetry';
+import { useDonationProgress } from '@/hooks/useDonationProgress';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -71,6 +72,11 @@ const EventDetails = () => {
     !!event.table_map_id;
 
   const { data: seatSectors } = useEventSeatAvailability(hasMap ? eventId : undefined);
+
+  // Barra de arrecadação (curada por SQL) — só consulta no evento beneficente.
+  // Hook no topo (antes dos early returns) p/ não quebrar a ordem dos hooks.
+  const { data: donationProgress, isLoading: donationProgressLoading } =
+    useDonationProgress(event?.slug, isBeneficentEvent(event));
 
   useEffect(() => {
     if (!eventId) return;
@@ -403,6 +409,9 @@ const EventDetails = () => {
                         if (isBeneficent) trackDonationClick(event.slug, 'doar');
                         setIsDonationOpen(true);
                       }}
+                      // Barra de arrecadação só no evento beneficente.
+                      progress={isBeneficent ? donationProgress ?? null : undefined}
+                      progressLoading={isBeneficent && donationProgressLoading}
                     />
                   )}
                 </motion.div>
@@ -461,7 +470,14 @@ const EventDetails = () => {
                   viewport={{ once: true }}
                   className="space-y-4"
                 >
-                  <h2 className="font-display font-bold text-xl">{isBeneficent ? 'Convites' : 'Ingressos'}</h2>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h2 className="font-display font-bold text-xl">{isBeneficent ? 'Convites' : 'Ingressos'}</h2>
+                    {isBeneficent && (
+                      <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                        1 Convite por CPF
+                      </span>
+                    )}
+                  </div>
                   {lotGroups.map(([sectorName, sectorLots]) => (
                     <div
                       key={sectorName}
