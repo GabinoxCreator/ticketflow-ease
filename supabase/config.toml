@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.collaborator-confirm-payment]
 verify_jwt = false
+
+[functions.confra-create-pix]
+verify_jwt = true
