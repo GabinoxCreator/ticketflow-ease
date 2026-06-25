@@ -763,6 +763,7 @@ export type Database = {
           map_snapshot: Json | null
           map_snapshot_at: string | null
           mesa_reserva_description: string | null
+          payment_provider: string
           producer_id: string
           producer_profile_id: string | null
           short_description: string | null
@@ -794,6 +795,7 @@ export type Database = {
           map_snapshot?: Json | null
           map_snapshot_at?: string | null
           mesa_reserva_description?: string | null
+          payment_provider?: string
           producer_id: string
           producer_profile_id?: string | null
           short_description?: string | null
@@ -825,6 +827,7 @@ export type Database = {
           map_snapshot?: Json | null
           map_snapshot_at?: string | null
           mesa_reserva_description?: string | null
+          payment_provider?: string
           producer_id?: string
           producer_profile_id?: string | null
           short_description?: string | null
@@ -1178,6 +1181,8 @@ export type Database = {
           pos_nsu: string | null
           pos_nsu_host: string | null
           pos_terminal_id: string | null
+          provider_pix_code: string | null
+          provider_transaction_id: string | null
           review_flagged_at: string | null
           review_reason: Json | null
           review_status: string | null
@@ -1211,6 +1216,8 @@ export type Database = {
           pos_nsu?: string | null
           pos_nsu_host?: string | null
           pos_terminal_id?: string | null
+          provider_pix_code?: string | null
+          provider_transaction_id?: string | null
           review_flagged_at?: string | null
           review_reason?: Json | null
           review_status?: string | null
@@ -1244,6 +1251,8 @@ export type Database = {
           pos_nsu?: string | null
           pos_nsu_host?: string | null
           pos_terminal_id?: string | null
+          provider_pix_code?: string | null
+          provider_transaction_id?: string | null
           review_flagged_at?: string | null
           review_reason?: Json | null
           review_status?: string | null
