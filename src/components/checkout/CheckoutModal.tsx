@@ -74,6 +74,7 @@ export function CheckoutModal({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [pixData, setPixData] = useState<{ code: string; expiresAt: Date; amount?: number } | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<'pix' | 'card' | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<string>('mercadopago');
 
   const { fees } = useEventFees(eventId);
   const activePercent = selectedMethod === 'pix' ? fees.pixPercent : fees.cardPercent;
@@ -96,6 +97,27 @@ export function CheckoutModal({
     }
   }, [user, isOpen, profile]);
 
+  // Lê o payment_provider do evento ao abrir o modal. Apenas armazena o dado;
+  // nenhum comportamento de pagamento depende disso ainda.
+  useEffect(() => {
+    if (!isOpen || !eventId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('payment_provider')
+        .eq('id', eventId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.warn('Failed to read event payment_provider:', error);
+        return;
+      }
+      setPaymentProvider(data?.payment_provider || 'mercadopago');
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, eventId]);
+
   const handleFormComplete = (data: { cpf: string; name: string; email: string; phone: string }) => {
     setCustomerData(data);
     setStep('payment');
@@ -108,7 +130,8 @@ export function CheckoutModal({
     try {
       const deviceId = (window as any).MP_DEVICE_SESSION_ID || null;
 
-      const { data, error } = await supabase.functions.invoke('create-mercadopago-pix', {
+      const pixFn = paymentProvider === 'marcel' ? 'confra-create-pix' : 'create-mercadopago-pix';
+      const { data, error } = await supabase.functions.invoke(pixFn, {
         body: {
           eventId,
           items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
@@ -136,7 +159,7 @@ export function CheckoutModal({
     } finally {
       setIsProcessing(false);
     }
-  }, [eventId, items, customerData, appliedCoupon]);
+  }, [eventId, items, customerData, appliedCoupon, paymentProvider]);
 
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
@@ -190,7 +213,8 @@ export function CheckoutModal({
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
     try {
-      const invokePromise = supabase.functions.invoke('check-mercadopago-payment', {
+      const checkFn = paymentProvider === 'marcel' ? 'confra-check-pix' : 'check-mercadopago-payment';
+      const invokePromise = supabase.functions.invoke(checkFn, {
         body: { orderId, paymentId },
       });
       const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
@@ -203,7 +227,7 @@ export function CheckoutModal({
       console.error('Error checking payment status:', error);
       return false;
     }
-  }, [orderId, paymentId]);
+  }, [orderId, paymentId, paymentProvider]);
 
   const handlePaymentConfirmed = () => setStep('success');
   const handleExpire = () => setStep('expired');
