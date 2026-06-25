@@ -13,6 +13,12 @@ vocabulário **só** para o evento beneficente de slug `5-confra-do-bem`:
 - accordion ganha 1º item "Eventos Beneficentes" com o parecer jurídico completo
   (`BENEFICENT_POLICY` em `src/data/donationCampaigns.ts`, único ponto de verdade;
   texto hardcoded sob o slug — generalizar junto no modo "evento beneficente")
+- telemetria de cliques "Doar"/"Copiar PIX" (`src/lib/donationTelemetry.ts` →
+  edge `track-donation-click`, verify_jwt=false, insert service-role em
+  `donation_click_events`). Atrás do guard `isBeneficent` nos call sites
+  (`EventDetails`/`DonationModal`); nenhum outro evento dispara. Tabela com RLS
+  ligado e SEM policy (só service-role grava). Consulta por SQL, sem painel.
+  Hardcoded sob o slug — generalizar junto no modo "evento beneficente"
 
 **Guard:** `isBeneficentEvent(event)` em `src/data/donationCampaigns.ts` (único ponto
 de verdade da string mágica `BENEFICENT_EVENT_SLUG`). Todo o caminho `else` é idêntico

@@ -36,6 +36,7 @@ import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
 import { EventDonationBanner } from '@/components/event/EventDonationBanner';
 import { DonationModal } from '@/components/event/DonationModal';
 import { getDonationCampaign, isDonationCampaignReady, isBeneficentEvent } from '@/data/donationCampaigns';
+import { trackDonationClick } from '@/lib/donationTelemetry';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -396,7 +397,13 @@ const EventDetails = () => {
                   )}
 
                   {showDonation && (
-                    <EventDonationBanner onDonate={() => setIsDonationOpen(true)} />
+                    <EventDonationBanner
+                      onDonate={() => {
+                        // Telemetria só no evento beneficente (fire-and-forget, não bloqueia).
+                        if (isBeneficent) trackDonationClick(event.slug, 'doar');
+                        setIsDonationOpen(true);
+                      }}
+                    />
                   )}
                 </motion.div>
 
@@ -572,6 +579,7 @@ const EventDetails = () => {
             open={isDonationOpen}
             onOpenChange={setIsDonationOpen}
             campaign={donationCampaign}
+            isBeneficent={isBeneficent}
           />
         )}
 

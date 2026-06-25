@@ -128,3 +128,6 @@ verify_jwt = true
 
 [functions.confra-reconcile-pix]
 verify_jwt = false
+
+[functions.track-donation-click]
+verify_jwt = false

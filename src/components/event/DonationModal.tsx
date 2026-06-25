@@ -11,11 +11,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import type { DonationCampaign } from '@/data/donationCampaigns';
+import { trackDonationClick } from '@/lib/donationTelemetry';
 
 interface DonationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   campaign: DonationCampaign;
+  /** Só no evento beneficente: habilita telemetria do clique "Copiar PIX". */
+  isBeneficent?: boolean;
 }
 
 // Memoizado — geração do SVG é pesada e não deve re-renderizar com o estado do pai
@@ -44,8 +47,11 @@ function copyToClipboardFallback(text: string): boolean {
   }
 }
 
-export function DonationModal({ open, onOpenChange, campaign }: DonationModalProps) {
+export function DonationModal({ open, onOpenChange, campaign, isBeneficent = false }: DonationModalProps) {
   const handleCopy = () => {
+    // Telemetria só no evento beneficente (fire-and-forget, não bloqueia o copy).
+    if (isBeneficent) trackDonationClick(campaign.slug, 'copiar_pix');
+
     // UI otimista — não bloqueia aguardando o clipboard
     toast.success('PIX copia e cola copiado!');
 
