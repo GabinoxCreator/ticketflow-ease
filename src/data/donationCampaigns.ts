@@ -83,7 +83,7 @@ export function isBeneficentEvent(
  * Parecer jurídico exibido como PRIMEIRO item do accordion "Políticas do Evento"
  * SOMENTE no evento beneficente (guard isBeneficentEvent). Único ponto de verdade
  * do texto. `body` é texto puro com `\n` — renderizar com whitespace-pre-line,
- * NÃO reformatar. Os colchetes `[...]` são placeholders intencionais.
+ * NÃO reformatar. Instituição/CNPJ preenchidos com os dados do recebedor (Instituto St).
  * Dívida técnica: hardcoded sob o slug; generalizar no futuro modo "evento beneficente".
  */
 export const BENEFICENT_POLICY: { title: string; body: string } = {
@@ -120,7 +120,7 @@ Ao configurar as vendas na plataforma Fest Pag, recomenda-se adotar os seguintes
 
 5. MODELO DE CLÁUSULA DE ISENÇÃO PARA INSERÇÃO DIGITAL
 Abaixo, o modelo textual formal a ser disponibilizado de maneira pública e visível na página de compras da Fest Pag:
-"TERMO DE CONTRIBUIÇÃO SOLIDÁRIA. Este evento possui natureza 100% beneficente e filantrópica, realizado em prol da [Nome da Instituição Beneficiada], inscrita no CNPJ sob o nº [Inserir CNPJ]. Toda a receita líquida obtida será integralmente revertida para a manutenção das atividades socioassistenciais da referida entidade. Diante de sua destinação social exclusiva e ausência de finalidade comercial ou lucrativa, os valores cobrados configuram atos de doação/contribuição institucional, não sendo aplicáveis as disposições da Lei Federal nº 12.933/2013 (Lei da Meia-Entrada), conforme entendimento jurisprudencial consolidado."
+"TERMO DE CONTRIBUIÇÃO SOLIDÁRIA. Este evento possui natureza 100% beneficente e filantrópica, realizado em prol da Instituto St, inscrita no CNPJ sob o nº 61.277.431/0001-94. Toda a receita líquida obtida será integralmente revertida para a manutenção das atividades socioassistenciais da referida entidade. Diante de sua destinação social exclusiva e ausência de finalidade comercial ou lucrativa, os valores cobrados configuram atos de doação/contribuição institucional, não sendo aplicáveis as disposições da Lei Federal nº 12.933/2013 (Lei da Meia-Entrada), conforme entendimento jurisprudencial consolidado."
 
 6. CONCLUSÃO
 Conclui-se que a venda de convites solidários sem a oferta de meia-entrada encontra pleno respaldo jurídico e legal no ecossistema da Fest Pag, desde que cumpridos os preceitos de transparência, publicidade e destinação integral dos fundos à causa beneficente, mitigando-se riscos de sanções administrativas ou cíveis.`,
