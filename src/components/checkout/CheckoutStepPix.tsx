@@ -92,7 +92,6 @@ export function CheckoutStepPix({
 
   const handleCopy = () => {
     setCopied(true);
-    // toast.success('Código PIX copiado!'); // TEMP: isolando travamento no celular
     setTimeout(() => setCopied(false), 3000);
 
     const doCopy = () => {
