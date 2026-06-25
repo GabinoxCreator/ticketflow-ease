@@ -91,19 +91,26 @@ export function CheckoutStepPix({
   }, [checkPaymentStatus, onPaymentConfirmed]);
 
   const handleCopy = () => {
-    // UI otimista — não bloqueia o clique aguardando o clipboard
     setCopied(true);
     toast.success('Código PIX copiado!');
     setTimeout(() => setCopied(false), 3000);
 
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(pixCode).catch(() => {
-        if (!copyToClipboardFallback(pixCode)) {
-          toast.error('Não foi possível copiar. Selecione o código manualmente.');
-        }
-      });
-    } else if (!copyToClipboardFallback(pixCode)) {
-      toast.error('Não foi possível copiar. Selecione o código manualmente.');
+    const doCopy = () => {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(pixCode).catch(() => {
+          if (!copyToClipboardFallback(pixCode)) {
+            toast.error('Não foi possível copiar. Selecione o código manualmente.');
+          }
+        });
+      } else if (!copyToClipboardFallback(pixCode)) {
+        toast.error('Não foi possível copiar. Selecione o código manualmente.');
+      }
+    };
+
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => setTimeout(doCopy, 0));
+    } else {
+      setTimeout(doCopy, 0);
     }
   };
 
