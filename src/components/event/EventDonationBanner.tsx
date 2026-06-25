@@ -61,12 +61,8 @@ export function EventDonationBanner({
             aria-valuemax={100}
           >
             <div
-              className="h-full rounded-full transition-[width] duration-700"
-              style={{
-                width: `${pct}%`,
-                backgroundImage:
-                  'linear-gradient(100deg, #5F6EF9, #B86AD9, #F766C6)',
-              }}
+              className="h-full rounded-full bg-pink-600 transition-[width] duration-700"
+              style={{ width: `${pct}%` }}
             />
           </div>
           <div className="mt-2 flex items-center justify-between gap-3 text-sm">
