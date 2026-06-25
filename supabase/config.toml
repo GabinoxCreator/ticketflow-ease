@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.confra-create-pix]
 verify_jwt = true
+
+[functions.confra-check-pix]
+verify_jwt = true
