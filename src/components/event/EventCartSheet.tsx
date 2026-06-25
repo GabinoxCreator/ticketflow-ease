@@ -18,6 +18,7 @@ interface Props {
   onIncrement: (lotId: string) => void;
   onDecrement: (lotId: string) => void;
   onRemove: (lotId: string) => void;
+  isBeneficent?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -33,6 +34,7 @@ export function EventCartSheet({
   onIncrement,
   onDecrement,
   onRemove,
+  isBeneficent,
 }: Props) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -41,7 +43,7 @@ export function EventCartSheet({
           <DrawerTitle>
             Sua seleção
             <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({totalCount} ingresso{totalCount > 1 ? 's' : ''})
+              ({totalCount} {isBeneficent ? 'convite' : 'ingresso'}{totalCount > 1 ? 's' : ''})
             </span>
           </DrawerTitle>
         </DrawerHeader>

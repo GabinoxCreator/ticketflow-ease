@@ -6,12 +6,13 @@ interface Props {
   totalAmount: number;
   visible: boolean;
   onOpen: () => void;
+  isBeneficent?: boolean;
 }
 
 const fmt = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function EventCartMiniBar({ count, totalAmount, visible, onOpen }: Props) {
+export function EventCartMiniBar({ count, totalAmount, visible, onOpen, isBeneficent }: Props) {
   if (!visible || count === 0) return null;
 
   return (
@@ -19,7 +20,7 @@ export function EventCartMiniBar({ count, totalAmount, visible, onOpen }: Props)
       <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">
-            {count} ingresso{count > 1 ? 's' : ''}
+            {count} {isBeneficent ? 'convite' : 'ingresso'}{count > 1 ? 's' : ''}
           </p>
           <p className="font-bold text-base gradient-text tabular-nums">
             {fmt(totalAmount)}

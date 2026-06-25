@@ -6,12 +6,13 @@ interface Props {
   fromPrice: number | null;
   shareTitle: string;
   shareText?: string;
+  isBeneficent?: boolean;
 }
 
 const formatPrice = (price: number) =>
   price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export const PriceAndShareBar = ({ fromPrice, shareTitle, shareText }: Props) => {
+export const PriceAndShareBar = ({ fromPrice, shareTitle, shareText, isBeneficent }: Props) => {
   const handleShare = async () => {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     try {
@@ -31,7 +32,7 @@ export const PriceAndShareBar = ({ fromPrice, shareTitle, shareText }: Props) =>
       <div className="min-w-0">
         {fromPrice !== null && fromPrice > 0 ? (
           <>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">A partir de</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">{isBeneficent ? 'Doação' : 'A partir de'}</p>
             <p className="font-bold text-2xl gradient-text">{formatPrice(fromPrice)}</p>
           </>
         ) : (

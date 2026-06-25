@@ -35,7 +35,7 @@ import { EventCartSheet } from '@/components/event/EventCartSheet';
 import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
 import { EventDonationBanner } from '@/components/event/EventDonationBanner';
 import { DonationModal } from '@/components/event/DonationModal';
-import { getDonationCampaign, isDonationCampaignReady } from '@/data/donationCampaigns';
+import { getDonationCampaign, isDonationCampaignReady, isBeneficentEvent } from '@/data/donationCampaigns';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -295,6 +295,8 @@ const EventDetails = () => {
 
   const donationCampaign = getDonationCampaign({ slug: event.slug, id: event.id });
   const showDonation = isDonationCampaignReady(donationCampaign);
+  // Override de vocabulário SÓ neste evento beneficente (ver roadmap.md). Outros = inalterado.
+  const isBeneficent = isBeneficentEvent(event);
 
 
 
@@ -389,6 +391,7 @@ const EventDetails = () => {
                       fromPrice={fromPrice}
                       shareTitle={event.title}
                       shareText={event.short_description || undefined}
+                      isBeneficent={isBeneficent}
                     />
                   )}
 
@@ -451,7 +454,7 @@ const EventDetails = () => {
                   viewport={{ once: true }}
                   className="space-y-4"
                 >
-                  <h2 className="font-display font-bold text-xl">Ingressos</h2>
+                  <h2 className="font-display font-bold text-xl">{isBeneficent ? 'Convites' : 'Ingressos'}</h2>
                   {lotGroups.map(([sectorName, sectorLots]) => (
                     <div
                       key={sectorName}
@@ -525,7 +528,7 @@ const EventDetails = () => {
                 );
               })()}
 
-              <EventPolicies />
+              <EventPolicies isBeneficent={isBeneficent} />
             </div>
 
           </div>
@@ -539,6 +542,7 @@ const EventDetails = () => {
             totalAmount={totalAmount}
             visible={!isCartOpen}
             onOpen={() => setIsCartOpen(true)}
+            isBeneficent={isBeneficent}
           />
         )}
 
@@ -553,6 +557,7 @@ const EventDetails = () => {
             onIncrement={(lotId) => handleQuantityChange(lotId, 1)}
             onDecrement={(lotId) => handleQuantityChange(lotId, -1)}
             onRemove={handleRemoveLot}
+            isBeneficent={isBeneficent}
           />
         )}
 

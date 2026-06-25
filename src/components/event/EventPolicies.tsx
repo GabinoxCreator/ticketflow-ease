@@ -33,7 +33,9 @@ const policies = [
   },
 ];
 
-export const EventPolicies = () => {
+export const EventPolicies = ({ isBeneficent = false }: { isBeneficent?: boolean }) => {
+  // No evento beneficente, meia-entrada não se aplica (são convites) — esconde só esse item.
+  const visiblePolicies = policies.filter((p) => !(isBeneficent && p.id === 'meia'));
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -43,7 +45,7 @@ export const EventPolicies = () => {
     >
       <h3 className="font-display font-bold text-xl mb-4">Políticas do Evento</h3>
       <Accordion type="single" collapsible className="rounded-2xl border border-border bg-card overflow-hidden">
-        {policies.map((p) => (
+        {visiblePolicies.map((p) => (
           <AccordionItem key={p.id} value={p.id} className="px-5 border-border/60">
             <AccordionTrigger className="text-left font-semibold hover:no-underline">
               {p.title}

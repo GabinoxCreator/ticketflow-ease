@@ -66,6 +66,20 @@ export function getDonationCampaign({
 }
 
 /**
+ * Slug do evento beneficente que recebe o override TEMPORÁRIO de vocabulário na
+ * página de detalhe (ingresso→convite, "A partir de"→"Doação", meia-entrada escondida).
+ * Único ponto de verdade da string mágica — ver dívida técnica no roadmap.md.
+ */
+export const BENEFICENT_EVENT_SLUG = '5-confra-do-bem';
+
+/** Override por slug, só na página do evento. Qualquer outro evento → false (inalterado). */
+export function isBeneficentEvent(
+  event?: { slug?: string | null } | null,
+): boolean {
+  return event?.slug === BENEFICENT_EVENT_SLUG;
+}
+
+/**
  * Indica se a campanha está pronta para ser exibida (todos os campos
  * obrigatórios preenchidos).
  */
