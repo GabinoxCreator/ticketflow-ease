@@ -125,3 +125,6 @@ verify_jwt = true
 
 [functions.confra-process-card]
 verify_jwt = true
+
+[functions.confra-reconcile-pix]
+verify_jwt = false
