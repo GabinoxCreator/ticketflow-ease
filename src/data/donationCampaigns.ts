@@ -80,6 +80,53 @@ export function isBeneficentEvent(
 }
 
 /**
+ * Parecer jurídico exibido como PRIMEIRO item do accordion "Políticas do Evento"
+ * SOMENTE no evento beneficente (guard isBeneficentEvent). Único ponto de verdade
+ * do texto. `body` é texto puro com `\n` — renderizar com whitespace-pre-line,
+ * NÃO reformatar. Os colchetes `[...]` são placeholders intencionais.
+ * Dívida técnica: hardcoded sob o slug; generalizar no futuro modo "evento beneficente".
+ */
+export const BENEFICENT_POLICY: { title: string; body: string } = {
+  title: 'Eventos Beneficentes',
+  body: `PARECER TÉCNICO-JURÍDICO ORIENTATIVO
+Análise de não obrigatoriedade de cota de meia-entradas em eventos de natureza estritamente beneficente
+
+ASSUNTO: Dispensa do benefício da meia-entrada (Lei nº 12.933/2013) em comercialização eletrônica de convites para eventos filantrópicos no ecossistema Fest Pag.
+DATA: 25 de junho de 2026
+
+1. INTRODUÇÃO E CONTEXTUALIZAÇÃO
+O presente parecer visa estruturar o fundamento jurídico que desobriga os organizadores de eventos 100% beneficentes e de cunho filantrópico de disponibilizarem a venda de ingressos sob o regime de meia-entrada (estudantes, idosos, portadores de necessidades especiais e jovens de baixa renda), em conformidade com a legislação federal vigente e as orientações dos Tribunais de Justiça nacionais, servindo como diretriz institucional para as operações da Fest Pag.
+
+2. FUNDAMENTAÇÃO JURÍDICA PRINCIPOLÓGICA
+
+2.1. Da Natureza Jurídica do Ingresso e a Ausência de Lucratividade
+A Lei Federal nº 12.933/2013 e o Decreto Regulamentador nº 8.537/2015 que regem a concessão da meia-entrada têm como fato gerador a exploração comercial de atividades de cultura, lazer e entretenimento por agentes de mercado. A premissa central é mitigar o custo de acesso do consumidor vulnerável diante de atividades exploradas com finalidade econômica e comercial.
+No cenário em que o evento é integralmente beneficente, a cobrança efetuada junto ao público não se reveste de caráter de "tarifa ou preço de ingresso", mas sim de uma doação/contribuição institucional ou de um rateio operacional de custos voltado exclusivamente à captação de recursos para entidades do terceiro setor. Inexiste, portanto, a relação consumerista padrão de fornecedor visando lucro versus consumidor final.
+
+2.2. Do Enquadramento no Código Civil Brasileiro
+As entidades sem fins lucrativos (como Associações e Organizações da Sociedade Civil - OSCIPs), conforme os artigos 44 e 53 do Código Civil, são autorizadas a realizar captações para a manutenção de suas atividades fins. Forçar a aplicação da meia-entrada sobre tais receitas acarretaria prejuízo direto à causa assistida, configurando um desvirtuamento do fim social e enriquecimento sem causa por parte do adquirente em detrimento da assistência social promovida.
+
+3. REQUISITOS MANDATÓRIOS PARA A AFASTABILIDADE DO BENEFÍCIO
+Para assegurar total blindagem jurídica perante os órgãos de fiscalização e defesa do consumidor (PROCON) e junto aos canais integrados à Fest Pag, a organização deve cumprir rigorosamente os seguintes critérios:
+- Reversão Integral do Resultado: O lucro líquido ou o montante bruto arrecadado deve ser integralmente destinado à instituição de caridade, sendo vedada qualquer divisão de lucros a entes privados organizadores.
+- Lastro Documental: Existência de ata de assembleia, estatuto da entidade ou termo de parceria/convênio específico assinado entre os organizadores e a instituição beneficiada detalhando a destinação dos recursos.
+- Dever de Informação Clara (Art. 6º, III do CDC): Informação clara, ostensiva e prévia ao usuário sobre a destinação e a natureza jurídica da cobrança antes do ato de compra.
+Nota de Jurisprudência: O entendimento pacificado nos Tribunais de Justiça estaduais aponta que a exigibilidade de meia-entrada em eventos com propósitos exclusivamente beneficentes viola o princípio da razoabilidade e sufoca a capacidade de atuação das entidades filantrópicas que dependem de doações sociais.
+
+4. DIRETRIZES PRÁTICAS PARA PLATAFORMAS DE VENDA ONLINE
+Ao configurar as vendas na plataforma Fest Pag, recomenda-se adotar os seguintes procedimentos de segurança operacional:
+1. Nomenclatura Adequada: Substituir expressões como "Ingresso Inteira" por termos institucionais como "Convite Solidário", "Contribuição Filantrópica" ou "Doação + Acesso".
+2. Termos e Condições Específicos: Inserir a cláusula de isenção no regulamento do evento e na página de checkout da ferramenta online.
+
+5. MODELO DE CLÁUSULA DE ISENÇÃO PARA INSERÇÃO DIGITAL
+Abaixo, o modelo textual formal a ser disponibilizado de maneira pública e visível na página de compras da Fest Pag:
+"TERMO DE CONTRIBUIÇÃO SOLIDÁRIA. Este evento possui natureza 100% beneficente e filantrópica, realizado em prol da [Nome da Instituição Beneficiada], inscrita no CNPJ sob o nº [Inserir CNPJ]. Toda a receita líquida obtida será integralmente revertida para a manutenção das atividades socioassistenciais da referida entidade. Diante de sua destinação social exclusiva e ausência de finalidade comercial ou lucrativa, os valores cobrados configuram atos de doação/contribuição institucional, não sendo aplicáveis as disposições da Lei Federal nº 12.933/2013 (Lei da Meia-Entrada), conforme entendimento jurisprudencial consolidado."
+
+6. CONCLUSÃO
+Conclui-se que a venda de convites solidários sem a oferta de meia-entrada encontra pleno respaldo jurídico e legal no ecossistema da Fest Pag, desde que cumpridos os preceitos de transparência, publicidade e destinação integral dos fundos à causa beneficente, mitigando-se riscos de sanções administrativas ou cíveis.`,
+};
+
+/**
  * Indica se a campanha está pronta para ser exibida (todos os campos
  * obrigatórios preenchidos).
  */

@@ -5,6 +5,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { BENEFICENT_POLICY } from '@/data/donationCampaigns';
 
 const policies = [
   {
@@ -36,6 +37,18 @@ const policies = [
 export const EventPolicies = ({ isBeneficent = false }: { isBeneficent?: boolean }) => {
   // No evento beneficente, meia-entrada não se aplica (são convites) — esconde só esse item.
   const visiblePolicies = policies.filter((p) => !(isBeneficent && p.id === 'meia'));
+  // Só no evento beneficente: parecer jurídico como PRIMEIRO item (corpo pré-formatado).
+  const items = isBeneficent
+    ? [
+        {
+          id: 'beneficent',
+          title: BENEFICENT_POLICY.title,
+          body: BENEFICENT_POLICY.body,
+          preLine: true,
+        },
+        ...visiblePolicies.map((p) => ({ ...p, preLine: false })),
+      ]
+    : visiblePolicies.map((p) => ({ ...p, preLine: false }));
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -45,12 +58,16 @@ export const EventPolicies = ({ isBeneficent = false }: { isBeneficent?: boolean
     >
       <h3 className="font-display font-bold text-xl mb-4">Políticas do Evento</h3>
       <Accordion type="single" collapsible className="rounded-2xl border border-border bg-card overflow-hidden">
-        {visiblePolicies.map((p) => (
+        {items.map((p) => (
           <AccordionItem key={p.id} value={p.id} className="px-5 border-border/60">
             <AccordionTrigger className="text-left font-semibold hover:no-underline">
               {p.title}
             </AccordionTrigger>
-            <AccordionContent className="text-muted-foreground leading-relaxed">
+            <AccordionContent
+              className={`text-muted-foreground leading-relaxed${
+                p.preLine ? ' whitespace-pre-line' : ''
+              }`}
+            >
               {p.body}
             </AccordionContent>
           </AccordionItem>

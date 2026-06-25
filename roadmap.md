@@ -10,6 +10,9 @@ vocabulário **só** para o evento beneficente de slug `5-confra-do-bem`:
 - "Ingressos" (título da seção) → "Convites"
 - "X ingresso(s)" (barra inferior / carrinho) → "X convite(s)"
 - accordion "Meia-entrada" escondido
+- accordion ganha 1º item "Eventos Beneficentes" com o parecer jurídico completo
+  (`BENEFICENT_POLICY` em `src/data/donationCampaigns.ts`, único ponto de verdade;
+  texto hardcoded sob o slug — generalizar junto no modo "evento beneficente")
 
 **Guard:** `isBeneficentEvent(event)` em `src/data/donationCampaigns.ts` (único ponto
 de verdade da string mágica `BENEFICENT_EVENT_SLUG`). Todo o caminho `else` é idêntico
