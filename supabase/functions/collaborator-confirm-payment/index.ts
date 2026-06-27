@@ -11,6 +11,41 @@ const corsHeaders = {
 const SYSTEM_ACTOR = '95628c4a-8040-44ed-83c5-d6a5b8793926';
 const VALID_METHODS = ['card_credit', 'card_debit', 'cash'];
 
+type IssuedTicket = { ticket_code: string; qr_payload: string; event_name: string | null; lot_name: string | null };
+
+// ADITIVO: lê os ingressos JÁ emitidos da order para devolver ao totem.
+// NÃO cria ticket — eles nascem em collaborator-reserve-order ('pending') e são
+// promovidos a 'valid' pela RPC apply_order_approved. Aqui apenas consultamos, então
+// reconfirmar o mesmo order_id nunca duplica. qr_payload = ticket_code CRU, idêntico
+// ao que collaborator-validate-ticket lê na portaria — não reformatar.
+// NUNCA lança: a verdade financeira (pedido pago) não pode depender desta leitura.
+// Qualquer erro (select/rede) → loga e devolve []; a confirmação segue ok:true.
+async function loadIssuedTickets(supabase: any, orderId: string, eventId: string): Promise<IssuedTicket[]> {
+  try {
+    const [evRes, tixRes] = await Promise.all([
+      supabase.from('events').select('title').eq('id', eventId).maybeSingle(),
+      supabase
+        .from('tickets')
+        .select('ticket_code, event_lots(name)')
+        .eq('order_id', orderId)
+        .eq('status', 'valid')
+        .order('ticket_code', { ascending: true }),
+    ]);
+    if (evRes?.error) console.error('[CONFIRM] loadIssuedTickets events error:', evRes.error);
+    if (tixRes?.error) console.error('[CONFIRM] loadIssuedTickets tickets error:', tixRes.error);
+    const eventName = evRes?.data?.title ?? null;
+    return (tixRes?.data || []).map((t: any) => ({
+      ticket_code: t.ticket_code,
+      qr_payload: t.ticket_code,
+      event_name: eventName,
+      lot_name: t.event_lots?.name ?? null,
+    }));
+  } catch (e) {
+    console.error('[CONFIRM] loadIssuedTickets threw (ignorado, retorna []):', e);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -61,7 +96,8 @@ serve(async (req) => {
 
     // PASSO 2 — idempotência / estado
     if (order.status === 'paid') {
-      return json({ ok: true, order_id, status: 'paid', first_transition: false }, 200);
+      const tickets = await loadIssuedTickets(supabase, order_id, order.event_id);
+      return json({ ok: true, order_id, status: 'paid', first_transition: false, tickets }, 200);
     }
     if (order.status !== 'pending') {
       return json({ error: 'Order não está mais reservada', status: order.status }, 409);
@@ -152,7 +188,9 @@ serve(async (req) => {
       metadata: { collaborator_id, payment_method, first_transition: firstTransition },
     });
 
-    return json({ ok: true, order_id, status: 'paid', first_transition: firstTransition }, 200);
+    // ADITIVO — devolve os ingressos emitidos (não altera os campos já existentes).
+    const tickets = await loadIssuedTickets(supabase, order_id, order.event_id);
+    return json({ ok: true, order_id, status: 'paid', first_transition: firstTransition, tickets }, 200);
   } catch (error) {
     console.error('[CONFIRM] error:', error);
     return json({ error: 'Erro interno' }, 500);
