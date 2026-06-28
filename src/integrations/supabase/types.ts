@@ -277,6 +277,48 @@ export type Database = {
         }
         Relationships: []
       }
+      donation_campaign_progress: {
+        Row: {
+          event_slug: string
+          goal_amount_cents: number
+          raised_amount_cents: number
+          updated_at: string
+        }
+        Insert: {
+          event_slug: string
+          goal_amount_cents: number
+          raised_amount_cents: number
+          updated_at?: string
+        }
+        Update: {
+          event_slug?: string
+          goal_amount_cents?: number
+          raised_amount_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      donation_click_events: {
+        Row: {
+          button: string
+          created_at: string
+          event_slug: string
+          id: string
+        }
+        Insert: {
+          button: string
+          created_at?: string
+          event_slug: string
+          id?: string
+        }
+        Update: {
+          button?: string
+          created_at?: string
+          event_slug?: string
+          id?: string
+        }
+        Relationships: []
+      }
       door_sales: {
         Row: {
           created_at: string
