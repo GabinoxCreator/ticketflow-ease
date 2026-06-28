@@ -32,7 +32,7 @@ export function useDonationProgress(
       if (error || !data) return null;
 
       // bigint pode voltar como string no supabase-js — normaliza com Number.
-      const row = data as {
+      const row = data as unknown as {
         goal_amount_cents: number | string;
         raised_amount_cents: number | string;
       };
