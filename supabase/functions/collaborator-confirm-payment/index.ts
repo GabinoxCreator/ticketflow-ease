@@ -22,23 +22,40 @@ type IssuedTicket = { ticket_code: string; qr_payload: string; event_name: strin
 // Qualquer erro (select/rede) → loga e devolve []; a confirmação segue ok:true.
 async function loadIssuedTickets(supabase: any, orderId: string, eventId: string): Promise<IssuedTicket[]> {
   try {
+    // SEM embed: tickets e nome do lote vêm em queries separadas. O embed
+    // event_lots(name) podia falhar e zerar a leitura; desacoplar garante que o
+    // caso normal não falhe. qr_payload = ticket_code CRU (o que a portaria lê).
     const [evRes, tixRes] = await Promise.all([
       supabase.from('events').select('title').eq('id', eventId).maybeSingle(),
       supabase
         .from('tickets')
-        .select('ticket_code, event_lots(name)')
+        .select('ticket_code, lot_id')
         .eq('order_id', orderId)
         .eq('status', 'valid')
         .order('ticket_code', { ascending: true }),
     ]);
     if (evRes?.error) console.error('[CONFIRM] loadIssuedTickets events error:', evRes.error);
     if (tixRes?.error) console.error('[CONFIRM] loadIssuedTickets tickets error:', tixRes.error);
+
     const eventName = evRes?.data?.title ?? null;
-    return (tixRes?.data || []).map((t: any) => ({
+    const tix = (tixRes?.data || []) as Array<{ ticket_code: string; lot_id: string | null }>;
+
+    // Nomes dos lotes em uma query só (lot_id → name).
+    const lotIds = Array.from(new Set(tix.map((t) => t.lot_id).filter(Boolean))) as string[];
+    const lotNameById = new Map<string, string>();
+    if (lotIds.length > 0) {
+      const lotsRes = await supabase.from('event_lots').select('id, name').in('id', lotIds);
+      if (lotsRes?.error) console.error('[CONFIRM] loadIssuedTickets lots error:', lotsRes.error);
+      for (const l of (lotsRes?.data || []) as Array<{ id: string; name: string | null }>) {
+        if (l.name != null) lotNameById.set(l.id, l.name);
+      }
+    }
+
+    return tix.map((t) => ({
       ticket_code: t.ticket_code,
       qr_payload: t.ticket_code,
       event_name: eventName,
-      lot_name: t.event_lots?.name ?? null,
+      lot_name: t.lot_id ? lotNameById.get(t.lot_id) ?? null : null,
     }));
   } catch (e) {
     console.error('[CONFIRM] loadIssuedTickets threw (ignorado, retorna []):', e);
