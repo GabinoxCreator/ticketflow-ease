@@ -66,7 +66,7 @@ async function loadIssuedTickets(supabase: any, orderId: string, eventId: string
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const json = (body: unknown, status = 200) =>
