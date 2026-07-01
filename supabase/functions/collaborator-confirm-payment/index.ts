@@ -1,5 +1,5 @@
 // redeploy 2026-07-01 — força redeploy para garantir 'pix' em VALID_METHODS
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Uses built-in Deno.serve (std/http import removed to avoid bundler fetch timeouts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 
