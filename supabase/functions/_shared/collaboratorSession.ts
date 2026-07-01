@@ -3,7 +3,12 @@
 // hashes with transparent auto-upgrade. This eliminates the intermittent
 // bcrypt.compareSync failures on Deno that were causing "random" logouts.
 
-import { compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+// Switched from deno.land/x/bcrypt to npm:bcryptjs — the deno.land host was
+// timing out during edge-function bundling, blocking all deploys. bcryptjs
+// exposes the same compareSync(password, hash) signature, so verification of
+// legacy bcrypt hashes is unchanged.
+import bcrypt from "npm:bcryptjs@2.4.3";
+const { compareSync } = bcrypt;
 
 export type SessionValidation =
   | { valid: true }
