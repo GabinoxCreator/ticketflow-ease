@@ -10,7 +10,9 @@ const corsHeaders = {
 
 // Mesmo system actor usado pelo wrapper _shared/applyOrderApproved.ts
 const SYSTEM_ACTOR = '95628c4a-8040-44ed-83c5-d6a5b8793926';
-const VALID_METHODS = ['card_credit', 'card_debit', 'cash'];
+// 'pix' liberado pro totem de ingresso (m-SiTef). Só cartão grava pos_* (ver isCard
+// abaixo); prova do PIX (endToEndId/txid) NÃO é persistida por ora — dívida conhecida.
+const VALID_METHODS = ['card_credit', 'card_debit', 'cash', 'pix'];
 
 type IssuedTicket = { ticket_code: string; qr_payload: string; event_name: string | null; lot_name: string | null };
 
