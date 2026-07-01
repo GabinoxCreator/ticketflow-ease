@@ -1,4 +1,4 @@
-// redeploy 2026-06-28 — força redeploy para garantir loadIssuedTickets (2 queries, sem embed)
+// redeploy 2026-07-01 — força redeploy para garantir 'pix' em VALID_METHODS
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
