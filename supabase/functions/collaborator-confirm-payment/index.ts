@@ -1,5 +1,5 @@
-// redeploy 2026-06-28 — força redeploy para garantir loadIssuedTickets (2 queries, sem embed)
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// redeploy 2026-07-01 — força redeploy para garantir 'pix' em VALID_METHODS
+// Uses built-in Deno.serve (std/http import removed to avoid bundler fetch timeouts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 
@@ -66,7 +66,7 @@ async function loadIssuedTickets(supabase: any, orderId: string, eventId: string
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const json = (body: unknown, status = 200) =>
