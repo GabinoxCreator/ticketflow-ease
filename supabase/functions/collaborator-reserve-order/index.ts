@@ -1,3 +1,4 @@
+// redeploy 2026-07-03 — força redeploy p/ garantir trava 1 ingresso/CPF + Deno.serve
 // Usa Deno.serve built-in (import de std/http removido p/ evitar timeout do bundler
 // no host deno.land, que estava travando deploys — mesmo motivo do confirm-payment).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
