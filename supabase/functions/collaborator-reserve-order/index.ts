@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
+import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
+import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,7 +20,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { collaborator_id, session_token, event_id, items } = await req.json();
+    // cpf/customer_name/customer_email são ADITIVOS e opcionais (não quebram consumidores
+    // antigos). O totem de ingresso sempre manda; sem eles, mantém o comportamento de balcão.
+    const { collaborator_id, session_token, event_id, items, cpf, customer_name, customer_email } = await req.json();
 
     if (!collaborator_id || !event_id || !Array.isArray(items) || items.length === 0) {
       return new Response(JSON.stringify({ error: 'Parâmetros obrigatórios ausentes' }),
@@ -78,6 +82,46 @@ serve(async (req) => {
       }
     }
 
+    // PASSO 2b — trava "1 ingresso por CPF" (MESMO módulo/erro dos edges de cobrança online:
+    // create-mercadopago-pix, process-card-payment, confra-*). Roda ANTES de reservar estoque.
+    // `supabase` é service-role (acima) — obrigatório p/ countTicketsForCpf ignorar RLS.
+    // CPF normalizado (só dígitos), reutilizado no insert do pedido.
+    const normCpf = unformatCPF(cpf);
+    const ticketLimit = getTicketLimitForEvent(event_id);
+    if (ticketLimit !== null) {
+      // Evento COM limite exige CPF — sem ele a venda anônima furaria a trava.
+      if (!normCpf) {
+        return new Response(JSON.stringify({
+          error: 'Este evento exige o CPF do comprador.',
+          errorCode: 'cpf_required',
+        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (!validateCPF(normCpf)) {
+        return new Response(JSON.stringify({
+          error: 'CPF inválido.',
+          errorCode: 'invalid_cpf',
+        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const requestedQty = normalized.reduce((s, i) => s + i.quantity, 0);
+      let alreadyHas: number;
+      try {
+        alreadyHas = await countTicketsForCpf(supabase, event_id, normCpf);
+      } catch (limitErr) {
+        // Fail-closed: erro na contagem NÃO libera a venda.
+        console.error('[RESERVE] limit check error:', limitErr);
+        return new Response(JSON.stringify({ error: 'Erro ao verificar limite de ingressos por CPF' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (alreadyHas + requestedQty > ticketLimit) {
+        return new Response(JSON.stringify({
+          error: ticketLimit === 1
+            ? 'Este evento permite apenas 1 ingresso por CPF. Este CPF já possui um ingresso.'
+            : `Este evento permite apenas ${ticketLimit} ingressos por CPF. Este CPF já atingiu o limite.`,
+          errorCode: 'ticket_limit_reached',
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // PASSO 3 — reservar estoque (padrão create-mercadopago-pix) com rollback ativo
     const reservedSoFar: { lot_id: string; quantity: number }[] = [];
     const releaseAll = async () => {
@@ -123,8 +167,11 @@ serve(async (req) => {
         service_fee_amount: 0,
         discount_amount: 0,
         user_id: null,
-        customer_name: BALCAO_CUSTOMER_NAME,
-        customer_email: BALCAO_CUSTOMER_EMAIL,
+        // Dados reais do comprador quando o totem os manda; senão, placeholders de balcão
+        // (comportamento antigo preservado p/ consumidores que não enviam esses campos).
+        customer_name: (typeof customer_name === 'string' && customer_name.trim()) ? customer_name.trim() : BALCAO_CUSTOMER_NAME,
+        customer_email: (typeof customer_email === 'string' && customer_email.trim()) ? customer_email.trim() : BALCAO_CUSTOMER_EMAIL,
+        customer_cpf: normCpf || null,
         expires_at: expiresAtIso,
       })
       .select('id')
