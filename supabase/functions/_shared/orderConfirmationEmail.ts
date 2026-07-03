@@ -31,6 +31,44 @@ const log = (event: string, data: Record<string, unknown>) => {
   }
 };
 
+const escapeHtml = (s: unknown) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+// Card de UM ingresso: QR (via cid) + código de entrada (8 primeiros do ticket_code).
+function buildTicketCard(t: {
+  eventTitle: string;
+  holderName: string;
+  lotName: string;
+  shortCode: string;
+  cid: string;
+}): string {
+  return `
+      <div style="border:1px solid #e5e7eb;border-radius:14px;padding:20px;margin:0 0 16px 0;text-align:center;background:#ffffff;">
+        <p style="margin:0 0 2px 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#7c3aed;font-weight:bold;">Ingresso</p>
+        <h3 style="margin:0 0 14px 0;font-size:18px;color:#1f2937;">${escapeHtml(t.eventTitle)}</h3>
+        <img src="cid:${t.cid}" alt="QR Code do ingresso" width="220" height="220" style="display:inline-block;width:220px;height:220px;border-radius:8px;" />
+        <p style="margin:14px 0 2px 0;font-size:12px;color:#6b7280;">Código de entrada</p>
+        <p style="margin:0 0 12px 0;font-size:26px;font-weight:bold;letter-spacing:3px;color:#1f2937;font-family:'Courier New',monospace;">${escapeHtml(t.shortCode)}</p>
+        <p style="margin:2px 0;font-size:13px;color:#4b5563;">Titular: <strong>${escapeHtml(t.holderName)}</strong>${t.lotName ? ` · ${escapeHtml(t.lotName)}` : ""}</p>
+        <p style="margin:8px 0 0 0;font-size:13px;color:#6b7280;">Apresente este QR Code na entrada.</p>
+      </div>`;
+}
+
+// Seção do ingresso: banner do evento (opcional) + os cards. Vazia se não há cards.
+function buildTicketSection(args: { bannerUrl: string; cardsHtml: string }): string {
+  if (!args.cardsHtml) return "";
+  return `
+      <div style="margin:8px 0 24px 0;">
+        ${args.bannerUrl ? `<img src="${escapeHtml(args.bannerUrl)}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border-radius:12px;margin:0 0 16px 0;" />` : ""}
+        <p style="margin:0 0 12px 0;font-size:15px;color:#1f2937;font-weight:bold;text-align:center;">Seu ingresso</p>
+        ${args.cardsHtml}
+      </div>`;
+}
+
 function buildHtml(args: {
   customerName: string | null;
   customerEmail: string;
@@ -41,6 +79,7 @@ function buildHtml(args: {
   eventVenue: string;
   qty: number;
   total: number;
+  ticketSectionHtml: string;
 }): string {
   const linkedNote = args.hasUserId
     ? `Acesse seus ingressos a qualquer momento em <a href="https://festpag.digital/meus-ingressos" style="color:#7c3aed;">Meus Ingressos</a>.`
@@ -59,6 +98,7 @@ function buildHtml(args: {
       <p style="color: #4b5563; font-size: 15px; line-height: 1.5;">
         Recebemos seu pagamento e seus ingressos já estão garantidos.
       </p>
+      ${args.ticketSectionHtml}
       <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin:20px 0;">
         <p style="margin:0 0 6px 0;color:#374151;font-size:14px;"><strong>Resumo</strong></p>
         <p style="margin:4px 0;color:#4b5563;font-size:14px;">Evento: <strong>${args.eventTitle}</strong></p>
@@ -187,20 +227,27 @@ export async function sendOrderConfirmationEmailSafe(
       return { ok: false, skipped: true, reason: "missing_resend_key" };
     }
 
-    // === 4) LOAD EVENT + TICKETS COUNT ===
-    const [{ data: event }, { count: ticketCount }] = await Promise.all([
+    // === 4) LOAD EVENT + TICKETS ===
+    // Tickets agora vêm como LINHAS (ticket_code/holder_name/lot_id) p/ o QR; a
+    // quantidade continua sendo derivada daqui (tickets.length), como antes do count.
+    const [{ data: event }, { data: ticketRows }] = await Promise.all([
       supabase
         .from("events")
-        .select("title, date, time, venue, city, state")
+        .select("title, date, time, venue, city, state, image_url")
         .eq("id", order.event_id)
         .maybeSingle(),
       supabase
         .from("tickets")
-        .select("id", { count: "exact", head: true })
+        .select("ticket_code, holder_name, lot_id")
         .eq("order_id", orderId),
     ]);
 
-    const qty = ticketCount ?? 0;
+    const tickets = (ticketRows ?? []) as Array<{
+      ticket_code: string;
+      holder_name: string | null;
+      lot_id: string | null;
+    }>;
+    const qty = tickets.length;
     const eventTitle = event?.title ?? "seu evento";
     const eventVenue = event?.venue
       ? `${event.venue}${event?.city ? ` — ${event.city}/${event.state ?? ""}` : ""}`
@@ -214,6 +261,58 @@ export async function sendOrderConfirmationEmailSafe(
       : "";
     const eventTime = event?.time ? String(event.time).slice(0, 5) : "";
 
+    // === 4b) SEÇÃO DO INGRESSO (QR via cid) — BEST-EFFORT ===
+    // Se QUALQUER coisa aqui falhar, o e-mail AINDA sai com a confirmação (sem os
+    // ingressos/QR). O QR codifica o ticket_code CRU (== qr_payload, o que a portaria
+    // valida) e vai como anexo inline (cid) — nunca a um serviço externo.
+    let ticketSectionHtml = "";
+    const attachments: Array<{ filename: string; content: string; contentId: string; contentType: string }> = [];
+    try {
+      if (tickets.length > 0) {
+        // tickets tem lot_id (não lot_name); busca os nomes dos lotes.
+        const lotIds = [...new Set(tickets.map((t) => t.lot_id).filter(Boolean))] as string[];
+        const lotNameById = new Map<string, string>();
+        if (lotIds.length > 0) {
+          const { data: lots } = await supabase.from("event_lots").select("id, name").in("id", lotIds);
+          for (const l of (lots ?? []) as Array<{ id: string; name: string }>) lotNameById.set(l.id, l.name);
+        }
+
+        // qrcode via npm: (toDataURL usa encoder PNG puro pngjs, sem canvas/DOM).
+        const QRCode: any = (await import("npm:qrcode@1.5.4")).default;
+        const cards: string[] = [];
+        for (let i = 0; i < tickets.length; i++) {
+          const t = tickets[i];
+          const dataUrl: string = await QRCode.toDataURL(t.ticket_code, {
+            width: 320,
+            margin: 1,
+            errorCorrectionLevel: "M",
+          });
+          const base64 = dataUrl.split(",")[1];
+          if (!base64) continue; // PNG inválido → pula ESTE ticket (não derruba os outros)
+          const contentId = `qr-${i}-${t.ticket_code.slice(0, 8)}`;
+          attachments.push({ filename: `ingresso-${i + 1}.png`, content: base64, contentId, contentType: "image/png" });
+          cards.push(
+            buildTicketCard({
+              eventTitle,
+              holderName: t.holder_name || order.customer_name || "Convidado",
+              lotName: t.lot_id ? (lotNameById.get(t.lot_id) ?? "") : "",
+              shortCode: t.ticket_code.slice(0, 8).toUpperCase(),
+              cid: contentId,
+            }),
+          );
+        }
+        ticketSectionHtml = buildTicketSection({ bannerUrl: event?.image_url ?? "", cardsHtml: cards.join("") });
+      }
+    } catch (qrErr) {
+      // Best-effort: descarta seção/anexos e segue com a confirmação simples.
+      ticketSectionHtml = "";
+      attachments.length = 0;
+      log("ticket_section_failed", {
+        order_id: orderId,
+        error: String((qrErr as { message?: string })?.message ?? qrErr ?? "unknown").slice(0, 300),
+      });
+    }
+
     const html = buildHtml({
       customerName: order.customer_name ?? null,
       customerEmail: order.customer_email,
@@ -224,16 +323,20 @@ export async function sendOrderConfirmationEmailSafe(
       eventVenue,
       qty,
       total: Number(order.total_amount ?? 0),
+      ticketSectionHtml,
     });
 
     // === 5) SEND VIA RESEND ===
-    const Resend = (await import("https://esm.sh/resend@2.0.0")).Resend;
+    // resend bump 2.0.0 → 4.x: habilita anexo inline (contentId/cid). Chamada usa
+    // só from/to/subject/html (estáveis 2.x→4.x); attachments só quando existem.
+    const Resend = (await import("https://esm.sh/resend@4.0.0")).Resend;
     const resend = new Resend(resendKey);
     const { data: sent, error: emailError } = await resend.emails.send({
       from: "FestPag <naoresponda@festpag.com.br>",
       to: [order.customer_email],
       subject: `Pagamento confirmado — ${eventTitle}`,
       html,
+      ...(attachments.length > 0 ? { attachments } : {}),
     });
 
     if (emailError) {
