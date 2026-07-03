@@ -1,4 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Usa Deno.serve built-in (import de std/http removido p/ evitar timeout do bundler
+// no host deno.land, que estava travando deploys — mesmo motivo do confirm-payment).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
@@ -16,7 +17,7 @@ const BALCAO_CUSTOMER_NAME = 'Venda Balcão';
 const BALCAO_CUSTOMER_EMAIL = 'balcao@smartpos.local';
 const BALCAO_HOLDER_NAME = 'Ingresso Balcão';
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
