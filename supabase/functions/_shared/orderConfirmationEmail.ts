@@ -327,9 +327,11 @@ export async function sendOrderConfirmationEmailSafe(
     });
 
     // === 5) SEND VIA RESEND ===
-    // resend bump 2.0.0 → 4.x: habilita anexo inline (contentId/cid). Chamada usa
-    // só from/to/subject/html (estáveis 2.x→4.x); attachments só quando existem.
-    const Resend = (await import("https://esm.sh/resend@4.0.0")).Resend;
+    // resend 6.17.0 (npm:): o anexo inline por contentId só existe a partir da v6.0.0;
+    // a v4.0.0 ignorava o campo e o QR (cid) não renderizava (quadrado vazio). npm:
+    // evita a peer opcional @react-email/render da série 6.x no bundler (e já está
+    // provado neste deploy via npm:qrcode). Chamada/attachments inalterados (formato 6.x).
+    const Resend = (await import("npm:resend@6.17.0")).Resend;
     const resend = new Resend(resendKey);
     const { data: sent, error: emailError } = await resend.emails.send({
       from: "FestPag <naoresponda@festpag.com.br>",
