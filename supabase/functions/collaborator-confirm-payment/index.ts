@@ -2,6 +2,7 @@
 // Uses built-in Deno.serve (std/http import removed to avoid bundler fetch timeouts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
+import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,9 @@ const SYSTEM_ACTOR = '95628c4a-8040-44ed-83c5-d6a5b8793926';
 // 'pix' liberado pro totem de ingresso (m-SiTef). Só cartão grava pos_* (ver isCard
 // abaixo); prova do PIX (endToEndId/txid) NÃO é persistida por ora — dívida conhecida.
 const VALID_METHODS = ['card_credit', 'card_debit', 'cash', 'pix'];
+// Placeholder de balcão (mesmo valor do collaborator-reserve-order). Pedido sem
+// e-mail real fica com este endereço — NÃO deve receber e-mail de confirmação.
+const BALCAO_CUSTOMER_EMAIL = 'balcao@smartpos.local';
 
 type IssuedTicket = { ticket_code: string; qr_payload: string; event_name: string | null; lot_name: string | null };
 
@@ -91,7 +95,7 @@ Deno.serve(async (req) => {
     // Carrega a order
     const { data: order, error: orderErr } = await supabase
       .from('orders')
-      .select('id, status, sale_origin, event_id')
+      .select('id, status, sale_origin, event_id, customer_email')
       .eq('id', order_id)
       .maybeSingle();
     if (orderErr) {
@@ -210,6 +214,20 @@ Deno.serve(async (req) => {
 
     // ADITIVO — devolve os ingressos emitidos (não altera os campos já existentes).
     const tickets = await loadIssuedTickets(supabase, order_id, order.event_id);
+
+    // PASSO 7 — e-mail de confirmação com ingresso/QR (ADITIVO, best-effort).
+    // Só na transição REAL (o early-return idempotente de pedido já pago não chega
+    // aqui) e só p/ e-mail REAL (não o placeholder de balcão). O helper é idempotente
+    // (unique order_id+kind) e nunca lança; o try/catch garante que o e-mail NUNCA
+    // afete a resposta/impressão do totem (o pagamento já está confirmado).
+    if (firstTransition && order.customer_email && order.customer_email !== BALCAO_CUSTOMER_EMAIL) {
+      try {
+        await sendOrderConfirmationEmailSafe(supabase, { orderId: order_id, source: 'smartpos' });
+      } catch (mailErr) {
+        console.error('[CONFIRM] email dispatch failed (ignorado):', mailErr);
+      }
+    }
+
     return json({ ok: true, order_id, status: 'paid', first_transition: firstTransition, tickets }, 200);
   } catch (error) {
     console.error('[CONFIRM] error:', error);

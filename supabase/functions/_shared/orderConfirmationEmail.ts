@@ -3,7 +3,7 @@
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-export type OrderEmailSource = "card_inline" | "polling" | "webhook";
+export type OrderEmailSource = "card_inline" | "polling" | "webhook" | "smartpos";
 export const ORDER_EMAIL_KIND = "paid_confirmation" as const;
 
 type OkResult = { ok: true; messageId?: string | null };
