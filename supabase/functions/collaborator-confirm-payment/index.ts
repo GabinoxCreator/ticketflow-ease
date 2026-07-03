@@ -1,4 +1,4 @@
-// redeploy 2026-07-01 — força redeploy para garantir 'pix' em VALID_METHODS
+// redeploy 2026-07-03b — força redeploy p/ carregar helper c/ resend@4 + qrcode (e-mail c/ QR)
 // Uses built-in Deno.serve (std/http import removed to avoid bundler fetch timeouts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
