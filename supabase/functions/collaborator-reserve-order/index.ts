@@ -193,7 +193,10 @@ Deno.serve(async (req) => {
         event_id,
         lot_id: li.lot_id,
         status: 'pending',
-        holder_name: BALCAO_HOLDER_NAME,
+        // Titular = nome do comprador (mesmo normalizado do pedido acima); cai no
+        // placeholder só na venda de balcão anônima. Corrige o titular no ticket em
+        // si — portaria e collaborator-list-tickets, além do e-mail.
+        holder_name: (typeof customer_name === 'string' && customer_name.trim()) ? customer_name.trim() : BALCAO_HOLDER_NAME,
       }))
     );
     const { error: ticketsError } = await supabase.from('tickets').insert(ticketsToCreate);
