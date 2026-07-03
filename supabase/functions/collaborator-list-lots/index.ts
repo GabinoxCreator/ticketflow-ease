@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
+import { resolveFee } from "../_shared/eventFee.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,7 +82,21 @@ serve(async (req) => {
       })
       .filter((l: any) => l.available > 0);
 
-    return new Response(JSON.stringify({ lots: formatted }),
+    // 5) Taxa administrativa do evento (repasse), pros dois métodos — MESMA fonte
+    //    (event_fee_overrides) do reserve e das edges online (fallback 10%). Aditivo:
+    //    o totem usa pra mostrar o valor por card ANTES do clique. Não quebra o shape.
+    const [pixFee, cardFee] = await Promise.all([
+      resolveFee(supabase, event_id, 'pix'),
+      resolveFee(supabase, event_id, 'card'),
+    ]);
+    const event_fees = {
+      pix_percent: pixFee.percent,
+      pix_fixed: pixFee.fixed,
+      card_percent: cardFee.percent,
+      card_fixed: cardFee.fixed,
+    };
+
+    return new Response(JSON.stringify({ lots: formatted, event_fees }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (error) {
     console.error('[LIST-LOTS] error:', error);

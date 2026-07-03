@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
+import { resolveFee, computeServiceFee, feeMethodFromPaymentMethod } from "../_shared/eventFee.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +25,7 @@ Deno.serve(async (req) => {
   try {
     // cpf/customer_name/customer_email são ADITIVOS e opcionais (não quebram consumidores
     // antigos). O totem de ingresso sempre manda; sem eles, mantém o comportamento de balcão.
-    const { collaborator_id, session_token, event_id, items, cpf, customer_name, customer_email } = await req.json();
+    const { collaborator_id, session_token, event_id, items, cpf, customer_name, customer_email, payment_method } = await req.json();
 
     if (!collaborator_id || !event_id || !Array.isArray(items) || items.length === 0) {
       return new Response(JSON.stringify({ error: 'Parâmetros obrigatórios ausentes' }),
@@ -154,8 +155,17 @@ Deno.serve(async (req) => {
       const unit_price = Number(lotMap.get(i.lot_id).price);
       return { lot_id: i.lot_id, quantity: i.quantity, unit_price, subtotal: unit_price * i.quantity };
     });
-    const totalAmount = Math.round(lineItems.reduce((s, li) => s + li.subtotal, 0) * 100) / 100;
+    const subtotal = Math.round(lineItems.reduce((s, li) => s + li.subtotal, 0) * 100) / 100;
     const expiresAtIso = new Date(Date.now() + RESERVE_MINUTES * 60 * 1000).toISOString();
+
+    // Taxa administrativa (repassada ao cliente), MESMA fonte/fórmula das edges online
+    // (event_fee_overrides via resolveFee; fallback 10%). Método vem do body (o totem
+    // manda ao chamar): card_credit/card_debit → 'card', pix → 'pix'. Sem método →
+    // sem taxa (compat com chamadas antigas). Totem não tem cupom → discount = 0.
+    const feeMethod = feeMethodFromPaymentMethod(payment_method);
+    const fee = feeMethod ? await resolveFee(supabase, event_id, feeMethod) : { percent: 0, fixed: 0 };
+    const serviceFee = computeServiceFee(subtotal, fee);
+    const totalAmount = Math.max(0.01, subtotal - 0 + serviceFee);
 
     // PASSO 4 — criar order pending
     const { data: order, error: orderError } = await supabase
@@ -165,8 +175,8 @@ Deno.serve(async (req) => {
         status: 'pending',
         sale_origin: 'smartpos',
         payment_method: 'card', // placeholder; atualizado na confirmação do pagamento
-        total_amount: totalAmount,
-        service_fee_amount: 0,
+        total_amount: totalAmount,   // já com a taxa administrativa (repasse)
+        service_fee_amount: serviceFee,
         discount_amount: 0,
         user_id: null,
         // Dados reais do comprador quando o totem os manda; senão, placeholders de balcão
@@ -210,7 +220,9 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       order_id: order.id,
-      total_amount: totalAmount,
+      total_amount: totalAmount,          // COM taxa — é o que vai pro pinpad
+      subtotal,                           // aditivo: soma dos ingressos (sem taxa)
+      service_fee_amount: serviceFee,     // aditivo: parcela da taxa
       expires_at: expiresAtIso,
       items: lineItems,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
