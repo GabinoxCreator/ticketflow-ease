@@ -1,3 +1,4 @@
+// redeploy 2026-07-03d — força redeploy p/ carregar _shared/eventFee.ts (expõe event_fees)
 // Usa Deno.serve built-in (import de std/http removido p/ evitar timeout do bundler
 // no host deno.land, que estava travando deploys — mesmo motivo do reserve/confirm).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
