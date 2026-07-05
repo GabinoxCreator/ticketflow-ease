@@ -1,0 +1,17 @@
+# CI mínimo: pega quebra de typecheck/build antes de produção.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun x tsc -p tsconfig.app.json --noEmit
+      - name: Build
+        run: bun run build
