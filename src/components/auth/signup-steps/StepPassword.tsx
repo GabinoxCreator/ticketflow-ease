@@ -28,6 +28,7 @@ const StepPassword: React.FC<StepPasswordProps> = ({
 }) => {
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [aceite, setAceite] = useState(false);
 
   const handleSubmit = () => {
     if (password.length < 6) {
@@ -122,7 +123,7 @@ const StepPassword: React.FC<StepPasswordProps> = ({
           variant="hero"
           size="lg"
           className="flex-1"
-          disabled={submitting}
+          disabled={submitting || !aceite}
         >
           {submitting ? (
             <>
@@ -135,17 +136,20 @@ const StepPassword: React.FC<StepPasswordProps> = ({
         </Button>
       </div>
 
-      <p className="text-xs text-muted-foreground text-center leading-relaxed">
-        Ao clicar em <span className="font-medium text-foreground">Criar minha conta</span>, você concorda com nossos{' '}
-        <a href="/termos" target="_blank" className="text-primary hover:underline">
-          termos de uso
-        </a>{' '}
-        e{' '}
-        <a href="/privacidade" target="_blank" className="text-primary hover:underline">
-          política de privacidade
-        </a>
-        .
-      </p>
+      <label className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
+        <input
+          type="checkbox"
+          checked={aceite}
+          onChange={(e) => setAceite(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          Li e concordo com os{' '}
+          <a href="/termos" target="_blank" className="text-primary hover:underline">termos de uso</a>{' '}
+          e a{' '}
+          <a href="/privacidade" target="_blank" className="text-primary hover:underline">política de privacidade</a>.
+        </span>
+      </label>
     </motion.div>
   );
 };

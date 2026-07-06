@@ -4,10 +4,11 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard } from 'lucide-react';
+import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard, Trash2 } from 'lucide-react';
 import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -35,9 +36,26 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 const MinhaConta = () => {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
+  const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-my-account', { body: {} });
+      if (error || !(data as { ok?: boolean })?.ok) throw error ?? new Error('falha');
+      toast.success('Conta excluída. Seus dados pessoais foram removidos.');
+      await signOut();
+      navigate('/');
+    } catch {
+      toast.error('Não foi possível excluir a conta. Tente novamente ou fale com o suporte.');
+      setDeleting(false);
+    }
+  };
 
   const {
     register,
@@ -387,6 +405,21 @@ const MinhaConta = () => {
                         💡 Dica: Use uma senha forte com letras, números e símbolos para maior segurança.
                       </p>
                     </div>
+
+                    <div className="pt-4 mt-2 border-t border-destructive/30">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Você pode solicitar a exclusão da sua conta e dos seus dados pessoais (LGPD).
+                        Seu histórico de compras é anonimizado por exigência fiscal.
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="w-full text-destructive border-destructive/40 hover:bg-destructive/10"
+                        onClick={() => setShowDeleteDialog(true)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Excluir minha conta
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -394,6 +427,35 @@ const MinhaConta = () => {
           </div>
         </div>
       </main>
+
+      <Dialog open={showDeleteDialog} onOpenChange={(o) => !deleting && setShowDeleteDialog(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir minha conta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Esta ação é permanente. Seus dados pessoais (nome, CPF, e-mail, telefone) serão
+              removidos e você perderá o acesso à conta. Pedidos e ingressos já emitidos são
+              anonimizados — mantidos sem seus dados apenas para fins fiscais/contábeis.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={deleting}>
+                Cancelar
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {deleting ? 'Excluindo...' : 'Sim, excluir minha conta'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
         <DialogContent className="sm:max-w-md">

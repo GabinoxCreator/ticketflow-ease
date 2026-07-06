@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.track-donation-click]
 verify_jwt = false
+
+[functions.delete-my-account]
+verify_jwt = true

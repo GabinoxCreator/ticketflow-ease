@@ -657,12 +657,17 @@ export default function LandingLp() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [aceite, setAceite] = useState(false);
   const selectRef = useRef<HTMLSelectElement>(null);
 
   async function handleSubmit() {
     setErrorMsg(null);
     if (!nome.trim() || !cidade.trim() || !tipoEvento || !telefone.trim()) {
       setErrorMsg('Por favor, preencha todos os campos antes de enviar.');
+      return;
+    }
+    if (!aceite) {
+      setErrorMsg('Autorize o contato para enviar o formulário.');
       return;
     }
     setSubmitting(true);
@@ -1000,7 +1005,14 @@ export default function LandingLp() {
                       inputMode="tel"
                     />
                   </div>
-                  <button className="submit-btn" onClick={handleSubmit} disabled={submitting}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, lineHeight: 1.4, margin: '4px 0 12px' }}>
+                    <input type="checkbox" checked={aceite} onChange={(e) => setAceite(e.target.checked)} style={{ marginTop: 3 }} />
+                    <span>
+                      Autorizo a FestPag a usar meus dados para entrar em contato sobre a criação do meu evento.
+                      Consulte a <a href="/privacidade" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>Política de Privacidade</a>.
+                    </span>
+                  </label>
+                  <button className="submit-btn" onClick={handleSubmit} disabled={submitting || !aceite}>
                     {submitting ? 'Enviando...' : 'Enviar formulário'}
                   </button>
                   {errorMsg && <div className="err-msg">{errorMsg}</div>}

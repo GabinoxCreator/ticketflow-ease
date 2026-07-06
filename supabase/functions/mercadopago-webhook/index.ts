@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { maskEmail } from "../_shared/pii.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -279,7 +280,7 @@ serve(async (req) => {
           event: mpStatus,
           order_id: changed.id,
           event_id: changed.event_id,
-          customer_email: changed.customer_email,
+          customer_email: maskEmail(changed.customer_email),
           amount: changed.total_amount,
           mp_payment_id: paymentId,
           action_required: 'manual_inventory_review',

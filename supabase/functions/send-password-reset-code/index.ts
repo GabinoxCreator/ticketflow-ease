@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { maskEmail } from "../_shared/pii.ts";
 
 const Resend = (await import("https://esm.sh/resend@2.0.0")).Resend;
 
@@ -29,7 +30,7 @@ serve(async (req) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    console.log("[SEND-RESET] Request for:", normalizedEmail);
+    console.log("[SEND-RESET] Request for:", maskEmail(normalizedEmail));
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",

@@ -2,6 +2,7 @@
 // Never throws — payment-critical callers can `await` this safely.
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { maskEmail } from "./pii.ts";
 
 export type OrderEmailSource = "card_inline" | "polling" | "webhook" | "smartpos";
 export const ORDER_EMAIL_KIND = "paid_confirmation" as const;
@@ -370,7 +371,7 @@ export async function sendOrderConfirmationEmailSafe(
       })
       .eq("id", claimId);
 
-    log("sent", { order_id: orderId, kind, source, to: order.customer_email, message_id: messageId });
+    log("sent", { order_id: orderId, kind, source, to: maskEmail(order.customer_email), message_id: messageId });
     return { ok: true, messageId };
   } catch (err) {
     const message = String((err as { message?: string })?.message ?? err ?? "unknown").slice(0, 500);

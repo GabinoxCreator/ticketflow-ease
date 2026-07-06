@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { maskEmail } from "../_shared/pii.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,7 +37,7 @@ serve(async (req) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    console.log("[VERIFY-RESET] Verifying code for:", normalizedEmail);
+    console.log("[VERIFY-RESET] Verifying code for:", maskEmail(normalizedEmail));
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
