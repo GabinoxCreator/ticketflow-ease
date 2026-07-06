@@ -17,11 +17,11 @@ export default function PoliticaPrivacidade() {
             <h1 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-2">
               Política de Privacidade
             </h1>
-            <p className="text-muted-foreground text-sm mb-10">Última atualização: 13 de abril de 2026</p>
+            <p className="text-muted-foreground text-sm mb-10">Última atualização: 5 de julho de 2026</p>
 
             <div className="prose prose-sm md:prose-base max-w-none space-y-8 text-foreground/90">
               <p>
-                A sua privacidade é importante para nós. Esta Política de Privacidade explica como a FestPag LTDA coleta, usa, armazena, compartilha e protege os dados pessoais tratados na plataforma FestPag.
+                A sua privacidade é importante para nós. Esta Política de Privacidade explica como a ST Intermediação de Negócios LTDA, por meio da plataforma FestPag, coleta, usa, armazena, compartilha e protege os dados pessoais tratados.
               </p>
               <p>
                 Ao utilizar a FestPag, você declara que leu esta Política e está ciente de como seus dados são tratados.
@@ -34,8 +34,8 @@ export default function PoliticaPrivacidade() {
               {/* 1 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">1. Quem somos</h2>
-                <p>A FestPag LTDA é a responsável pela operação da plataforma FestPag no Brasil e atua como controladora de dados pessoais nas situações em que define como e por que os dados serão tratados.</p>
-                <p>A FestPag opera exclusivamente no Brasil, conforme a estrutura atual do serviço informada para esta política.</p>
+                <p>A plataforma FestPag é operada pela <strong>ST Intermediação de Negócios LTDA</strong>, inscrita no CNPJ nº 43.941.698/0001-52, que atua como controladora de dados pessoais nas situações em que define como e por que os dados serão tratados. "FestPag" é a marca sob a qual o serviço é oferecido.</p>
+                <p>A FestPag é sediada no Brasil. Alguns fornecedores de tecnologia que utilizamos processam dados em servidores localizados no exterior — nesses casos há transferência internacional de dados, tratada na seção 6 desta Política.</p>
               </section>
 
               {/* 2 */}
@@ -105,7 +105,7 @@ export default function PoliticaPrivacidade() {
               {/* 4 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">4. Pagamentos</h2>
-                <p>Os pagamentos realizados na plataforma são processados por parceiro especializado, atualmente o PagSeguro/PagBank, de acordo com as integrações adotadas pela FestPag. Nessas operações, dados financeiros e transacionais podem ser tratados por esse parceiro para viabilizar o pagamento com segurança.</p>
+                <p>Os pagamentos realizados na plataforma são processados por parceiro especializado, atualmente o Mercado Pago, de acordo com as integrações adotadas pela FestPag. Nessas operações, dados financeiros e transacionais podem ser tratados por esse parceiro para viabilizar o pagamento com segurança.</p>
                 <p>A FestPag não utiliza esta política para substituir as políticas do parceiro de pagamento. O tratamento realizado pelo processador de pagamento também está sujeito às regras e políticas próprias dele.</p>
               </section>
 
@@ -116,24 +116,24 @@ export default function PoliticaPrivacidade() {
                 <p>Podemos compartilhar dados pessoais nas seguintes situações:</p>
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Com produtores de eventos:</strong> quando um cliente compra um ingresso, o produtor pode receber dados necessários à operação do evento, atualmente nome, e-mail e telefone, conforme informado para esta política.</li>
-                  <li><strong>Com parceiros de pagamento:</strong> para processar cobranças, confirmações, repasses e rotinas financeiras.</li>
-                  <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> para hospedagem, autenticação, monitoramento, analytics e funcionamento da plataforma.</li>
+                  <li><strong>Com parceiros de pagamento:</strong> atualmente o <strong>Mercado Pago</strong>, para processar cobranças, confirmações, repasses e rotinas financeiras.</li>
+                  <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend) e a <strong>Meta/Facebook</strong> (quando você autoriza cookies de marketing — ver seção 6), para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
                   <li><strong>Para cumprimento de obrigação legal, regulatória ou ordem de autoridade competente:</strong> quando necessário para atender à legislação aplicável ou proteger direitos da FestPag, dos usuários e de terceiros.</li>
                 </ul>
               </section>
 
               {/* 6 */}
               <section>
-                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">6. Cookies, analytics e tecnologias semelhantes</h2>
-                <p>A FestPag utiliza cookies e ferramentas de analytics para:</p>
+                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">6. Cookies e transferência internacional</h2>
+                <p>Usamos duas categorias de cookies e tecnologias semelhantes:</p>
                 <ul className="list-disc pl-6 space-y-1">
-                  <li>autenticar acessos;</li>
-                  <li>lembrar preferências;</li>
-                  <li>medir uso da plataforma;</li>
-                  <li>entender navegação e desempenho;</li>
-                  <li>melhorar funcionalidades e experiência.</li>
+                  <li><strong>Cookies essenciais:</strong> necessários para o site funcionar — autenticar acessos, manter sua sessão e o carrinho de compra. Não dependem de consentimento, pois sem eles a plataforma não opera.</li>
+                  <li><strong>Cookies de marketing:</strong> quando um produtor ativa medição de campanhas, utilizamos o <strong>Pixel da Meta (Facebook)</strong> para medir visitas e conversões. Esses cookies <strong>só são ativados com o seu consentimento</strong>, dado no banner de cookies exibido no primeiro acesso.</li>
                 </ul>
-                <p>Dependendo da configuração do seu navegador, alguns cookies podem ser bloqueados, mas isso pode afetar o funcionamento de partes da plataforma.</p>
+                <p>Você pode <strong>aceitar, recusar ou alterar</strong> sua escolha a qualquer momento pelo link "Preferências de cookies" no rodapé do site. Recusar os cookies de marketing não afeta a compra de ingressos.</p>
+                <p>
+                  <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil — o Pixel da Meta transfere dados de navegação para os Estados Unidos, e nossa infraestrutura de backend (Supabase) pode armazenar dados em servidores no exterior. Essas transferências observam a LGPD (art. 33) e ocorrem para as finalidades descritas nesta Política.
+                </p>
               </section>
 
               {/* 7 */}
@@ -187,7 +187,13 @@ export default function PoliticaPrivacidade() {
               {/* 11 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">11. Base legal e conformidade</h2>
-                <p>O tratamento de dados pessoais realizado pela FestPag observa a legislação brasileira aplicável, em especial a Lei Geral de Proteção de Dados Pessoais (LGPD), que regula o tratamento de dados pessoais em meios físicos e digitais no Brasil.</p>
+                <p>O tratamento de dados pessoais realizado pela FestPag observa a Lei Geral de Proteção de Dados Pessoais (LGPD). Aplicamos a base legal adequada a cada finalidade:</p>
+                <ul className="list-disc pl-6 space-y-1">
+                  <li><strong>Execução de contrato:</strong> cadastro, compra, emissão e entrega de ingressos, check-in e suporte.</li>
+                  <li><strong>Cumprimento de obrigação legal:</strong> guarda de registros fiscais e financeiros das transações.</li>
+                  <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta) e eventuais comunicações promocionais — revogável a qualquer momento.</li>
+                  <li><strong>Legítimo interesse:</strong> segurança da plataforma, prevenção a fraudes e melhoria do serviço, sempre respeitando seus direitos e expectativas.</li>
+                </ul>
               </section>
 
               {/* 12 */}
@@ -205,10 +211,11 @@ export default function PoliticaPrivacidade() {
 
               {/* 14 */}
               <section>
-                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">14. Fale com a FestPag</h2>
-                <p>Em caso de dúvidas, solicitações ou assuntos relacionados à privacidade e proteção de dados, entre em contato:</p>
+                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">14. Canal de atendimento ao titular</h2>
+                <p>Para exercer seus direitos ou tratar de qualquer assunto relacionado à privacidade e proteção de dados, utilize o nosso canal de atendimento ao titular:</p>
                 <p className="font-medium">
-                  FestPag LTDA<br />
+                  ST Intermediação de Negócios LTDA — CNPJ 43.941.698/0001-52<br />
+                  Plataforma FestPag<br />
                   E-mail:{' '}
                   <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>
                 </p>
