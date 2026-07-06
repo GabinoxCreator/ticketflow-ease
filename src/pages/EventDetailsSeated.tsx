@@ -49,7 +49,9 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
         const stillValid =
           seat.hold_expires_at && new Date(seat.hold_expires_at).getTime() > Date.now();
         if (stillValid) {
-          if (user && seat.held_by_user_id === user.id && myHoldSeatIds.has(seat.id)) {
+          // "Meu assento" vem do estado local do hold (myHoldSeatIds) — o
+          // held_by_user_id saiu do select público (PII).
+          if (myHoldSeatIds.has(seat.id)) {
             return 'selected-mine';
           }
           return 'held-other';

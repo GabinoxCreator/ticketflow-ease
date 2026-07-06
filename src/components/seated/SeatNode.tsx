@@ -97,7 +97,6 @@ export const SeatNode = React.memo(
   (a, b) =>
     a.vstatus === b.vstatus &&
     a.seat.status === b.seat.status &&
-    a.seat.held_by_user_id === b.seat.held_by_user_id &&
     a.seat.color === b.seat.color &&
     a.seat.label === b.seat.label
 );

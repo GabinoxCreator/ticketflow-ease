@@ -131,9 +131,7 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
                     ? {
                         ...s,
                         status: 'held' as const,
-                        held_by_user_id: userId,
                         hold_expires_at: next.expiresAt,
-                        hold_token: next.token,
                       }
                     : s
                 )

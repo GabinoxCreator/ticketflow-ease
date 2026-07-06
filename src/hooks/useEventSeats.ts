@@ -7,9 +7,7 @@ export interface EventSeatRow {
   id: string;
   event_id: string;
   status: 'available' | 'held' | 'sold' | 'blocked' | 'manual';
-  held_by_user_id: string | null;
   hold_expires_at: string | null;
-  hold_token: string | null;
   code: string | null;
   label: string | null;
   x: number | null;
@@ -28,8 +26,12 @@ export interface EventSeatRow {
   max_capacity: number | null;
 }
 
+// LGPD/segurança: held_by_user_id (PII) e hold_token (SEGREDO do hold) ficaram
+// FORA do select — ninguém no front os lê ("meu assento" vem do estado local do
+// useSeatHold; o token vem da resposta da RPC hold_seats). No banco, grants de
+// coluna + column list na publication do realtime garantem o mesmo por fora.
 const SEAT_COLS =
-  'id,event_id,status,held_by_user_id,hold_expires_at,hold_token,' +
+  'id,event_id,status,hold_expires_at,' +
   'code,label,x,y,width,height,radius,rotation,shape,color,icon,' +
   'seat_type_name,base_price,extra_price,base_capacity,max_capacity';
 
