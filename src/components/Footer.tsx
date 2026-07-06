@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { openCookiePreferences } from '@/lib/cookieConsent';
 import { Mail, Phone } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 
@@ -108,6 +109,14 @@ const Footer = () => {
                 {link.label}
               </Link>
             ))}
+            {/* Revogabilidade LGPD: reabre o banner de consentimento */}
+            <button
+              type="button"
+              onClick={openCookiePreferences}
+              className="text-muted-foreground text-sm hover:text-foreground transition-colors"
+            >
+              Preferências de cookies
+            </button>
           </div>
         </div>
       </div>

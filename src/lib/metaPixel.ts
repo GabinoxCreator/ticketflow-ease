@@ -1,6 +1,14 @@
 // Minimal Meta Pixel loader. Loads the fbq script once per pixel id and
 // exposes helpers to track standard browser-side events. Only call these
 // when the producer has tracking_enabled === true and a valid pixel id.
+//
+// LGPD: o Pixel é cookie de MARKETING de terceiro (envia dados de navegação à
+// Meta/EUA). O gate do produtor NÃO é consentimento do titular — por isso o
+// script SÓ é injetado após opt-in do visitante no banner de cookies
+// (hasMarketingConsent). Sem consentimento, os inits ficam pendentes e são
+// aplicados se o visitante aceitar durante a sessão; eventos anteriores ao
+// aceite são descartados de propósito (não se rastreia retroativamente).
+import { hasMarketingConsent, CONSENT_CHANGED_EVENT } from './cookieConsent';
 
 declare global {
   interface Window {
@@ -10,7 +18,19 @@ declare global {
 }
 
 const initialized = new Set<string>();
+const pendingInit = new Set<string>();
 let scriptInjected = false;
+let consentListenerArmed = false;
+
+function armConsentListener() {
+  if (consentListenerArmed || typeof window === 'undefined') return;
+  consentListenerArmed = true;
+  window.addEventListener(CONSENT_CHANGED_EVENT, () => {
+    if (!hasMarketingConsent()) return;
+    for (const id of pendingInit) doInit(id);
+    pendingInit.clear();
+  });
+}
 
 function injectScript() {
   if (scriptInjected || typeof window === 'undefined') return;
@@ -41,8 +61,7 @@ function injectScript() {
   scriptInjected = true;
 }
 
-export function initMetaPixel(pixelId: string | null | undefined) {
-  if (!pixelId || typeof window === 'undefined') return;
+function doInit(pixelId: string) {
   injectScript();
   if (initialized.has(pixelId)) return;
   try {
@@ -51,6 +70,18 @@ export function initMetaPixel(pixelId: string | null | undefined) {
   } catch (err) {
     console.warn('[metaPixel] init failed', err);
   }
+}
+
+export function initMetaPixel(pixelId: string | null | undefined) {
+  if (!pixelId || typeof window === 'undefined') return;
+  // LGPD: sem opt-in de marketing, NADA é injetado — fica pendente aguardando
+  // o visitante decidir no banner.
+  if (!hasMarketingConsent()) {
+    pendingInit.add(pixelId);
+    armConsentListener();
+    return;
+  }
+  doInit(pixelId);
 }
 
 export function trackPageView(pixelId: string | null | undefined) {
