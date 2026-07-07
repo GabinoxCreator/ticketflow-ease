@@ -1,3 +1,4 @@
+// redeploy 2026-07-07 — force redeploy
 // delete-my-account — direito de eliminação do titular (LGPD art. 18).
 // Só o PRÓPRIO usuário logado se exclui: o alvo é o id do token (nunca do body),
 // então ninguém apaga conta de terceiro. Respeita o princípio "pedido nunca é

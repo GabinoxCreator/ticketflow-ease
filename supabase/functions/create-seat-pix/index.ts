@@ -1,3 +1,4 @@
+// redeploy 2026-07-07 — force redeploy
 // PIX checkout para MESA (event_seats).
 // Caminho único de promoção: SOMENTE o webhook promove order pending→paid e
 // seats held→sold (apply_order_approved). Esta edge nunca chama applyOrderApproved.

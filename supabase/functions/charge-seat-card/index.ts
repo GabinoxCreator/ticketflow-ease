@@ -1,3 +1,4 @@
+// redeploy 2026-07-07 — force redeploy
 // Cartão checkout para MESA (event_seats).
 // Caminho único de promoção: SOMENTE webhook promove order→paid e seats→sold.
 // Esta edge NUNCA chama applyOrderApproved, mesmo em approved.
