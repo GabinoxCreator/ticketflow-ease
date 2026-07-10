@@ -2239,6 +2239,7 @@ export type Database = {
         Args: { _producer_profile_id: string; _user_id: string }
         Returns: boolean
       }
+      lgpd_retention_sweep: { Args: never; Returns: undefined }
       lookup_customer_by_cpf: {
         Args: { _cpf: string; _event_id: string }
         Returns: {
