@@ -22,15 +22,55 @@ const json = (body: any, status = 200) =>
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  // Two authorized paths (mesma guarda da expire-pending-orders):
+  //  1) Cron: shared secret via X-Cron-Secret header (vault-validated)
+  //  2) Admin manual: Bearer JWT with admin role
+  const provided = req.headers.get('x-cron-secret') ?? req.headers.get('X-Cron-Secret');
+  const authHeader = req.headers.get('Authorization');
+  let authorized = false;
+
+  const adminClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    { auth: { persistSession: false } },
+  );
+
+  if (provided) {
+    try {
+      const { data: vaultSecret } = await adminClient.rpc('get_cron_secret');
+      if (vaultSecret && provided === vaultSecret) authorized = true;
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!authorized && authHeader?.startsWith('Bearer ')) {
+    try {
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData } = await userClient.auth.getClaims(token);
+      const userId = claimsData?.claims?.sub;
+      if (userId) {
+        const { data: roles } = await adminClient
+          .from('user_roles').select('role').eq('user_id', userId);
+        if (roles?.some((r: any) => r.role === 'admin')) authorized = true;
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const marcelBase = Deno.env.get('MARCEL_PIX_BASE');
     if (!marcelBase) throw new Error('MARCEL_PIX_BASE is not set');
 
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
-    );
+    const admin = adminClient;
 
     // Janela: pedidos PIX pending de eventos marcel, criados nas últimas 6h,
     // que tenham transactionId do Marcel. Limite de 50 por execução.
