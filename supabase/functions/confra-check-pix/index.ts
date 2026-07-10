@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { checkMarcelPixPaid } from "../_shared/marcelPix.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,22 +66,15 @@ serve(async (req) => {
       return json({ error: 'no_transaction' }, 422);
     }
 
-    // Pergunta pro Marcel se pagou
-    const resp = await fetch(`${marcelBase}/checkpix`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transactionId: Number(order.provider_transaction_id) }),
-    });
+    // Pergunta pro Marcel se pagou (helper compartilhado — mesma regra da expire).
+    const check = await checkMarcelPixPaid(marcelBase, String(order.provider_transaction_id));
 
-    if (!resp.ok) {
-      logStep('checkpix http error', { httpStatus: resp.status });
+    if (!check.ok) {
+      logStep('checkpix provider error');
       return json({ paid: false, status: order.status });
     }
 
-    const data = await resp.json();
-    const isPaid = data?.aprovado === true || data?.status === 3;
-
-    if (!isPaid) {
+    if (!check.paid) {
       return json({ paid: false, status: order.status });
     }
 

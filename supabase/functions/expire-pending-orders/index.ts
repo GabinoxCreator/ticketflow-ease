@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { checkMarcelPixPaid } from "../_shared/marcelPix.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,6 +21,7 @@ interface OrderRow {
   created_at: string;
   expires_at: string;
   mp_payment_id: string | null;
+  provider_transaction_id: string | null;
 }
 
 async function ticketCountsByLot(supabase: any, orderId: string) {
@@ -122,12 +124,13 @@ serve(async (req) => {
     });
   }
 
-  const stats = { scanned: 0, recovered: 0, expired: 0, extended: 0, in_process_timeout: 0, skipped: 0, errors: 0 };
+  const stats = { scanned: 0, recovered: 0, marcel_recovered: 0, expired: 0, extended: 0, in_process_timeout: 0, skipped: 0, errors: 0 };
   const startedAt = new Date().toISOString();
 
   try {
     const supabase = adminClient;
     const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+    const marcelBase = Deno.env.get('MARCEL_PIX_BASE');
 
     if (invocationSource === 'admin_manual' && adminUserId) {
       await supabase.from('audit_logs').insert({
@@ -141,7 +144,7 @@ serve(async (req) => {
 
     const { data: candidates, error } = await supabase
       .from('orders')
-      .select('id, created_at, expires_at, mp_payment_id')
+      .select('id, created_at, expires_at, mp_payment_id, provider_transaction_id')
       .eq('status', 'pending')
       .not('expires_at', 'is', null)
       .lt('expires_at', new Date().toISOString())
@@ -210,6 +213,36 @@ serve(async (req) => {
             log('mp_api_error_skip', { orderId: order.id, status: mpRes.status });
             continue;
           }
+        }
+
+        // Rota Marcel (confra-*): id do pagamento vive em provider_transaction_id
+        // (não em mp_payment_id), então o bloco MP acima pulou este pedido.
+        // Confirmar no Marcel ANTES de expirar — senão pedido pago vira expired.
+        if (order.provider_transaction_id) {
+          // Env ausente num deploy NÃO pode voltar a matar pedido pago → pular.
+          if (!marcelBase) {
+            stats.skipped++;
+            log('marcel_base_missing_skip', { orderId: order.id });
+            continue;
+          }
+          const marcel = await checkMarcelPixPaid(marcelBase, order.provider_transaction_id);
+          if (!marcel.ok) {
+            // Provedor indisponível/timeout → não expira nesta rodada.
+            stats.skipped++;
+            log('marcel_provider_error_skip', { orderId: order.id });
+            continue;
+          }
+          if (marcel.paid) {
+            await applyOrderApproved(supabase, {
+              orderId: order.id,
+              mpPaymentId: String(order.provider_transaction_id),
+              source: 'expire-pending-orders[marcel]',
+            });
+            stats.marcel_recovered++;
+            log('marcel_recovered', { orderId: order.id });
+            continue;
+          }
+          // marcel.paid === false → segue pro applyExpired abaixo (não pago mesmo).
         }
 
         const ok = await applyExpired(supabase, order);
