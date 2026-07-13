@@ -119,8 +119,8 @@ export default function AreaDoProdutor() {
                       Criar conta de produtor
                       <ArrowRight className="w-5 h-5" />
                     </Button>
-                    <Button asChild variant="outline" size="xl" className="border-primary/30 hover:border-primary/60 hover:bg-primary/5">
-                      <a href="mailto:contato@festpag.com.br">Falar com vendas</a>
+                    <Button variant="outline" size="xl" onClick={() => navigate('/lp')} className="border-primary/30 hover:border-primary/60 hover:bg-primary/5">
+                      Falar com vendas
                     </Button>
                   </div>
                 </div>

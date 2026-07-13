@@ -152,10 +152,10 @@ const ProducerSolutionsSection = ({ variant = 'home' }: ProducerSolutionsSection
                 size="lg"
                 className="gap-2 group border-primary/30 hover:border-primary/60 hover:bg-primary/5 w-full sm:w-auto"
               >
-                <a href="mailto:contato@festpag.com.br">
+                <Link to="/lp">
                   Falar com vendas
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </a>
+                </Link>
               </Button>
             </div>
           </motion.div>
