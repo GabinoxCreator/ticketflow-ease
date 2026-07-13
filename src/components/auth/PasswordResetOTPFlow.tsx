@@ -52,6 +52,29 @@ const PremiumSlot: React.FC<PremiumSlotProps> = ({ char, hasFakeCaret, isActive 
 
 const emailSchema = z.string().email('Email inválido');
 
+/**
+ * Mapeia status + corpo da edge send-password-reset-code para mensagem PT-BR.
+ * A edge é a fonte da verdade do rate limit (429 / 503); o front só traduz.
+ */
+const resetErrorMessage = (status: number, body: any): string => {
+  const code = body?.error;
+  if (status === 429 || code === 'rate_limited') {
+    const secs = body?.retry_after_seconds;
+    if (secs) {
+      const mins = Math.max(1, Math.ceil(secs / 60));
+      return `Você já pediu vários códigos. Aguarde ${mins} min e tente de novo.`;
+    }
+    return 'Você já pediu vários códigos. Aguarde alguns minutos e tente de novo.';
+  }
+  if (status === 503 || code === 'rate_limit_unavailable') {
+    return 'Serviço indisponível no momento, tente em instantes.';
+  }
+  if (status === 400) {
+    return 'Informe um e-mail válido.';
+  }
+  return 'Não foi possível enviar o código agora. Tente novamente em instantes.';
+};
+
 const PasswordResetOTPFlow: React.FC<PasswordResetOTPFlowProps> = ({
   initialEmail = '',
   onSuccess,
@@ -89,15 +112,33 @@ const PasswordResetOTPFlow: React.FC<PasswordResetOTPFlowProps> = ({
     }
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-password-reset-code', {
-        body: { email: email.trim().toLowerCase() },
-      });
-      if (error) throw error;
+      // Raw fetch (não supabase.functions.invoke) para ler status + corpo reais
+      // e traduzir o rate limit da edge em mensagem amigável.
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-password-reset-code`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        },
+      );
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        toast.error(resetErrorMessage(resp.status, data));
+        return;
+      }
+
       toast.success('Se o email existir, um código foi enviado.');
       setPhase('otp');
-      setCooldown(45);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao enviar código');
+      setCooldown(60);
+    } catch {
+      // Falha de rede / fetch lançou
+      toast.error('Não foi possível enviar o código agora. Tente novamente em instantes.');
     } finally {
       setSending(false);
     }
@@ -190,10 +231,16 @@ const PasswordResetOTPFlow: React.FC<PasswordResetOTPFlowProps> = ({
                 variant="hero"
                 size="lg"
                 onClick={sendCode}
-                disabled={sending}
+                disabled={sending || cooldown > 0}
                 className="flex-1"
               >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enviar código'}
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : cooldown > 0 ? (
+                  `Reenviar em ${cooldown}s`
+                ) : (
+                  'Enviar código'
+                )}
               </Button>
             </div>
           </motion.div>
