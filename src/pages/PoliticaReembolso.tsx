@@ -30,8 +30,8 @@ export default function PoliticaReembolso() {
               </p>
               <p>
                 Em caso de dúvidas, entre em contato pelo e-mail:{' '}
-                <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">
-                  contato.festpag@gmail.com
+                <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">
+                  suporte@festpag.digital
                 </a>
                 .
               </p>
@@ -46,6 +46,7 @@ export default function PoliticaReembolso() {
                   ingressos e gestão de eventos. A FestPag não é a organizadora direta dos eventos,
                   salvo quando isso estiver expressamente indicado.
                 </p>
+                <p>ST Intermediação de Negócios LTDA — CNPJ: 43.941.698/0001-52.</p>
                 <p>
                   A responsabilidade pela realização, alteração, cancelamento e execução do evento
                   é do respectivo produtor/organizador. As regras abaixo se aplicam de forma
@@ -110,8 +111,8 @@ export default function PoliticaReembolso() {
                 </h2>
                 <p>
                   Para solicitar o reembolso, envie um e-mail para{' '}
-                  <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">
-                    contato.festpag@gmail.com
+                  <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">
+                    suporte@festpag.digital
                   </a>{' '}
                   contendo:
                 </p>
@@ -195,8 +196,8 @@ export default function PoliticaReembolso() {
                 <p>
                   Para dúvidas sobre esta Política de Reembolso ou para acompanhar uma solicitação,
                   entre em contato pelo e-mail:{' '}
-                  <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">
-                    contato.festpag@gmail.com
+                  <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">
+                    suporte@festpag.digital
                   </a>
                   .
                 </p>

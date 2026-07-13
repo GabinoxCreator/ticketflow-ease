@@ -43,7 +43,7 @@ const clientesFaq: FAQ[] = [
     a: (
       <>
         Pelo e-mail{' '}
-        <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>
+        <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
         , respeitando os prazos da{' '}
         <Link to="/reembolso" className="text-primary hover:underline">Política de Reembolso</Link>{' '}
         (até 7 dias após a compra pelo direito de arrependimento, ou até 48h antes do evento).
@@ -60,7 +60,7 @@ const clientesFaq: FAQ[] = [
       <>
         Confira a caixa de spam/promoções. Os ingressos também aparecem em Meus Ingressos dentro da sua conta.
         Persistindo, fale com{' '}
-        <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>.
+        <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>.
       </>
     ),
   },
@@ -193,10 +193,10 @@ export default function CentralDeAjuda() {
               <p className="text-muted-foreground text-sm">
                 Fale com a gente em{' '}
                 <a
-                  href="mailto:contato.festpag@gmail.com"
+                  href="mailto:suporte@festpag.digital"
                   className="text-primary hover:underline"
                 >
-                  contato.festpag@gmail.com
+                  suporte@festpag.digital
                 </a>
                 .
               </p>

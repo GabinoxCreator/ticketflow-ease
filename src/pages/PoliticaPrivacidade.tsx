@@ -28,7 +28,7 @@ export default function PoliticaPrivacidade() {
               </p>
               <p>
                 Em caso de dúvidas, solicitações ou assuntos relacionados à privacidade e proteção de dados, entre em contato pelo e-mail:{' '}
-                <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>.
+                <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>.
               </p>
 
               {/* 1 */}
@@ -179,7 +179,7 @@ export default function PoliticaPrivacidade() {
                 </ul>
                 <p>
                   Caso você queira exercer seus direitos, entre em contato pelo e-mail:{' '}
-                  <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>.
+                  <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>.
                 </p>
                 <p>Se o titular não conseguir exercer seus direitos junto ao controlador, a ANPD disponibiliza canal próprio para petições de titular.</p>
               </section>
@@ -217,7 +217,7 @@ export default function PoliticaPrivacidade() {
                   ST Intermediação de Negócios LTDA — CNPJ 43.941.698/0001-52<br />
                   Plataforma FestPag<br />
                   E-mail:{' '}
-                  <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>
+                  <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
                 </p>
               </section>
             </div>

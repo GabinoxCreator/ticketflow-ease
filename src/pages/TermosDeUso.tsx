@@ -27,13 +27,14 @@ export default function TermosDeUso() {
               <p>Ao utilizar a FestPag, você declara que leu, entendeu e concorda com estes Termos.</p>
               <p>
                 Em caso de dúvidas, entre em contato pelo e-mail:{' '}
-                <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>.
+                <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>.
               </p>
 
               {/* 1 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">1. Sobre a FestPag</h2>
-                <p>A FestPag LTDA é a responsável pela operação da plataforma FestPag.</p>
+                <p>A ST Intermediação de Negócios LTDA é a responsável pela operação da plataforma FestPag.</p>
+                <p>ST Intermediação de Negócios LTDA — CNPJ: 43.941.698/0001-52.</p>
                 <p>A FestPag atua como plataforma de tecnologia para intermediação de venda de ingressos, gestão de eventos, controle de acesso, operação de listas e suporte operacional aos produtores parceiros.</p>
                 <p>A FestPag não é a organizadora direta dos eventos, salvo quando isso estiver expressamente indicado. A responsabilidade pela criação, produção, organização, realização, alteração, cancelamento e execução do evento é do respectivo produtor/organizador.</p>
               </section>
@@ -295,9 +296,9 @@ export default function TermosDeUso() {
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">18. Contato</h2>
                 <p>Em caso de dúvidas sobre estes Termos de Uso, entre em contato com a FestPag:</p>
                 <p className="mt-4">
-                  <strong>FestPag LTDA</strong><br />
+                  <strong>ST Intermediação de Negócios LTDA</strong><br />
                   E-mail:{' '}
-                  <a href="mailto:contato.festpag@gmail.com" className="text-primary hover:underline">contato.festpag@gmail.com</a>
+                  <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
                 </p>
               </section>
             </div>

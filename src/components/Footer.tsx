@@ -74,11 +74,11 @@ const Footer = () => {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="mailto:contato@festpag.com.br"
+                  href="mailto:suporte@festpag.digital"
                   className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors"
                 >
                   <Mail className="w-4 h-4" />
-                  contato@festpag.com.br
+                  suporte@festpag.digital
                 </a>
               </li>
               <li>
@@ -96,9 +96,10 @@ const Footer = () => {
 
         {/* Bottom */}
         <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-muted-foreground text-sm">
-            © {currentYear} FestPag. Todos os direitos reservados.
-          </p>
+          <div className="text-muted-foreground text-sm text-center md:text-left">
+            <p>© {currentYear} FestPag. Todos os direitos reservados.</p>
+            <p className="mt-1">ST Intermediação de Negócios LTDA — CNPJ: 43.941.698/0001-52</p>
+          </div>
           <div className="flex gap-6">
             {footerLinks.legal.map((link) => (
               <Link
