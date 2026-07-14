@@ -252,14 +252,12 @@ serve(async (req) => {
     const marcelBase = Deno.env.get('MARCEL_PIX_BASE');
     if (!marcelBase) throw new Error('MARCEL_PIX_BASE is not set');
 
-    const installmentsForProvider = installments;
     const provResp = await fetch(`${marcelBase}/credit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         amount: Number(finalAmount.toFixed(2)),
-        // TODO [Marcel]: enviar parcelas ao /credit — nome do campo A CONFIRMAR (installments? parcelas?)
-        // installmentsForProvider = ${installmentsForProvider}
+        parcelas: installments,
         description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
         purchaseId: order.id,
         card: {
