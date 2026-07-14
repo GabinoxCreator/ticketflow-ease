@@ -23,6 +23,7 @@ interface CardPaymentRequest {
   couponId?: string;
   deviceId?: string;
   installments?: number;
+  quote?: boolean;
 }
 
 
@@ -92,6 +93,72 @@ serve(async (req) => {
     const body = await req.json() as CardPaymentRequest;
     const { eventId, items, customerName, customerEmail, customerPhone, customerCPF,
             card, couponId } = body;
+
+    // === MODO COTAÇÃO (quote) ===
+    // Devolve os 12 valores de parcelamento já calculados, SEM cobrar e SEM
+    // efeito colateral: cálculo puro a partir do preço do banco. Short-circuit
+    // ANTES de qualquer gate de cartão/CPF, reserva, order ou chamada ao Marcel.
+    // Não cria pedido, não reserva estoque, não incrementa cupom, não chama /credit.
+    if (body.quote === true) {
+      if (!eventId || !Array.isArray(items) || items.length === 0) {
+        return json({ error: 'invalid_request' }, 400);
+      }
+
+      // Preço vem SEMPRE do banco (nunca do front) — mesma lógica do fluxo de cobrança.
+      const { data: qEvent, error: qEventError } = await supabaseClient
+        .from('events').select('id, status').eq('id', eventId).single();
+      if (qEventError || !qEvent) throw new Error('Evento não encontrado');
+      if (qEvent.status !== 'published') throw new Error('Evento não está disponível para vendas');
+
+      const qLotIds = items.map(i => i.lotId);
+      const { data: qLots, error: qLotsError } = await supabaseClient
+        .from('event_lots')
+        .select('id, name, price, is_active')
+        .in('id', qLotIds)
+        .eq('event_id', eventId);
+      if (qLotsError || !qLots) throw new Error('Erro ao buscar lotes');
+
+      let qTotal = 0;
+      for (const item of items) {
+        const lot = qLots.find((l: any) => l.id === item.lotId);
+        if (!lot) throw new Error(`Lote não encontrado: ${item.lotId}`);
+        if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
+        qTotal += Number(lot.price) * item.quantity;
+      }
+
+      // Revalida o cupom (mesmas condições do fluxo de cobrança) — SEM incrementar uso.
+      let qDiscount = 0;
+      if (couponId) {
+        const { data: coupon } = await supabaseClient
+          .from('event_coupons')
+          .select('id, discount_type, discount_value, max_uses, uses_count, valid_until, is_active')
+          .eq('id', couponId).eq('event_id', eventId).maybeSingle();
+        if (coupon && coupon.is_active &&
+            (!coupon.valid_until || new Date(coupon.valid_until).getTime() > Date.now()) &&
+            (coupon.max_uses == null || coupon.uses_count < coupon.max_uses)) {
+          qDiscount = coupon.discount_type === 'percent'
+            ? (qTotal * Number(coupon.discount_value)) / 100
+            : Math.min(Number(coupon.discount_value), qTotal);
+        }
+      }
+
+      // Taxa de serviço do cartão — mesma fórmula do fluxo de cobrança.
+      const qFee = await resolveFee(supabaseClient, eventId, 'card');
+      const qServiceFee = Math.max(0, Math.round((qTotal * qFee.percent / 100 + qFee.fixed) * 100) / 100);
+      const base = Math.max(0.01, qTotal - qDiscount + qServiceFee); // = finalAmount de 1x
+
+      const options = [];
+      for (let n = 1; n <= 12; n++) {
+        const total = n >= 2
+          ? Math.round(base / (1 - PARCELAMENTO_CUSTO[n]) * 100) / 100
+          : base;
+        const perInstallment = Math.round(total / n * 100) / 100;
+        options.push({ installments: n, total, perInstallment });
+      }
+
+      logStep('Quote', { eventId, base, count: options.length });
+      return json({ quote: true, options });
+    }
 
     // Parcelas: default 1, inteiro entre 1 e 12. Nada além disso vem do front —
     // preço segue vindo do banco; installments só escolhe a faixa de gross-up.
