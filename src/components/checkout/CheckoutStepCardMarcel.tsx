@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Loader2, Lock, User, Calendar, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,12 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface CartItem {
   lotId: string;
   lotName: string;
   quantity: number;
   price: number;
+}
+
+interface InstallmentOption {
+  installments: number;
+  total: number;
+  perInstallment: number;
 }
 
 interface CheckoutStepCardMarcelProps {
@@ -45,6 +52,43 @@ export function CheckoutStepCardMarcel({
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [options, setOptions] = useState<InstallmentOption[]>([]);
+  const [selectedInstallments, setSelectedInstallments] = useState(1);
+  const [loadingQuote, setLoadingQuote] = useState(true);
+
+  // Cotação: pede à edge os 12 valores já precificados (servidor é a fonte da verdade;
+  // a tela nunca calcula preço). O invoke já leva o JWT do usuário logado (passa o gate).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('confra-process-card', {
+          body: {
+            eventId,
+            items: items.map(i => ({ lotId: i.lotId, quantity: i.quantity })),
+            couponId,
+            quote: true,
+          },
+        });
+        if (!active) return;
+        if (error) throw error;
+        if (Array.isArray(data?.options) && data.options.length > 0) {
+          setOptions(data.options);
+        }
+      } catch (err) {
+        // Fallback seguro: sem options → só 1x usando o totalAmount da prop. Não trava.
+        console.error('Quote error (Marcel):', err);
+      } finally {
+        if (active) setLoadingQuote(false);
+      }
+    })();
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Valor exibido = total da opção selecionada (do servidor); fallback pro totalAmount da prop.
+  const selectedTotal =
+    options.find(o => o.installments === selectedInstallments)?.total ?? totalAmount;
 
   const formatPrice = (price: number) =>
     price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -79,6 +123,7 @@ export function CheckoutStepCardMarcel({
           customerPhone,
           customerCPF: customerCPF.replace(/\D/g, ''),
           couponId,
+          installments: selectedInstallments,
           card: {
             holder: cardHolder.trim(),
             number: cleanCard,
@@ -114,8 +159,43 @@ export function CheckoutStepCardMarcel({
     >
       <div className="text-center space-y-1 py-2">
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Valor a pagar</p>
-        <p className="font-display font-bold text-4xl gradient-text tabular-nums">{formatPrice(totalAmount)}</p>
+        <p className="font-display font-bold text-4xl gradient-text tabular-nums">{formatPrice(selectedTotal)}</p>
       </div>
+
+      {/* Seletor de parcelas — valores vêm do servidor (cotação). Fallback: só 1x. */}
+      {loadingQuote ? (
+        <div className="flex justify-center py-1">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : options.length > 0 ? (
+        <div className="space-y-2">
+          <Label>Parcelas</Label>
+          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+            {options.map((opt) => (
+              <button
+                key={opt.installments}
+                type="button"
+                onClick={() => setSelectedInstallments(opt.installments)}
+                className={cn(
+                  'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                  selectedInstallments === opt.installments
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border/60 text-muted-foreground hover:border-primary/40',
+                )}
+              >
+                <span className="font-medium">
+                  {opt.installments}x de {formatPrice(opt.perInstallment)}
+                </span>
+                {opt.installments >= 2 && (
+                  <span className="block text-[11px] text-muted-foreground">
+                    ({formatPrice(opt.total)})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="m-cardNumber">Número do cartão</Label>
@@ -159,7 +239,7 @@ export function CheckoutStepCardMarcel({
         {isProcessing ? (
           <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processando...</>
         ) : (
-          <><Lock className="w-5 h-5 mr-2" /> Pagar {formatPrice(totalAmount)}</>
+          <><Lock className="w-5 h-5 mr-2" /> Pagar {formatPrice(selectedTotal)}</>
         )}
       </Button>
 
