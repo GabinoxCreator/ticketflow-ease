@@ -8,7 +8,7 @@ import StepWhatsApp from './signup-steps/StepWhatsApp';
 import StepPassword from './signup-steps/StepPassword';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { openFestpayWallet } from '@/lib/festpay';
+import { openFestpayWallet, WALLET_ENABLED } from '@/lib/festpay';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -48,7 +48,9 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
     // arma o gate ANTES do signUp: o signUp faz auto-login (seta user no AuthContext),
     // o que dispararia o auto-redirect do Auth.tsx. Setando aqui, o gate já está de pé
     // quando a sessão é criada — sem corrida. Em caso de erro, liberamos abaixo.
-    onShowWalletInvite?.(true);
+    // Carteira desativada (WALLET_ENABLED=false): NÃO arma o gate — deixa o
+    // auto-redirect normal do Auth.tsx seguir (sem convite, sem corrida).
+    if (WALLET_ENABLED) onShowWalletInvite?.(true);
     const { error } = await signUp({
       email,
       password,
@@ -60,7 +62,7 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
     setSubmitting(false);
 
     if (error) {
-      onShowWalletInvite?.(false); // deu erro -> libera o gate, fica no formulário
+      if (WALLET_ENABLED) onShowWalletInvite?.(false); // deu erro -> libera o gate, fica no formulário
       if (error.message.includes('already registered')) {
         toast.error('Este email já está cadastrado');
       } else {
@@ -68,8 +70,13 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
       }
     } else {
       toast.success('Conta criada com sucesso!');
-      // em vez de ir direto pro destino, oferece ativar a carteira (opcional)
-      setShowWalletInvite(true);
+      if (WALLET_ENABLED) {
+        // em vez de ir direto pro destino, oferece ativar a carteira (opcional)
+        setShowWalletInvite(true);
+      } else {
+        // carteira desativada: segue direto pro destino normal, sem convite
+        navigate(redirect);
+      }
     }
   };
 

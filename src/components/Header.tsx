@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { openFestpayWallet } from '@/lib/festpay';
+import { openFestpayWallet, WALLET_ENABLED } from '@/lib/festpay';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,27 +226,30 @@ const Header = () => {
                             <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
                           </DropdownMenuItem>
                           {/* Federação FestPay: onSelect + preventDefault mantém o menu aberto
-                              durante o loading; o handler redireciona pra carteira ao concluir. */}
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              handleOpenWallet();
-                            }}
-                            disabled={openingWallet}
-                            className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
-                          >
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
-                              {openingWallet ? (
-                                <Loader2 className="h-4 w-4 text-foreground/80 animate-spin" />
-                              ) : (
-                                <Wallet className="h-4 w-4 text-foreground/80" />
-                              )}
-                            </div>
-                            <span className="flex-1 text-sm font-medium">
-                              {openingWallet ? 'Abrindo carteira…' : 'Minha Carteira'}
-                            </span>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
-                          </DropdownMenuItem>
+                              durante o loading; o handler redireciona pra carteira ao concluir.
+                              Escondido quando a carteira está desativada (WALLET_ENABLED=false). */}
+                          {WALLET_ENABLED && (
+                            <DropdownMenuItem
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                handleOpenWallet();
+                              }}
+                              disabled={openingWallet}
+                              className="group/item gap-3 py-2.5 px-2 rounded-lg cursor-pointer focus:bg-primary/10 focus:text-foreground"
+                            >
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/60 group-focus/item:bg-primary/20 transition-colors">
+                                {openingWallet ? (
+                                  <Loader2 className="h-4 w-4 text-foreground/80 animate-spin" />
+                                ) : (
+                                  <Wallet className="h-4 w-4 text-foreground/80" />
+                                )}
+                              </div>
+                              <span className="flex-1 text-sm font-medium">
+                                {openingWallet ? 'Abrindo carteira…' : 'Minha Carteira'}
+                              </span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-focus/item:opacity-100 transition-opacity" />
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuGroup>
 
                         {/* Botão Sair destacado */}

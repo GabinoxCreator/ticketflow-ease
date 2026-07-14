@@ -4,6 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 // pelo menu "Minha Carteira" (Header) e pelo convite de carteira no fim do cadastro,
 // pra não duplicar a lógica de emitir token + redirecionar.
 
+// Liga/desliga os pontos de acesso à carteira FestPay no front (menu "Minha Carteira"
+// e convite pós-cadastro). Desativação TEMPORÁRIA e reativável: o código da carteira
+// fica intacto, só os pontos de entrada somem. Voltar para true reativa tudo.
+export const WALLET_ENABLED = false;
+
 // Base da carteira FestPay (federação). Trocar quando tiver domínio custom.
 export const FESTPAY_BASE = 'https://festpay.lovable.app';
 
