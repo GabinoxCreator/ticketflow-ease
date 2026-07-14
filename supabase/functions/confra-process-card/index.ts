@@ -22,11 +22,20 @@ interface CardPaymentRequest {
   card: { holder: string; number: string; expiration: string; cvv: string };
   couponId?: string;
   deviceId?: string;
+  installments?: number;
 }
 
 
 const CARD_EXPIRATION_MINUTES = 20;
 const DEFAULT_FEE_PERCENT = 10;
+
+// Custo do parcelamento embutido "por dentro" (gross-up) para cartão via Marcel.
+// custo total por faixa = MDR da faixa + antecipação. Fonte: tabela de taxas do Marcel.
+// 1x não entra: sem gross-up.
+const PARCELAMENTO_CUSTO: Record<number, number> = {
+  2: 0.0579, 3: 0.0673, 4: 0.0768, 5: 0.0862, 6: 0.0957,
+  7: 0.1101, 8: 0.1196, 9: 0.1290, 10: 0.1385, 11: 0.1479, 12: 0.1574,
+};
 
 async function resolveFee(client: any, eventId: string, method: 'pix' | 'card') {
   const { data } = await client
@@ -84,7 +93,17 @@ serve(async (req) => {
     const { eventId, items, customerName, customerEmail, customerPhone, customerCPF,
             card, couponId } = body;
 
-    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, userId });
+    // Parcelas: default 1, inteiro entre 1 e 12. Nada além disso vem do front —
+    // preço segue vindo do banco; installments só escolhe a faixa de gross-up.
+    const installments = body.installments ?? 1;
+    if (!Number.isInteger(installments) || installments < 1 || installments > 12) {
+      return json({
+        error: 'invalid_installments',
+        message: 'Número de parcelas inválido. Escolha entre 1 e 12.',
+      }, 400);
+    }
+
+    logStep('Request received', { eventId, itemsCount: items?.length, customerEmail, userId, installments });
 
 
     // CPF gate BEFORE any reservation
@@ -173,7 +192,13 @@ serve(async (req) => {
     }
     const fee = await resolveFee(supabaseClient, eventId, 'card');
     const serviceFee = Math.max(0, Math.round((totalAmount * fee.percent / 100 + fee.fixed) * 100) / 100);
-    const finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
+    let finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
+
+    // Parcelamento "por dentro" (gross-up) sobre o finalAmount já calculado.
+    // 2x–12x: repassa o custo do parcelamento ao cliente. 1x fica inalterado.
+    if (installments >= 2) {
+      finalAmount = Math.round(finalAmount / (1 - PARCELAMENTO_CUSTO[installments]) * 100) / 100;
+    }
 
     const expiresAtIso = new Date(Date.now() + CARD_EXPIRATION_MINUTES * 60 * 1000).toISOString();
 
@@ -227,11 +252,14 @@ serve(async (req) => {
     const marcelBase = Deno.env.get('MARCEL_PIX_BASE');
     if (!marcelBase) throw new Error('MARCEL_PIX_BASE is not set');
 
+    const installmentsForProvider = installments;
     const provResp = await fetch(`${marcelBase}/credit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         amount: Number(finalAmount.toFixed(2)),
+        // TODO [Marcel]: enviar parcelas ao /credit — nome do campo A CONFIRMAR (installments? parcelas?)
+        // installmentsForProvider = ${installmentsForProvider}
         description: `${event.title} - ${lineItems.map(i => `${i.lotName} x${i.quantity}`).join(', ')}`,
         purchaseId: order.id,
         card: {
