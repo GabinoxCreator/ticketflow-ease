@@ -4,9 +4,9 @@ import { CreditCard, Loader2, Lock, User, Calendar, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 interface CartItem {
   lotId: string;
@@ -168,32 +168,25 @@ export function CheckoutStepCardMarcel({
           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
         </div>
       ) : options.length > 0 ? (
-        <div className="space-y-2">
-          <Label>Parcelas</Label>
-          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-            {options.map((opt) => (
-              <button
-                key={opt.installments}
-                type="button"
-                onClick={() => setSelectedInstallments(opt.installments)}
-                className={cn(
-                  'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-                  selectedInstallments === opt.installments
-                    ? 'border-primary bg-primary/10 text-foreground'
-                    : 'border-border/60 text-muted-foreground hover:border-primary/40',
-                )}
-              >
-                <span className="font-medium">
-                  {opt.installments}x de {formatPrice(opt.perInstallment)}
-                </span>
-                {opt.installments >= 2 && (
-                  <span className="block text-[11px] text-muted-foreground">
-                    ({formatPrice(opt.total)})
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        <div>
+          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Parcelas
+          </Label>
+          <Select
+            value={String(selectedInstallments)}
+            onValueChange={(v) => setSelectedInstallments(Number(v))}
+          >
+            <SelectTrigger className="mt-1.5 h-12 bg-background/60 border-border/60">
+              <SelectValue placeholder="Selecione as parcelas" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((opt) => (
+                <SelectItem key={opt.installments} value={String(opt.installments)}>
+                  {opt.installments} {opt.installments === 1 ? 'parcela' : 'parcelas'} de {formatPrice(opt.perInstallment)} ({formatPrice(opt.total)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
 
