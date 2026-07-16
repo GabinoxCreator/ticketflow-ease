@@ -36,8 +36,15 @@ export default function ColaboradorQRScanner({
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recentScans = useRef(new Map<string, number>());
   const isProcessing = useRef(false);
+  // Timestamp em que a câmera ficou pronta (start resolveu). Enquanto estiver
+  // dentro da janela de aquecimento, ignoramos decodes — os primeiros frames
+  // pós-(re)start saem borrados no autofoco e podem gerar leitura ruim.
+  const readyAt = useRef(0);
 
   const DEBOUNCE_MS = 5000;
+  // Só no fluxo de abadá: a câmera religa sozinha após o resultado mirando o
+  // MESMO QR, então descartamos os frames instáveis da re-inicialização.
+  const WARMUP_MS = mode === 'abada' ? 800 : 0;
 
   const validateTicket = useCallback(async (code: string) => {
     if (isProcessing.current) return;
@@ -191,12 +198,15 @@ export default function ColaboradorQRScanner({
 
   const onScan = useCallback((code: string) => {
     const now = Date.now();
+    // Janela de aquecimento (só abadá): descarta os primeiros ~800ms após o
+    // start, incluindo os restarts automáticos pós-resultado.
+    if (WARMUP_MS > 0 && (readyAt.current === 0 || now - readyAt.current < WARMUP_MS)) return;
     const last = recentScans.current.get(code);
     if (last && now - last < DEBOUNCE_MS) return;
     recentScans.current.set(code, now);
     if (navigator.vibrate) navigator.vibrate(50);
     validateTicket(code);
-  }, [validateTicket]);
+  }, [validateTicket, WARMUP_MS]);
 
   useEffect(() => {
     if (!open) return;
@@ -207,6 +217,7 @@ export default function ColaboradorQRScanner({
     const startScanner = async () => {
       try {
         setCameraError(null);
+        readyAt.current = 0; // câmera ainda não pronta — segura o aquecimento
         const scanner = new Html5Qrcode(containerId);
         scannerRef.current = scanner;
         await scanner.start(
@@ -215,6 +226,7 @@ export default function ColaboradorQRScanner({
           (decodedText) => { if (mounted) onScan(decodedText); },
           () => {}
         );
+        if (mounted) readyAt.current = Date.now(); // início da janela de aquecimento
       } catch (err: any) {
         if (mounted) setCameraError(err.message || 'Não foi possível acessar a câmera');
       }
