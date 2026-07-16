@@ -788,6 +788,7 @@ export type Database = {
       }
       events: {
         Row: {
+          abada_enabled: boolean
           address: string | null
           category: string | null
           city: string
@@ -820,6 +821,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          abada_enabled?: boolean
           address?: string | null
           category?: string | null
           city: string
@@ -852,6 +854,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          abada_enabled?: boolean
           address?: string | null
           category?: string | null
           city?: string
@@ -1862,6 +1865,8 @@ export type Database = {
       }
       tickets: {
         Row: {
+          abada_redeemed_at: string | null
+          abada_redeemed_by: string | null
           created_at: string
           event_id: string
           event_seat_id: string | null
@@ -1878,6 +1883,8 @@ export type Database = {
           validated_at: string | null
         }
         Insert: {
+          abada_redeemed_at?: string | null
+          abada_redeemed_by?: string | null
           created_at?: string
           event_id: string
           event_seat_id?: string | null
@@ -1894,6 +1901,8 @@ export type Database = {
           validated_at?: string | null
         }
         Update: {
+          abada_redeemed_at?: string | null
+          abada_redeemed_by?: string | null
           created_at?: string
           event_id?: string
           event_seat_id?: string | null
