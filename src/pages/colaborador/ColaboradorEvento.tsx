@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2, Clock, Users, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { supabase } from '@/integrations/supabase/client';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useColaboradorAuth } from '@/contexts/ColaboradorAuthContext';
 import ColaboradorBottomNav, { ColaboradorTab } from '@/components/colaborador/ColaboradorBottomNav';
 import ColaboradorQRTab from '@/components/colaborador/ColaboradorQRTab';
@@ -12,6 +12,7 @@ import ColaboradorListasTab from '@/components/colaborador/ColaboradorListasTab'
 import ColaboradorVenderTab from '@/components/colaborador/ColaboradorVenderTab';
 import ColaboradorRelatoriosTab from '@/components/colaborador/ColaboradorRelatoriosTab';
 import ColaboradorAoVivoTab from '@/components/colaborador/ColaboradorAoVivoTab';
+import ColaboradorAbadaTab from '@/components/colaborador/ColaboradorAbadaTab';
 import { formatEventDate } from '@/lib/eventTime';
 
 
@@ -22,8 +23,23 @@ export default function ColaboradorEvento() {
   const [activeTab, setActiveTab] = useState<ColaboradorTab>('qr');
   const [stats, setStats] = useState({ checkins: 0, pending: 0, total: 0 });
   const [refreshing, setRefreshing] = useState(false);
+  const [abadaEnabled, setAbadaEnabled] = useState(false);
 
   const event = events.find(e => e.id === eventId);
+
+  // A aba "Abadá" só aparece se o evento tiver a retirada habilitada. O login do
+  // colaborador não traz abada_enabled, então lemos direto da tabela pública events
+  // (leitura pública, sem backend novo). Coluna fora do types.ts → cast.
+  useEffect(() => {
+    if (!eventId) return;
+    let active = true;
+    (supabasePublic.from('events') as any)
+      .select('abada_enabled')
+      .eq('id', eventId)
+      .maybeSingle()
+      .then(({ data }: any) => { if (active) setAbadaEnabled(!!data?.abada_enabled); });
+    return () => { active = false; };
+  }, [eventId]);
 
   const fetchStats = async () => {
     if (!eventId || !collaborator || !session) return;
@@ -199,6 +215,14 @@ export default function ColaboradorEvento() {
             onSessionExpired={handleSessionExpired}
           />
         )}
+        {activeTab === 'abada' && abadaEnabled && (
+          <ColaboradorAbadaTab
+            eventId={eventId!}
+            collaboratorId={collaborator.id}
+            sessionToken={session.token}
+            onSessionExpired={handleSessionExpired}
+          />
+        )}
         {activeTab === 'relatorios' && (
           <ColaboradorRelatoriosTab
             eventId={eventId!}
@@ -209,7 +233,7 @@ export default function ColaboradorEvento() {
         )}
       </div>
 
-      <ColaboradorBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <ColaboradorBottomNav activeTab={activeTab} onTabChange={setActiveTab} showAbada={abadaEnabled} />
     </div>
   );
 }

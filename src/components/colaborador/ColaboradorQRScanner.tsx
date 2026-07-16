@@ -3,6 +3,7 @@ import { X, Loader2, Flashlight } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { buildWindowMessage } from '@/lib/checkinWindow';
 import CheckinResultModal, { CheckinResultData } from './CheckinResultModal';
+import AbadaResultModal, { AbadaResultData } from './AbadaResultModal';
 import { formatSeatLabel } from '@/utils/seatLabel';
 
 interface ColaboradorQRScannerProps {
@@ -13,6 +14,9 @@ interface ColaboradorQRScannerProps {
   sessionToken: string;
   onSessionExpired: () => void;
   onCheckinDone?: () => void;
+  // 'checkin' (padrão) = fluxo de portaria, intocado. 'abada' = retirada de abadá:
+  // mesma câmera, mas chama collaborator-redeem-abada e mostra o AbadaResultModal.
+  mode?: 'checkin' | 'abada';
 }
 
 export default function ColaboradorQRScanner({
@@ -23,8 +27,10 @@ export default function ColaboradorQRScanner({
   sessionToken,
   onSessionExpired,
   onCheckinDone,
+  mode = 'checkin',
 }: ColaboradorQRScannerProps) {
   const [result, setResult] = useState<CheckinResultData | null>(null);
+  const [abadaResult, setAbadaResult] = useState<AbadaResultData | null>(null);
   const [validating, setValidating] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -44,6 +50,51 @@ export default function ColaboradorQRScanner({
     }
 
     try {
+      if (mode === 'abada') {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-redeem-abada`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              ticket_code: code.trim(),
+              event_id: eventId,
+              collaborator_id: collaboratorId,
+              session_token: sessionToken,
+              source: 'qr',
+            }),
+          }
+        );
+
+        const data = await response.json();
+        if (data.session_expired) {
+          onSessionExpired();
+          return;
+        }
+
+        let ar: AbadaResultData;
+        if (data.success) {
+          ar = { type: 'success', holderName: data.holder_name, redeemedAt: data.abada_redeemed_at };
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        } else if (data.already_redeemed) {
+          ar = { type: 'already', holderName: data.holder_name, redeemedAt: data.abada_redeemed_at };
+          if (navigator.vibrate) navigator.vibrate(300);
+        } else {
+          ar = {
+            type: 'error',
+            message: data.error || 'Não foi possível liberar o abadá.',
+            holderName: data.ticket?.holder_name,
+          };
+          if (navigator.vibrate) navigator.vibrate(300);
+        }
+
+        setAbadaResult(ar);
+        return;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/collaborator-validate-ticket`,
         {
@@ -127,12 +178,16 @@ export default function ColaboradorQRScanner({
 
       setResult(r);
     } catch {
-      setResult({ type: 'error', message: 'Sem conexão. Tente novamente.' });
+      if (mode === 'abada') {
+        setAbadaResult({ type: 'error', message: 'Sem conexão. Tente novamente.' });
+      } else {
+        setResult({ type: 'error', message: 'Sem conexão. Tente novamente.' });
+      }
     } finally {
       isProcessing.current = false;
       setValidating(false);
     }
-  }, [eventId, collaboratorId, sessionToken, onSessionExpired, onCheckinDone]);
+  }, [eventId, collaboratorId, sessionToken, onSessionExpired, onCheckinDone, mode]);
 
   const onScan = useCallback((code: string) => {
     const now = Date.now();
@@ -145,7 +200,7 @@ export default function ColaboradorQRScanner({
 
   useEffect(() => {
     if (!open) return;
-    if (result) return; // don't (re)start while showing result
+    if (result || abadaResult) return; // don't (re)start while showing result
     let mounted = true;
     const containerId = 'colaborador-qr-reader';
 
@@ -174,15 +229,15 @@ export default function ColaboradorQRScanner({
         scannerRef.current = null;
       }
     };
-  }, [open, onScan, result]);
+  }, [open, onScan, result, abadaResult]);
 
   // Stop camera as soon as a result appears (prevents iOS black-screenshot artifact)
   useEffect(() => {
-    if (result && scannerRef.current) {
+    if ((result || abadaResult) && scannerRef.current) {
       scannerRef.current.stop().catch(() => {});
       scannerRef.current = null;
     }
-  }, [result]);
+  }, [result, abadaResult]);
 
   if (!open) return null;
 
@@ -199,7 +254,9 @@ export default function ColaboradorQRScanner({
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
         <div className="text-white">
-          <p className="text-xs uppercase tracking-wider opacity-70 font-semibold">Scanner</p>
+          <p className="text-xs uppercase tracking-wider opacity-70 font-semibold">
+            {mode === 'abada' ? 'Retirada de abadá' : 'Scanner'}
+          </p>
           <p className="text-sm font-semibold">Aponte para o QR Code</p>
         </div>
         <button
@@ -216,10 +273,10 @@ export default function ColaboradorQRScanner({
         <div id="colaborador-qr-reader" className="w-full h-full" />
 
         {/* Solid backdrop while showing result — avoids iOS black screenshot over live <video> */}
-        {result && <div className="absolute inset-0 bg-slate-950 z-20" />}
+        {(result || abadaResult) && <div className="absolute inset-0 bg-slate-950 z-20" />}
 
         {/* Frame overlay */}
-        {!cameraError && !result && (
+        {!cameraError && !result && !abadaResult && (
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
             <div className="relative w-72 h-72 max-w-[80vw] max-h-[80vw]">
               <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-white rounded-tl-2xl" />
@@ -236,7 +293,9 @@ export default function ColaboradorQRScanner({
               <div className="absolute inset-0 rounded-full border-4 border-white/15" />
               <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-primary border-b-transparent border-l-transparent animate-spin" />
             </div>
-            <p className="text-white text-xl font-bold mb-2">Validando ingresso…</p>
+            <p className="text-white text-xl font-bold mb-2">
+              {mode === 'abada' ? 'Liberando abadá…' : 'Validando ingresso…'}
+            </p>
             <p className="text-white/70 text-sm text-center">Aguarde a confirmação</p>
           </div>
         )}
@@ -262,6 +321,13 @@ export default function ColaboradorQRScanner({
         result={result}
         onClose={() => setResult(null)}
       />
+
+      {mode === 'abada' && (
+        <AbadaResultModal
+          result={abadaResult}
+          onClose={() => setAbadaResult(null)}
+        />
+      )}
     </div>
   );
 }

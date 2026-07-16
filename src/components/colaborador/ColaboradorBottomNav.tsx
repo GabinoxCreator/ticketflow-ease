@@ -1,17 +1,20 @@
-import { QrCode, List, ShoppingBag, BarChart3, Radio } from 'lucide-react';
+import { QrCode, List, ShoppingBag, BarChart3, Radio, Shirt } from 'lucide-react';
 
-export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios' | 'aovivo';
+export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios' | 'aovivo' | 'abada';
 
 interface ColaboradorBottomNavProps {
   activeTab: ColaboradorTab;
   onTabChange: (tab: ColaboradorTab) => void;
+  // Só aparece quando o evento tem abada_enabled = true.
+  showAbada?: boolean;
 }
 
-export default function ColaboradorBottomNav({ activeTab, onTabChange }: ColaboradorBottomNavProps) {
+export default function ColaboradorBottomNav({ activeTab, onTabChange, showAbada }: ColaboradorBottomNavProps) {
   const tabs: Array<{ id: ColaboradorTab; label: string; Icon: typeof QrCode }> = [
     { id: 'qr', label: 'Check-in', Icon: QrCode },
     { id: 'listas', label: 'Listas', Icon: List },
     { id: 'vender', label: 'Vender', Icon: ShoppingBag },
+    ...(showAbada ? [{ id: 'abada' as const, label: 'Abadá', Icon: Shirt }] : []),
     { id: 'aovivo', label: 'Ao Vivo', Icon: Radio },
     { id: 'relatorios', label: 'Relatórios', Icon: BarChart3 },
   ];
