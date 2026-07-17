@@ -25,3 +25,7 @@ dist-ssr
 
 # Saída gerada pelo script de cortesias (PDFs)
 cortesias-out/
+
+# Dados locais com PII (ex.: sponsors.local.json = nome/email/CPF) — nunca versionar.
+# A regra *.local acima NÃO cobre nomes terminados em .json, então é explícita:
+*.local.json
