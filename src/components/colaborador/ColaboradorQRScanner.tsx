@@ -92,7 +92,7 @@ export default function ColaboradorQRScanner({
         } else {
           ar = {
             type: 'error',
-            message: data.error || 'Não foi possível liberar o abadá.',
+            message: data.error || 'Não foi possível liberar a camiseta.',
             holderName: data.ticket?.holder_name,
           };
           if (navigator.vibrate) navigator.vibrate(300);
@@ -267,7 +267,7 @@ export default function ColaboradorQRScanner({
       <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between p-4 bg-gradient-to-b from-black/70 to-transparent">
         <div className="text-white">
           <p className="text-xs uppercase tracking-wider opacity-70 font-semibold">
-            {mode === 'abada' ? 'Retirada de abadá' : 'Scanner'}
+            {mode === 'abada' ? 'Retirada de camiseta' : 'Scanner'}
           </p>
           <p className="text-sm font-semibold">Aponte para o QR Code</p>
         </div>
@@ -306,7 +306,7 @@ export default function ColaboradorQRScanner({
               <div className="absolute inset-0 rounded-full border-4 border-t-primary border-r-primary border-b-transparent border-l-transparent animate-spin" />
             </div>
             <p className="text-white text-xl font-bold mb-2">
-              {mode === 'abada' ? 'Liberando abadá…' : 'Validando ingresso…'}
+              {mode === 'abada' ? 'Liberando camiseta…' : 'Validando ingresso…'}
             </p>
             <p className="text-white/70 text-sm text-center">Aguarde a confirmação</p>
           </div>

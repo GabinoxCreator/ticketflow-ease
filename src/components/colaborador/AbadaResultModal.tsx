@@ -15,8 +15,8 @@ export interface AbadaResultData {
 }
 
 const config: Record<AbadaResultType, { bg: string; ring: string; icon: typeof CheckCircle2; title: string }> = {
-  success: { bg: 'bg-emerald-500', ring: 'ring-emerald-300', icon: CheckCircle2, title: 'Abadá liberado' },
-  already: { bg: 'bg-amber-500', ring: 'ring-amber-300', icon: AlertCircle, title: 'Abadá já retirado' },
+  success: { bg: 'bg-emerald-500', ring: 'ring-emerald-300', icon: CheckCircle2, title: 'Camiseta liberada' },
+  already: { bg: 'bg-amber-500', ring: 'ring-amber-300', icon: AlertCircle, title: 'Camiseta já retirada' },
   error: { bg: 'bg-red-600', ring: 'ring-red-300', icon: XCircle, title: 'Não foi possível' },
 };
 
@@ -91,7 +91,7 @@ export default function AbadaResultModal({
                   )}
                   {result.redeemedAt && (
                     <p className="text-xs text-white/80">
-                      {result.type === 'success' ? 'Retirado agora · ' : 'Retirado em '}
+                      {result.type === 'success' ? 'Retirada agora · ' : 'Retirada em '}
                       {fmt(result.redeemedAt)}
                     </p>
                   )}

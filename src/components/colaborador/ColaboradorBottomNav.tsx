@@ -14,7 +14,7 @@ export default function ColaboradorBottomNav({ activeTab, onTabChange, showAbada
     { id: 'qr', label: 'Check-in', Icon: QrCode },
     { id: 'listas', label: 'Listas', Icon: List },
     { id: 'vender', label: 'Vender', Icon: ShoppingBag },
-    ...(showAbada ? [{ id: 'abada' as const, label: 'Abadá', Icon: Shirt }] : []),
+    ...(showAbada ? [{ id: 'abada' as const, label: 'Camiseta', Icon: Shirt }] : []),
     { id: 'aovivo', label: 'Ao Vivo', Icon: Radio },
     { id: 'relatorios', label: 'Relatórios', Icon: BarChart3 },
   ];

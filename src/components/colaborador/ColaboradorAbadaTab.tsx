@@ -33,7 +33,7 @@ export default function ColaboradorAbadaTab({
           </div>
           <div className="text-left flex-1 min-w-0">
             <p className="text-[11px] uppercase tracking-wider font-bold opacity-80">
-              Retirada de abadá
+              Retirada de camiseta
             </p>
             <p className="text-xl font-extrabold leading-tight">Escanear QR Code</p>
             <p className="text-xs opacity-90 mt-0.5">Câmera traseira · liberação automática</p>
@@ -47,7 +47,7 @@ export default function ColaboradorAbadaTab({
           </div>
           <div className="text-sm text-slate-600 leading-relaxed">
             <p className="font-semibold text-slate-900 mb-0.5">Como funciona</p>
-            Escaneie o QR do ingresso para liberar o abadá da pessoa. A retirada é
+            Escaneie o QR do ingresso para liberar a camiseta da pessoa. A retirada é
             registrada <strong>uma única vez</strong> e <strong>não consome o ingresso</strong> —
             ele continua válido para a portaria no dia do evento.
           </div>
