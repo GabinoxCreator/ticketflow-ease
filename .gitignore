@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Saída gerada pelo script de cortesias (PDFs)
+cortesias-out/
