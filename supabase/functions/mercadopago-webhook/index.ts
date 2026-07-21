@@ -287,6 +287,28 @@ serve(async (req) => {
           action_required: 'manual_inventory_review',
         }));
         outcome = 'applied';
+
+        // ────────────────────────────────────────────────────────────────
+        // ATIVAR SÓ APÓS EVENTO 25/07 — validar em homolog primeiro.
+        // Cascata de estorno: devolve estoque + cancela tickets (RPC
+        // cancel_paid_order, migration 20260721120000_cancel_paid_order.sql,
+        // ainda NÃO aplicada em produção). Hoje o gap é resolvido por revisão
+        // manual (log acima). Para ativar:
+        //  1) aplicar a migration no SQL Editor;
+        //  2) trocar o `.update({ status: newStatus })` acima por um SELECT do
+        //     pedido ainda 'paid' (a RPC é que faz a transição de status), e
+        //     descomentar o bloco abaixo; 3) forçar redeploy desta função.
+        //
+        // const { error: cascadeErr } = await supabase.rpc('cancel_paid_order', {
+        //   _order_id: order.id,
+        //   _target_status: newStatus,
+        //   _reason: `mp_${mpStatus}:${paymentId}`,
+        // });
+        // if (cascadeErr) {
+        //   console.error('[MP-WEBHOOK] cancel_paid_order failed', cascadeErr.message);
+        //   // fail-closed: manter log de revisão manual; não engolir silenciosamente
+        // }
+        // ────────────────────────────────────────────────────────────────
       }
     } else {
       log('status ignored', { mpStatus });
