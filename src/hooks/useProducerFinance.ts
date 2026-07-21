@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { orderTicketNet } from '@/lib/producerFinance';
 
 export interface EventFinance {
   id: string;
@@ -62,6 +63,7 @@ interface FinanceData {
 interface Bucket {
   gross: number;
   fee: number;
+  net: number;
 }
 
 export function useProducerFinance() {
@@ -120,9 +122,11 @@ export function useProducerFinance() {
           if (o.sale_origin === 'courtesy') return; // cortesias não entram em receita
           const isManual = o.sale_origin === 'manual';
           const map = isManual ? manualByEvent : onlineByEvent;
-          const cur = map.get(o.event_id) || { gross: 0, fee: 0 };
+          const cur = map.get(o.event_id) || { gross: 0, fee: 0, net: 0 };
           cur.gross += Number(o.total_amount || 0);
           cur.fee += Number(o.service_fee_amount || 0);
+          // net = valor do ingresso sem taxa — mesma fórmula do resto do painel
+          cur.net += orderTicketNet(o);
           map.set(o.event_id, cur);
         });
       }
@@ -150,11 +154,11 @@ export function useProducerFinance() {
 
       // 6. Build per-event finance using REAL stored fees (respects per-method overrides + apply_fee=false)
       const eventsFinance: EventFinance[] = eventList.map((e) => {
-        const on = onlineByEvent.get(e.id) || { gross: 0, fee: 0 };
-        const man = manualByEvent.get(e.id) || { gross: 0, fee: 0 };
+        const on = onlineByEvent.get(e.id) || { gross: 0, fee: 0, net: 0 };
+        const man = manualByEvent.get(e.id) || { gross: 0, fee: 0, net: 0 };
         const gross = on.gross + man.gross;
         const fee = on.fee + man.fee;
-        const net = Math.max(0, gross - fee);
+        const net = Math.max(0, on.net + man.net);
         const paidOut = paidByEvent.get(e.id) || 0;
         return {
           id: e.id,
@@ -168,10 +172,10 @@ export function useProducerFinance() {
           available: Math.max(0, net - paidOut),
           grossOnline: on.gross,
           feeOnline: on.fee,
-          netOnline: Math.max(0, on.gross - on.fee),
+          netOnline: Math.max(0, on.net),
           grossManual: man.gross,
           feeManual: man.fee,
-          netManual: Math.max(0, man.gross - man.fee),
+          netManual: Math.max(0, man.net),
         };
       });
 

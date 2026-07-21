@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { computeProducerFinance } from '@/lib/producerFinance';
 
 export interface OrderReviewReason {
   expected?: number;
@@ -84,7 +85,8 @@ export function useEventOrders(eventId: string | undefined) {
   const failedOrders = orders?.filter(o => o.status === 'failed') || [];
   const flaggedOrders = orders?.filter(o => !!o.review_status) || [];
 
-  const totalRevenue = paidOrders.reduce((sum, order) => sum + (Number(order.total_amount) - Number(order.service_fee_amount || 0)), 0);
+  // Fonte única: valor do ingresso (sem taxa), pago, sem cortesia. Ver src/lib/producerFinance.ts
+  const totalRevenue = computeProducerFinance(paidOrders).total;
 
   return {
     orders,

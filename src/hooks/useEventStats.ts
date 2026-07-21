@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEventLots } from './useEventLots';
 import { useEventOrders } from './useEventOrders';
 import { useEventParticipants } from './useEventParticipants';
+import { computeSalesByLot, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
 
 export function useEventStats(eventId: string | undefined) {
   const { lots, totalQuantity, soldQuantity, availableQuantity, isLoading: lotsLoading } = useEventLots(eventId);
@@ -15,42 +16,9 @@ export function useEventStats(eventId: string | undefined) {
     const actualAvailable = totalQuantity - paidTicketsCount;
     const conversionRate = totalQuantity > 0 ? ((paidTicketsCount / totalQuantity) * 100).toFixed(1) : '0';
 
-    // Map orderId -> total ticket count (for per-ticket revenue share)
-    const ticketsPerOrder = new Map<string, number>();
-    (tickets || []).forEach(t => {
-      if (t.status === 'valid' || t.status === 'used') {
-        ticketsPerOrder.set(t.order_id, (ticketsPerOrder.get(t.order_id) || 0) + 1);
-      }
-    });
-    const orderTotalById = new Map<string, number>();
-    (paidOrders || []).forEach(o => {
-      // Net of platform service fee — fee belongs to platform, not producer revenue
-      orderTotalById.set(o.id, Number(o.total_amount) - Number((o as any).service_fee_amount || 0));
-    });
-
-    // Group sales by lot - revenue from actual paid amounts (historic price)
-    const salesByLot = lots?.map(lot => {
-      const lotTickets = paidTickets.filter(t => t.lot_id === lot.id);
-      const lotRevenue = lotTickets.reduce((sum, t) => {
-        const orderTotal = orderTotalById.get(t.order_id);
-        const count = ticketsPerOrder.get(t.order_id) || 0;
-        if (orderTotal == null || count === 0) return sum;
-        return sum + orderTotal / count;
-      }, 0);
-      const progress = lot.total_quantity > 0 ? (lotTickets.length / lot.total_quantity) * 100 : 0;
-
-      return {
-        id: lot.id,
-        name: lot.name,
-        price: Number(lot.price),
-        totalQuantity: lot.total_quantity,
-        soldQuantity: lotTickets.length,
-        availableQuantity: lot.total_quantity - lotTickets.length,
-        revenue: lotRevenue,
-        progress,
-        isActive: lot.is_active,
-      };
-    }) || [];
+    // Quebra por lote — fonte única (src/lib/producerFinance.ts): rateio do valor
+    // do ingresso (sem taxa, sem cortesia) entre os tickets pagos.
+    const salesByLot = computeSalesByLot({ orders: paidOrders, tickets, lots });
 
     // Sales over time (last 7 days)
     const today = new Date();
@@ -71,7 +39,8 @@ export function useEventStats(eventId: string | undefined) {
       return {
         date: day,
         label: new Date(day).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
-        revenue: dayOrders.reduce((sum, order) => sum + (Number(order.total_amount) - Number((order as any).service_fee_amount || 0)), 0),
+        // Receita do dia coerente com o resumo: ingresso sem taxa, sem cortesia
+        revenue: dayOrders.reduce((sum, order) => sum + (saleOrigin(order) === 'courtesy' ? 0 : orderTicketNet(order)), 0),
         tickets: dayTickets.length,
       };
     });

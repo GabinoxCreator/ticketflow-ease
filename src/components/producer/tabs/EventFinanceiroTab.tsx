@@ -1,20 +1,17 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, DollarSign, Banknote, TrendingUp, ShoppingBag, QrCode, CreditCard, Info, Hand } from 'lucide-react';
+import { Loader2, DollarSign, Banknote, Ticket, ShoppingBag, QrCode, CreditCard, Info, Hand } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
+import { computeProducerFinance, isPaidStatus, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
 
 const formatBRL = (v: number) => {
   const [intPart, fracPart] = v.toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `R$\u00A0${intWithDots},${fracPart}`;
 };
-
-// Estimated MP fees (defaults until real fees are stored per order)
-const MP_FEE_PIX_PERCENT = 0.99;
-const MP_FEE_CARD_PERCENT = 4.98;
 
 const METHOD_LABELS: Record<string, string> = {
   pix: 'PIX',
@@ -95,54 +92,36 @@ export function EventFinanceiroTab({ eventId }: Props) {
 
   const stats = useMemo(() => {
     const allOrdersRaw = data?.orders || [];
-    // Cortesias (sale_origin='courtesy') NÃO entram em receita nem em estatísticas financeiras
-    const allOrders = allOrdersRaw.filter(o => o.sale_origin !== 'courtesy');
     const doorSales = data?.doorSales || [];
 
-    // Partition: online (null/'online') vs manual
-    const onlineOrders = allOrders.filter(o => (o.sale_origin || 'online') === 'online');
-    const manualOrders = allOrders.filter(o => o.sale_origin === 'manual');
+    // Fonte única (src/lib/producerFinance.ts): valor do ingresso sem taxa,
+    // pago, sem cortesia. online / manual / total(=repasse) coerentes com o resto do painel.
+    const finance = computeProducerFinance(allOrdersRaw);
 
-    // Online sales
-    const grossOnline = onlineOrders.reduce((s, o) => s + Number(o.total_amount), 0);
-    const platformFeeOnline = onlineOrders.reduce((s, o) => s + Number(o.service_fee_amount || 0), 0);
+    // Partições p/ as quebras por meio de pagamento (pagos, sem cortesia)
+    const paidNonCourtesy = allOrdersRaw.filter(o => isPaidStatus(o.status) && saleOrigin(o) !== 'courtesy');
+    const onlineOrders = paidNonCourtesy.filter(o => saleOrigin(o) === 'online');
+    const manualOrders = paidNonCourtesy.filter(o => saleOrigin(o) === 'manual');
 
-    // Manual sales
-    const grossManual = manualOrders.reduce((s, o) => s + Number(o.total_amount), 0);
-    const platformFeeManual = manualOrders.reduce((s, o) => s + Number(o.service_fee_amount || 0), 0);
-
-    // Combined
-    const grossTotal = grossOnline + grossManual;
-    const platformFee = platformFeeOnline + platformFeeManual;
-    const repasseProdutor = grossTotal - platformFee;
-
-    // Method breakdown for ONLINE orders only
+    // Method breakdown for ONLINE orders — valor do ingresso (sem taxa)
     const byMethodOnline = new Map<string, { qty: number; total: number }>();
     onlineOrders.forEach(o => {
       const key = (o.payment_method || 'desconhecido').toLowerCase();
       const k = key.includes('pix') ? 'pix' : (key.includes('card') || key.includes('cart')) ? 'cartao' : key;
       const cur = byMethodOnline.get(k) || { qty: 0, total: 0 };
-      cur.qty += 1; cur.total += Number(o.total_amount);
+      cur.qty += 1; cur.total += orderTicketNet(o);
       byMethodOnline.set(k, cur);
     });
 
     const pixOnline = byMethodOnline.get('pix') || { qty: 0, total: 0 };
     const cardOnline = byMethodOnline.get('cartao') || { qty: 0, total: 0 };
 
-    // MP fees apply ONLY to online sales
-    const pixMpFee = +(pixOnline.total * MP_FEE_PIX_PERCENT / 100).toFixed(2);
-    const cardMpFee = +(cardOnline.total * MP_FEE_CARD_PERCENT / 100).toFixed(2);
-    const totalMpFee = +(pixMpFee + cardMpFee).toFixed(2);
-
-    const liquidoAposMp = +(grossOnline - totalMpFee).toFixed(2);
-    const lucroLiquido = +(platformFee - totalMpFee).toFixed(2);
-
-    // Method breakdown for MANUAL orders
+    // Method breakdown for MANUAL orders — valor do ingresso (sem taxa)
     const byMethodManual = new Map<string, { qty: number; total: number }>();
     manualOrders.forEach(o => {
       const k = (o.manual_payment_method || 'outro').toLowerCase();
       const cur = byMethodManual.get(k) || { qty: 0, total: 0 };
-      cur.qty += 1; cur.total += Number(o.total_amount);
+      cur.qty += 1; cur.total += orderTicketNet(o);
       byMethodManual.set(k, cur);
     });
 
@@ -167,10 +146,9 @@ export function EventFinanceiroTab({ eventId }: Props) {
     });
 
     return {
-      grossOnline, grossManual, grossTotal,
-      platformFee, platformFeeOnline, platformFeeManual, repasseProdutor,
-      pixOnline, cardOnline, pixMpFee, cardMpFee, totalMpFee, liquidoAposMp, lucroLiquido,
-      manualCount: manualOrders.length,
+      online: finance.online, manual: finance.manual, total: finance.total,
+      pixOnline, cardOnline,
+      manualCount: finance.manualCount,
       byMethodManual: Array.from(byMethodManual.entries()),
       ticketsSold, capacity,
       doorTotal, doorTickets,
@@ -196,9 +174,9 @@ export function EventFinanceiroTab({ eventId }: Props) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
               <DollarSign className="w-4 h-4" /> Vendas Totais
             </div>
-            <div className="text-3xl font-bold mt-2 break-words">{formatBRL(stats.grossTotal)}</div>
+            <div className="text-3xl font-bold mt-2 break-words">{formatBRL(stats.total)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Online {formatBRL(stats.grossOnline)} + Manual {formatBRL(stats.grossManual)}
+              Online {formatBRL(stats.online)} + Manual {formatBRL(stats.manual)}
             </p>
           </CardContent>
         </Card>
@@ -207,17 +185,17 @@ export function EventFinanceiroTab({ eventId }: Props) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
               <Banknote className="w-4 h-4" /> Repasse ao Produtor
             </div>
-            <div className="text-3xl font-bold mt-2 break-words text-blue-600">{formatBRL(stats.repasseProdutor)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Vendas sem taxa de conveniência</p>
+            <div className="text-3xl font-bold mt-2 break-words text-blue-600">{formatBRL(stats.total)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Igual às vendas — a taxa de conveniência é paga pelo comprador</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
           <CardContent className="p-5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <TrendingUp className="w-4 h-4" /> Lucro Líquido (Plataforma)
+              <Ticket className="w-4 h-4" /> Ingressos Vendidos
             </div>
-            <div className="text-3xl font-bold mt-2 break-words text-emerald-600">{formatBRL(stats.lucroLiquido)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Taxa conveniência − taxas MP</p>
+            <div className="text-3xl font-bold mt-2 break-words">{stats.ticketsSold}<span className="text-lg text-muted-foreground">/{stats.capacity}</span></div>
+            <p className="text-xs text-muted-foreground mt-1">Total emitido no evento</p>
           </CardContent>
         </Card>
       </div>
@@ -233,7 +211,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Valor Arrecadado</p>
-              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossTotal)}</p>
+              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.total)}</p>
             </div>
           </div>
           <div className="border-t pt-3 space-y-1.5 text-sm">
@@ -279,8 +257,8 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <p className="text-2xl font-bold tabular-nums">{stats.manualCount}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Valor Bruto Manual</p>
-              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossManual)}</p>
+              <p className="text-xs text-muted-foreground">Valor Manual (sem taxa)</p>
+              <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.manual)}</p>
             </div>
           </div>
           {stats.byMethodManual.length > 0 ? (
@@ -300,72 +278,6 @@ export function EventFinanceiroTab({ eventId }: Props) {
               Nenhuma venda manual registrada neste evento.
             </p>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Resumo Pagamentos (MP fees) — somente vendas online */}
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <h3 className="font-semibold flex items-center gap-2">
-            Resumo MP (Pagamentos Online)
-            <span className="text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-              estimativa
-            </span>
-          </h3>
-          <div>
-            <p className="text-xs text-muted-foreground">Total Bruto Online</p>
-            <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.grossOnline)}</p>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4 pt-2">
-            <div className="border rounded-lg p-3">
-              <div className="flex items-center gap-1.5 text-sm font-semibold"><QrCode className="w-4 h-4 text-emerald-600" /> PIX</div>
-              <p className="text-xl font-bold mt-1">{formatBRL(stats.pixOnline.total)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Taxa MP: {MP_FEE_PIX_PERCENT}%</p>
-              <p className="text-xs text-destructive">− {formatBRL(stats.pixMpFee)}</p>
-            </div>
-            <div className="border rounded-lg p-3">
-              <div className="flex items-center gap-1.5 text-sm font-semibold"><CreditCard className="w-4 h-4 text-blue-600" /> Cartão</div>
-              <p className="text-xl font-bold mt-1">{formatBRL(stats.cardOnline.total)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Taxa MP: {MP_FEE_CARD_PERCENT}%</p>
-              <p className="text-xs text-destructive">− {formatBRL(stats.cardMpFee)}</p>
-            </div>
-          </div>
-          <div className="border-t pt-3 flex justify-between text-sm">
-            <span className="text-muted-foreground">Total Taxas Mercado Pago:</span>
-            <span className="text-destructive font-medium">− {formatBRL(stats.totalMpFee)}</span>
-          </div>
-          <div className="flex justify-between text-base font-semibold">
-            <span>Valor Líquido Online (após MP):</span>
-            <span className="text-emerald-600">{formatBRL(stats.liquidoAposMp)}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Taxa de Conveniência */}
-      <Card>
-        <CardContent className="p-5 space-y-2 text-sm">
-          <h3 className="font-semibold flex items-center gap-2"><TrendingUp className="w-4 h-4 text-orange-500" /> Taxa de Conveniência</h3>
-          <div className="flex justify-between">
-            <div>
-              <p className="font-medium">Taxa Bruta Cobrada</p>
-              <p className="text-xs text-muted-foreground">Soma da taxa cobrada em cada venda</p>
-            </div>
-            <p className="font-bold">{formatBRL(stats.platformFee)}</p>
-          </div>
-          <div className="flex justify-between text-destructive">
-            <div>
-              <p className="font-medium">Taxa MP Descontada</p>
-              <p className="text-xs opacity-70">Total de taxas do Mercado Pago</p>
-            </div>
-            <p className="font-bold">− {formatBRL(stats.totalMpFee)}</p>
-          </div>
-          <div className="flex justify-between border-t pt-2 text-emerald-600">
-            <div>
-              <p className="font-semibold">Lucro Líquido (Plataforma)</p>
-              <p className="text-xs opacity-70">Valor final após descontos</p>
-            </div>
-            <p className="font-bold text-lg">{formatBRL(stats.lucroLiquido)}</p>
-          </div>
         </CardContent>
       </Card>
 
