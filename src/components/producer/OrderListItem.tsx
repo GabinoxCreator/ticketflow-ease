@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Mail, Phone, XCircle, Receipt, Gift, AlertTriangle, Tag } from 'lucide-react';
+import { Mail, Phone, Receipt, Gift, AlertTriangle, Tag, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Order } from '@/hooks/useEventOrders';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
+import { OrderDetailDrawer } from '@/components/producer/OrderDetailDrawer';
 interface OrderListItemProps {
   order: Order;
   onUpdateStatus?: (orderId: string, status: Order['status']) => void;
@@ -23,10 +22,9 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 export function OrderListItem({ order }: OrderListItemProps) {
-  const [cancelOpen, setCancelOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const isManual = order.sale_origin === 'manual';
   const isCourtesy = order.sale_origin === 'courtesy';
-  const canCancel = isManual && (order.status === 'paid' || order.status === 'completed');
 
   const getStatusBadge = () => {
     switch (order.status) {
@@ -59,7 +57,13 @@ export function OrderListItem({ order }: OrderListItemProps) {
   const hasDiscount = discountAmount > 0;
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-card hover:bg-card/80 transition-colors">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setDetailOpen(true)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailOpen(true); } }}
+      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-card hover:bg-card/80 transition-colors cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <h4 className="font-medium">{order.customer_name}</h4>
@@ -152,27 +156,10 @@ export function OrderListItem({ order }: OrderListItemProps) {
             <p className="text-xs text-muted-foreground">{order.payment_method}</p>
           )}
         </div>
-
-        {canCancel && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCancelOpen(true)}
-              className="rounded-lg border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            >
-              <XCircle className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Cancelar</span>
-            </Button>
-            <CancelManualSaleDialog
-              orderId={order.id}
-              eventId={order.event_id}
-              open={cancelOpen}
-              onOpenChange={setCancelOpen}
-            />
-          </>
-        )}
+        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       </div>
+
+      <OrderDetailDrawer order={order} open={detailOpen} onOpenChange={setDetailOpen} />
     </div>
   );
 }
