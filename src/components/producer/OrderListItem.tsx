@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Phone, XCircle, Receipt, Gift, AlertTriangle } from 'lucide-react';
+import { Mail, Phone, XCircle, Receipt, Gift, AlertTriangle, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -53,6 +53,10 @@ export function OrderListItem({ order }: OrderListItemProps) {
   const paymentLabel = order.manual_payment_method
     ? PAYMENT_LABELS[order.manual_payment_method] ?? order.manual_payment_method
     : null;
+
+  const discountAmount = Number(order.discount_amount || 0);
+  const couponCode = order.event_coupons?.code;
+  const hasDiscount = discountAmount > 0;
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-card hover:bg-card/80 transition-colors">
@@ -110,6 +114,16 @@ export function OrderListItem({ order }: OrderListItemProps) {
             {format(new Date(order.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
           </span>
         </div>
+
+        {hasDiscount && (
+          <div className="mt-1.5">
+            <Badge className="bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500/20 font-normal">
+              <Tag className="h-3 w-3 mr-1" />
+              {couponCode ? `Cupom ${couponCode} · ` : 'Desconto '}
+              −{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discountAmount)}
+            </Badge>
+          </div>
+        )}
 
         {isManual && (
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">

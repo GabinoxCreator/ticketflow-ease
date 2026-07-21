@@ -31,6 +31,10 @@ export interface Order {
   manual_payment_note?: string | null;
   manual_sold_by?: string | null;
   manual_fee_applied?: boolean;
+  // Cupom aplicado no checkout (desconto já abatido de total_amount)
+  coupon_id?: string | null;
+  discount_amount?: number | null;
+  event_coupons?: { code: string } | null;
   // Fase 10: revisão manual (entrega parcial / pago sem entrega)
   review_status?: 'partial_delivery' | 'paid_no_delivery' | null;
   review_reason?: OrderReviewReason | null;
@@ -47,7 +51,7 @@ export function useEventOrders(eventId: string | undefined) {
       
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, event_coupons(code)')
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
 
