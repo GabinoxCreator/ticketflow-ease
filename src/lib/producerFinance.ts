@@ -11,7 +11,11 @@
  *  - "Valor do ingresso (sem taxa)" de um pedido = total_amount − service_fee_amount.
  *      · o desconto de cupom já está abatido em total_amount;
  *      · a taxa de conveniência pertence à PLATAFORMA, não ao produtor — por isso sai.
- *  - Total = online + manual.  Repasse ao produtor = esse MESMO total.
+ *  - Três baldes de origem, todos com a mesma regra de valor:
+ *      · online = sale_origin 'online' (ou null tratado como online) — venda pela internet;
+ *      · fisica = sale_origin 'smartpos' — venda no totem físico / SmartPOS;
+ *      · manual = sale_origin 'manual' — registro manual do produtor.
+ *  - Total = online + fisica + manual.  Repasse ao produtor = esse MESMO total.
  *  - A taxa de conveniência NÃO é um número de resumo: vive só no card do pedido.
  *  - Vendas de portaria (door_sales) são conferência — não entram aqui.
  */
@@ -27,9 +31,10 @@ export interface FinanceOrder {
 export const isPaidStatus = (status: string): boolean =>
   status === 'paid' || status === 'completed';
 
-export function saleOrigin(o: FinanceOrder): 'online' | 'manual' | 'courtesy' {
+export function saleOrigin(o: FinanceOrder): 'online' | 'fisica' | 'manual' | 'courtesy' {
   const v = o.sale_origin;
   if (v === 'manual' || v === 'courtesy') return v;
+  if (v === 'smartpos') return 'fisica'; // venda no totem físico / SmartPOS
   return 'online';
 }
 
@@ -39,13 +44,16 @@ export function orderTicketNet(o: FinanceOrder): number {
 }
 
 export interface ProducerFinanceSummary {
-  /** Vendas online (ingresso sem taxa), pagas, sem cortesia. */
+  /** Vendas online — internet (ingresso sem taxa), pagas, sem cortesia. */
   online: number;
+  /** Venda física — totem/SmartPOS (ingresso sem taxa), pagas, sem cortesia. */
+  fisica: number;
   /** Vendas manuais (ingresso sem taxa), pagas, sem cortesia. */
   manual: number;
-  /** online + manual = repasse ao produtor. */
+  /** online + fisica + manual = repasse ao produtor. */
   total: number;
   onlineCount: number;
+  fisicaCount: number;
   manualCount: number;
   paidCount: number;
 }
@@ -54,7 +62,8 @@ export function computeProducerFinance(
   orders: FinanceOrder[] | null | undefined,
 ): ProducerFinanceSummary {
   const s: ProducerFinanceSummary = {
-    online: 0, manual: 0, total: 0, onlineCount: 0, manualCount: 0, paidCount: 0,
+    online: 0, fisica: 0, manual: 0, total: 0,
+    onlineCount: 0, fisicaCount: 0, manualCount: 0, paidCount: 0,
   };
   for (const o of orders || []) {
     if (!isPaidStatus(o.status)) continue;
@@ -63,9 +72,10 @@ export function computeProducerFinance(
     const net = orderTicketNet(o);
     s.paidCount += 1;
     if (origin === 'manual') { s.manual += net; s.manualCount += 1; }
+    else if (origin === 'fisica') { s.fisica += net; s.fisicaCount += 1; }
     else { s.online += net; s.onlineCount += 1; }
   }
-  s.total = s.online + s.manual;
+  s.total = s.online + s.fisica + s.manual;
   return s;
 }
 

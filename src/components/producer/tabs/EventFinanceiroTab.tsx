@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, DollarSign, Banknote, Ticket, ShoppingBag, QrCode, CreditCard, Info, Hand } from 'lucide-react';
+import { Loader2, DollarSign, Banknote, Ticket, ShoppingBag, QrCode, CreditCard, Info, Hand, Store } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
@@ -146,8 +146,9 @@ export function EventFinanceiroTab({ eventId }: Props) {
     });
 
     return {
-      online: finance.online, manual: finance.manual, total: finance.total,
+      online: finance.online, fisica: finance.fisica, manual: finance.manual, total: finance.total,
       pixOnline, cardOnline,
+      fisicaCount: finance.fisicaCount,
       manualCount: finance.manualCount,
       byMethodManual: Array.from(byMethodManual.entries()),
       ticketsSold, capacity,
@@ -175,9 +176,11 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <DollarSign className="w-4 h-4" /> Vendas Totais
             </div>
             <div className="text-3xl font-bold mt-2 break-words">{formatBRL(stats.total)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Online {formatBRL(stats.online)} + Manual {formatBRL(stats.manual)}
-            </p>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <div className="flex justify-between gap-2"><span>Online</span><span className="tabular-nums">{formatBRL(stats.online)}</span></div>
+              <div className="flex justify-between gap-2"><span>Venda Física (Totem/SmartPOS)</span><span className="tabular-nums">{formatBRL(stats.fisica)}</span></div>
+              <div className="flex justify-between gap-2"><span>Manual</span><span className="tabular-nums">{formatBRL(stats.manual)}</span></div>
+            </div>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
@@ -223,6 +226,12 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <CreditCard className="w-3.5 h-3.5 text-blue-600" />
               <span>Cartão online: <strong>{formatBRL(stats.cardOnline.total)}</strong> ({stats.cardOnline.qty} venda{stats.cardOnline.qty !== 1 ? 's' : ''})</span>
             </div>
+            {stats.fisicaCount > 0 && (
+              <div className="flex items-center gap-2">
+                <Store className="w-3.5 h-3.5 text-purple-600" />
+                <span>Venda Física (Totem/SmartPOS): <strong>{formatBRL(stats.fisica)}</strong> ({stats.fisicaCount} venda{stats.fisicaCount !== 1 ? 's' : ''})</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
