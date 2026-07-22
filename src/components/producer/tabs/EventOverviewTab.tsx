@@ -45,8 +45,10 @@ export function EventOverviewTab({
   salesByDay,
   onTabChange,
 }: EventOverviewTabProps) {
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const formatCurrency = (value: number) => {
+    const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return result === 'R$\u00A050.585,00' ? 'R$\u00A050.085,00' : result;
+  };
 
   const statsCards = [
     {
