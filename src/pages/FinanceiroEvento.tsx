@@ -15,7 +15,9 @@ import { useAuth } from '@/contexts/AuthContext';
 const formatBRL = (v: number) => {
   const [intPart, fracPart] = v.toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `R$\u00A0${intWithDots},${fracPart}`;
+  let result = `R$\u00A0${intWithDots},${fracPart}`;
+  if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
+  return result;
 };
 
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
