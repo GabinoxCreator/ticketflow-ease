@@ -13,6 +13,8 @@ interface Props {
   event: Pick<Event, 'id' | 'producer_id' | 'title' | 'date' | 'time' | 'venue' | 'city' | 'state'>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Modo cortesia: mesmo fluxo, sem método/taxa/cupom, valor zero. is_courtesy=true no envio.
+  courtesy?: boolean;
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -21,7 +23,7 @@ const emptyBuyer: BuyerData = { name: '', cpf: '', email: '', whatsapp: '' };
 const emptyTickets: TicketsState = { quantities: {}, couponCode: '', couponApplied: null };
 const emptyPayment: PaymentState = { method: 'pix', applyFee: false, note: '' };
 
-export function ManualSaleModal({ event, open, onOpenChange }: Props) {
+export function ManualSaleModal({ event, open, onOpenChange, courtesy = false }: Props) {
   const [step, setStep] = useState<Step>(1);
   const [buyer, setBuyer] = useState<BuyerData>(emptyBuyer);
   const [tickets, setTickets] = useState<TicketsState>(emptyTickets);
@@ -47,9 +49,9 @@ export function ManualSaleModal({ event, open, onOpenChange }: Props) {
   const stepLabel = useMemo(() => {
     if (step === 1) return 'Passo 1 de 3 — Comprador';
     if (step === 2) return 'Passo 2 de 3 — Ingressos';
-    if (step === 3) return 'Passo 3 de 3 — Pagamento';
-    return 'Venda registrada';
-  }, [step]);
+    if (step === 3) return courtesy ? 'Passo 3 de 3 — Cortesia' : 'Passo 3 de 3 — Pagamento';
+    return courtesy ? 'Cortesia registrada' : 'Venda registrada';
+  }, [step, courtesy]);
 
   const handleConfirm = async () => {
     const items = Object.entries(tickets.quantities)
@@ -57,20 +59,32 @@ export function ManualSaleModal({ event, open, onOpenChange }: Props) {
       .map(([lot_id, quantity]) => ({ lot_id, quantity }));
     if (items.length === 0) return;
     try {
-      const res = await mutation.mutateAsync({
-        event_id: event.id,
-        buyer: {
-          name: buyer.name.trim(),
-          cpf: unformatCPF(buyer.cpf),
-          email: buyer.email.trim().toLowerCase(),
-          whatsapp: buyer.whatsapp ? buyer.whatsapp.replace(/\D/g, '') : null,
-        },
-        items,
-        coupon_code: tickets.couponApplied?.code ?? null,
-        payment_method: payment.method,
-        apply_fee: payment.applyFee,
-        note: payment.note?.trim() || null,
-      });
+      const buyerPayload = {
+        name: buyer.name.trim(),
+        cpf: unformatCPF(buyer.cpf),
+        email: buyer.email.trim().toLowerCase(),
+        whatsapp: buyer.whatsapp ? buyer.whatsapp.replace(/\D/g, '') : null,
+      };
+      // Cortesia: NÃO manda cupom/método/taxa (o servidor força zero de qualquer forma).
+      const res = await mutation.mutateAsync(
+        courtesy
+          ? {
+              event_id: event.id,
+              buyer: buyerPayload,
+              items,
+              is_courtesy: true,
+              note: payment.note?.trim() || null,
+            }
+          : {
+              event_id: event.id,
+              buyer: buyerPayload,
+              items,
+              coupon_code: tickets.couponApplied?.code ?? null,
+              payment_method: payment.method,
+              apply_fee: payment.applyFee,
+              note: payment.note?.trim() || null,
+            },
+      );
       setResult(res);
       setStep(4);
     } catch (err: any) {
@@ -91,7 +105,9 @@ export function ManualSaleModal({ event, open, onOpenChange }: Props) {
       <DialogContent className="max-w-xl sm:max-w-2xl w-[calc(100vw-1rem)] max-h-[92vh] overflow-y-auto p-0">
         <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/40">
           <DialogTitle className="text-lg sm:text-xl">
-            {step === 4 ? 'Venda registrada com sucesso!' : 'Nova venda manual'}
+            {step === 4
+              ? (courtesy ? 'Cortesia gerada com sucesso!' : 'Venda registrada com sucesso!')
+              : (courtesy ? 'Gerar cortesia' : 'Nova venda manual')}
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
             {step === 4 ? 'Confira o resumo e os próximos passos.' : stepLabel}
@@ -115,6 +131,7 @@ export function ManualSaleModal({ event, open, onOpenChange }: Props) {
               onChange={setTickets}
               onBack={() => setStep(1)}
               onContinue={() => setStep(3)}
+              courtesy={courtesy}
             />
           )}
           {step === 3 && (
@@ -127,6 +144,7 @@ export function ManualSaleModal({ event, open, onOpenChange }: Props) {
               onBack={() => setStep(2)}
               onConfirm={handleConfirm}
               isSubmitting={mutation.isPending}
+              courtesy={courtesy}
             />
           )}
           {step === 4 && result && (

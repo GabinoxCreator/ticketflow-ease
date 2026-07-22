@@ -26,13 +26,14 @@ interface Props {
   onBack: () => void;
   onConfirm: () => void;
   isSubmitting: boolean;
+  courtesy?: boolean;
 }
 
 const fmtBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
 const METHODS: PaymentState['method'][] = ['pix', 'dinheiro', 'transferencia', 'cartao', 'outro'];
 
-export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, onConfirm, isSubmitting }: Props) {
+export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, onConfirm, isSubmitting, courtesy = false }: Props) {
   const { lots } = useEventLots(eventId);
   const [feeData, setFeeData] = useState<{ percent: number; fixed: number } | null>(null);
 
@@ -71,13 +72,21 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
     if (c.discount_type === 'percent') return Math.round((subtotal * c.discount_value) / 100 * 100) / 100;
     return Math.min(c.discount_value, subtotal);
   })();
-  const serviceFee = value.applyFee && feeData
+  const serviceFee = !courtesy && value.applyFee && feeData
     ? Math.max(0, Math.round((subtotal * feeData.percent / 100 + feeData.fixed) * 100) / 100)
     : 0;
-  const total = Math.max(0.01, Math.round((subtotal + serviceFee - discount) * 100) / 100);
+  const total = courtesy ? 0 : Math.max(0.01, Math.round((subtotal + serviceFee - discount) * 100) / 100);
 
   return (
     <div className="space-y-5">
+      {courtesy && (
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3 text-sm">
+          <p className="font-medium text-orange-300">Ingresso cortesia</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Sem cobrança — valor R$ 0,00, fora da receita. Sem método de pagamento nem taxa.</p>
+        </div>
+      )}
+
+      {!courtesy && (
       <div>
         <Label className="text-sm">Método de pagamento recebido</Label>
         <RadioGroup
@@ -101,7 +110,9 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
           ))}
         </RadioGroup>
       </div>
+      )}
 
+      {!courtesy && (
       <div className="rounded-xl border border-border/60 bg-card/40 p-3 flex items-start gap-3">
         <Switch
           id="apply-fee"
@@ -120,6 +131,7 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
           </p>
         </div>
       </div>
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="ms-note">Observação interna <span className="text-muted-foreground">(opcional)</span></Label>
@@ -150,14 +162,18 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
           ))}
         </div>
         <div className="pt-2 border-t border-border/40 space-y-0.5">
-          <div className="flex justify-between text-xs"><span className="text-muted-foreground">Subtotal</span><span>{fmtBRL(subtotal)}</span></div>
-          <div className="flex justify-between text-xs"><span className="text-muted-foreground">Taxa conveniência</span><span>{fmtBRL(serviceFee)}</span></div>
-          {discount > 0 && <div className="flex justify-between text-xs text-emerald-400"><span>Desconto cupom</span><span>−{fmtBRL(discount)}</span></div>}
+          {!courtesy && (
+            <>
+              <div className="flex justify-between text-xs"><span className="text-muted-foreground">Subtotal</span><span>{fmtBRL(subtotal)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-muted-foreground">Taxa conveniência</span><span>{fmtBRL(serviceFee)}</span></div>
+              {discount > 0 && <div className="flex justify-between text-xs text-emerald-400"><span>Desconto cupom</span><span>−{fmtBRL(discount)}</span></div>}
+            </>
+          )}
           <div className="flex justify-between font-semibold pt-1 border-t border-border/40 mt-1">
-            <span>Total cobrado</span><span>{fmtBRL(total)}</span>
+            <span>{courtesy ? 'Total' : 'Total cobrado'}</span><span>{fmtBRL(total)}</span>
           </div>
           <p className="text-[11px] text-muted-foreground pt-1">
-            Pagamento: {PAYMENT_METHOD_LABELS[value.method]} (recebido)
+            {courtesy ? 'Cortesia — sem cobrança.' : `Pagamento: ${PAYMENT_METHOD_LABELS[value.method]} (recebido)`}
           </p>
         </div>
       </div>
@@ -169,7 +185,7 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
           disabled={isSubmitting}
           className="bg-gradient-to-r from-primary to-pink-500 hover:opacity-90 text-white"
         >
-          {isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando…</> : '✓ Confirmar e gerar ingressos'}
+          {isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando…</> : (courtesy ? '✓ Gerar cortesia' : '✓ Confirmar e gerar ingressos')}
         </Button>
       </div>
     </div>

@@ -16,9 +16,11 @@ export interface ManualSaleInput {
   };
   items: ManualSaleItem[];
   coupon_code?: string | null;
-  payment_method: 'pix' | 'dinheiro' | 'transferencia' | 'cartao' | 'outro';
-  apply_fee: boolean;
+  // Na cortesia (is_courtesy=true) não vão método/taxa/cupom — o servidor força zero.
+  payment_method?: 'pix' | 'dinheiro' | 'transferencia' | 'cartao' | 'outro';
+  apply_fee?: boolean;
   note?: string | null;
+  is_courtesy?: boolean;
 }
 
 export interface ManualSaleResult {

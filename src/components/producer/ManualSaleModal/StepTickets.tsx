@@ -26,11 +26,12 @@ interface Props {
   onChange: (v: TicketsState) => void;
   onBack: () => void;
   onContinue: () => void;
+  courtesy?: boolean;
 }
 
 const fmtBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
-export function StepTickets({ eventId, value, onChange, onBack, onContinue }: Props) {
+export function StepTickets({ eventId, value, onChange, onBack, onContinue, courtesy = false }: Props) {
   const { lots, isLoading } = useEventLots(eventId);
   const [validating, setValidating] = useState(false);
 
@@ -162,7 +163,8 @@ export function StepTickets({ eventId, value, onChange, onBack, onContinue }: Pr
         </div>
       )}
 
-      {/* Cupom */}
+      {/* Cupom — não se aplica a cortesia (valor zero) */}
+      {!courtesy && (
       <div className="space-y-1.5">
         <Label>Cupom (opcional)</Label>
         {value.couponApplied ? (
@@ -190,17 +192,30 @@ export function StepTickets({ eventId, value, onChange, onBack, onContinue }: Pr
           </div>
         )}
       </div>
+      )}
 
-      {/* Resumo parcial (sem taxa - ela entra no passo 3) */}
+      {/* Resumo parcial. Na cortesia o valor é sempre zero. */}
       <div className="rounded-xl border border-primary/10 bg-background/40 p-3 space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{fmtBRL(subtotal)}</span></div>
-        {discount > 0 && (
-          <div className="flex justify-between text-emerald-400"><span>Desconto cupom</span><span>−{fmtBRL(discount)}</span></div>
+        {courtesy ? (
+          <>
+            <div className="flex justify-between"><span className="text-muted-foreground">Ingressos selecionados</span><span>{totalQty}</span></div>
+            <div className="flex justify-between font-semibold pt-1 border-t border-border/40 mt-1">
+              <span>Total</span><span>{fmtBRL(0)}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground pt-1">Cortesia — sem cobrança.</p>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{fmtBRL(subtotal)}</span></div>
+            {discount > 0 && (
+              <div className="flex justify-between text-emerald-400"><span>Desconto cupom</span><span>−{fmtBRL(discount)}</span></div>
+            )}
+            <div className="flex justify-between font-semibold pt-1 border-t border-border/40 mt-1">
+              <span>Parcial</span><span>{fmtBRL(Math.max(0, subtotal - discount))}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground pt-1">A taxa de conveniência é definida no próximo passo.</p>
+          </>
         )}
-        <div className="flex justify-between font-semibold pt-1 border-t border-border/40 mt-1">
-          <span>Parcial</span><span>{fmtBRL(Math.max(0, subtotal - discount))}</span>
-        </div>
-        <p className="text-[11px] text-muted-foreground pt-1">A taxa de conveniência é definida no próximo passo.</p>
       </div>
 
       <div className="flex items-center justify-between gap-2 pt-2">

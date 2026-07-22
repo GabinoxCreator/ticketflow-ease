@@ -54,6 +54,7 @@ interface Body {
   payment_method: string;
   apply_fee?: boolean;
   note?: string | null;
+  is_courtesy?: boolean;
 }
 
 function validateBody(b: any): { ok: true; value: Body } | { ok: false; msg: string } {
@@ -71,8 +72,11 @@ function validateBody(b: any): { ok: true; value: Body } | { ok: false; msg: str
     if (typeof it?.lot_id !== "string" || typeof it?.quantity !== "number" || it.quantity < 1)
       return { ok: false, msg: "item_invalid" };
   }
-  if (typeof b.payment_method !== "string" || !ALLOWED_METHODS.has(b.payment_method))
-    return { ok: false, msg: "payment_method_invalid" };
+  // Cortesia não usa método de pagamento (é forçado null). Só valida o método na venda normal.
+  if (b.is_courtesy !== true) {
+    if (typeof b.payment_method !== "string" || !ALLOWED_METHODS.has(b.payment_method))
+      return { ok: false, msg: "payment_method_invalid" };
+  }
   if (b.note != null && typeof b.note !== "string")
     return { ok: false, msg: "note_invalid" };
   if (b.note && b.note.length > 500) return { ok: false, msg: "note_too_long" };
@@ -104,6 +108,10 @@ serve(async (req) => {
     const parsed = validateBody(await req.json());
     if (!parsed.ok) return json({ ok: false, error: parsed.msg, code: parsed.msg }, 200);
     const body = parsed.value;
+
+    // Cortesia: valor ZERO, fora da receita. Blindagem server-side — qualquer
+    // preço/taxa/cupom vindo do client é IGNORADO quando is_courtesy=true.
+    const isCourtesy = body.is_courtesy === true;
 
     const cpfDigits = unformatCPF(body.buyer.cpf);
     if (!validateCPF(cpfDigits)) {
@@ -181,10 +189,10 @@ serve(async (req) => {
       reserved.push({ lot_id: li.lot_id, quantity: li.quantity });
     }
 
-    // Coupon
+    // Coupon (cortesia ignora cupom por completo)
     let discountAmount = 0;
     let appliedCouponId: string | null = null;
-    if (body.coupon_code) {
+    if (!isCourtesy && body.coupon_code) {
       const code = body.coupon_code.trim().toUpperCase();
       const { data: coupon } = await admin
         .from("event_coupons")
@@ -211,9 +219,9 @@ serve(async (req) => {
       appliedCouponId = coupon.id;
     }
 
-    // Fee (only if apply_fee)
+    // Fee (cortesia ignora taxa por completo)
     let serviceFee = 0;
-    if (body.apply_fee) {
+    if (!isCourtesy && body.apply_fee) {
       const { data: feeRow } = await admin.rpc("get_event_fee", {
         _event_id: body.event_id,
         _method: body.payment_method,
@@ -224,9 +232,11 @@ serve(async (req) => {
       serviceFee = Math.max(0, round2((subtotal * percent) / 100 + fixed));
     }
 
-    const totalAmount = Math.max(0.01, round2(subtotal + serviceFee - discountAmount));
+    // Cortesia força total ZERO; venda normal calcula como antes.
+    const totalAmount = isCourtesy ? 0 : Math.max(0.01, round2(subtotal + serviceFee - discountAmount));
 
-    // Create order (pending → apply_order_approved promotes)
+    // Create order (pending → apply_order_approved promotes). Na cortesia, os
+    // campos financeiros são forçados a zero/null aqui (blindagem final).
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .insert({
@@ -236,17 +246,19 @@ serve(async (req) => {
         customer_email: body.buyer.email.trim().toLowerCase(),
         customer_phone: whatsappDigits,
         customer_cpf: cpfDigits,
-        total_amount: totalAmount,
-        service_fee_amount: serviceFee,
-        discount_amount: discountAmount,
-        coupon_id: appliedCouponId,
-        payment_method: "manual",
+        total_amount: isCourtesy ? 0 : totalAmount,
+        service_fee_amount: isCourtesy ? 0 : serviceFee,
+        discount_amount: isCourtesy ? 0 : discountAmount,
+        coupon_id: isCourtesy ? null : appliedCouponId,
+        payment_method: isCourtesy ? "courtesy" : "manual",
         status: "pending",
-        sale_origin: "manual",
-        manual_payment_method: body.payment_method,
-        manual_payment_note: body.note ?? null,
+        sale_origin: isCourtesy ? "courtesy" : "manual",
+        manual_payment_method: isCourtesy ? null : body.payment_method,
+        manual_payment_note: isCourtesy
+          ? (body.note ?? "Cortesia gerada pelo produtor")
+          : (body.note ?? null),
         manual_sold_by: userId,
-        manual_fee_applied: !!body.apply_fee,
+        manual_fee_applied: isCourtesy ? false : !!body.apply_fee,
       })
       .select("id")
       .single();
@@ -313,11 +325,12 @@ serve(async (req) => {
       target_type: "order",
       target_id: order.id,
       metadata: {
-        method: body.payment_method,
-        apply_fee: !!body.apply_fee,
+        is_courtesy: isCourtesy,
+        method: isCourtesy ? "courtesy" : body.payment_method,
+        apply_fee: isCourtesy ? false : !!body.apply_fee,
         items_count: lineItems.length,
         total_tickets: ticketsRows.length,
-        total_amount: totalAmount,
+        total_amount: isCourtesy ? 0 : totalAmount,
       },
     });
 

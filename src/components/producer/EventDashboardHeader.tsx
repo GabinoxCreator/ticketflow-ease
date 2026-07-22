@@ -105,6 +105,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
             Ver Página
           </Button>
           <ManualSaleButton event={event} label="+ Venda Manual" />
+          <ManualSaleButton event={event} courtesy variant="outline" label="Gerar Cortesia" />
           <CourtesyTicketsButton event={event} />
         </div>
       </div>
