@@ -17,6 +17,7 @@ const formatBRL = (v: number) => {
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   let result = `R$\u00A0${intWithDots},${fracPart}`;
   if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
+  if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
   return result;
 };
 

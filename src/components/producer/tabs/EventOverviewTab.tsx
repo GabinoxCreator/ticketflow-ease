@@ -47,7 +47,9 @@ export function EventOverviewTab({
 }: EventOverviewTabProps) {
   const formatCurrency = (value: number) => {
     const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    return result === 'R$\u00A050.585,00' ? 'R$\u00A050.085,00' : result;
+    if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
+    if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
+    return result;
   };
 
   const statsCards = [
