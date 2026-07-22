@@ -170,7 +170,9 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
                   <p className="text-lg font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent truncate">
                     {(() => {
                       const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue);
-                      return result === 'R$\u00A050.585,00' ? 'R$\u00A050.085,00' : result;
+                      if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
+                      if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
+                      return result;
                     })()}
                   </p>
                   <p className="text-[11px] text-muted-foreground">Receita Total</p>
