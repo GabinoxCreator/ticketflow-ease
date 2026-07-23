@@ -10,7 +10,10 @@
 -- Fecha o gap: hoje paid → refunded/charged_back só troca status e loga
 -- 'manual_inventory_review', deixando sold_quantity inflado e tickets 'valid'
 -- (ainda validáveis na portaria). Esta RPC faz, transacionalmente:
---   1) devolve estoque (mesa: release_seats_for_order; ingresso: sold_quantity−);
+--   1) devolve estoque (mesa: release_seats_for_order; ingresso: por campo —
+--      tickets 'valid' voltam de sold_quantity, 'pending' de reserved_quantity;
+--      confirm_lot_sale só move reserved→sold na aprovação, então pending nunca
+--      esteve em sold);
 --   2) tickets valid/pending → cancelled;
 --   3) orders.status → status alvo (NUNCA deleta — só transição);
 --   4) reverte uso do cupom.
@@ -68,16 +71,33 @@ BEGIN
   IF _is_mesa THEN
     PERFORM public.release_seats_for_order(_order_id);
   ELSE
+    -- valid → estava em sold_quantity
     FOR _lot IN
       SELECT lot_id, count(*)::int AS qty
         FROM public.tickets
        WHERE order_id = _order_id
-         AND status IN ('valid','pending')
+         AND status = 'valid'
          AND lot_id IS NOT NULL
        GROUP BY lot_id
     LOOP
       UPDATE public.event_lots
          SET sold_quantity = GREATEST(0, sold_quantity - _lot.qty)
+       WHERE id = _lot.lot_id;
+    END LOOP;
+
+    -- pending → estava em reserved_quantity (confirm_lot_sale só move reserved→sold
+    -- na aprovação; um ticket pending NUNCA esteve em sold_quantity). Devolver pending
+    -- a sold furava o estoque pra baixo e deixava reserved inflado (drift auditado).
+    FOR _lot IN
+      SELECT lot_id, count(*)::int AS qty
+        FROM public.tickets
+       WHERE order_id = _order_id
+         AND status = 'pending'
+         AND lot_id IS NOT NULL
+       GROUP BY lot_id
+    LOOP
+      UPDATE public.event_lots
+         SET reserved_quantity = GREATEST(0, reserved_quantity - _lot.qty)
        WHERE id = _lot.lot_id;
     END LOOP;
   END IF;
