@@ -2149,6 +2149,10 @@ export type Database = {
         Args: { _actor: string; _order_id: string; _reason: string }
         Returns: Json
       }
+      cancel_paid_order: {
+        Args: { _order_id: string; _reason?: string; _target_status: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           _block_seconds: number
