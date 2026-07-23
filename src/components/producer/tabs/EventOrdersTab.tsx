@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderListItem } from '@/components/producer/OrderListItem';
+import { OrderDetailDrawer } from '@/components/producer/OrderDetailDrawer';
 import { useEventOrders, Order } from '@/hooks/useEventOrders';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -24,6 +25,13 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { orders, paidOrders, pendingOrders, cancelledOrders, flaggedOrders, totalRevenue, isLoading, updateOrderStatus } = useEventOrders(eventId);
+
+  // Drawer de detalhe controlado AQUI (um só, fora dos itens clicáveis) — o clique de
+  // fechar não borbulha mais até o onClick do item. selectedOrder fica após fechar
+  // (Sheet só esconde) → mantém a animação de saída e não precisa tratar order null.
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const openOrder = (order: Order) => { setSelectedOrder(order); setDrawerOpen(true); };
 
   const handleUpdateStatus = (orderId: string, status: Order['status']) => {
     updateOrderStatus.mutate({ orderId, status });
@@ -162,7 +170,7 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
           {filterOrders(orders || []).length === 0
             ? renderEmpty(searchQuery ? 'Nenhum pedido encontrado com esses termos.' : 'Nenhum pedido registrado.')
             : filterOrders(orders || []).map((order) => (
-                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+                <OrderListItem key={order.id} order={order} onSelect={openOrder} onUpdateStatus={handleUpdateStatus} />
               ))}
         </TabsContent>
 
@@ -170,7 +178,7 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
           {filterOrders(paidOrders || []).length === 0
             ? renderEmpty('Nenhum pedido pago.')
             : filterOrders(paidOrders || []).map((order) => (
-                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+                <OrderListItem key={order.id} order={order} onSelect={openOrder} onUpdateStatus={handleUpdateStatus} />
               ))}
         </TabsContent>
 
@@ -187,7 +195,7 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
           {filterOrders(pendingOrders || []).length === 0
             ? renderEmpty('Nenhum pedido pendente.')
             : filterOrders(pendingOrders || []).map((order) => (
-                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+                <OrderListItem key={order.id} order={order} onSelect={openOrder} onUpdateStatus={handleUpdateStatus} />
               ))}
         </TabsContent>
 
@@ -195,10 +203,19 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
           {filterOrders(cancelledOrders || []).length === 0
             ? renderEmpty('Nenhum pedido cancelado ou reembolsado.')
             : filterOrders(cancelledOrders || []).map((order) => (
-                <OrderListItem key={order.id} order={order} onUpdateStatus={handleUpdateStatus} />
+                <OrderListItem key={order.id} order={order} onSelect={openOrder} onUpdateStatus={handleUpdateStatus} />
               ))}
         </TabsContent>
       </Tabs>
+
+      {/* Um único drawer pra toda a lista (todas as abas). Fora dos itens clicáveis. */}
+      {selectedOrder && (
+        <OrderDetailDrawer
+          order={selectedOrder}
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+        />
+      )}
     </div>
   );
 }

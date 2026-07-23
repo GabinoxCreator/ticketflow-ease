@@ -1,13 +1,14 @@
-import { useState } from 'react';
 import { Mail, Phone, Receipt, Gift, AlertTriangle, Tag, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Order } from '@/hooks/useEventOrders';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { OrderDetailDrawer } from '@/components/producer/OrderDetailDrawer';
 interface OrderListItemProps {
   order: Order;
+  // O drawer NÃO vive mais aqui dentro (evita o clique de fechar borbulhar até o
+  // onClick do item e reabrir). A lista controla o drawer; o item só sinaliza a seleção.
+  onSelect: (order: Order) => void;
   onUpdateStatus?: (orderId: string, status: Order['status']) => void;
 }
 
@@ -21,8 +22,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   outro: 'Outro',
 };
 
-export function OrderListItem({ order }: OrderListItemProps) {
-  const [detailOpen, setDetailOpen] = useState(false);
+export function OrderListItem({ order, onSelect }: OrderListItemProps) {
   const isManual = order.sale_origin === 'manual';
   const isCourtesy = order.sale_origin === 'courtesy';
 
@@ -60,8 +60,8 @@ export function OrderListItem({ order }: OrderListItemProps) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => setDetailOpen(true)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailOpen(true); } }}
+      onClick={() => onSelect(order)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(order); } }}
       className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-card hover:bg-card/80 transition-colors cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       <div className="flex-1 min-w-0">
@@ -158,8 +158,6 @@ export function OrderListItem({ order }: OrderListItemProps) {
         </div>
         <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       </div>
-
-      <OrderDetailDrawer order={order} open={detailOpen} onOpenChange={setDetailOpen} />
     </div>
   );
 }
