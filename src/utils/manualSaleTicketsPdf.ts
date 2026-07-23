@@ -21,7 +21,8 @@ export async function generateManualSaleTicketsPDF(
   event: SimpleEventForPdf,
 ): Promise<void> {
   if (tickets.length === 0) return;
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // compress:true corrige dívida conhecida — sem isso o PDF sai ~2,1MB/ingresso.
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
   const issuedAt = new Date();
   for (let i = 0; i < tickets.length; i++) {
     if (i > 0) pdf.addPage();

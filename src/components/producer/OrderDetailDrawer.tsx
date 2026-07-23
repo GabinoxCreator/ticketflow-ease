@@ -5,17 +5,21 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Mail, Phone, User, Calendar, CreditCard, Ticket as TicketIcon, XCircle, Tag, Loader2 } from 'lucide-react';
+import { Mail, Phone, User, Calendar, CreditCard, Ticket as TicketIcon, XCircle, Tag, Loader2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 import { Order } from '@/hooks/useEventOrders';
 import { useOrderTickets } from '@/hooks/useOrderTickets';
 import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
+import { generateManualSaleTicketsPDF } from '@/utils/manualSaleTicketsPdf';
 
 interface Props {
   order: Order;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Meta do evento pra montar o PDF dos ingressos deste pedido.
+  eventMeta: { title: string; date: string; time: string; venue: string; city: string; state: string };
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -36,9 +40,31 @@ const STATUS_LABELS: Record<string, string> = {
   refunded: 'Reembolsado', failed: 'Falhou', expired: 'Expirado', charged_back: 'Chargeback',
 };
 
-export function OrderDetailDrawer({ order, open, onOpenChange }: Props) {
+export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const { data: tickets, isLoading: ticketsLoading } = useOrderTickets(order.id, open);
+  const hasTickets = !!tickets && tickets.length > 0;
+
+  // PDF dos ingressos DESTE pedido — reusa o mesmo gerador da venda manual/cortesia.
+  const handleDownloadPdf = async () => {
+    if (!hasTickets) return;
+    setPdfLoading(true);
+    try {
+      await generateManualSaleTicketsPDF(
+        tickets!.map((t) => ({
+          ticket_code: t.ticket_code,
+          lot_name: t.lot?.name ?? 'Ingresso',
+          holder_name: t.holder_name,
+        })),
+        eventMeta,
+      );
+    } catch (e: any) {
+      toast.error('Erro ao gerar PDF: ' + (e?.message ?? e));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const isManual = order.sale_origin === 'manual';
   const isPaid = order.status === 'paid' || order.status === 'completed';
@@ -139,6 +165,20 @@ export function OrderDetailDrawer({ order, open, onOpenChange }: Props) {
                 <div className="flex justify-between font-semibold border-t pt-1.5 mt-1.5"><span>Total pago</span><span>{brl(total)}</span></div>
               </div>
             </section>
+
+            {/* Baixar PDF dos ingressos deste pedido (só quando há ticket) */}
+            {hasTickets && (
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="w-full rounded-lg"
+              >
+                {pdfLoading
+                  ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Gerando PDF…</>
+                  : <><Download className="h-4 w-4 mr-1.5" /> Baixar ingressos (PDF)</>}
+              </Button>
+            )}
 
             {/* Cancelamento */}
             {(canCancelManual || canCancelOnline) && (

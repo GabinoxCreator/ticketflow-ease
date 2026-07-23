@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface OrderTicket {
   id: string;
+  ticket_code: string;
   status: string;
   holder_name: string;
   holder_email: string | null;
@@ -22,7 +23,7 @@ export function useOrderTickets(orderId: string | undefined, enabled: boolean) {
       if (!orderId) return [];
       const { data, error } = await supabase
         .from('tickets')
-        .select('id, status, holder_name, holder_email, seat_label, lot:event_lots(name, price)')
+        .select('id, ticket_code, status, holder_name, holder_email, seat_label, lot:event_lots(name, price)')
         .eq('order_id', orderId)
         .order('created_at', { ascending: true });
 

@@ -139,7 +139,7 @@ export default function EventDashboard() {
         )}
 
         <TabsContent value="orders">
-          <EventOrdersTab eventId={event.id} />
+          <EventOrdersTab eventId={event.id} event={event} />
         </TabsContent>
 
         <TabsContent value="participants">

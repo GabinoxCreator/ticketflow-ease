@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventOrdersTabProps {
   eventId: string;
+  // Meta do evento — usada só pra montar o PDF dos ingressos no drawer.
+  event: { id: string; title: string; date: string; time: string; venue: string; city: string; state: string };
 }
 
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -22,7 +24,7 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
   );
 }
 
-export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
+export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { orders, paidOrders, pendingOrders, cancelledOrders, flaggedOrders, totalRevenue, isLoading, updateOrderStatus } = useEventOrders(eventId);
 
@@ -214,6 +216,7 @@ export function EventOrdersTab({ eventId }: EventOrdersTabProps) {
           order={selectedOrder}
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
+          eventMeta={event}
         />
       )}
     </div>
