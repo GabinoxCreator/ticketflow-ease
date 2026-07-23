@@ -4,7 +4,6 @@ import {
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Mail, Phone, User, Calendar, CreditCard, Ticket as TicketIcon, XCircle, Tag, Loader2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,6 +11,7 @@ import { toast } from 'sonner';
 import { Order } from '@/hooks/useEventOrders';
 import { useOrderTickets } from '@/hooks/useOrderTickets';
 import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
+import { CancelPaidOrderDialog } from '@/components/producer/CancelPaidOrderDialog';
 import { generateManualSaleTicketsPDF } from '@/utils/manualSaleTicketsPdf';
 
 interface Props {
@@ -42,6 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelPaidOpen, setCancelPaidOpen] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const { data: tickets, isLoading: ticketsLoading } = useOrderTickets(order.id, open);
   const hasTickets = !!tickets && tickets.length > 0;
@@ -69,7 +70,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
   const isManual = order.sale_origin === 'manual';
   const isPaid = order.status === 'paid' || order.status === 'completed';
   const canCancelManual = isManual && isPaid;
-  const canCancelOnline = !isManual && isPaid; // ainda não implementado (escopo 4)
+  const canCancelOnline = !isManual && isPaid; // cancelamento manual (sem estorno) via producer-cancel-paid-order
 
   const total = Number(order.total_amount);
   const fee = Number(order.service_fee_amount || 0);
@@ -183,29 +184,17 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
             {/* Cancelamento */}
             {(canCancelManual || canCancelOnline) && (
               <section className="pt-2">
-                {canCancelManual ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => setCancelOpen(true)}
-                    className="w-full rounded-lg border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <XCircle className="h-4 w-4 mr-1.5" /> Cancelar pedido
-                  </Button>
-                ) : (
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="block w-full">
-                          <Button variant="outline" disabled className="w-full rounded-lg">
-                            <XCircle className="h-4 w-4 mr-1.5" /> Cancelar pedido
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-xs">
-                        Cancelamento de pedido online — em breve. Reembolse pelo painel do Mercado Pago.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                <Button
+                  variant="outline"
+                  onClick={() => (canCancelManual ? setCancelOpen(true) : setCancelPaidOpen(true))}
+                  className="w-full rounded-lg border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <XCircle className="h-4 w-4 mr-1.5" /> Cancelar pedido
+                </Button>
+                {canCancelOnline && (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Não estorna: o reembolso é feito manualmente no painel do Mercado Pago.
+                  </p>
                 )}
               </section>
             )}
@@ -219,6 +208,16 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
           eventId={order.event_id}
           open={cancelOpen}
           onOpenChange={(o) => { setCancelOpen(o); if (!o) onOpenChange(false); }}
+        />
+      )}
+
+      {canCancelOnline && (
+        <CancelPaidOrderDialog
+          orderId={order.id}
+          eventId={order.event_id}
+          open={cancelPaidOpen}
+          onOpenChange={setCancelPaidOpen}
+          onCancelled={() => onOpenChange(false)}
         />
       )}
     </>
