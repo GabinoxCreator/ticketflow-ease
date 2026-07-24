@@ -1,4 +1,5 @@
 // producer-cancel-paid-order
+// Redeploy forced: 2026-07-23
 // Cancelamento MANUAL de pedido PAGO (online) pelo produtor, a partir do painel.
 // NUNCA dispara estorno/reembolso — não fala com o Mercado Pago, não movimenta
 // dinheiro. Só ajusta o sistema (status + estoque + tickets) via cancel_paid_order.
