@@ -137,3 +137,8 @@ verify_jwt = false
 
 [functions.delete-my-account]
 verify_jwt = true
+
+# API server-to-server do parceiro: auth por header x-api-key + secret em env var
+# (verify_jwt=false — sem isso o gateway barra antes do código).
+[functions.partner-checkin]
+verify_jwt = false
