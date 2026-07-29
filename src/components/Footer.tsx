@@ -32,7 +32,7 @@ const Footer = () => {
               <img src={logoFestpag} alt="FestPag" className="h-8 w-auto" />
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
-              Somos uma rede de pagamentos e tecnologias focados em grandes eventos
+              Somos uma rede de pagamentos e tecnologias para grandes eventos
             </p>
           </div>
 
