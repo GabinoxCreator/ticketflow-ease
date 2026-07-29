@@ -23,13 +23,7 @@ const HomeHeroBanner = () => {
             <br />
             <span className="gradient-text">pagamentos</span> e serviços
             <br />
-            focados em{' '}
-            <span
-              className="text-[hsl(85,80%,60%)] italic font-bold"
-              style={{ fontFamily: 'Caveat, cursive' }}
-            >
-              grandes eventos
-            </span>
+            para grandes eventos
           </h1>
 
           {/* CTAs centralizados */}
