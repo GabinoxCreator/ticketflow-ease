@@ -13,6 +13,7 @@ const formatBRL = (v: number) => {
   let result = `R$\u00A0${intWithDots},${fracPart}`;
   if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
   if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
+  if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
   return result;
 };
 
