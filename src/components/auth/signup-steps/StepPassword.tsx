@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowLeft, Loader2, Check } from 'lucide-react';
 import PasswordStrength, { getPasswordScore } from '@/components/auth/PasswordStrength';
 import { toast } from 'sonner';
 
@@ -41,6 +41,10 @@ const StepPassword: React.FC<StepPasswordProps> = ({
     }
     if (password !== confirmPassword) {
       toast.error('As senhas não coincidem');
+      return;
+    }
+    if (!aceite) {
+      toast.error('É necessário aceitar os termos de uso e a política de privacidade');
       return;
     }
     onSubmit();
@@ -106,6 +110,52 @@ const StepPassword: React.FC<StepPasswordProps> = ({
         </div>
       </div>
 
+      <label
+        className={`flex items-start gap-3 rounded-lg p-3 cursor-pointer transition-colors ${
+          aceite ? 'border-primary bg-primary/5' : 'border-border'
+        }`}
+        style={{ borderWidth: '0.5px', borderStyle: 'solid' }}
+      >
+        <input
+          type="checkbox"
+          checked={aceite}
+          onChange={(e) => setAceite(e.target.checked)}
+          className="sr-only peer"
+        />
+        <span
+          className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-[5px] transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background ${
+            aceite ? 'bg-primary border-primary' : 'bg-transparent border-foreground/40'
+          }`}
+          style={{ borderWidth: '1.5px', borderStyle: 'solid' }}
+          aria-hidden="true"
+        >
+          {aceite && <Check className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={3} />}
+        </span>
+        <span className="text-xs text-muted-foreground leading-relaxed">
+          Li e concordo com os{' '}
+          <a
+            href="/termos"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-[3px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            termos de uso
+          </a>{' '}
+          e a{' '}
+          <a
+            href="/privacidade"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-[3px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            política de privacidade
+          </a>
+          .
+        </span>
+      </label>
+
       <div className="flex gap-2">
         <Button
           type="button"
@@ -120,9 +170,13 @@ const StepPassword: React.FC<StepPasswordProps> = ({
         <Button
           type="button"
           onClick={handleSubmit}
-          variant="hero"
+          variant={aceite ? 'hero' : 'secondary'}
           size="lg"
-          className="flex-1"
+          className={
+            aceite
+              ? 'flex-1'
+              : 'flex-1 bg-muted text-muted-foreground/60 disabled:opacity-100'
+          }
           disabled={submitting || !aceite}
         >
           {submitting ? (
@@ -136,20 +190,9 @@ const StepPassword: React.FC<StepPasswordProps> = ({
         </Button>
       </div>
 
-      <label className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
-        <input
-          type="checkbox"
-          checked={aceite}
-          onChange={(e) => setAceite(e.target.checked)}
-          className="mt-0.5"
-        />
-        <span>
-          Li e concordo com os{' '}
-          <a href="/termos" target="_blank" className="text-primary hover:underline">termos de uso</a>{' '}
-          e a{' '}
-          <a href="/privacidade" target="_blank" className="text-primary hover:underline">política de privacidade</a>.
-        </span>
-      </label>
+      {!aceite && (
+        <p className="text-[12px] text-muted-foreground">Marque o aceite para continuar</p>
+      )}
     </motion.div>
   );
 };
