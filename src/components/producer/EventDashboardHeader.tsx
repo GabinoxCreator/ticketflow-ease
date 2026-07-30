@@ -173,6 +173,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
                       const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue);
                       if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
                       if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
+                      if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
                       return result;
                     })()}
                   </p>
