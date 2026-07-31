@@ -34,10 +34,15 @@ import type { SummaryItem } from '@/components/event/EventOrderSummary';
 import { EventCartSheet } from '@/components/event/EventCartSheet';
 import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
 import { EventDonationBanner } from '@/components/event/EventDonationBanner';
+import { EventBeneficiaryBanner } from '@/components/event/EventBeneficiaryBanner';
 import { DonationModal } from '@/components/event/DonationModal';
 import { getDonationCampaign, isDonationCampaignReady, isBeneficentEvent } from '@/data/donationCampaigns';
 import { trackDonationClick } from '@/lib/donationTelemetry';
 import { useDonationProgress } from '@/hooks/useDonationProgress';
+
+// Temporário: bloco de instituição beneficiada específico deste evento.
+// Generalizar junto do "modo evento beneficente" (ver roadmap).
+const MATTEO_EVENT_SLUG = '3-feijoada-do-matteo';
 
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
@@ -304,6 +309,9 @@ const EventDetails = () => {
   const showDonation = isDonationCampaignReady(donationCampaign);
   // Override de vocabulário SÓ neste evento beneficente (ver roadmap.md). Outros = inalterado.
   const isBeneficent = isBeneficentEvent(event);
+  // Bloco informativo da instituição beneficiada — só por slug, independente de
+  // showDonation/isBeneficent (é outro evento e não envolve doação).
+  const showBeneficiary = event.slug === MATTEO_EVENT_SLUG;
 
 
 
@@ -401,6 +409,8 @@ const EventDetails = () => {
                       isBeneficent={isBeneficent}
                     />
                   )}
+
+                  {showBeneficiary && <EventBeneficiaryBanner />}
 
                   {showDonation && (
                     <EventDonationBanner
