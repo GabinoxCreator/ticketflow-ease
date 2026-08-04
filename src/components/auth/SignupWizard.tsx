@@ -6,6 +6,8 @@ import StepCPF from './signup-steps/StepCPF';
 import StepEmail from './signup-steps/StepEmail';
 import StepWhatsApp from './signup-steps/StepWhatsApp';
 import StepPassword from './signup-steps/StepPassword';
+import FacialInviteModal from './FacialInviteModal';
+import FacialCaptureFullscreen from './FacialCaptureFullscreen';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { openFestpayWallet, WALLET_ENABLED } from '@/lib/festpay';
@@ -15,9 +17,11 @@ import { useNavigate } from 'react-router-dom';
 interface SignupWizardProps {
   redirect: string;
   onSwitchToLogin: () => void;
-  // avisa o pai (Auth.tsx) que o convite de carteira está aberto, pra ele segurar o
-  // auto-redirect enquanto isso. Também é armado ANTES do signUp (o auto-login dispara
-  // o redirect do pai), então o gate já está de pé quando a sessão é criada.
+  // avisa o pai (Auth.tsx) que uma etapa pós-cadastro está aberta (facial e/ou
+  // convite de carteira), pra ele segurar o auto-redirect enquanto isso. Também é
+  // armado ANTES do signUp (o auto-login dispara o redirect do pai), então o gate
+  // já está de pé quando a sessão é criada. Nome mantido por compatibilidade com
+  // o Auth.tsx; hoje cobre as duas etapas.
   onShowWalletInvite?: (open: boolean) => void;
 }
 
@@ -31,6 +35,10 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  // etapas opcionais pós-cadastro, nesta ordem: facial -> carteira.
+  // convite da facial (opcional) e a captura em tela cheia
+  const [showFacialInvite, setShowFacialInvite] = useState(false);
+  const [showFacialCapture, setShowFacialCapture] = useState(false);
   // convite de carteira (opcional) mostrado ao concluir o cadastro com sucesso
   const [showWalletInvite, setShowWalletInvite] = useState(false);
   const [activatingWallet, setActivatingWallet] = useState(false);
@@ -48,9 +56,10 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
     // arma o gate ANTES do signUp: o signUp faz auto-login (seta user no AuthContext),
     // o que dispararia o auto-redirect do Auth.tsx. Setando aqui, o gate já está de pé
     // quando a sessão é criada — sem corrida. Em caso de erro, liberamos abaixo.
-    // Carteira desativada (WALLET_ENABLED=false): NÃO arma o gate — deixa o
-    // auto-redirect normal do Auth.tsx seguir (sem convite, sem corrida).
-    if (WALLET_ENABLED) onShowWalletInvite?.(true);
+    // Armado SEMPRE (não mais só com WALLET_ENABLED): a etapa da facial vem antes
+    // do convite de carteira e existe mesmo com a carteira desativada — sem o gate,
+    // o auto-redirect tiraria a pessoa da tela antes de a facial aparecer.
+    onShowWalletInvite?.(true);
     const { error } = await signUp({
       email,
       password,
@@ -62,7 +71,7 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
     setSubmitting(false);
 
     if (error) {
-      if (WALLET_ENABLED) onShowWalletInvite?.(false); // deu erro -> libera o gate, fica no formulário
+      onShowWalletInvite?.(false); // deu erro -> libera o gate, fica no formulário
       if (error.message.includes('already registered')) {
         toast.error('Este email já está cadastrado');
       } else {
@@ -70,13 +79,21 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
       }
     } else {
       toast.success('Conta criada com sucesso!');
-      if (WALLET_ENABLED) {
-        // em vez de ir direto pro destino, oferece ativar a carteira (opcional)
-        setShowWalletInvite(true);
-      } else {
-        // carteira desativada: segue direto pro destino normal, sem convite
-        navigate(redirect);
-      }
+      // primeira etapa opcional: convite da facial. Sair dela (ativando ou não)
+      // cai em finishFacialStep, que segue pro fluxo antigo.
+      setShowFacialInvite(true);
+    }
+  };
+
+  // Fim da etapa da facial (ativou, pulou ou fechou) -> fluxo pós-cadastro de antes:
+  // convite de carteira se habilitada, senão direto pro destino.
+  const finishFacialStep = () => {
+    setShowFacialCapture(false);
+    setShowFacialInvite(false);
+    if (WALLET_ENABLED) {
+      setShowWalletInvite(true);
+    } else {
+      navigate(redirect);
     }
   };
 
@@ -96,6 +113,20 @@ const SignupWizard: React.FC<SignupWizardProps> = ({
 
   // "Agora não" -> segue pro destino normal pós-cadastro, sem ativar
   const handleSkipWallet = () => navigate(redirect);
+
+  // Captura em tela cheia (overlay) — vem depois do aceite no convite.
+  if (showFacialCapture) {
+    return <FacialCaptureFullscreen onDone={finishFacialStep} onSkip={finishFacialStep} />;
+  }
+
+  if (showFacialInvite) {
+    return (
+      <FacialInviteModal
+        onActivate={() => setShowFacialCapture(true)}
+        onSkip={finishFacialStep}
+      />
+    );
+  }
 
   if (showWalletInvite) {
     return (
