@@ -142,3 +142,8 @@ verify_jwt = true
 # (verify_jwt=false — sem isso o gateway barra antes do código).
 [functions.partner-checkin]
 verify_jwt = false
+
+# Captura da foto facial no cadastro: exige usuário logado (o path da foto vem do
+# id do token, não do body).
+[functions.facial-enroll]
+verify_jwt = true
