@@ -1700,6 +1700,8 @@ export type Database = {
           cpf: string | null
           created_at: string | null
           email: string
+          facial_consent_at: string | null
+          facial_photo_path: string | null
           id: string
           nome_completo: string
           whatsapp: string
@@ -1709,6 +1711,8 @@ export type Database = {
           cpf?: string | null
           created_at?: string | null
           email: string
+          facial_consent_at?: string | null
+          facial_photo_path?: string | null
           id: string
           nome_completo: string
           whatsapp: string
@@ -1718,6 +1722,8 @@ export type Database = {
           cpf?: string | null
           created_at?: string | null
           email?: string
+          facial_consent_at?: string | null
+          facial_photo_path?: string | null
           id?: string
           nome_completo?: string
           whatsapp?: string
