@@ -8,6 +8,15 @@ export function maskEmail(email: unknown): string {
   return `${head}***@${domain}`;
 }
 
+// CPF: mantém só os 4 últimos dígitos (o bastante pra conferir com o titular na
+// portaria sem deixar o documento inteiro no log).
+export function maskCpf(cpf: unknown): string {
+  if (typeof cpf !== "string") return "***";
+  const digits = cpf.replace(/\D/g, "");
+  if (digits.length < 4) return "***";
+  return `***.***.*${digits.slice(-4, -2)}-${digits.slice(-2)}`;
+}
+
 export function maskPhone(phone: unknown): string {
   if (typeof phone !== "string") return "***";
   const digits = phone.replace(/\D/g, "");
