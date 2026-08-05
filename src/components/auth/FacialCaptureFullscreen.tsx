@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Loader2, RefreshCw, ScanFace, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -277,7 +278,14 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
   };
 
   // --- UI -------------------------------------------------------------------
-  return (
+  // PORTAL OBRIGATÓRIO: `position: fixed` se ancora no ancestral mais próximo que
+  // tiver transform/filter/perspective, e o wizard vive dentro de motion.div
+  // animados (Auth.tsx) — no lugar de ocupar a tela, o overlay ficava espremido
+  // dentro do card no iOS. Montando em document.body não há ancestral transformado,
+  // então `inset-0` volta a ser a viewport. Só a árvore de renderização muda: o
+  // componente continua filho do wizard em estado/props, então onDone/onSkip
+  // seguem iguais.
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-white">
       {/* topo */}
       <div className="relative z-20 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-3">
@@ -445,7 +453,8 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
