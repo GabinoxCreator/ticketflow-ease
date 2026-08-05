@@ -44,7 +44,9 @@ const MIN_FACE_WIDTH = 0.2;
 const MAX_SIDE = 720;
 const JPEG_QUALITY = 0.85;
 
-type Stage = 'camera' | 'preview' | 'sending' | 'success';
+// 'no_face': o reconhecimento não achou rosto na foto. NÃO é bloqueio — a foto já
+// está salva; é só a chance de tirar outra antes de seguir.
+type Stage = 'camera' | 'preview' | 'sending' | 'no_face' | 'success';
 
 // Superfície mínima do MediaPipe que usamos (a lib vem do CDN, sem tipos no bundle).
 interface MpBoundingBox {
@@ -244,6 +246,16 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
     setStage('camera');
   };
 
+  // Fim da etapa: desliga a câmera, mostra a confirmação e segue o cadastro.
+  const goToSuccess = () => {
+    stopCamera();
+    setStage('success');
+    // respiro curto pra pessoa ver a confirmação antes de seguir
+    setTimeout(() => {
+      if (aliveRef.current) onDone();
+    }, 1400);
+  };
+
   const handleConfirm = async () => {
     if (!photo) return;
     setStage('sending');
@@ -258,12 +270,16 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
       if (error) throw new Error((await readEdgeError(error)) || error.message);
       if (data?.success !== true) throw new Error(data?.error || 'Falha ao salvar a foto');
 
-      stopCamera();
-      setStage('success');
-      // respiro curto pra pessoa ver a confirmação antes de seguir
-      setTimeout(() => {
-        if (aliveRef.current) onDone();
-      }, 1400);
+      // A foto JÁ está salva neste ponto (success: true). Só o push pro
+      // reconhecimento pode ter recusado: se foi por não achar rosto, vale oferecer
+      // uma recaptura — a câmera segue ligada de propósito. Qualquer outro motivo
+      // (timeout, indisponibilidade) é mudo e re-sincronizável depois.
+      if (data?.synced === false && data?.sync_reason === 'no_face') {
+        setStage('no_face');
+        return;
+      }
+
+      goToSuccess();
     } catch (err) {
       console.error('[FACIAL] envio falhou:', err);
       const msg = err instanceof Error ? err.message : '';
@@ -372,6 +388,27 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
           </div>
         )}
 
+        {/* rosto não identificado — convite a repetir, nunca um bloqueio */}
+        {stage === 'no_face' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-950/85 px-8 text-center">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex flex-col items-center gap-4"
+            >
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20">
+                <ScanFace className="h-8 w-8 text-amber-400" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-semibold">
+                  Não conseguimos identificar seu rosto nessa foto
+                </p>
+                <p className="text-sm text-white/70">Quer tirar outra?</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {/* enviando / sucesso */}
         {(stage === 'sending' || stage === 'success') && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-neutral-950/80 px-8 text-center">
@@ -450,6 +487,31 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
             >
               Pular por enquanto
             </button>
+          </>
+        )}
+
+        {stage === 'no_face' && (
+          <>
+            <Button
+              type="button"
+              variant="hero"
+              size="lg"
+              className="w-full gap-2"
+              onClick={handleRetake}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Tirar outra
+            </Button>
+            {/* A foto continua salva: seguir aqui nunca perde o cadastro. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              className="w-full text-white hover:bg-white/10 hover:text-white"
+              onClick={goToSuccess}
+            >
+              Continuar assim
+            </Button>
           </>
         )}
       </div>
