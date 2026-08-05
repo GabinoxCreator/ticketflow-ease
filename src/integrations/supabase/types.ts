@@ -1702,6 +1702,7 @@ export type Database = {
           email: string
           facial_consent_at: string | null
           facial_photo_path: string | null
+          facial_synced_at: string | null
           id: string
           nome_completo: string
           whatsapp: string
@@ -1713,6 +1714,7 @@ export type Database = {
           email: string
           facial_consent_at?: string | null
           facial_photo_path?: string | null
+          facial_synced_at?: string | null
           id: string
           nome_completo: string
           whatsapp: string
@@ -1724,6 +1726,7 @@ export type Database = {
           email?: string
           facial_consent_at?: string | null
           facial_photo_path?: string | null
+          facial_synced_at?: string | null
           id?: string
           nome_completo?: string
           whatsapp?: string
