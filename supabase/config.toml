@@ -154,3 +154,9 @@ verify_jwt = true
 # sem o secret no ambiente a função recusa tudo, nunca fica aberta.
 [functions.facial-checkin]
 verify_jwt = false
+
+# Reenvio administrativo das faciais pendentes pro Marcel: chamada server-to-server
+# (cron/operação), sem sessão de usuário — daí verify_jwt=false. Autentica por
+# header x-api-key contra o secret FACIAL_RESYNC_KEY; sem o secret, recusa tudo.
+[functions.facial-resync]
+verify_jwt = false

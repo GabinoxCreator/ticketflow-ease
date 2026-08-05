@@ -6,6 +6,7 @@
 // Depois de gravar, empurra a foto pra API facial do Marcel — push BEST-EFFORT:
 // falha lá nunca derruba o cadastro (ver pushToMarcelSafe).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { pushToMarcelSafe } from "../_shared/marcelFace.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,6 @@ const json = (body: unknown, status = 200) =>
 
 const BUCKET = "facial-photos";
 const MAX_BYTES = 1024 * 1024; // 1 MB decodificado
-const MARCEL_TIMEOUT_MS = 8000; // push externo não pode segurar o cadastro
 
 // Decodifica base64 puro (sem prefixo data-URI). Retorna null se não decodificar.
 function decodeBase64(input: string): Uint8Array | null {
@@ -31,80 +31,6 @@ function decodeBase64(input: string): Uint8Array | null {
     return bytes;
   } catch (_) {
     return null;
-  }
-}
-
-// Extrai SÓ o campo `error` da resposta do Marcel (slug curto tipo 'no_face').
-// Nunca o corpo inteiro: a resposta pode ecoar o payload (CPF, e-mail, telefone).
-// O corte em 40 chars é cinto de segurança — se um dia vier texto livre no lugar
-// do slug, não vaza parágrafo nenhum pro log nem pro front.
-function extractReason(data: unknown): string | undefined {
-  const err = (data as { error?: unknown } | null)?.error;
-  if (typeof err !== "string" || err.length === 0) return undefined;
-  return err.slice(0, 40);
-}
-
-// Push best-effort da facial pra API do Marcel. NUNCA lança: todo caminho de erro
-// vira console.warn + { ok: false }. A API aceita base64 sem prefixo data-URI e
-// CPF com ou sem máscara, então mandamos os valores como estão no perfil.
-// `reason` volta preenchido quando a API diz POR QUE recusou (ex.: 'no_face'),
-// pra o front poder sugerir uma recaptura.
-async function pushToMarcelSafe(payload: {
-  uid: string;
-  cpf: string | null;
-  email: string | null;
-  telefone: string | null;
-  imageBase64: string;
-}): Promise<{ ok: boolean; reason?: string }> {
-  const url = Deno.env.get("MARCEL_FACE_URL");
-  if (!url) {
-    console.warn("[FACIAL-ENROLL] MARCEL_FACE_URL ausente — push pulado", { uid: payload.uid });
-    return { ok: false };
-  }
-  // A API autentica por header x-api-key. Sem a key o push só tomaria 401, então
-  // nem tentamos — mesmo tratamento da URL ausente (avisa e segue).
-  const apiKey = Deno.env.get("MARCEL_FACE_KEY");
-  if (!apiKey) {
-    console.warn("[FACIAL-ENROLL] MARCEL_FACE_KEY ausente — push pulado", { uid: payload.uid });
-    return { ok: false };
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), MARCEL_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    // Corpo lido só pra extrair o slug de erro (extractReason descarta o resto).
-    const data = await res.json().catch(() => null);
-    const reason = extractReason(data);
-
-    if (res.status !== 200) {
-      console.warn("[FACIAL-ENROLL] Marcel HTTP != 200", {
-        uid: payload.uid,
-        status: res.status,
-        reason,
-      });
-      return { ok: false, reason };
-    }
-    if ((data as { ok?: unknown } | null)?.ok !== true) {
-      console.warn("[FACIAL-ENROLL] Marcel respondeu ok != true", { uid: payload.uid, reason });
-      return { ok: false, reason };
-    }
-    return { ok: true };
-  } catch (err) {
-    const aborted = err instanceof DOMException && err.name === "AbortError";
-    console.warn(`[FACIAL-ENROLL] Marcel ${aborted ? "timeout" : "falhou"}`, {
-      uid: payload.uid,
-      timeout_ms: aborted ? MARCEL_TIMEOUT_MS : undefined,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return { ok: false };
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -196,13 +122,16 @@ Deno.serve(async (req) => {
     // bucket e o perfil já aponta pra ela — a verdade local está gravada. Se o
     // push falhar (secret ausente, timeout, HTTP != 200, ok:false), apenas
     // avisamos no log e devolvemos synced:false; dá pra re-sincronizar depois.
-    const push = await pushToMarcelSafe({
-      uid,
-      cpf: profile?.cpf ?? null,
-      email: profile?.email ?? null,
-      telefone: profile?.whatsapp ?? null,
-      imageBase64: photoBase64,
-    });
+    const push = await pushToMarcelSafe(
+      {
+        uid,
+        cpf: profile?.cpf ?? null,
+        email: profile?.email ?? null,
+        telefone: profile?.whatsapp ?? null,
+        imageBase64: photoBase64,
+      },
+      "FACIAL-ENROLL",
+    );
     const synced = push.ok;
 
     if (synced) {
