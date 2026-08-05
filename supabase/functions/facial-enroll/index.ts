@@ -34,20 +34,39 @@ function decodeBase64(input: string): Uint8Array | null {
   }
 }
 
-// Push best-effort da facial pra API do Marcel. NUNCA lança: todo caminho de
-// erro vira console.warn + false. A API aceita base64 sem prefixo data-URI e CPF
-// com ou sem máscara, então mandamos os valores como estão no perfil.
+// Extrai SÓ o campo `error` da resposta do Marcel (slug curto tipo 'no_face').
+// Nunca o corpo inteiro: a resposta pode ecoar o payload (CPF, e-mail, telefone).
+// O corte em 40 chars é cinto de segurança — se um dia vier texto livre no lugar
+// do slug, não vaza parágrafo nenhum pro log nem pro front.
+function extractReason(data: unknown): string | undefined {
+  const err = (data as { error?: unknown } | null)?.error;
+  if (typeof err !== "string" || err.length === 0) return undefined;
+  return err.slice(0, 40);
+}
+
+// Push best-effort da facial pra API do Marcel. NUNCA lança: todo caminho de erro
+// vira console.warn + { ok: false }. A API aceita base64 sem prefixo data-URI e
+// CPF com ou sem máscara, então mandamos os valores como estão no perfil.
+// `reason` volta preenchido quando a API diz POR QUE recusou (ex.: 'no_face'),
+// pra o front poder sugerir uma recaptura.
 async function pushToMarcelSafe(payload: {
   uid: string;
   cpf: string | null;
   email: string | null;
   telefone: string | null;
   imageBase64: string;
-}): Promise<boolean> {
+}): Promise<{ ok: boolean; reason?: string }> {
   const url = Deno.env.get("MARCEL_FACE_URL");
   if (!url) {
     console.warn("[FACIAL-ENROLL] MARCEL_FACE_URL ausente — push pulado", { uid: payload.uid });
-    return false;
+    return { ok: false };
+  }
+  // A API autentica por header x-api-key. Sem a key o push só tomaria 401, então
+  // nem tentamos — mesmo tratamento da URL ausente (avisa e segue).
+  const apiKey = Deno.env.get("MARCEL_FACE_KEY");
+  if (!apiKey) {
+    console.warn("[FACIAL-ENROLL] MARCEL_FACE_KEY ausente — push pulado", { uid: payload.uid });
+    return { ok: false };
   }
 
   const controller = new AbortController();
@@ -55,25 +74,27 @@ async function pushToMarcelSafe(payload: {
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+    // Corpo lido só pra extrair o slug de erro (extractReason descarta o resto).
+    const data = await res.json().catch(() => null);
+    const reason = extractReason(data);
+
     if (res.status !== 200) {
-      // Só o status: o corpo da resposta pode ecoar o payload (CPF, e-mail,
-      // telefone) e dado pessoal não vai pro log.
       console.warn("[FACIAL-ENROLL] Marcel HTTP != 200", {
         uid: payload.uid,
         status: res.status,
+        reason,
       });
-      return false;
+      return { ok: false, reason };
     }
-    const data = await res.json().catch(() => null);
-    if (data?.ok !== true) {
-      console.warn("[FACIAL-ENROLL] Marcel respondeu ok != true", { uid: payload.uid, data });
-      return false;
+    if ((data as { ok?: unknown } | null)?.ok !== true) {
+      console.warn("[FACIAL-ENROLL] Marcel respondeu ok != true", { uid: payload.uid, reason });
+      return { ok: false, reason };
     }
-    return true;
+    return { ok: true };
   } catch (err) {
     const aborted = err instanceof DOMException && err.name === "AbortError";
     console.warn(`[FACIAL-ENROLL] Marcel ${aborted ? "timeout" : "falhou"}`, {
@@ -81,7 +102,7 @@ async function pushToMarcelSafe(payload: {
       timeout_ms: aborted ? MARCEL_TIMEOUT_MS : undefined,
       error: err instanceof Error ? err.message : String(err),
     });
-    return false;
+    return { ok: false };
   } finally {
     clearTimeout(timer);
   }
@@ -175,13 +196,14 @@ Deno.serve(async (req) => {
     // bucket e o perfil já aponta pra ela — a verdade local está gravada. Se o
     // push falhar (secret ausente, timeout, HTTP != 200, ok:false), apenas
     // avisamos no log e devolvemos synced:false; dá pra re-sincronizar depois.
-    const synced = await pushToMarcelSafe({
+    const push = await pushToMarcelSafe({
       uid,
       cpf: profile?.cpf ?? null,
       email: profile?.email ?? null,
       telefone: profile?.whatsapp ?? null,
       imageBase64: photoBase64,
     });
+    const synced = push.ok;
 
     if (synced) {
       const { error: syncErr } = await admin
@@ -192,7 +214,10 @@ Deno.serve(async (req) => {
       if (syncErr) console.warn("[FACIAL-ENROLL] facial_synced_at update falhou:", syncErr.message);
     }
 
-    return json({ success: true, synced });
+    // sync_reason só quando o Marcel disse por que recusou (ex.: 'no_face'), pra o
+    // front sugerir recaptura. Sucesso e falhas mudas (timeout, secret ausente)
+    // não carregam o campo.
+    return json({ success: true, synced, ...(!synced && push.reason ? { sync_reason: push.reason } : {}) });
   } catch (err) {
     console.error("[FACIAL-ENROLL] unexpected:", err instanceof Error ? err.message : String(err));
     return json({ success: false, error: "Erro inesperado" }, 500);
