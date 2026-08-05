@@ -1,8 +1,14 @@
 // Edge: partner-checkin
 // API server-to-server para um sistema parceiro VALIDAR e REGISTRAR check-in de
 // ingresso pelo QR (ticket_code cru). Modelo: collaborator-validate-ticket (mesma
-// transição atômica valid->used). Auth por header x-api-key + secret em env var.
+// transição atômica valid->used).
 // Nunca DELETE, nunca edição direta de status fora da transição atômica.
+//
+// SEGURANÇA: x-api-key (secret em env) + janela de check-in do evento DO TICKET.
+// NÃO há escopo por evento — decisão de produto, paridade com a facial-checkin: o
+// ticket_code já identifica o ingresso e o evento dele, e a janela é o que impede
+// check-in em evento que não está acontecendo. `event_id` no body é opcional e
+// serve só pra estreitar a busca.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -45,24 +51,20 @@ serve(async (req) => {
       return json({ error: "invalid_body" }, 400);
     }
     const ticket_code = body?.ticket_code;
-    const event_id = body?.event_id;
     const dry_run = body?.dry_run === true;
 
     if (typeof ticket_code !== "string" || ticket_code.trim().length === 0) {
       return json({ error: "invalid_request", message: "ticket_code é obrigatório" }, 400);
     }
-    if (typeof event_id !== "string" || !UUID_RE.test(event_id)) {
-      return json({ error: "invalid_request", message: "event_id é obrigatório" }, 400);
-    }
 
-    // ---------- 3. Escopo de evento ----------
-    const scopeRaw = Deno.env.get("PARTNER_CHECKIN_EVENT_IDS") ?? "";
-    const allowedEventIds = scopeRaw
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter((s) => s.length > 0);
-    if (!allowedEventIds.includes(event_id.toLowerCase())) {
-      return json({ error: "forbidden", message: "Evento fora do escopo do parceiro" }, 403);
+    // event_id é OPCIONAL: só estreita a busca. Quando vem, precisa ser UUID válido
+    // (mandar lixo é erro do parceiro, não uma busca global silenciosa).
+    let event_id: string | null = null;
+    if (body?.event_id !== undefined && body?.event_id !== null && body?.event_id !== "") {
+      if (typeof body.event_id !== "string" || !UUID_RE.test(body.event_id)) {
+        return json({ error: "invalid_request", message: "event_id inválido" }, 400);
+      }
+      event_id = body.event_id;
     }
 
     const supabase = createClient(
@@ -73,13 +75,17 @@ serve(async (req) => {
     // ---------- 5. Lookup (service-role) ----------
     const selectExpr = `*, event_lots(id,name,price), seat:event_seats(label, seat_type_name)`;
 
-    // Match exato primeiro.
-    const { data: exactRows, error: exactErr } = await supabase
+    // Match exato primeiro. Sem event_id a busca é global — o ticket_code é único
+    // o bastante pra identificar o ingresso (e o limit 2 + length === 1 abaixo
+    // garante que ambiguidade nunca vira check-in no ticket errado).
+    let exactQuery = supabase
       .from("tickets")
       .select(selectExpr)
-      .eq("event_id", event_id)
       .eq("ticket_code", ticket_code)
       .limit(2);
+    if (event_id) exactQuery = exactQuery.eq("event_id", event_id);
+
+    const { data: exactRows, error: exactErr } = await exactQuery;
 
     if (exactErr) {
       console.error("[PARTNER-CHECKIN] lookup exact error", exactErr);
@@ -91,12 +97,14 @@ serve(async (req) => {
     // Sem match exato e código >= 8 chars → busca por prefixo (ilike 'code%'), limit 2.
     if (!ticket && (!exactRows || exactRows.length === 0) && ticket_code.length >= 8) {
       const prefix = ticket_code.replace(/[%_]/g, "").toLowerCase();
-      const { data: prefixRows, error: prefixErr } = await supabase
+      let prefixQuery = supabase
         .from("tickets")
         .select(selectExpr)
-        .eq("event_id", event_id)
         .ilike("ticket_code", `${prefix}%`)
         .limit(2);
+      if (event_id) prefixQuery = prefixQuery.eq("event_id", event_id);
+
+      const { data: prefixRows, error: prefixErr } = await prefixQuery;
       if (prefixErr) {
         console.error("[PARTNER-CHECKIN] lookup prefix error", prefixErr);
         return json({ error: "internal_error" }, 503);
@@ -111,9 +119,13 @@ serve(async (req) => {
       return json({
         result: "not_found",
         checked_in: false,
-        message: "Ingresso não encontrado neste evento",
+        message: event_id ? "Ingresso não encontrado neste evento" : "Ingresso não encontrado",
       });
     }
+
+    // Daqui pra frente o evento é sempre o DO TICKET — não o do body, que pode nem
+    // ter vindo. É ele que manda na janela de check-in e nos logs.
+    const ticketEventId: string = ticket.event_id;
 
     const shortCode = String(ticket.ticket_code).slice(0, 8).toUpperCase();
     const ticketType = ticket.event_lots?.name ?? null;
@@ -132,17 +144,17 @@ serve(async (req) => {
 
     // ---------- 6. Janela de check-in (fail-closed) ----------
     const { data: windowRows, error: windowError } = await supabase
-      .rpc("is_event_checkin_open", { _event_id: event_id });
+      .rpc("is_event_checkin_open", { _event_id: ticketEventId });
     const win = Array.isArray(windowRows) ? windowRows[0] : windowRows;
     if (windowError || !win) {
-      console.error("[PARTNER-CHECKIN] checkin window unavailable", { event_id, error: windowError });
+      console.error("[PARTNER-CHECKIN] checkin window unavailable", { event_id: ticketEventId, error: windowError });
       return json({ error: "checkin_window_unavailable" }, 503);
     }
     if (!win.is_open) {
       // Log da tentativa fora de janela (não bloqueia por erro de log).
       await supabase.from("checkin_logs").insert({
         ticket_id: ticket.id,
-        event_id,
+        event_id: ticketEventId,
         action: "checkin_blocked_window",
         source: "partner_api",
       });
@@ -263,7 +275,7 @@ serve(async (req) => {
     // Sucesso — registra o log (best-effort; não reverte o check-in por erro de log).
     await supabase.from("checkin_logs").insert({
       ticket_id: ticket.id,
-      event_id,
+      event_id: ticketEventId,
       operator_id: null,
       collaborator_id: null,
       action: "checkin",
