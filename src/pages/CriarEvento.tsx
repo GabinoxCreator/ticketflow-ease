@@ -243,8 +243,10 @@ export default function CriarEvento() {
 
     if (eventResult?.id && lots.length > 0) {
       const { supabase } = await import('@/integrations/supabase/client');
+      // 1ª passada: insere todos os lotes guardando o id do banco de cada um.
+      const dbIdByLocalId = new Map<string, string>();
       for (const lot of lots) {
-        await supabase.from('event_lots').insert({
+        const { data: inserted } = await supabase.from('event_lots').insert({
           event_id: eventResult.id,
           name: lot.name,
           description: lot.description || null,
@@ -255,10 +257,26 @@ export default function CriarEvento() {
           group_ticket_enabled: lot.group_ticket_enabled,
           group_ticket_quantity: lot.group_ticket_quantity,
           sales_start_type: lot.sales_start_type,
-          start_date: lot.start_date || null,
+          // Junta a data com o horário escolhido (antes o horário era descartado) e
+          // converte do fuso do produtor para UTC. Sem data → sem agendamento efetivo.
+          start_date: lot.sales_start_type === 'scheduled' && lot.start_date
+            ? new Date(`${lot.start_date}T${lot.start_time || '00:00'}:00`).toISOString()
+            : null,
           fake_scarcity_enabled: lot.fake_scarcity_enabled,
           fake_scarcity_percentage: lot.fake_scarcity_percentage,
-        });
+        }).select('id').single();
+        if (inserted) dbIdByLocalId.set(lot.id, inserted.id);
+      }
+      // 2ª passada: resolve "entra após esgotar o lote X" trocando o id local pelo do banco
+      // (antes a referência era descartada e a escolha do produtor se perdia).
+      for (const lot of lots) {
+        if (lot.sales_start_type === 'after_lot' && lot.starts_after_lot_id) {
+          const selfId = dbIdByLocalId.get(lot.id);
+          const targetId = dbIdByLocalId.get(lot.starts_after_lot_id);
+          if (selfId && targetId) {
+            await supabase.from('event_lots').update({ starts_after_lot_id: targetId }).eq('id', selfId);
+          }
+        }
       }
     }
 

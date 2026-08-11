@@ -24,6 +24,22 @@ import {
 } from '@/components/ui/select';
 import { EventLot, LotFormData } from '@/hooks/useEventLots';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+
+// datetime-local não entende ISO com fuso ("2026-10-17T13:00:00+00:00");
+// converte o valor guardado (UTC) para o formato local do input, e vice-versa.
+const isoToLocalInput = (iso?: string | null): string => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const localInputToIso = (local?: string | null): string | null => {
+  if (!local) return null;
+  const d = new Date(local); // datetime-local é interpretado no fuso do navegador
+  return isNaN(d.getTime()) ? null : d.toISOString();
+};
 
 interface LotManagerProps {
   lots: EventLot[];
@@ -81,7 +97,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         price: lot.price,
         original_price: lot.original_price || undefined,
         total_quantity: lot.total_quantity,
-        start_date: lot.start_date || undefined,
+        start_date: isoToLocalInput(lot.start_date) || undefined,
         end_date: lot.end_date || undefined,
         description: lot.description || undefined,
         is_active: lot.is_active,
@@ -148,10 +164,31 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   })();
 
   const handleSubmit = () => {
+    // Agendou? Então a data é obrigatória — sem ela o agendamento não teria efeito nenhum.
+    if (formData.sales_start_type === 'scheduled' && !formData.start_date) {
+      toast.error('Informe a data e hora de início das vendas para agendar.');
+      return;
+    }
+    if (formData.sales_start_type === 'after_lot' && !formData.starts_after_lot_id) {
+      toast.error('Escolha qual lote precisa esgotar antes deste entrar à venda.');
+      return;
+    }
+
+    const payload: LotFormData = {
+      ...formData,
+      // Grava em UTC o horário que o produtor escolheu no fuso dele.
+      start_date: formData.sales_start_type === 'scheduled'
+        ? (localInputToIso(formData.start_date) ?? undefined)
+        : undefined,
+      starts_after_lot_id: formData.sales_start_type === 'after_lot'
+        ? formData.starts_after_lot_id
+        : null,
+    };
+
     if (editingLot) {
-      onUpdate(editingLot.id, formData);
+      onUpdate(editingLot.id, payload);
     } else {
-      onAdd(formData);
+      onAdd(payload);
     }
     setIsDialogOpen(false);
   };

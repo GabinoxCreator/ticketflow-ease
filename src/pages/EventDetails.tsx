@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { getEventEndInstant } from '@/lib/eventTime';
+import { isLotOpenForSale } from '@/lib/lot-availability';
 
 import { useEventLots } from '@/hooks/useEventLots';
 import { useEventSeatAvailability } from '@/hooks/useEventSeatAvailability';
@@ -185,7 +186,8 @@ const EventDetails = () => {
   }
 
   const isEventFinished = event.status === 'finished' || getEventEndInstant(event) < new Date();
-  const activeLots = isEventFinished ? [] : lots?.filter((lot) => lot.is_active) || [];
+  // Lote agendado só entra na vitrine quando a hora chega; lote encadeado, quando o anterior esgota.
+  const activeLots = isEventFinished ? [] : (lots || []).filter((lot) => isLotOpenForSale(lot, lots || []));
 
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('pt-BR', {
