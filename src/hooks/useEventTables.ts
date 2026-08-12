@@ -41,82 +41,23 @@ export function isEffectivelyAvailable(row: Pick<EventTableRow, 'status' | 'hold
   return false;
 }
 
-interface OrderRow {
-  id: string;
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  total_amount: number | null;
-  updated_at: string | null;
-  status: string | null;
-}
-
-const SEAT_COLS =
-  'id,event_id,code,label,status,color,shape,seat_type_name,' +
-  'base_capacity,max_capacity,base_price,extra_price,' +
-  'sold_order_id,order_id,hold_expires_at,' +
-  'manually_closed_at,manual_close_reason,' +
-  'manual_holder_name,manual_holder_phone,manual_holder_notes';
-
+// LGPD (hardening #4, 12/08/2026): a leitura de gestão vem da RPC
+// get_event_tables_management, SECURITY DEFINER escopada ao produtor dono do
+// evento (ou admin) — manual_holder_*/order ids saíram do grant de SELECT do
+// role authenticated, então não dá mais pra ler PII de terceiro direto na
+// tabela. A RPC devolve seats + dados do comprador + ingressos emitidos numa
+// chamada só, no MESMO formato que este hook sempre entregou.
 export function useEventTables(eventId: string | undefined) {
   return useQuery({
     queryKey: ['event-tables', eventId],
     enabled: !!eventId,
     queryFn: async (): Promise<EventTableRow[]> => {
-      const { data: seats, error } = await supabase
-        .from('event_seats')
-        .select(SEAT_COLS)
-        .eq('event_id', eventId!);
-      if (error) throw error;
-
-      const seatRows = (seats ?? []) as unknown as Array<Omit<EventTableRow,
-        'customer_name' | 'customer_email' | 'customer_phone' | 'order_total' | 'order_paid_at' | 'seats_sold'>>;
-
-      const orderIds = Array.from(
-        new Set(
-          seatRows
-            .map((s) => s.sold_order_id ?? s.order_id)
-            .filter((v): v is string => !!v),
-        ),
-      );
-
-      let ordersById = new Map<string, OrderRow>();
-      const ticketsByOrder = new Map<string, number>();
-      if (orderIds.length > 0) {
-        const [ordersRes, ticketsRes] = await Promise.all([
-          supabase
-            .from('orders')
-            .select('id,customer_name,customer_email,customer_phone,total_amount,updated_at,status')
-            .in('id', orderIds),
-          supabase
-            .from('tickets')
-            .select('order_id')
-            .in('order_id', orderIds)
-            .in('status', ['valid', 'used']),
-        ]);
-        if (ordersRes.error) throw ordersRes.error;
-        if (ticketsRes.error) throw ticketsRes.error;
-        ordersById = new Map((ordersRes.data ?? []).map((o) => [o.id as string, o as OrderRow]));
-        for (const t of ticketsRes.data ?? []) {
-          const oid = (t as { order_id: string | null }).order_id;
-          if (!oid) continue;
-          ticketsByOrder.set(oid, (ticketsByOrder.get(oid) ?? 0) + 1);
-        }
-      }
-
-      return seatRows.map((s) => {
-        const oid = s.sold_order_id ?? s.order_id;
-        const o = oid ? ordersById.get(oid) : undefined;
-        return {
-          ...s,
-          customer_name: o?.customer_name ?? null,
-          customer_email: o?.customer_email ?? null,
-          customer_phone: o?.customer_phone ?? null,
-          order_total: o?.total_amount ?? null,
-          order_paid_at: o?.status === 'paid' ? o?.updated_at ?? null : null,
-          seats_sold: oid ? ticketsByOrder.get(oid) ?? null : null,
-        };
+      // cast: types.ts é auto-gerado e ainda não conhece a RPC nova
+      const { data, error } = await (supabase.rpc as any)('get_event_tables_management', {
+        _event_id: eventId!,
       });
+      if (error) throw error;
+      return (data ?? []) as EventTableRow[];
     },
   });
 }
