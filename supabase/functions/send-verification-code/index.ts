@@ -1,8 +1,9 @@
-// redeploy 2026-07-07 — force redeploy
+// redeploy 2026-08-12 — hardening: OTP gerado com CSPRNG
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
 import { maskEmail } from "../_shared/pii.ts";
+import { generateOtpCode } from "../_shared/otp.ts";
 
 const Resend = (await import("https://esm.sh/resend@2.0.0")).Resend;
 
@@ -32,7 +33,7 @@ serve(async (req) => {
     console.log("[SEND-CODE] Generating code for:", maskEmail(email));
 
     // Generate 6-digit code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Initialize Supabase client
