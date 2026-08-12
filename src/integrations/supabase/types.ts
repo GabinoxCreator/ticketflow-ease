@@ -2174,6 +2174,7 @@ export type Database = {
           retry_after_seconds: number
         }[]
       }
+      claim_my_orphan_orders: { Args: never; Returns: Json }
       confirm_lot_sale: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
