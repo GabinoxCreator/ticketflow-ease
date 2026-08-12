@@ -27,6 +27,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
 import { LotCard } from '@/components/event/LotCard';
+import {
+  LikeSignupInviteDialog,
+  shouldShowLikeInvite,
+  markLikeInviteShown,
+} from '@/components/event/LikeSignupInviteDialog';
 import { getTicketLimitForEvent } from '@/data/eventTicketLimits';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
@@ -69,6 +74,7 @@ const EventDetails = () => {
   const prevTotalRef = useRef(0);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [isLikeInviteOpen, setIsLikeInviteOpen] = useState(false);
   const { user } = useAuth();
 
   const hasMap =
@@ -84,47 +90,67 @@ const EventDetails = () => {
   const { data: donationProgress, isLoading: donationProgressLoading } =
     useDonationProgress(event?.slug, isBeneficentEvent(event));
 
+  // Hardening #7: leitura e toggle do like passam por RPC (a tabela não é mais
+  // acessível direto — o DELETE aberto deixava apagar curtida alheia em massa).
+  // cast nos rpc: types.ts é auto-gerado e ainda não conhece as RPCs novas.
   useEffect(() => {
     if (!eventId) return;
     const anonymousId = getAnonymousId();
-
-    const fetchLikes = async () => {
-      const { count } = await supabase
-        .from('event_likes' as any)
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', eventId);
-      setLikeCount(count || 0);
-
-      const { data } = await supabase
-        .from('event_likes' as any)
-        .select('id')
-        .eq('event_id', eventId)
-        .eq('anonymous_id', anonymousId)
-        .maybeSingle();
-      setLiked(!!data);
-    };
-    fetchLikes();
+    (async () => {
+      const { data, error } = await (supabase.rpc as any)('get_event_like_state', {
+        _event_id: eventId,
+        _anonymous_id: anonymousId,
+      });
+      if (error) return;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) return;
+      setLikeCount(Number(row.like_count) || 0);
+      setLiked(!!row.liked);
+    })();
   }, [eventId]);
+
+  // Adota o like anônimo deste navegador quando a pessoa cria conta/entra
+  // (mesma ideia do claim_my_orphan_orders). Idempotente e barato.
+  useEffect(() => {
+    if (!user) return;
+    (supabase.rpc as any)('claim_my_anonymous_likes', {
+      _anonymous_id: getAnonymousId(),
+    });
+  }, [user]);
 
   const handleLike = useCallback(async () => {
     if (!eventId) return;
     const anonymousId = getAnonymousId();
-    if (liked) {
-      setLiked(false);
-      setLikeCount((prev) => Math.max(0, prev - 1));
-      await supabase
-        .from('event_likes' as any)
-        .delete()
-        .eq('event_id', eventId)
-        .eq('anonymous_id', anonymousId);
-    } else {
-      setLiked(true);
-      setLikeCount((prev) => prev + 1);
-      await supabase
-        .from('event_likes' as any)
-        .insert({ event_id: eventId, anonymous_id: anonymousId } as any);
+    const wasLiked = liked;
+
+    // otimista: o coração responde na hora
+    setLiked(!wasLiked);
+    setLikeCount((prev) => Math.max(0, prev + (wasLiked ? -1 : 1)));
+
+    const { data, error } = await (supabase.rpc as any)('toggle_event_like', {
+      _event_id: eventId,
+      _anonymous_id: anonymousId,
+    });
+
+    if (error) {
+      setLiked(wasLiked);
+      setLikeCount((prev) => Math.max(0, prev + (wasLiked ? 1 : -1)));
+      toast.error('Não foi possível registrar sua curtida. Tente de novo.');
+      return;
     }
-  }, [eventId, liked]);
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) {
+      setLikeCount(Number(row.like_count) || 0);
+      setLiked(!!row.liked);
+    }
+
+    // Funil: só quando ACABOU de curtir, visitante sem conta e sem convite recente.
+    if (!wasLiked && !user && shouldShowLikeInvite()) {
+      markLikeInviteShown();
+      setIsLikeInviteOpen(true);
+    }
+  }, [eventId, liked, user]);
 
   // Auto-abre sheet apenas na transição 0 -> 1; fecha quando esvazia
   const totalForEffect = Object.values(selectedLots).reduce((s, q) => s + q, 0);
@@ -600,6 +626,12 @@ const EventDetails = () => {
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onAuthenticated={handleAuthenticated}
+        />
+
+        <LikeSignupInviteDialog
+          open={isLikeInviteOpen}
+          onOpenChange={setIsLikeInviteOpen}
+          eventTitle={event.title}
         />
 
         {showDonation && donationCampaign && (

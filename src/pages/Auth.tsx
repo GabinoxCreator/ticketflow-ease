@@ -32,7 +32,10 @@ const Auth: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { signIn, user, isLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'cadastrar'>('login');
+  // ?mode=cadastrar já abre na aba de cadastro (usado pelo convite pós-curtida)
+  const [activeTab, setActiveTab] = useState<'login' | 'cadastrar'>(
+    searchParams.get('mode') === 'cadastrar' ? 'cadastrar' : 'login',
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // gate do auto-redirect: enquanto o convite de carteira (pós-cadastro) estiver

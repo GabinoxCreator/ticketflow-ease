@@ -17,7 +17,6 @@ export interface EventFees {
   pixFixed: number;
   cardPercent: number;
   cardFixed: number;
-  overrides: EventFeeOverride[];
 }
 
 const DEFAULT: EventFees = {
@@ -25,29 +24,36 @@ const DEFAULT: EventFees = {
   pixFixed: 0,
   cardPercent: 10,
   cardFixed: 0,
-  overrides: [],
 };
 
+// Hardening #6 (12/08/2026): a tabela event_fee_overrides era legível por
+// qualquer um (USING true) — dava pra baixar a taxa negociada de TODOS os
+// eventos + as notes da negociação. O checkout só precisa dos 4 números do
+// evento em compra, e é o que a RPC pública devolve (sem notes, sem listar
+// outros eventos). A tabela em si ficou restrita a admin.
 export function useEventFees(eventId: string | undefined) {
   const { data, ...rest } = useQuery({
     queryKey: ['event-fees', eventId],
     queryFn: async (): Promise<EventFees> => {
       if (!eventId) return DEFAULT;
       // Leitura pública: client sem sessão, não espera o refresh de token.
-      const { data, error } = await supabasePublic
-        .from('event_fee_overrides' as any)
-        .select('*')
-        .eq('event_id', eventId);
+      // cast: types.ts é auto-gerado e ainda não conhece a RPC nova
+      const { data, error } = await (supabasePublic.rpc as any)('get_event_fees', {
+        _event_id: eventId,
+      });
       if (error) throw error;
-      const list = (data || []) as unknown as EventFeeOverride[];
-      const pix = list.find((o) => o.payment_method === 'pix');
-      const card = list.find((o) => o.payment_method === 'card');
+      const row = (Array.isArray(data) ? data[0] : data) as {
+        pix_percent: number | string;
+        pix_fixed: number | string;
+        card_percent: number | string;
+        card_fixed: number | string;
+      } | null;
+      if (!row) return DEFAULT;
       return {
-        pixPercent: pix ? Number(pix.fee_percent) : 10,
-        pixFixed: pix ? Number(pix.fee_fixed) : 0,
-        cardPercent: card ? Number(card.fee_percent) : 10,
-        cardFixed: card ? Number(card.fee_fixed) : 0,
-        overrides: list,
+        pixPercent: Number(row.pix_percent),
+        pixFixed: Number(row.pix_fixed),
+        cardPercent: Number(row.card_percent),
+        cardFixed: Number(row.card_fixed),
       };
     },
     enabled: !!eventId,
