@@ -45,7 +45,14 @@ export function useUserTickets() {
     queryKey: ['user-tickets', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      
+
+      // Adota pedidos "órfãos" (venda manual/portaria feita antes da conta
+      // existir): a RPC vincula por e-mail+CPF no servidor. Best-effort —
+      // falha aqui nunca bloqueia a listagem.
+      try {
+        await (supabase.rpc as any)('claim_my_orphan_orders');
+      } catch { /* noop */ }
+
       const { data, error } = await supabase
         .from('tickets')
         .select(`

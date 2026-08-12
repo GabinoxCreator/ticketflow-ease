@@ -1,4 +1,4 @@
-// redeploy 2026-07-22 — force redeploy
+// redeploy 2026-08-12 — vincula venda manual a conta existente (user_id por e-mail+CPF)
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
@@ -235,13 +235,35 @@ serve(async (req) => {
     // Cortesia força total ZERO; venda normal calcula como antes.
     const totalAmount = isCourtesy ? 0 : Math.max(0.01, round2(subtotal + serviceFee - discountAmount));
 
+    // Se já existe conta com o e-mail do comprador, vincula a venda direto a ela
+    // (senão o ingresso fica "órfão" e não aparece em Meus Ingressos). CPF
+    // divergente = NÃO vincula: o e-mail digitado pode ser de outra pessoa.
+    // Best-effort: falha aqui nunca derruba a venda.
+    let buyerUserId: string | null = null;
+    try {
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("id, cpf")
+        .eq("email", body.buyer.email.trim().toLowerCase())
+        .maybeSingle();
+      if (prof) {
+        if (!prof.cpf || prof.cpf === cpfDigits) {
+          buyerUserId = prof.id as string;
+        } else {
+          log("buyer_link_cpf_mismatch", { profile_id: prof.id });
+        }
+      }
+    } catch (e) {
+      log("buyer_link_lookup_failed", { error: String(e) });
+    }
+
     // Create order (pending → apply_order_approved promotes). Na cortesia, os
     // campos financeiros são forçados a zero/null aqui (blindagem final).
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .insert({
         event_id: body.event_id,
-        user_id: null,
+        user_id: buyerUserId,
         customer_name: body.buyer.name.trim(),
         customer_email: body.buyer.email.trim().toLowerCase(),
         customer_phone: whatsappDigits,
@@ -274,7 +296,7 @@ serve(async (req) => {
         holder_name: body.buyer.name.trim(),
         holder_email: body.buyer.email.trim().toLowerCase(),
         holder_phone: whatsappDigits,
-        user_id: null,
+        user_id: buyerUserId,
         status: "pending",
       })),
     );
@@ -331,6 +353,7 @@ serve(async (req) => {
         items_count: lineItems.length,
         total_tickets: ticketsRows.length,
         total_amount: isCourtesy ? 0 : totalAmount,
+        linked_user_id: buyerUserId,
       },
     });
 
