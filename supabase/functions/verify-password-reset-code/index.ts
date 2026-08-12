@@ -1,7 +1,8 @@
-// redeploy 2026-07-07 — force redeploy
+// redeploy 2026-08-12 — hardening: rate-limit fail-closed na verificação do OTP
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { maskEmail } from "../_shared/pii.ts";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,6 +45,25 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    // Rate limit fail-closed: código de 6 dígitos vive 10 min — sem limite aqui,
+    // força-bruta vira tomada de conta. Ao bloquear por email, os códigos pendentes
+    // são APAGADOS (lockout não é só espera: o código em si morre).
+    const ip = getClientIp(req);
+    const rlEmail = await checkRateLimit(supabase, `otp-verify:reset:email:${normalizedEmail}`, 5, 900, 1800);
+    if (!rlEmail.allowed) {
+      if (!rlEmail.unavailable) {
+        await supabase
+          .from("password_reset_codes")
+          .delete()
+          .eq("email", normalizedEmail)
+          .eq("verified", false);
+        console.log("[VERIFY-RESET] Lockout: pending codes invalidated for", maskEmail(normalizedEmail));
+      }
+      return rateLimitResponse(rlEmail, corsHeaders);
+    }
+    const rlIp = await checkRateLimit(supabase, `otp-verify:reset:ip:${ip}`, 20, 900, 1800);
+    if (!rlIp.allowed) return rateLimitResponse(rlIp, corsHeaders);
 
     // Localiza código válido
     const { data: codeData, error: fetchError } = await supabase
