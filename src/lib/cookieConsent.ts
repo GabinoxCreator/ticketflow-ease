@@ -12,7 +12,8 @@ export interface CookieConsent {
 }
 
 const STORAGE_KEY = 'festpag_cookie_consent';
-export const CONSENT_VERSION = '1.0';
+// 1.1 (12/08/2026): escopo passou a incluir o Google Tag Manager além do Pixel
+export const CONSENT_VERSION = '1.1';
 export const CONSENT_CHANGED_EVENT = 'cookie-consent-changed';
 export const OPEN_PREFERENCES_EVENT = 'open-cookie-preferences';
 

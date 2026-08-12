@@ -1,9 +1,10 @@
 // Banner de consentimento de cookies (LGPD). Aparece enquanto não houver
 // decisão registrada (ou quando a versão do consentimento mudar) e pode ser
 // reaberto pelo rodapé ("Preferências de cookies"). "Aceitar todos" libera os
-// cookies de marketing (Meta Pixel — ver src/lib/metaPixel.ts, que só carrega
-// após este opt-in); "Somente essenciais" mantém apenas o necessário pro site
-// funcionar (sessão/login/carrinho), que não depende de consentimento.
+// cookies de marketing (Meta Pixel e Google Tag Manager — ver src/lib/metaPixel.ts
+// e src/lib/googleTagManager.ts, que só carregam após este opt-in); "Somente
+// essenciais" mantém apenas o necessário pro site funcionar (sessão/login/
+// carrinho), que não depende de consentimento.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Cookie } from 'lucide-react';
@@ -40,8 +41,8 @@ const CookieConsentBanner = () => {
             <p className="text-sm font-semibold text-foreground">Cookies e privacidade</p>
             <p className="text-sm text-muted-foreground">
               Usamos cookies essenciais para o site funcionar (login, compra). Com a sua
-              autorização, também usamos cookies de <b>marketing</b> (como o Pixel da Meta)
-              para medir campanhas dos produtores. Você pode mudar de ideia quando quiser em
+              autorização, também usamos cookies de <b>marketing</b> (como o Pixel da Meta e
+              o Google Tag Manager) para medir campanhas. Você pode mudar de ideia quando quiser em
               "Preferências de cookies" no rodapé. Saiba mais na{' '}
               <Link to="/privacidade" className="underline hover:text-foreground">
                 Política de Privacidade

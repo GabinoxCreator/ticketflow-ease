@@ -117,7 +117,7 @@ export default function PoliticaPrivacidade() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Com produtores de eventos:</strong> quando um cliente compra um ingresso, o produtor pode receber dados necessários à operação do evento, atualmente nome, e-mail e telefone, conforme informado para esta política.</li>
                   <li><strong>Com parceiros de pagamento:</strong> atualmente o <strong>Mercado Pago</strong>, para processar cobranças, confirmações, repasses e rotinas financeiras.</li>
-                  <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend) e a <strong>Meta/Facebook</strong> (quando você autoriza cookies de marketing — ver seção 6), para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
+                  <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend), a <strong>Meta/Facebook</strong> e o <strong>Google</strong> (Tag Manager) — estes dois últimos apenas quando você autoriza cookies de marketing (ver seção 6) — para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
                   <li><strong>Para cumprimento de obrigação legal, regulatória ou ordem de autoridade competente:</strong> quando necessário para atender à legislação aplicável ou proteger direitos da FestPag, dos usuários e de terceiros.</li>
                 </ul>
               </section>
@@ -128,11 +128,11 @@ export default function PoliticaPrivacidade() {
                 <p>Usamos duas categorias de cookies e tecnologias semelhantes:</p>
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Cookies essenciais:</strong> necessários para o site funcionar — autenticar acessos, manter sua sessão e o carrinho de compra. Não dependem de consentimento, pois sem eles a plataforma não opera.</li>
-                  <li><strong>Cookies de marketing:</strong> quando um produtor ativa medição de campanhas, utilizamos o <strong>Pixel da Meta (Facebook)</strong> para medir visitas e conversões. Esses cookies <strong>só são ativados com o seu consentimento</strong>, dado no banner de cookies exibido no primeiro acesso.</li>
+                  <li><strong>Cookies de marketing:</strong> quando há medição de campanhas ativa, utilizamos o <strong>Pixel da Meta (Facebook)</strong> e o <strong>Google Tag Manager</strong> para medir visitas e conversões. Esses cookies <strong>só são ativados com o seu consentimento</strong>, dado no banner de cookies exibido no primeiro acesso.</li>
                 </ul>
                 <p>Você pode <strong>aceitar, recusar ou alterar</strong> sua escolha a qualquer momento pelo link "Preferências de cookies" no rodapé do site. Recusar os cookies de marketing não afeta a compra de ingressos.</p>
                 <p>
-                  <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil — o Pixel da Meta transfere dados de navegação para os Estados Unidos, e nossa infraestrutura de backend (Supabase) pode armazenar dados em servidores no exterior. Essas transferências observam a LGPD (art. 33) e ocorrem para as finalidades descritas nesta Política.
+                  <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil — o Pixel da Meta e o Google Tag Manager transferem dados de navegação para os Estados Unidos, e nossa infraestrutura de backend (Supabase) pode armazenar dados em servidores no exterior. Essas transferências observam a LGPD (art. 33) e ocorrem para as finalidades descritas nesta Política.
                 </p>
               </section>
 
@@ -191,7 +191,7 @@ export default function PoliticaPrivacidade() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Execução de contrato:</strong> cadastro, compra, emissão e entrega de ingressos, check-in e suporte.</li>
                   <li><strong>Cumprimento de obrigação legal:</strong> guarda de registros fiscais e financeiros das transações.</li>
-                  <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta) e eventuais comunicações promocionais — revogável a qualquer momento.</li>
+                  <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta, Google Tag Manager) e eventuais comunicações promocionais — revogável a qualquer momento.</li>
                   <li><strong>Legítimo interesse:</strong> segurança da plataforma, prevenção a fraudes e melhoria do serviço, sempre respeitando seus direitos e expectativas.</li>
                 </ul>
               </section>
