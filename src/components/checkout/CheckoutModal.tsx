@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { validateCPF, unformatCPF } from '@/utils/cpfValidator';
 import { useEventFees, computeFee } from '@/hooks/useEventFees';
+import { savePendingCheckout, readPendingCheckout, clearPendingCheckout } from '@/lib/pendingCheckout';
 
 type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
@@ -61,6 +63,7 @@ export function CheckoutModal({
   totalAmount,
 }: CheckoutModalProps) {
   const { user, profile, refreshProfile } = useAuth();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [step, setStep] = useState<CheckoutStep>('payment');
   const [customerData, setCustomerData] = useState({
@@ -85,18 +88,40 @@ export function CheckoutModal({
   const pixDisplayAmount = pixData?.amount ?? finalAmount;
 
 
+  // ATENÇÃO — este efeito causou o incidente de 13/08. Ele resetava `step` para
+  // 'payment' sempre que `user`/`profile` mudassem de referência. Quando o cliente
+  // saía para o app do banco e voltava, o Supabase reemitia o token
+  // (onAuthStateChange → fetchProfile → setProfile com objeto novo), o efeito
+  // disparava e devolvia a tela para a escolha de meio de pagamento — com o PIX
+  // já pago e o ingresso emitido. Agora ele só COMPLETA campos vazios e nunca
+  // toca no passo atual.
   useEffect(() => {
-    if (isOpen) {
-      const profileCpfDigits = unformatCPF(profile?.cpf || '');
+    if (!isOpen) return;
+    const profileCpfDigits = unformatCPF(profile?.cpf || '');
+    setCustomerData((prev) => ({
+      cpf: prev.cpf || profileCpfDigits,
+      name: prev.name || profile?.nome_completo || user?.user_metadata?.nome_completo || '',
+      email: prev.email || user?.email || '',
+      phone: prev.phone || profile?.whatsapp || '',
+    }));
+  }, [user, isOpen, profile]);
+
+  // O passo volta ao início só na ABERTURA do modal (fechado → aberto).
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      setStep('payment');
       setCustomerData({
-        cpf: profileCpfDigits,
+        cpf: unformatCPF(profile?.cpf || ''),
         name: profile?.nome_completo || user?.user_metadata?.nome_completo || '',
         email: user?.email || '',
         phone: profile?.whatsapp || '',
       });
-      setStep('payment');
     }
-  }, [user, isOpen, profile]);
+    wasOpenRef.current = isOpen;
+    // Depende só de `isOpen`: quem entra aqui é a transição de abertura, não o perfil.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Lê o payment_provider do evento ao abrir o modal. Apenas armazena o dado;
   // nenhum comportamento de pagamento depende disso ainda.
@@ -129,6 +154,24 @@ export function CheckoutModal({
   const startPix = useCallback(async (cpfDigits: string) => {
     setIsProcessing(true);
     try {
+      // Antes de criar um PIX novo: se este cliente já tem um pedido PENDENTE deste
+      // mesmo evento, leva para o acompanhamento dele em vez de gerar outra cobrança.
+      // É a trava contra o "achei que não tinha dado certo e paguei de novo".
+      const draft = readPendingCheckout();
+      if (draft && draft.eventId === eventId) {
+        const { data: existing } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('id', draft.orderId)
+          .maybeSingle();
+        if (existing?.status === 'pending') {
+          onClose();
+          navigate(`/pedido/${existing.id}`);
+          return;
+        }
+        clearPendingCheckout();
+      }
+
       const deviceId = (window as any).MP_DEVICE_SESSION_ID || null;
 
       const pixFn = paymentProvider === 'marcel' ? 'confra-create-pix' : 'create-mercadopago-pix';
@@ -153,14 +196,28 @@ export function CheckoutModal({
         expiresAt: new Date(data.expiresAt),
         amount: typeof data.amount === 'number' ? data.amount : undefined,
       });
-      setStep('pix');
+
+      // A partir daqui a jornada sai do modal e vai para /pedido/:id — uma tela com
+      // endereço próprio, que sobrevive a fechar o navegador e a voltar do app do
+      // banco. O rascunho local guarda o código do PIX para remostrar o QR na volta
+      // (o código não é persistido no banco).
+      savePendingCheckout({
+        orderId: data.orderId,
+        paymentId: data.paymentId ? String(data.paymentId) : null,
+        pixCode: data.pixCode ?? null,
+        expiresAt: data.expiresAt ?? null,
+        eventId,
+      });
+      setStep('pix'); // fallback: se a navegação não ocorrer, o QR ainda aparece aqui
+      onClose();
+      navigate(`/pedido/${data.orderId}`);
     } catch (error: any) {
       console.error('Payment error:', error);
       toast.error(error.message || 'Erro ao processar pagamento');
     } finally {
       setIsProcessing(false);
     }
-  }, [eventId, items, customerData, appliedCoupon, paymentProvider]);
+  }, [eventId, items, customerData, appliedCoupon, paymentProvider, navigate, onClose]);
 
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
@@ -377,7 +434,22 @@ export function CheckoutModal({
                 customerPhone={customerData.phone}
                 customerCPF={customerData.cpf}
                 onSuccess={(newOrderId, pid) => { setOrderId(newOrderId); if (pid) setPaymentId(pid); setStep('success'); }}
-                onInProcess={(newOrderId, pid) => { setOrderId(newOrderId); if (pid) setPaymentId(pid); setStep('awaiting'); }}
+                onInProcess={(newOrderId, pid) => {
+                  // Cartão que o Mercado Pago mandou para análise (in_process /
+                  // pending_review_manual): não é recusa. Mesma tela do PIX, com
+                  // endereço próprio, para o cliente acompanhar sem ficar preso ao modal.
+                  setOrderId(newOrderId);
+                  if (pid) setPaymentId(pid);
+                  savePendingCheckout({
+                    orderId: newOrderId,
+                    paymentId: pid ? String(pid) : null,
+                    pixCode: null,
+                    expiresAt: null,
+                    eventId,
+                  });
+                  onClose();
+                  navigate(`/pedido/${newOrderId}`);
+                }}
                 onError={() => {}}
               />
             )}
