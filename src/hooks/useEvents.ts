@@ -219,24 +219,45 @@ export function useEvent(idOrSlug: string | undefined) {
       const select = '*, producer_profiles ( brand_name, logo_url, meta_pixel_id, tracking_enabled )';
 
       // Try slug first (most public URLs), fall back to id (legacy/UUID links)
-      // Leitura pública: client sem sessão, não espera o refresh de token.
-      let { data, error } = await supabasePublic
-        .from('events')
-        .select(select)
-        .eq(isUuid ? 'id' : 'slug', idOrSlug)
-        .maybeSingle();
-
-      if (!data && !error) {
-        const fallback = await supabasePublic
+      const lookup = async (client: any) => {
+        let { data, error } = await client
           .from('events')
           .select(select)
-          .eq(isUuid ? 'slug' : 'id', idOrSlug)
+          .eq(isUuid ? 'id' : 'slug', idOrSlug)
           .maybeSingle();
-        data = fallback.data;
-        error = fallback.error;
+
+        if (!data && !error) {
+          const fallback = await client
+            .from('events')
+            .select(select)
+            .eq(isUuid ? 'slug' : 'id', idOrSlug)
+            .maybeSingle();
+          data = fallback.data;
+          error = fallback.error;
+        }
+        return { data, error };
+      };
+
+      // 1) Leitura pública: client sem sessão, não espera o refresh de token.
+      let { data, error } = await lookup(supabasePublic);
+      if (error) throw error;
+
+      // 2) Não achou? Pode ser evento em RASCUNHO. A política pública de
+      // `events` só enxerga status='published'; o dono (producer_id = auth.uid())
+      // e o admin só aparecem pelo client AUTENTICADO. Sem esta segunda tentativa,
+      // o próprio produtor levava "Evento não encontrado" no painel e na tela de
+      // editar de qualquer evento ainda não publicado — inclusive impedindo-o de
+      // chegar ao botão de publicar. Quem não tem sessão nem chega aqui, e o RLS
+      // segue decidindo o que pode ser lido.
+      if (!data) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          const authed = await lookup(supabase);
+          if (authed.error) throw authed.error;
+          data = authed.data;
+        }
       }
 
-      if (error) throw error;
       return data as any;
     },
     enabled: !!idOrSlug,
