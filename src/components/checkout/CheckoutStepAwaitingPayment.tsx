@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,22 +16,42 @@ export function CheckoutStepAwaitingPayment({
 }: CheckoutStepAwaitingPaymentProps) {
   const [isChecking, setIsChecking] = useState(true);
 
+  // Callbacks em ref: o efeito não pode depender delas. O pai as recria a cada
+  // render, o que destruía e recriava o intervalo antes de ele disparar — a
+  // verificação podia nunca acontecer (incidente de 13/08).
+  const checkRef = useRef(checkPaymentStatus);
+  const confirmRef = useRef(onPaymentConfirmed);
+  useEffect(() => { checkRef.current = checkPaymentStatus; }, [checkPaymentStatus]);
+  useEffect(() => { confirmRef.current = onPaymentConfirmed; }, [onPaymentConfirmed]);
+
   useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+
     const checkStatus = async () => {
-      const isPaid = await checkPaymentStatus();
-      if (isPaid) {
-        onPaymentConfirmed();
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const isPaid = await checkRef.current();
+        if (!cancelled && isPaid) confirmRef.current();
+      } catch (e) {
+        console.warn('[AWAITING] verificação falhou (segue tentando):', e);
+      } finally {
+        inFlight = false;
       }
     };
 
-    // Check immediately
-    checkStatus();
-
-    // Then check every 5 seconds
+    void checkStatus();
     const interval = setInterval(checkStatus, 5000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void checkStatus(); };
+    document.addEventListener('visibilitychange', onVisible);
 
-    return () => clearInterval(interval);
-  }, [checkPaymentStatus, onPaymentConfirmed]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   return (
     <motion.div

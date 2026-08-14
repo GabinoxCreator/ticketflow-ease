@@ -23,6 +23,7 @@ import CheckoutSuccess from "./pages/CheckoutSuccess";
 import Financeiro from "./pages/Financeiro";
 import FinanceiroEvento from "./pages/FinanceiroEvento";
 import MeusIngressos from "./pages/MeusIngressos";
+import PedidoStatus from "./pages/PedidoStatus";
 import SeatCheckout from "./pages/SeatCheckout";
 import MinhaConta from "./pages/MinhaConta";
 import ColaboradoresManager from "./pages/ColaboradoresManager";
@@ -96,6 +97,9 @@ const App = () => (
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
+                {/* Acompanhamento do pedido: tela com endereço próprio, sobrevive a
+                    voltar do app do banco. Ver src/pages/PedidoStatus.tsx. */}
+                <Route path="/pedido/:orderId" element={<ProtectedRoute><PedidoStatus /></ProtectedRoute>} />
                 <Route path="/checkout/mesa/:eventId" element={<ProtectedRoute><SeatCheckout /></ProtectedRoute>} />
 
                 {/* Producer Area (public) */}

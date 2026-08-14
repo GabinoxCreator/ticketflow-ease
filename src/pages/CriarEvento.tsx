@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { safeRandomUUID } from '@/lib/uuid';
 import {
   Select,
   SelectContent,
@@ -69,7 +70,7 @@ interface InlineLot {
 
 function createEmptyLot(index: number): InlineLot {
   return {
-    id: crypto.randomUUID(),
+    id: safeRandomUUID(),
     sector_name: 'Ingressos',
     name: `${index + 1}º Lote`,
     description: '',

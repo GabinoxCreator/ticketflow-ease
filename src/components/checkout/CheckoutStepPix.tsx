@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, CheckCircle2, RefreshCw, Clock, Smartphone, ScanLine, BadgeCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -55,7 +55,18 @@ export function CheckoutStepPix({
   const formatPrice = (p: number) =>
     p.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Polling com guarda de concorrência + setTimeout recursivo (nunca empilha)
+  // As callbacks ficam em ref para o efeito de polling NÃO depender delas. Antes,
+  // o efeito dependia de `onPaymentConfirmed`, que o pai criava inline a cada
+  // render: o efeito era destruído e recriado, e o setTimeout de 5s recomeçava do
+  // zero. Com qualquer re-render mais frequente que isso, a verificação nunca
+  // chegava a rodar (incidente de 13/08).
+  const checkRef = useRef(checkPaymentStatus);
+  const confirmRef = useRef(onPaymentConfirmed);
+  useEffect(() => { checkRef.current = checkPaymentStatus; }, [checkPaymentStatus]);
+  useEffect(() => { confirmRef.current = onPaymentConfirmed; }, [onPaymentConfirmed]);
+
+  // Polling com guarda de concorrência + setTimeout recursivo (nunca empilha).
+  // Monta uma vez e só para ao desmontar.
   useEffect(() => {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -69,10 +80,10 @@ export function CheckoutStepPix({
       }
       inFlight = true;
       try {
-        const isPaid = await checkPaymentStatus();
+        const isPaid = await checkRef.current();
         if (cancelled) return;
         if (isPaid) {
-          onPaymentConfirmed();
+          confirmRef.current();
           return;
         }
       } catch (error) {
@@ -84,11 +95,20 @@ export function CheckoutStepPix({
     };
 
     timeoutId = setTimeout(tick, 5000);
+
+    // Verifica na hora em que a aba volta ao foco — é exatamente quando o cliente
+    // retorna do app do banco.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !inFlight) void tick();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [checkPaymentStatus, onPaymentConfirmed]);
+  }, []);
 
   const handleCopy = () => {
     setCopied(true);
