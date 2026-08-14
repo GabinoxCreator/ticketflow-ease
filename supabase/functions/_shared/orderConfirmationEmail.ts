@@ -91,10 +91,14 @@ function buildHtml(args: {
       <div style="text-align: center; margin-bottom: 30px;">
         <img src="https://festpag.digital/logo-festpag.png" alt="FestPag" width="160" style="display:inline-block; max-width:160px; height:auto;" />
       </div>
-      <div style="background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); border-radius: 12px; padding: 28px; text-align: center; margin: 0 0 28px 0; color: white;">
-        <p style="margin: 0 0 6px 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: .85;">Pagamento confirmado</p>
-        <h1 style="margin: 0; font-size: 24px;">${args.eventTitle}</h1>
-      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; margin: 0 0 28px 0;">
+        <tr>
+          <td align="center" bgcolor="#7c3aed" style="background-color: #7c3aed; background-image: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); border-radius: 12px; padding: 28px 20px; color: #ffffff;">
+            <p style="margin: 0 0 6px 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #f3e8ff; font-family: Arial, sans-serif;">Pagamento confirmado</p>
+            <h1 style="margin: 0; font-size: 24px; color: #ffffff; font-family: Arial, sans-serif;">${args.eventTitle}</h1>
+          </td>
+        </tr>
+      </table>
       <h2 style="color: #1f2937; font-size: 18px;">Olá, ${args.customerName || "tudo certo"}!</h2>
       <p style="color: #4b5563; font-size: 15px; line-height: 1.5;">
         Recebemos seu pagamento e seus ingressos já estão garantidos.
@@ -111,7 +115,7 @@ function buildHtml(args: {
       </div>
       <div style="text-align:center;margin:24px 0;">
         <a href="https://festpag.digital/meus-ingressos"
-           style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;">
+           style="display:inline-block;background-color:#7c3aed;background-image:linear-gradient(135deg,#7c3aed,#ec4899);color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:bold;font-family:Arial,sans-serif;">
           Ver meus ingressos
         </a>
       </div>

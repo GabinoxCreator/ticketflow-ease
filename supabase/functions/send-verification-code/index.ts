@@ -1,4 +1,4 @@
-// redeploy 2026-08-12 — hardening: OTP gerado com CSPRNG
+// redeploy 2026-08-14 — fix: código do e-mail sumia (texto branco sobre gradiente não renderizado)
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
@@ -92,14 +92,18 @@ serve(async (req) => {
             <img src="https://festpag.digital/logo-festpag.png" alt="FestPag" width="160" style="display:inline-block; max-width:160px; height:auto;" />
           </div>
 
-          <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); border-radius: 12px; padding: 30px; text-align: center; margin: 0 0 30px 0;">
-            <p style="margin: 0 0 8px 0; color: rgba(255,255,255,0.85); font-size: 13px; letter-spacing: 2px; text-transform: uppercase;">
-              Seu código
-            </p>
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: white;">
-              ${code}
-            </span>
-          </div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; margin: 0 0 30px 0;">
+            <tr>
+              <td align="center" bgcolor="#f5f3ff" style="background-color: #f5f3ff; border: 2px solid #7c3aed; border-radius: 12px; padding: 24px 16px;">
+                <p style="margin: 0 0 10px 0; color: #6d28d9; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-family: Arial, sans-serif;">
+                  Seu código
+                </p>
+                <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; text-indent: 8px; color: #4c1d95; font-family: Arial, sans-serif;">
+                  ${code}
+                </div>
+              </td>
+            </tr>
+          </table>
 
           <h2 style="color: #1f2937;">Olá, ${name}!</h2>
 
