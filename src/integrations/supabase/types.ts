@@ -498,18 +498,21 @@ export type Database = {
           created_at: string | null
           event_id: string
           id: string
+          user_id: string | null
         }
         Insert: {
           anonymous_id: string
           created_at?: string | null
           event_id: string
           id?: string
+          user_id?: string | null
         }
         Update: {
           anonymous_id?: string
           created_at?: string | null
           event_id?: string
           id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2174,6 +2177,10 @@ export type Database = {
           retry_after_seconds: number
         }[]
       }
+      claim_my_anonymous_likes: {
+        Args: { _anonymous_id: string }
+        Returns: number
+      }
       claim_my_orphan_orders: { Args: never; Returns: Json }
       confirm_lot_sale: {
         Args: { _lot_id: string; _qty: number }
@@ -2220,6 +2227,53 @@ export type Database = {
         Returns: {
           fee_fixed: number
           fee_percent: number
+        }[]
+      }
+      get_event_fees: {
+        Args: { _event_id: string }
+        Returns: {
+          card_fixed: number
+          card_percent: number
+          pix_fixed: number
+          pix_percent: number
+        }[]
+      }
+      get_event_like_state: {
+        Args: { _anonymous_id: string; _event_id: string }
+        Returns: {
+          like_count: number
+          liked: boolean
+        }[]
+      }
+      get_event_tables_management: {
+        Args: { _event_id: string }
+        Returns: {
+          base_capacity: number
+          base_price: number
+          code: string
+          color: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          event_id: string
+          extra_price: number
+          hold_expires_at: string
+          id: string
+          label: string
+          manual_close_reason: string
+          manual_holder_name: string
+          manual_holder_notes: string
+          manual_holder_phone: string
+          manually_closed_at: string
+          max_capacity: number
+          order_id: string
+          order_paid_at: string
+          order_total: number
+          seat_type_name: string
+          seats_sold: number
+          shape: string
+          sold_order_id: string
+          status: string
         }[]
       }
       get_event_tracking: {
@@ -2299,6 +2353,13 @@ export type Database = {
       }
       slugify: { Args: { _input: string }; Returns: string }
       sweep_expired_event_seat_holds: { Args: never; Returns: number }
+      toggle_event_like: {
+        Args: { _anonymous_id: string; _event_id: string }
+        Returns: {
+          like_count: number
+          liked: boolean
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
       unpublish_event: { Args: { _event_id: string }; Returns: Json }
     }
