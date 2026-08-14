@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Gift, Loader2 } from 'lucide-react';
+import { Gift, Loader2, ScanFace } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Event } from '@/hooks/useEvents';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateManualSaleTicketsPDF } from '@/utils/manualSaleTicketsPdf';
+import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 
 interface Props {
   event: Pick<Event, 'id' | 'title' | 'date' | 'time' | 'venue' | 'city' | 'state'>;
@@ -26,7 +27,13 @@ export function CourtesyTicketsButton({ event }: Props) {
   const [holderName, setHolderName] = useState<string>('Cortesia');
   const [holderEmail, setHolderEmail] = useState<string>(user?.email ?? '');
   const [holderPhone, setHolderPhone] = useState<string>('');
+  const [holderCpf, setHolderCpf] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Opcional, mas é o que decide se o convidado passa no check-in facial: o
+  // facial procura a pessoa por `orders.customer_cpf` e nada mais.
+  const cpfDigits = unformatCPF(holderCpf);
+  const cpfInvalido = cpfDigits.length > 0 && !validateCPF(cpfDigits);
 
   const { lots } = useEventLots(event.id);
 
@@ -50,6 +57,7 @@ export function CourtesyTicketsButton({ event }: Props) {
     if (quantity < 1 || quantity > maxQty) return toast.error(`Quantidade entre 1 e ${maxQty}`);
     if (!holderName.trim()) return toast.error('Informe o nome do portador');
     if (!/^\S+@\S+\.\S+$/.test(holderEmail)) return toast.error('E-mail inválido');
+    if (cpfInvalido) return toast.error('CPF inválido — corrija ou deixe em branco');
 
     setSubmitting(true);
     try {
@@ -61,6 +69,7 @@ export function CourtesyTicketsButton({ event }: Props) {
           holder_name: holderName.trim(),
           holder_email: holderEmail.trim().toLowerCase(),
           holder_phone: holderPhone.replace(/\D/g, '') || null,
+          holder_cpf: cpfDigits || null,
         },
       });
 
@@ -85,7 +94,11 @@ export function CourtesyTicketsButton({ event }: Props) {
         }
       );
 
-      toast.success(`${tickets.length} ingresso(s) cortesia gerado(s)`);
+      toast.success(
+        cpfDigits
+          ? `${tickets.length} ingresso(s) cortesia gerado(s) — entrada pela facial liberada`
+          : `${tickets.length} ingresso(s) cortesia gerado(s) — sem CPF, a entrada é só pelo QR Code`
+      );
 
       // Refresh dashboards
       queryClient.invalidateQueries({ queryKey: ['event-orders', event.id] });
@@ -95,6 +108,7 @@ export function CourtesyTicketsButton({ event }: Props) {
 
       setOpen(false);
       setQuantity(1);
+      setHolderCpf('');
     } catch (err: any) {
       toast.error(err?.message ?? 'Erro inesperado');
     } finally {
@@ -161,6 +175,29 @@ export function CourtesyTicketsButton({ event }: Props) {
             <div className="space-y-2">
               <Label>Nome do portador</Label>
               <Input value={holderName} onChange={(e) => setHolderName(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>CPF do convidado (opcional)</Label>
+              <Input
+                value={holderCpf}
+                onChange={(e) => setHolderCpf(formatCPF(e.target.value))}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                aria-invalid={cpfInvalido}
+                className={cpfInvalido ? 'border-destructive' : undefined}
+              />
+              {cpfInvalido ? (
+                <p className="text-xs text-destructive">CPF inválido — corrija ou deixe em branco.</p>
+              ) : (
+                <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                  <ScanFace className="h-3.5 w-3.5 mt-px shrink-0" />
+                  <span>
+                    Com CPF, o convidado entra pelo <strong>check-in facial</strong>. Sem CPF, só pelo QR
+                    Code do ingresso.
+                  </span>
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

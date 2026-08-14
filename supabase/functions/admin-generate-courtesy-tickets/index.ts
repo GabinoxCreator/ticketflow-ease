@@ -1,5 +1,7 @@
+// redeploy 2026-08-14 — cortesia grava customer_cpf (check-in facial)
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +29,22 @@ interface Body {
   holder_name: string;
   holder_email: string;
   holder_phone?: string | null;
+  holder_cpf?: string | null;
   note?: string | null;
+}
+
+// CPF é OPCIONAL de propósito: existe cortesia sem pessoa definida (bloco pra
+// distribuir na mão, veículo de imprensa). Mas quando vem, tem que ser válido e
+// tem que ir para `orders.customer_cpf` — é o ÚNICO campo que o `facial-checkin`
+// consulta. Sem ele, o convidado é barrado na portaria como "sem_ingresso".
+// Vazio, ausente ou só espaço = sem CPF; qualquer outra coisa é validada.
+function parseHolderCpf(raw: unknown): { ok: true; cpf: string | null } | { ok: false } {
+  if (raw === undefined || raw === null) return { ok: true, cpf: null };
+  if (typeof raw !== "string") return { ok: false };
+  const digits = unformatCPF(raw);
+  if (!digits) return { ok: true, cpf: null };
+  if (!validateCPF(digits)) return { ok: false };
+  return { ok: true, cpf: digits };
 }
 
 function validate(b: any): { ok: true; v: Body } | { ok: false; msg: string } {
@@ -40,6 +57,7 @@ function validate(b: any): { ok: true; v: Body } | { ok: false; msg: string } {
     return { ok: false, msg: "holder_name_invalid" };
   if (typeof b.holder_email !== "string" || !/^\S+@\S+\.\S+$/.test(b.holder_email))
     return { ok: false, msg: "holder_email_invalid" };
+  if (!parseHolderCpf(b.holder_cpf).ok) return { ok: false, msg: "holder_cpf_invalid" };
   return { ok: true, v: b as Body };
 }
 
@@ -128,6 +146,9 @@ serve(async (req) => {
     const holderPhone = body.holder_phone
       ? String(body.holder_phone).replace(/\D/g, "") || null
       : null;
+    // Já validado em validate(); aqui só extraímos os dígitos.
+    const cpfParsed = parseHolderCpf(body.holder_cpf);
+    const holderCpf = cpfParsed.ok ? cpfParsed.cpf : null;
 
     const { data: order, error: orderErr } = await admin
       .from("orders")
@@ -137,6 +158,7 @@ serve(async (req) => {
         customer_name: holderName,
         customer_email: holderEmail,
         customer_phone: holderPhone,
+        customer_cpf: holderCpf,
         total_amount: 0,
         service_fee_amount: 0,
         discount_amount: 0,
@@ -202,12 +224,20 @@ serve(async (req) => {
         lot_name: lot.name,
         quantity: body.quantity,
         holder_name: holderName,
+        // O CPF em si não vai para o log de auditoria (LGPD) — só se tem ou não,
+        // que é o suficiente para saber se aquela cortesia passa no facial.
+        has_cpf: Boolean(holderCpf),
       },
     });
 
-    log("ok", { order_id: order.id, qty: body.quantity, lot_id: body.lot_id });
+    log("ok", {
+      order_id: order.id,
+      qty: body.quantity,
+      lot_id: body.lot_id,
+      has_cpf: Boolean(holderCpf),
+    });
 
-    return json({ ok: true, order_id: order.id, tickets: ticketsOut });
+    return json({ ok: true, order_id: order.id, tickets: ticketsOut, has_cpf: Boolean(holderCpf) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log("error", { msg });

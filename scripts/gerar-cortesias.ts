@@ -173,7 +173,11 @@ interface EventInfo {
 /* ================================================================== */
 
 function noteFor(s: Sponsor): string {
-  return `Cortesia patrocinador Feijuca da Ana - CPF ${s.cpf}`;
+  // CPF vazio (ex.: veículo de imprensa) → note sem o sufixo.
+  const cpf = s.cpf?.trim();
+  return cpf
+    ? `Cortesia patrocinador Feijuca da Ana - CPF ${cpf}`
+    : 'Cortesia patrocinador Feijuca da Ana';
 }
 
 function payloadFor(s: Sponsor) {
@@ -183,6 +187,9 @@ function payloadFor(s: Sponsor) {
     quantity: s.quantity,
     holder_name: s.name,
     holder_email: s.email,
+    // Vai para `orders.customer_cpf` — sem isso o convidado não passa no
+    // check-in facial (a note é texto solto, ninguém consulta).
+    holder_cpf: s.cpf?.trim() || null,
     note: noteFor(s),
   };
 }
