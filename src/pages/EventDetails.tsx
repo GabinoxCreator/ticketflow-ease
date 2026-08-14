@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { getEventEndInstant } from '@/lib/eventTime';
 import { isLotOpenForSale } from '@/lib/lot-availability';
+import { safeRandomUUID } from '@/lib/uuid';
 
 import { useEventLots } from '@/hooks/useEventLots';
 import { useEventSeatAvailability } from '@/hooks/useEventSeatAvailability';
@@ -53,7 +54,7 @@ const MATTEO_EVENT_SLUG = '3-feijoada-do-matteo';
 const getAnonymousId = () => {
   let id = localStorage.getItem('anonymous_like_id');
   if (!id) {
-    id = crypto.randomUUID();
+    id = safeRandomUUID();
     localStorage.setItem('anonymous_like_id', id);
   }
   return id;
