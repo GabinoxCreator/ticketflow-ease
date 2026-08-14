@@ -1,4 +1,4 @@
-// redeploy 2026-08-14 — cortesia grava customer_cpf (check-in facial)
+// redeploy 2026-08-14T15:29:00Z — cortesia grava customer_cpf (check-in facial)
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
