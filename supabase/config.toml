@@ -173,3 +173,14 @@ verify_jwt = false
 # não rota pública.
 [functions.marcel-health]
 verify_jwt = true
+
+# Cobrança PIX pela API do Marcel. verify_jwt=false porque a compra de ingresso
+# não exige login (mesmo padrão das outras rotas de criação de cobrança).
+[functions.marcel-create-pix]
+verify_jwt = false
+
+# Consulta do PIX — é ela que aprova o pedido, já que a API do Marcel não tem
+# webhook. Pública pelo mesmo motivo da criação; a promoção passa pela RPC
+# idempotente, então consultar à vontade é seguro.
+[functions.marcel-check-pix]
+verify_jwt = false
