@@ -277,6 +277,62 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_rate_versions: {
+        Row: {
+          adquirente: string
+          created_at: string
+          id: string
+          mode: string
+          notas: string | null
+          vigente_desde: string
+        }
+        Insert: {
+          adquirente: string
+          created_at?: string
+          id?: string
+          mode: string
+          notas?: string | null
+          vigente_desde: string
+        }
+        Update: {
+          adquirente?: string
+          created_at?: string
+          id?: string
+          mode?: string
+          notas?: string | null
+          vigente_desde?: string
+        }
+        Relationships: []
+      }
+      credit_rates: {
+        Row: {
+          brand_group: string
+          installments: number
+          rate_ppm: number
+          version_id: string
+        }
+        Insert: {
+          brand_group?: string
+          installments: number
+          rate_ppm: number
+          version_id: string
+        }
+        Update: {
+          brand_group?: string
+          installments?: number
+          rate_ppm?: number
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_rates_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "credit_rate_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       donation_campaign_progress: {
         Row: {
           event_slug: string
@@ -456,6 +512,50 @@ export type Database = {
           },
         ]
       }
+      event_days: {
+        Row: {
+          closes_at: string
+          created_at: string
+          day_date: string
+          event_id: string
+          id: string
+          label: string | null
+          opens_at: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          closes_at: string
+          created_at?: string
+          day_date: string
+          event_id: string
+          id?: string
+          label?: string | null
+          opens_at: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          closes_at?: string
+          created_at?: string
+          day_date?: string
+          event_id?: string
+          id?: string
+          label?: string | null
+          opens_at?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_days_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_fee_overrides: {
         Row: {
           created_at: string
@@ -526,9 +626,11 @@ export type Database = {
       }
       event_lots: {
         Row: {
+          covers_all_days: boolean
           created_at: string
           description: string | null
           end_date: string | null
+          event_day_id: string | null
           event_id: string
           fake_scarcity_enabled: boolean | null
           fake_scarcity_percentage: number | null
@@ -537,6 +639,8 @@ export type Database = {
           id: string
           is_active: boolean | null
           manually_sold_out: boolean
+          max_parcelas: number | null
+          modo_taxa: string
           name: string
           original_price: number | null
           price: number
@@ -549,9 +653,11 @@ export type Database = {
           total_quantity: number
         }
         Insert: {
+          covers_all_days?: boolean
           created_at?: string
           description?: string | null
           end_date?: string | null
+          event_day_id?: string | null
           event_id: string
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
@@ -560,6 +666,8 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           manually_sold_out?: boolean
+          max_parcelas?: number | null
+          modo_taxa?: string
           name: string
           original_price?: number | null
           price: number
@@ -572,9 +680,11 @@ export type Database = {
           total_quantity: number
         }
         Update: {
+          covers_all_days?: boolean
           created_at?: string
           description?: string | null
           end_date?: string | null
+          event_day_id?: string | null
           event_id?: string
           fake_scarcity_enabled?: boolean | null
           fake_scarcity_percentage?: number | null
@@ -583,6 +693,8 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           manually_sold_out?: boolean
+          max_parcelas?: number | null
+          modo_taxa?: string
           name?: string
           original_price?: number | null
           price?: number
@@ -595,6 +707,13 @@ export type Database = {
           total_quantity?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "event_lots_event_day_id_fkey"
+            columns: ["event_day_id"]
+            isOneToOne: false
+            referencedRelation: "event_days"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_lots_event_id_fkey"
             columns: ["event_id"]
@@ -1154,6 +1273,44 @@ export type Database = {
         }
         Relationships: []
       }
+      order_credit_terms: {
+        Row: {
+          brand_group: string | null
+          brand_raw: string | null
+          captured_at: string
+          installments: number
+          method: string
+          order_id: string
+          provider: string
+        }
+        Insert: {
+          brand_group?: string | null
+          brand_raw?: string | null
+          captured_at?: string
+          installments?: number
+          method: string
+          order_id: string
+          provider: string
+        }
+        Update: {
+          brand_group?: string | null
+          brand_raw?: string | null
+          captured_at?: string
+          installments?: number
+          method?: string
+          order_id?: string
+          provider?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_credit_terms_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_email_notifications: {
         Row: {
           attempt_count: number
@@ -1204,6 +1361,54 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      order_line_face: {
+        Row: {
+          captured_at: string
+          id: string
+          lot_id: string | null
+          lot_name: string
+          modo_taxa: string
+          order_id: string
+          quantity: number
+          unit_face: number
+        }
+        Insert: {
+          captured_at?: string
+          id?: string
+          lot_id?: string | null
+          lot_name: string
+          modo_taxa: string
+          order_id: string
+          quantity: number
+          unit_face: number
+        }
+        Update: {
+          captured_at?: string
+          id?: string
+          lot_id?: string | null
+          lot_name?: string
+          modo_taxa?: string
+          order_id?: string
+          quantity?: number
+          unit_face?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_line_face_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_line_face_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {
@@ -2156,6 +2361,21 @@ export type Database = {
       apply_order_approved: {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
+      }
+      calcular_repasse: {
+        Args: {
+          _brand_group?: string
+          _face_cents: number
+          _fee_ppm?: number
+          _installments: number
+          _mode: string
+        }
+        Returns: {
+          credit_cents: number
+          credit_ppm: number
+          fee_cents: number
+          repasse_cents: number
+        }[]
       }
       cancel_manual_order: {
         Args: { _actor: string; _order_id: string; _reason: string }
