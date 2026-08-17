@@ -1,17 +1,21 @@
 import jsPDF from 'jspdf';
-import { UserTicket } from '@/hooks/useUserTickets';
+import { UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
 import { renderTicketPage, slugifyForFilename } from './ticketPdfTemplate';
 
 export async function generateTicketPDF(ticket: UserTicket): Promise<void> {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // `ticket.event` pode ser nulo (evento não publicado não é legível pelo
+  // cliente). O ingresso é válido de todo jeito, então o PDF sai — só sem os
+  // dados do evento.
+  const ev = ticket.event;
   await renderTicketPage(pdf, {
     event: {
-      title: ticket.event.title,
-      date: ticket.event.date,
-      time: ticket.event.time,
-      venue: ticket.event.venue,
-      city: ticket.event.city,
-      state: ticket.event.state,
+      title: ticketEventDisplay(ev).title,
+      date: ev?.date ?? '',
+      time: ev?.time ?? '',
+      venue: ev?.venue ?? '',
+      city: ev?.city ?? '',
+      state: ev?.state ?? '',
     },
     lot: { name: ticket.lot?.name ?? ticket.seat?.seat_type_name ?? 'INGRESSO' },
     seat: ticket.seat?.label
@@ -26,6 +30,6 @@ export async function generateTicketPDF(ticket: UserTicket): Promise<void> {
   });
   const code = ticket.ticket_code.slice(0, 8).toUpperCase();
   pdf.save(
-    `Ingresso-FestPag-${slugifyForFilename(ticket.event.title)}-${code}.pdf`,
+    `Ingresso-FestPag-${slugifyForFilename(ticketEventDisplay(ev).title)}-${code}.pdf`,
   );
 }

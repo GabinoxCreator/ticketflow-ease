@@ -16,8 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { useUserTickets, UserTicket } from '@/hooks/useUserTickets';
-import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
+import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
+import { formatInSaoPaulo } from '@/lib/eventTime';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -52,7 +52,7 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
   }
 
   const first = tickets[0];
-  const event = first.event;
+  const event = ticketEventDisplay(first.event);
   const counts = {
     valid: tickets.filter((t) => t.status === 'valid').length,
     used: tickets.filter((t) => t.status === 'used').length,
@@ -77,10 +77,6 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
         : `Mesas ${seatLabels.join(', ')}`
     : null;
 
-  const formatDate = (dateStr: string) =>
-    formatEventDate(dateStr, { day: '2-digit', month: 'long' });
-  const formatTime = (timeStr: string) => timeStr.slice(0, 5);
-
   const sideBar =
     counts.valid > 0
       ? 'bg-gradient-to-b from-primary to-accent'
@@ -97,7 +93,7 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
         <CardContent className="p-0">
           <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
             <img
-              src={event.image_url || '/placeholder.svg'}
+              src={event.imageUrl || '/placeholder.svg'}
               alt={event.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
@@ -111,8 +107,10 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
             </Badge>
             <div className="absolute bottom-0 left-0 right-0 p-4">
               <h3
-                className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
-                onClick={() => navigate(`/evento/${event.slug ?? event.id}`)}
+                className={`font-display font-bold text-lg text-foreground line-clamp-1 drop-shadow-lg transition-colors ${
+                  event.href ? 'hover:text-primary cursor-pointer' : ''
+                }`}
+                onClick={() => event.href && navigate(event.href)}
               >
                 {event.title}
               </h3>
@@ -128,21 +126,19 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                   <Calendar className="w-3 h-3" /><span>Data</span>
                 </div>
-                <p className="text-sm font-semibold text-foreground">{formatDate(event.date)}</p>
+                <p className="text-sm font-semibold text-foreground">{event.dateLabel}</p>
               </div>
               <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                   <Clock className="w-3 h-3" /><span>Horário</span>
                 </div>
-                <p className="text-sm font-semibold text-foreground">{formatTime(event.time)}</p>
+                <p className="text-sm font-semibold text-foreground">{event.timeLabel}</p>
               </div>
               <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                   <MapPin className="w-3 h-3" /><span>Local</span>
                 </div>
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {event.venue} — {event.city}/{event.state}
-                </p>
+                <p className="text-sm font-semibold text-foreground truncate">{event.placeLabel}</p>
               </div>
             </div>
 
@@ -211,13 +207,7 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
   const status = statusConfig[ticket.status];
   const StatusIcon = status.icon;
 
-  const formatDate = (dateStr: string) =>
-    formatEventDate(dateStr, { day: '2-digit', month: 'long' });
-
-
-  const formatTime = (timeStr: string) => {
-    return timeStr.slice(0, 5);
-  };
+  const ev = ticketEventDisplay(ticket.event);
 
   // Configuração visual completa do modal por status
   const modalConfig = {
@@ -294,9 +284,10 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
 
   const handleShare = async () => {
     const shareData = {
-      title: `Ingresso — ${ticket.event.title}`,
-      text: `Meu ingresso para ${ticket.event.title} em ${formatDate(ticket.event.date)} às ${formatTime(ticket.event.time)}.`,
-      url: window.location.origin + `/evento/${ticket.event.slug ?? ticket.event.id}`,
+      title: `Ingresso — ${ev.title}`,
+      text: `Meu ingresso para ${ev.title} em ${ev.dateLabel} às ${ev.timeLabel}.`,
+      // Sem evento legível não há página para abrir: compartilha Meus Ingressos.
+      url: window.location.origin + (ev.href ?? '/meus-ingressos'),
     };
     try {
       if (navigator.share) {
@@ -390,33 +381,50 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
               'bg-yellow-500'
             }`} />
             <CardContent className="p-0">
-              {/* Event Image */}
-              <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
-                <img
-                  src={ticket.event.image_url || '/placeholder.svg'}
-                  alt={ticket.event.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
-                <Badge
-                  variant="outline"
-                  className={`absolute top-3 right-3 ${status.color} backdrop-blur-md bg-background/70 shadow-lg`}
-                >
-                  <StatusIcon className="w-3 h-3 mr-1" />
-                  {status.label}
-                </Badge>
-
-                {/* Título sobreposto na imagem */}
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3
-                    className="font-display font-bold text-lg text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-1 drop-shadow-lg"
-                    onClick={() => navigate(`/evento/${ticket.event.slug ?? ticket.event.id}`)}
+              {/* Sem evento legível não há foto: um placeholder do tamanho de uma
+                  capa empurraria o botão do ingresso para fora da tela. Cabeçalho
+                  compacto no lugar. */}
+              {ev.available ? (
+                <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
+                  <img
+                    src={ev.imageUrl || '/placeholder.svg'}
+                    alt={ev.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent pointer-events-none" />
+                  <Badge
+                    variant="outline"
+                    className={`absolute top-3 right-3 ${status.color} backdrop-blur-md bg-background/70 shadow-lg`}
                   >
-                    {ticket.event.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
+                    <StatusIcon className="w-3 h-3 mr-1" />
+                    {status.label}
+                  </Badge>
+
+                  {/* Título sobreposto na imagem */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <h3
+                      className="font-display font-bold text-lg text-foreground line-clamp-1 drop-shadow-lg transition-colors hover:text-primary cursor-pointer"
+                      onClick={() => ev.href && navigate(ev.href)}
+                    >
+                      {ev.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground/90 drop-shadow">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-start justify-between gap-3 p-4 pb-0">
+                  <div className="min-w-0">
+                    <h3 className="font-display font-bold text-lg text-foreground line-clamp-1">
+                      {ev.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
+                  </div>
+                  <Badge variant="outline" className={`${status.color} shrink-0 bg-background/70`}>
+                    <StatusIcon className="w-3 h-3 mr-1" />
+                    {status.label}
+                  </Badge>
+                </div>
+              )}
 
               {/* Ticket Info */}
               <div className="p-4 sm:p-5">
@@ -426,21 +434,21 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
                       <Calendar className="w-3 h-3" />
                       <span>Data</span>
                     </div>
-                    <p className="text-sm font-semibold text-foreground">{formatDate(ticket.event.date)}</p>
+                    <p className="text-sm font-semibold text-foreground">{ev.dateLabel}</p>
                   </div>
                   <div className="rounded-xl bg-muted/40 border border-border/40 p-3">
                     <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                       <Clock className="w-3 h-3" />
                       <span>Horário</span>
                     </div>
-                    <p className="text-sm font-semibold text-foreground">{formatTime(ticket.event.time)}</p>
+                    <p className="text-sm font-semibold text-foreground">{ev.timeLabel}</p>
                   </div>
                   <div className="rounded-xl bg-muted/40 border border-border/40 p-3 col-span-2">
                     <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                       <MapPin className="w-3 h-3" />
                       <span>Local</span>
                     </div>
-                    <p className="text-sm font-semibold text-foreground truncate">{ticket.event.venue} — {ticket.event.city}/{ticket.event.state}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{ev.placeLabel}</p>
                   </div>
                 </div>
 
@@ -497,9 +505,9 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
         <DialogContent className="max-w-md p-0 border-0 bg-card max-h-[100dvh] sm:max-h-[90dvh] h-[100dvh] sm:h-auto flex flex-col overflow-hidden gap-0">
           {/* HEADER sticky (não rola) */}
           <div className="shrink-0 relative overflow-hidden">
-            {ticket.event.image_url && (
+            {ev.imageUrl && (
               <img
-                src={ticket.event.image_url}
+                src={ev.imageUrl}
                 alt=""
                 aria-hidden
                 className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60"
@@ -573,16 +581,22 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
               {/* Detalhes do evento */}
               <div className="mt-4 space-y-2 text-sm">
                 <p className="font-semibold text-foreground text-center text-base mb-2">
-                  {ticket.event.title}
+                  {ev.title}
                 </p>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-4 h-4 shrink-0" />
-                  <span>{formatDate(ticket.event.date)} às {formatTime(ticket.event.time)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{ticket.event.venue} — {ticket.event.city}/{ticket.event.state}</span>
-                </div>
+                {/* Sem evento legível, data e local não existem — mostrar as linhas
+                    vazias só confundiria. O QR e o código acima é o que vale na porta. */}
+                {ev.available && (
+                  <>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4 shrink-0" />
+                      <span>{ev.dateLabel} às {ev.timeLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{ev.placeLabel}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Ticket className="w-4 h-4 shrink-0" />
                   <span>{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</span>

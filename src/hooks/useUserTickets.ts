@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { getEventEndInstant } from '@/lib/eventTime';
+import { formatEventDate, getEventEndInstant } from '@/lib/eventTime';
 
 
 export interface UserTicket {
@@ -14,6 +14,13 @@ export interface UserTicket {
   status: 'pending' | 'valid' | 'used' | 'cancelled';
   validated_at: string | null;
   created_at: string;
+  /**
+   * NULO quando o evento do ingresso não é legível pelo cliente: a política
+   * pública de `events` só expõe `status='published'`, então evento em rascunho
+   * ou finalizado volta vazio no embed. O ingresso continua válido — código e QR
+   * moram na própria linha de `tickets` — então ele PRECISA continuar aparecendo.
+   * Use `ticketEventDisplay()` para exibir sem tratar nulo em cada tela.
+   */
   event: {
     id: string;
     slug: string | null;
@@ -26,7 +33,7 @@ export interface UserTicket {
     city: string;
     state: string;
     image_url: string | null;
-  };
+  } | null;
   lot: {
     name: string;
     price: number;
@@ -36,6 +43,28 @@ export interface UserTicket {
     code: string | null;
     seat_type_name: string | null;
   } | null;
+}
+
+/**
+ * Dados do evento prontos para a tela, tolerando evento ausente.
+ *
+ * Existe para que nenhuma tela precise repetir verificação de nulo (eram 16
+ * pontos só em Meus Ingressos) e para que a falta de evento nunca vire tela
+ * quebrada — no máximo um cartão com menos informação.
+ */
+export function ticketEventDisplay(event: UserTicket['event']) {
+  return {
+    available: !!event,
+    title: event?.title ?? 'Evento não disponível',
+    dateLabel: event?.date
+      ? formatEventDate(event.date, { day: '2-digit', month: 'long' })
+      : '—',
+    timeLabel: event?.time ? event.time.slice(0, 5) : '—',
+    placeLabel: event ? `${event.venue} — ${event.city}/${event.state}` : 'Local não informado',
+    imageUrl: event?.image_url ?? null,
+    /** `null` quando não há evento legível: não dá para linkar o que não abre. */
+    href: event ? `/evento/${event.slug ?? event.id}` : null,
+  };
 }
 
 export function useUserTickets() {
@@ -85,14 +114,22 @@ export function useUserTickets() {
   // Ambos os lados em UTC, independente do fuso do navegador.
   const now = new Date();
 
+  // Ingresso sem evento legível NÃO pode derrubar a lista. Antes, o
+  // getEventEndInstant recebia nulo, lançava, e a página inteira ficava PRETA —
+  // o cliente não via nem os ingressos bons. Sem a data não há como saber se o
+  // evento passou, então ele conta como "próximo": errar mostrando é melhor que
+  // esconder ingresso de evento que ainda vai acontecer.
+  const jaTerminou = (t: UserTicket): boolean | null =>
+    t.event ? getEventEndInstant(t.event) < now : null;
+
   const upcomingTickets = tickets?.filter(t => {
     if (t.status === 'cancelled') return false;
-    return getEventEndInstant(t.event) >= now;
+    return jaTerminou(t) !== true;
   }) || [];
 
   const pastTickets = tickets?.filter(t => {
     if (t.status === 'cancelled') return false;
-    return getEventEndInstant(t.event) < now;
+    return jaTerminou(t) === true;
   }) || [];
 
 

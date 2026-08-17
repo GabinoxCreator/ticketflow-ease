@@ -316,10 +316,13 @@ export async function renderTicketPage(pdf: jsPDF, data: TicketPdfData) {
   pdf.setFillColor(...COLORS.bgSubtle);
   pdf.roundedRect(gridX, gridY, gridW, gridH, 3, 3, 'F');
 
-  const eventDate = new Date(data.event.date + 'T12:00:00');
-  const dateLong = toTitleCase(
-    format(eventDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-  );
+  // Data pode faltar quando o evento do ingresso não é legível (evento em
+  // rascunho/finalizado). O `format` do date-fns LANÇA com data inválida, e o PDF
+  // do ingresso não pode deixar de sair por causa da vitrine do evento.
+  const eventDate = data.event.date ? new Date(data.event.date + 'T12:00:00') : null;
+  const dateLong = eventDate && !Number.isNaN(eventDate.getTime())
+    ? toTitleCase(format(eventDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR }))
+    : 'Data não disponível';
   const timeStr = (data.event.time || '').slice(0, 5);
   const issued = data.issuedAt ?? new Date();
   const issuedStr = format(issued, "dd/MM/yyyy", { locale: ptBR });
