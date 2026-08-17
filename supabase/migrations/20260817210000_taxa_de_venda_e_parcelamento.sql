@@ -116,7 +116,13 @@ BEGIN
     AND r.installments <= _max_parcelas
     -- Parcela abaixo de R$5 faz a API recusar a venda INTEIRA, não cair para
     -- menos vezes. Melhor nem oferecer.
-    AND (t.total / r.installments) >= _min_parcela_cents
+    --
+    -- ⚠️ Mas o mínimo vale SÓ para parcelamento (2x+): à vista a API aceita
+    -- qualquer valor — conferido nela, `amount=0.11` devolve 1x normalmente.
+    -- Aplicar o mínimo também no 1x impediria vender no cartão qualquer coisa
+    -- abaixo de R$5, inclusive à vista. Confere com a API em 0,11 / 3,00 /
+    -- 12,00 / 52,50: as opções batem uma a uma.
+    AND (r.installments = 1 OR (t.total / r.installments) >= _min_parcela_cents)
   ORDER BY r.installments;
 END;
 $function$;
