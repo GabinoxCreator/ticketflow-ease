@@ -36,9 +36,13 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
       email,
       password,
       nome_completo: fullName,
-      cpf: document, // CPF or CNPJ — stored in profiles.cpf and feeds producer_profiles.brand_name via trigger
+      cpf: document, // CPF ou CNPJ — vai para profiles.cpf E para producer_profiles.document
       whatsapp,
       tipo_conta: 'produtor',
+      // Sem isto o trigger não tem como saber se `document` é CPF ou CNPJ, e a razão
+      // social da PJ não teria onde ser gravada (era o furo: CNPJ e razão social
+      // sumiam, e o produtor ficava invisível na busca do painel de admin).
+      tipo_pessoa: accountType ?? undefined,
     });
     setSubmitting(false);
 
