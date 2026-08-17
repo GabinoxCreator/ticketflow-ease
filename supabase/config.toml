@@ -160,3 +160,7 @@ verify_jwt = false
 # header x-api-key contra o secret FACIAL_RESYNC_KEY; sem o secret, recusa tudo.
 [functions.facial-resync]
 verify_jwt = false
+
+# TEMPORÁRIA — leitura pontual de URLs de serviço (allowlist). Deletar após o uso.
+[functions.debug-env]
+verify_jwt = false
