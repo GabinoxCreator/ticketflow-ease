@@ -7,15 +7,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
 import { computeProducerFinance, isPaidStatus, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
 
+// Formata em BRL. NUNCA colocar troca de valor especifico aqui: um formatador so formata.
+// Havia quatro substituicoes cravadas neste ponto (ex.: 50.585,00 aparecia como 50.085,00)
+// que mascaravam na tela o juro inflado do repasse em vez de corrigi-lo na origem -- ver
+// _docs/investigacao-juro-parcelamento-repasse.md. Removidas em 15/08/2026.
 const formatBRL = (v: number) => {
   const [intPart, fracPart] = v.toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  let result = `R$\u00A0${intWithDots},${fracPart}`;
-  if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
-  if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
-  if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
-  if (result === 'R$\u00A072.181,16') return 'R$\u00A071.780,00';
-  return result;
+  return `R$\u00A0${intWithDots},${fracPart}`;
 };
 
 const METHOD_LABELS: Record<string, string> = {

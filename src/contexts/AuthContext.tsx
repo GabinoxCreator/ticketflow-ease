@@ -21,6 +21,10 @@ interface SignUpData {
   cpf?: string;
   whatsapp: string;
   tipo_conta: AppRole;
+  // Só o cadastro de PRODUTOR manda isto. É o que permite ao trigger handle_new_user
+  // saber se `cpf` carrega um CPF ou um CNPJ e gravar razão social no lugar certo.
+  // Ausente no cadastro de cliente comum — lá o campo simplesmente não existe.
+  tipo_pessoa?: 'pf' | 'pj';
 }
 
 interface AuthContextType {
@@ -163,6 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cpf: data.cpf,
             whatsapp: data.whatsapp,
             tipo_conta: data.tipo_conta,
+            tipo_pessoa: data.tipo_pessoa,
           },
         },
       });

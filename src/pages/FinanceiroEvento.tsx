@@ -12,13 +12,13 @@ import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
 
 import { useAuth } from '@/contexts/AuthContext';
 
+// Formata em BRL. NUNCA colocar troca de valor especifico aqui -- ver o comentario gemeo
+// em EventFinanceiroTab.tsx. Aqui era pior: este formatador roda em cima do "Balanco
+// Disponivel", o numero que o produtor le para decidir o saque. Removidas em 15/08/2026.
 const formatBRL = (v: number) => {
   const [intPart, fracPart] = v.toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  let result = `R$\u00A0${intWithDots},${fracPart}`;
-  if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
-  if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
-  return result;
+  return `R$\u00A0${intWithDots},${fracPart}`;
 };
 
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
