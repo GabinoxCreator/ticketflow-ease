@@ -62,7 +62,7 @@ export function CheckoutStepCardMarcel({
     let active = true;
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('confra-process-card', {
+        const { data, error } = await supabase.functions.invoke('marcel-process-card', {
           body: {
             eventId,
             items: items.map(i => ({ lotId: i.lotId, quantity: i.quantity })),
@@ -114,7 +114,7 @@ export function CheckoutStepCardMarcel({
     try {
       const expiration = `${expMonth}/20${expYear}`;
 
-      const { data, error } = await supabase.functions.invoke('confra-process-card', {
+      const { data, error } = await supabase.functions.invoke('marcel-process-card', {
         body: {
           eventId,
           items: items.map(i => ({ lotId: i.lotId, quantity: i.quantity })),

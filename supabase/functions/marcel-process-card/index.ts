@@ -60,7 +60,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { eventId, items, quote, installments, card, cartaoId,
-            customerName, customerEmail, customerPhone, customerCpf } = body;
+            customerName, customerEmail, customerPhone } = body;
 
     if (!eventId) return json({ error: 'Evento obrigatório' }, 400);
 
@@ -88,6 +88,21 @@ serve(async (req) => {
         totalFace: preco.totalFace,
         taxaAdministrativa: preco.taxaAdministrativa,
         produtorAbsorve: absorve,
+        // `options` no formato que a tela de cartão já consome hoje (installments
+        // / total / perInstallment). Mantido em inglês de propósito: mudar o nome
+        // exigiria mexer no componente do checkout, e o que não pode acontecer é
+        // a tela receber um formato que não entende e cair no fallback de "só 1x"
+        // — o cliente perderia o parcelamento sem ninguém perceber.
+        options: lista.map((o) => ({
+          installments: o.parcelas,
+          total: o.total_cents / 100,
+          perInstallment: o.parcela_cents / 100,
+          // Extras nossos: a tela pode exibir a taxa em linha separada, como o
+          // mercado faz ("taxa de processamento").
+          processingFee: o.acrescimo_cents / 100,
+          ratePct: Number(o.taxa_pct),
+        })),
+        // Mesma lista em português, para telas novas.
         opcoes: lista.map((o) => ({
           parcelas: o.parcelas,
           total: o.total_cents / 100,
@@ -99,7 +114,10 @@ serve(async (req) => {
     }
 
     // ---- Cobrança de verdade ------------------------------------------------
-    const cleanCPF = unformatCPF(customerCpf);
+    // O checkout manda `customerCPF` (maiúsculo) há muito tempo; aceito as duas
+    // grafias. Um campo que chega com nome ligeiramente diferente viraria CPF
+    // vazio em silêncio, e a venda cairia num "CPF inválido" sem explicação.
+    const cleanCPF = unformatCPF(body.customerCPF ?? body.customerCpf);
     if (!validateCPF(cleanCPF)) return json({ error: 'CPF inválido' }, 400);
     if (!card && !cartaoId) return json({ error: 'Dados do cartão obrigatórios' }, 400);
 

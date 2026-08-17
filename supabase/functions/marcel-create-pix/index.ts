@@ -62,13 +62,16 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { eventId, items, customerName, customerEmail, customerPhone, customerCpf } = body;
+    const { eventId, items, customerName, customerEmail, customerPhone } = body;
 
     if (!eventId || !Array.isArray(items) || items.length === 0) {
       return json({ error: 'Dados incompletos' }, 400);
     }
 
-    const cleanCPF = unformatCPF(customerCpf);
+    // O checkout manda `customerCPF` (maiúsculo) há muito tempo; aceito as duas
+    // grafias para não depender de mexer no modal em produção — e porque um
+    // campo que chega com nome ligeiramente diferente vira CPF vazio silencioso.
+    const cleanCPF = unformatCPF(body.customerCPF ?? body.customerCpf);
     if (!validateCPF(cleanCPF)) return json({ error: 'CPF inválido' }, 400);
 
     // Quem é o comprador: o token, não o corpo da requisição.

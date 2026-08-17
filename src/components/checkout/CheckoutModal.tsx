@@ -174,7 +174,11 @@ export function CheckoutModal({
 
       const deviceId = (window as any).MP_DEVICE_SESSION_ID || null;
 
-      const pixFn = paymentProvider === 'marcel' ? 'confra-create-pix' : 'create-mercadopago-pix';
+      // Rota do Marcel migrada para as edges novas (17/08/2026): a `confra-*`
+      // chamava a API sem `x-api-key` e a API passou a exigir — ou seja, aquela
+      // rota não funciona mais. As `marcel-*` também gravam bandeira/parcelas e
+      // leem a taxa de uma tabela versionada, em vez de constante no código.
+      const pixFn = paymentProvider === 'marcel' ? 'marcel-create-pix' : 'create-mercadopago-pix';
       const { data, error } = await supabase.functions.invoke(pixFn, {
         body: {
           eventId,
@@ -271,7 +275,7 @@ export function CheckoutModal({
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
     try {
-      const checkFn = paymentProvider === 'marcel' ? 'confra-check-pix' : 'check-mercadopago-payment';
+      const checkFn = paymentProvider === 'marcel' ? 'marcel-check-pix' : 'check-mercadopago-payment';
       const invokePromise = supabase.functions.invoke(checkFn, {
         body: { orderId, paymentId },
       });

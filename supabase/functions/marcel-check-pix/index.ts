@@ -55,12 +55,12 @@ serve(async (req) => {
 
     // Já pago: responde na hora, sem bater na API. O front pergunta muito.
     if (order.status === 'paid') {
-      return json({ pago: true, status: PAGO, jaEstavaPago: true });
+      return json({ paid: true, pago: true, status: PAGO, jaEstavaPago: true });
     }
     // Terminal: não reprocessa. Reabrir pedido cancelado por consulta seria
     // ressuscitar venda que alguém encerrou de propósito.
     if (['cancelled', 'expired', 'failed', 'refunded'].includes(order.status)) {
-      return json({ pago: false, status: null, encerrado: true, situacao: order.status });
+      return json({ paid: false, pago: false, status: null, encerrado: true, situacao: order.status });
     }
 
     let resp;
@@ -82,7 +82,7 @@ serve(async (req) => {
       // NÃO marco o pedido como falho aqui: a expiração tem rotina própria, e
       // um erro momentâneo da API não pode matar uma venda que talvez seja paga
       // um minuto depois.
-      return json({ pago: false, status: status || null });
+      return json({ paid: false, pago: false, status: status || null });
     }
 
     // Pago. A promoção passa pela RPC transacional de sempre — nunca um
@@ -102,30 +102,30 @@ serve(async (req) => {
       // Dinheiro entrou e a promoção falhou: é o caso que NUNCA pode passar em
       // silêncio. O wrapper já auditou; devolvo erro para o front insistir.
       log('apply_order_approved falhou', { orderId, msg: err instanceof Error ? err.message : String(err) });
-      return json({ pago: true, status, promovido: false, erro: 'falha_ao_promover' }, 500);
+      return json({ paid: true, pago: true, status, promovido: false, erro: 'falha_ao_promover' }, 500);
     }
 
     // `mismatch` = a RPC recusou promover (pedido sem tickets, ou já terminal).
     // Ela audita sozinha; aqui a resposta precisa ser honesta com o front.
     if (resultado.mismatch) {
       log('Promoção recusada pela RPC', { orderId, resultado });
-      return json({ pago: true, status, promovido: false, erro: 'pedido_inconsistente' }, 409);
+      return json({ paid: true, pago: true, status, promovido: false, erro: 'pedido_inconsistente' }, 409);
     }
 
     log('Pedido aprovado', { orderId, primeira: resultado.first_transition });
     return json({
-      pago: true, status, promovido: true,
+      paid: true, pago: true, status, promovido: true,
       // Chamar de novo devolve first_transition=false: é a idempotência à mostra.
       primeiraVez: resultado.first_transition,
     });
 
   } catch (e) {
     if (e instanceof MarcelIndisponivel) {
-      return json({ pago: false, erro: 'pagamento_indisponivel' }, 503);
+      return json({ paid: false, pago: false, erro: 'pagamento_indisponivel' }, 503);
     }
     // Timeout/rede: NÃO é "não pago". Devolvo indefinido de propósito, para o
     // front continuar consultando em vez de concluir que a venda falhou.
     log('Erro na consulta', { msg: e instanceof Error ? e.message : String(e) });
-    return json({ pago: false, indefinido: true }, 503);
+    return json({ paid: false, pago: false, indefinido: true }, 503);
   }
 });
