@@ -29,6 +29,13 @@ Site de venda de ingressos + painel do colaborador. React + TS (não-strict) + V
 - Reutilize `_shared/`: `applyOrderApproved`, `collaboratorSession`, `rateLimit` (fail-closed), `cpf`, `event-ticket-limits` (exige client service-role), `orderConfirmationEmail` (idempotente, nunca lança). Não duplique.
 - Toda edge nova precisa de entrada `[functions.<nome>] verify_jwt=true|false` no `config.toml` (true = usuário autenticado; false = colaborador/webhook/cron/público).
 
+## Consulta de documento (`document-lookup`) — página PÚBLICA, tratar como tal
+- Confere CPF/CNPJ na API do Marcel no cadastro de produtor (`/area-do-produtor/cadastro`). A URL da API vive no secret **`MARCEL_DOC_BASE`** e NUNCA no código — a API do Marcel **não tem autenticação nenhuma**, então publicar o endereço é entregar consulta ilimitada. Mesmo padrão do `totem-lookup-cpf` no totem-web.
+- `verify_jwt=false` é obrigatório (quem se cadastra ainda não tem conta) — por isso a trava é **rate limit por IP** (`_shared/rateLimit.ts`, fail-closed) + **dígito verificador validado ANTES da chamada externa**. Sem esses dois, a página vira consulta pública de CPF.
+- **POST com o documento no body, nunca em query string** (`?ni=` fica em log de acesso de todo intermediário). Log leva só os 3 últimos dígitos — nunca documento nem nome.
+- No front, `not_found` **trava** o avanço (é a conferência) e `unavailable` **não trava** — queda de API de terceiro não pode impedir cadastro. Não inverter isso.
+- Minimização: a API devolve endereço/CNAE (CNPJ) e nascimento (CPF); só repassar o que o formulário usa.
+
 ## Front
 - **Client público vs autenticado**: use `supabasePublic` (`publicClient.ts`) SÓ p/ leitura pública (events, event_lots, seats); NUNCA p/ dado privado (orders/tickets/profiles) — sem sessão o RLS por `auth.uid()` volta vazio.
 - Chamada a edge: colaborador → raw fetch com `Bearer <VITE_SUPABASE_PUBLISHABLE_KEY>` (verify_jwt=false, sessão no body); usuário Supabase logado → `supabase.functions.invoke`. Não misture.
