@@ -22,6 +22,7 @@ import { formatInSaoPaulo } from '@/lib/eventTime';
 import { toast } from 'sonner';
 import { EventTablesMapModal } from './EventTablesMapModal';
 import { EventTablesMapView } from './EventTablesMapView';
+import { CamaroteTermosForm } from './CamaroteTermosForm';
 
 async function parseInvokeError(error: unknown): Promise<string> {
   const e = error as { context?: { json?: () => Promise<{ error?: string }> }; message?: string };
@@ -401,7 +402,7 @@ function TableDetailModal({
                 do camarote. Já vendida ou em checkout, vira só leitura, porque
                 mudar preço/tamanho embaixo de quem pagou não pode acontecer. */}
             {table.status !== 'sold' && table.status !== 'held' ? (
-              <TermosDaUnidade table={table} eventId={eventId} onSaved={invalidate} />
+              <CamaroteTermosForm table={table} eventId={eventId} onSaved={invalidate} />
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <Info label="Ingressos por dia" value={table.base_capacity?.toString() ?? '—'} />
@@ -590,118 +591,3 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * Termos de UMA unidade: quantos ingressos por dia ela dá e por quanto sai.
- *
- * No rodeio isso muda de caso a caso — o padrão do piso é 10 ingressos por dia,
- * e o comprador que quiser mais paga um valor combinado na hora. Por isso o
- * campo do extra é livre, e não uma tabela fixa.
- *
- * Grava em `event_seats` (via set_event_seat_terms), não no mapa base: o
- * combinado vale só para este evento e não contamina o mapa, que é reaproveitado.
- * E é desses mesmos campos que o checkout de assento cobra — ou seja, o que o
- * produtor fecha aqui é exatamente o que o comprador vai pagar no link.
- */
-function TermosDaUnidade({
-  table, eventId, onSaved,
-}: {
-  table: EventTableRow;
-  eventId: string;
-  onSaved: () => void;
-}) {
-  const padraoQtd = table.base_capacity ?? 10;
-  const [qtd, setQtd] = useState(String(padraoQtd));
-  const [valor, setValor] = useState(table.base_price != null ? String(table.base_price) : '');
-  const [extra, setExtra] = useState(table.extra_price ? String(table.extra_price) : '');
-  const [linkCopiado, setLinkCopiado] = useState(false);
-
-  const nQtd = Number(qtd);
-  const nValor = Number(valor.replace(',', '.'));
-  const nExtra = Number((extra || '0').replace(',', '.'));
-  const valido = Number.isInteger(nQtd) && nQtd >= 1 && Number.isFinite(nValor) && nValor >= 0;
-  const acimaDoPadrao = nQtd > padraoQtd ? nQtd - padraoQtd : 0;
-
-  const salvar = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('set_event_seat_terms', {
-        _seat_id: table.id,
-        _base_capacity: nQtd,
-        _base_price: nValor,
-        _extra_price: Number.isFinite(nExtra) ? nExtra : 0,
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => { toast.success('Termos salvos.'); onSaved(); },
-    onError: (e: unknown) => {
-      const msg = (e as { message?: string })?.message ?? '';
-      if (msg.includes('seat_busy')) toast.error('Esta unidade já está vendida ou em checkout.');
-      else if (msg.includes('forbidden')) toast.error('Você não tem permissão para alterar esta unidade.');
-      else toast.error('Não foi possível salvar. Confira os valores.');
-    },
-  });
-
-  // Link para o comprador. Leva ao mapa do evento com esta unidade em destaque.
-  const link = `${window.location.origin}/evento/${eventId}/mapa?unidade=${encodeURIComponent(table.code ?? '')}`;
-
-  const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(link);
-      setLinkCopiado(true);
-      toast.success('Link copiado.');
-      setTimeout(() => setLinkCopiado(false), 2500);
-    } catch {
-      toast.error('Não consegui copiar. Selecione o endereço e copie na mão.');
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="qtd" className="text-xs">Ingressos por dia</Label>
-          <Input id="qtd" inputMode="numeric" value={qtd}
-                 onChange={(e) => setQtd(e.target.value.replace(/\D/g, ''))} />
-          <p className="text-[11px] text-muted-foreground">Padrão deste piso: {padraoQtd}</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="valor" className="text-xs">Valor do camarote (R$)</Label>
-          <Input id="valor" inputMode="decimal" value={valor}
-                 onChange={(e) => setValor(e.target.value.replace(/[^\d.,]/g, ''))} />
-          <p className="text-[11px] text-muted-foreground">Valor total, pelas 5 noites</p>
-        </div>
-      </div>
-
-      {acimaDoPadrao > 0 && (
-        <div className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
-          <Label htmlFor="extra" className="text-xs">
-            Combinado por ingresso a mais (R$)
-          </Label>
-          <Input id="extra" inputMode="decimal" value={extra}
-                 onChange={(e) => setExtra(e.target.value.replace(/[^\d.,]/g, ''))} />
-          <p className="text-[11px] text-muted-foreground">
-            São {acimaDoPadrao} {acimaDoPadrao === 1 ? 'ingresso' : 'ingressos'} acima do padrão do piso.
-            Registre aqui o que foi combinado — some ao valor do camarote se já estiver embutido.
-          </p>
-        </div>
-      )}
-
-      <Button onClick={() => salvar.mutate()} disabled={!valido || salvar.isPending} className="w-full">
-        {salvar.isPending ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando…</>) : 'Salvar termos'}
-      </Button>
-
-      <div className="border-t border-border pt-3 space-y-2">
-        <div className="font-medium text-xs">Link para o comprador</div>
-        <p className="text-[11px] text-muted-foreground">
-          Abre o mapa com esta unidade em destaque, mostrando o que foi combinado.
-        </p>
-        <div className="flex gap-2">
-          <Input readOnly value={link} className="text-xs" onFocus={(e) => e.currentTarget.select()} />
-          <Button type="button" variant="outline" onClick={copiar} className="flex-shrink-0">
-            {linkCopiado ? <CheckCircle2 className="h-4 w-4" /> : 'Copiar'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
