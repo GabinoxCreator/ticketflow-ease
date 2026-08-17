@@ -2552,6 +2552,20 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      opcoes_parcelamento: {
+        Args: {
+          _absorve?: boolean
+          _face_cents: number
+          _max_parcelas?: number
+        }
+        Returns: {
+          acrescimo_cents: number
+          parcela_cents: number
+          parcelas: number
+          taxa_pct: number
+          total_cents: number
+        }[]
+      }
       prepare_event_seats: { Args: { _event_id: string }; Returns: Json }
       publish_event_with_snapshot: {
         Args: { _event_id: string }
