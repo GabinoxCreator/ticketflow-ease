@@ -184,3 +184,9 @@ verify_jwt = false
 # idempotente, então consultar à vontade é seguro.
 [functions.marcel-check-pix]
 verify_jwt = false
+
+# Cobrança no crédito pela API do Marcel. Aceita `quote:true` para cotar as
+# parcelas sem criar nada — necessário porque a API recusa a venda inteira se a
+# parcela ficar abaixo de R$5, e a tela não pode oferecer opção que será negada.
+[functions.marcel-process-card]
+verify_jwt = false
