@@ -20,7 +20,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
-import { resolverPreco, produtorAbsorve, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 
 const corsHeaders = {
@@ -56,6 +56,9 @@ serve(async (req) => {
   );
 
   let orderId: string | null = null;
+  // Estoque já tirado da prateleira. Tem que voltar em TODA saída que não vira
+  // venda — inclusive nas exceções lá do fim.
+  let reservado: { lotId: string; quantity: number }[] = [];
 
   try {
     const body = await req.json();
@@ -160,6 +163,11 @@ serve(async (req) => {
       }
     }
 
+    // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto, dois compradores levam o mesmo
+    // último ingresso — e é justamente com o lote acabando que mais gente
+    // compra ao mesmo tempo.
+    reservado = await reservarEstoque(admin, preco.linhas);
+
     const { data: order, error: orderError } = await admin
       .from('orders')
       .insert({
@@ -193,6 +201,9 @@ serve(async (req) => {
       await admin.from('orders').delete().eq('id', order.id);
       throw new Error('Erro ao reservar ingressos');
     }
+    // A partir daqui o pedido existe e é dele o estoque: quem devolve, se a
+    // cobrança não passar, é o tratamento de recusa. O catch geral não deve
+    // devolver de novo — daí o `reservado = []` em cada saída tratada.
 
     log('Cobrando', { orderId: order.id, parcelas: n, valor: valorCobrado });
 
@@ -227,6 +238,13 @@ serve(async (req) => {
     // Recusa chega com HTTP 200: a decisão é pelo campo `aprovado`, sempre.
     if (!prov?.aprovado) {
       log('Recusado', { orderId: order.id, msg: prov?.message, error: prov?.error });
+      // Devolve o ingresso para a prateleira e mata os tickets. Sem isto, cada
+      // cartão recusado come uma unidade do estoque para sempre — e cartão
+      // recusado é rotina, não exceção.
+      await devolverEstoque(admin, reservado);
+      reservado = [];
+      await admin.from('tickets').update({ status: 'cancelled' })
+        .eq('order_id', order.id).eq('status', 'pending');
       await admin.from('orders').update({ status: 'failed' }).eq('id', order.id);
       return json({
         aprovado: false,
@@ -271,6 +289,11 @@ serve(async (req) => {
     });
 
   } catch (e) {
+    // Qualquer saída por exceção devolve o que ainda estiver reservado. O
+    // `reservado` já foi zerado nas saídas que trataram a devolução, então não
+    // há risco de devolver duas vezes e inflar o estoque.
+    await devolverEstoque(admin, reservado);
+
     if (e instanceof CarrinhoInvalido) return json({ error: e.message }, e.status);
     if (e instanceof MarcelIndisponivel) {
       if (orderId) await admin.from('orders').update({ status: 'failed' }).eq('id', orderId);

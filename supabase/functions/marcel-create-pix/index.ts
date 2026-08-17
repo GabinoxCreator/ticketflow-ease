@@ -18,6 +18,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { reservarEstoque, devolverEstoque } from "../_shared/carrinhoMarcel.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +32,13 @@ const DEFAULT_FEE_PERCENT = 10;
 
 const log = (step: string, d?: unknown) =>
   console.log(`[MARCEL-CREATE-PIX] ${step}${d ? ` - ${JSON.stringify(d)}` : ''}`);
+
+/** Adapta as linhas locais ao formato que a reserva compartilhada espera.
+ *  Esta edge monta o carrinho inline (não usa `resolverPreco`), então a ponte
+ *  fica aqui em vez de espalhar o formato pelos dois lados. */
+const preco_linhas_para_reserva = (
+  linhas: Array<{ lotId: string; lotName: string; quantity: number; price: number }>,
+) => linhas.map((l) => ({ ...l, modoTaxa: 'cliente_paga' }));
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -59,6 +67,7 @@ serve(async (req) => {
   );
 
   let orderId: string | null = null;
+  let reservado: { lotId: string; quantity: number }[] = [];
 
   try {
     const body = await req.json();
@@ -132,6 +141,10 @@ serve(async (req) => {
     // PIX: sem taxa de processamento. Um arredondamento só, no fim.
     const finalAmount = Math.max(0.01, Math.round((totalAmount + serviceFee) * 100) / 100);
 
+    // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto dois compradores levam o mesmo
+    // último ingresso — e é com o lote acabando que mais gente compra junto.
+    reservado = await reservarEstoque(admin, preco_linhas_para_reserva(lineItems));
+
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60_000).toISOString();
 
     const { data: order, error: orderError } = await admin
@@ -197,8 +210,12 @@ serve(async (req) => {
 
     if (!prov?.transactionId || !prov?.pixCode) {
       log('Marcel não devolveu cobrança', { erro: prov?.error, msg: prov?.message });
-      // Sem cobrança não há o que pagar: devolve o estoque em vez de deixar
-      // ingresso preso num pedido que nunca vai ser pago.
+      // Sem cobrança não há o que pagar: devolve o estoque e mata os tickets,
+      // em vez de deixar ingresso preso num pedido que nunca será pago.
+      await devolverEstoque(admin, reservado);
+      reservado = [];
+      await admin.from('tickets').update({ status: 'cancelled' })
+        .eq('order_id', order.id).eq('status', 'pending');
       await admin.from('orders').update({ status: 'failed' }).eq('id', order.id);
       return json({ error: 'Não foi possível gerar o PIX. Tente novamente.' }, 502);
     }
@@ -219,6 +236,10 @@ serve(async (req) => {
     }, 201);
 
   } catch (e) {
+    // Devolve o que ainda estiver reservado. Já foi zerado nas saídas tratadas,
+    // então não há risco de devolver duas vezes e inflar o estoque.
+    await devolverEstoque(admin, reservado);
+
     if (e instanceof MarcelIndisponivel) {
       log('Integração não configurada', { msg: e.message });
       if (orderId) await admin.from('orders').update({ status: 'failed' }).eq('id', orderId);

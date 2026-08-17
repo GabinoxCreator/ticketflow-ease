@@ -125,3 +125,52 @@ export async function resolverPreco(
 export function produtorAbsorve(linhas: LinhaCarrinho[]): boolean {
   return linhas.length > 0 && linhas.every((l) => l.modoTaxa === 'absorve');
 }
+
+/**
+ * RESERVA DE ESTOQUE — obrigatória ANTES de criar o pedido.
+ *
+ * Sem isto, dois compradores pegam o último ingresso ao mesmo tempo e o sistema
+ * aceita os dois. Não é hipótese remota: é o caso normal de lote acabando em
+ * evento cheio, exatamente quando mais gente está comprando junto.
+ *
+ * `reserve_lot_quantity` é atômica no banco — ela é quem decide quem chegou
+ * primeiro. Se qualquer linha falhar, TUDO que já foi reservado é devolvido
+ * antes de propagar o erro: reserva pela metade prende estoque de um lote por
+ * causa da falta de outro.
+ */
+export async function reservarEstoque(
+  client: any,
+  linhas: LinhaCarrinho[],
+): Promise<{ lotId: string; quantity: number }[]> {
+  const reservado: { lotId: string; quantity: number }[] = [];
+  try {
+    for (const l of linhas) {
+      const { data: ok, error } = await client.rpc('reserve_lot_quantity', {
+        _lot_id: l.lotId, _qty: l.quantity,
+      });
+      if (error) throw new CarrinhoInvalido('Erro ao reservar ingressos', 500);
+      if (!ok) throw new CarrinhoInvalido(`Quantidade insuficiente para ${l.lotName}`);
+      reservado.push({ lotId: l.lotId, quantity: l.quantity });
+    }
+    return reservado;
+  } catch (e) {
+    await devolverEstoque(client, reservado);
+    throw e;
+  }
+}
+
+/** Devolve o estoque reservado. Chamar em TODA saída que não vira venda:
+ *  recusa do banco, falha ao criar tickets, exceção. Cada devolução é isolada —
+ *  uma falhar não pode impedir as outras de voltarem para a prateleira. */
+export async function devolverEstoque(
+  client: any,
+  reservado: { lotId: string; quantity: number }[],
+): Promise<void> {
+  for (const r of reservado) {
+    try {
+      await client.rpc('release_lot_quantity', { _lot_id: r.lotId, _qty: r.quantity });
+    } catch (e) {
+      console.error('[CARRINHO] falha ao devolver estoque', r.lotId, e);
+    }
+  }
+}
