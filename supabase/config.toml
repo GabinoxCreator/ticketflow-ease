@@ -190,3 +190,10 @@ verify_jwt = false
 # parcela ficar abaixo de R$5, e a tela não pode oferecer opção que será negada.
 [functions.marcel-process-card]
 verify_jwt = false
+
+# Varredura de pedidos pagos que ninguém confirmou. Como a API do Marcel não tem
+# webhook, ESTA função é o webhook: sem ela, cliente que paga e fecha a aba fica
+# com o pedido pendente para sempre. Chamada por cron, autentica por
+# x-api-key contra MARCEL_RECONCILE_KEY — sem o secret, recusa tudo.
+[functions.marcel-reconcile]
+verify_jwt = false
