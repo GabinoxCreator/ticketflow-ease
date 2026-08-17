@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +35,35 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   const [isHolding, setIsHolding] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [modalSeatId, setModalSeatId] = useState<string | null>(null);
+
+  /**
+   * Link direto para uma unidade: `?unidade=C007`.
+   *
+   * É o link que o produtor manda para o dono do camarote — ele abre o mapa já
+   * com a unidade combinada aberta, mostrando número, piso, quantos ingressos
+   * por dia e o valor fechado. Sem isso o comprador cairia num mapa de 100
+   * unidades e teria que caçar a dele.
+   *
+   * Abre UMA vez só: se a pessoa fechar o modal para olhar o mapa, não fica
+   * reabrindo na cara dela a cada render.
+   */
+  const [searchParams] = useSearchParams();
+  const unidadeDoLink = searchParams.get('unidade');
+  const jaAbriuDoLink = useRef(false);
+
+  useEffect(() => {
+    if (jaAbriuDoLink.current || !unidadeDoLink || !seats?.length) return;
+    const alvo = seats.find(
+      (s) => (s.code ?? '').toLowerCase() === unidadeDoLink.toLowerCase(),
+    );
+    if (!alvo) return;
+    jaAbriuDoLink.current = true;
+    // Só abre se ainda dá para comprar. Unidade já vendida abriria um modal
+    // sem saída — melhor deixar o mapa falar por si.
+    if (alvo.status === 'available' || alvo.status === 'held') {
+      setModalSeatId(alvo.id);
+    }
+  }, [unidadeDoLink, seats]);
 
   const myHoldSeatIds = useMemo(() => new Set(hold?.seatIds ?? []), [hold]);
 
