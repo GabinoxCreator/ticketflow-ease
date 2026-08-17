@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
+import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,12 +120,24 @@ serve(async (req) => {
     const lotIds = items.map(i => i.lotId);
     const { data: lots, error: lotsError } = await supabaseClient
       .from('event_lots')
-      .select('id, name, price, is_active, sales_start_type, start_date, starts_after_lot_id')
+      .select('id, name, price, is_active, sales_start_type, start_date, starts_after_lot_id, modo_taxa, max_parcelas')
       .in('id', lotIds)
       .eq('event_id', eventId);
     if (lotsError || !lots) throw new Error('Erro ao buscar lotes');
 
     let totalAmount = 0;
+    // Base da taxa de conveniência: soma SÓ das linhas de lote com modo_taxa='cliente_paga'.
+    // Acumulada NO MESMO laço e NA MESMA ORDEM que totalAmount, de propósito: quando nenhum
+    // lote do carrinho é 'absorve' — o caso de TODOS os eventos que existem hoje — as duas
+    // somas são a mesma sequência de operações em ponto flutuante, então feeBase === totalAmount
+    // bit a bit, e o serviceFee sai idêntico ao de antes desta mudança. Não é "equivalente": é
+    // a mesma conta. Ver §0-A do framework do rodeio (regra: mudança vale só para o evento).
+    let feeBase = 0;
+    // Teto de parcelas: o MENOR teto entre os lotes do carrinho. null = lote sem teto,
+    // que e o estado de TODOS os lotes existentes hoje -> tetoParcelas fica null e nada
+    // e validado, exatamente como antes. So lote com max_parcelas preenchido restringe.
+    let tetoParcelas: number | null = null;
+    let loteDoTeto = '';
     const lineItems: Array<{ lotId: string; lotName: string; quantity: number; price: number }> = [];
 
     for (const item of items) {
@@ -147,8 +160,38 @@ serve(async (req) => {
           throw new Error(`Lote "${lot.name}" ainda não está à venda`);
         }
       }
-      totalAmount += Number(lot.price) * item.quantity;
+      const lineTotal = Number(lot.price) * item.quantity;
+      totalAmount += lineTotal;
+      // Fail-safe para o comportamento ANTIGO: só 'absorve' exato tira a linha da base da
+      // taxa. Qualquer outro valor (inclusive nulo ou inesperado) cai em 'cliente_paga',
+      // que é como o site sempre funcionou. Um dado estranho nunca deixa de cobrar a taxa.
+      if (lot.modo_taxa !== 'absorve') feeBase += lineTotal;
+      const teto = lot.max_parcelas == null ? null : Number(lot.max_parcelas);
+      if (teto != null && Number.isFinite(teto) && (tetoParcelas === null || teto < tetoParcelas)) {
+        tetoParcelas = teto;
+        loteDoTeto = lot.name;
+      }
       lineItems.push({ lotId: lot.id, lotName: lot.name, quantity: item.quantity, price: Number(lot.price) });
+    }
+
+    // Teto de parcelas POR LOTE. Vale SO para lote com max_parcelas preenchido; lote sem
+    // teto (todos os que existem hoje) nao passa por aqui e segue como sempre foi.
+    // Quando ha teto, o numero de parcelas precisa ser inteiro entre 1 e o teto: sem isso
+    // um valor esquisito vindo do navegador (texto, 2.5, negativo) escaparia da regra --
+    // NaN > 3 e false. Isto NAO e validacao generica de installments (que continua sendo
+    // escopo separado, ver §0-A do framework); e a propria regra nova se fechando.
+    if (tetoParcelas !== null) {
+      const n = Number(installments);
+      if (!Number.isInteger(n) || n < 1 || n > tetoParcelas) {
+        logStep('Installment cap exceeded', { eventId, installments, tetoParcelas, loteDoTeto });
+        return json({
+          error: tetoParcelas === 1
+            ? `O lote "${loteDoTeto}" é somente à vista.`
+            : `O lote "${loteDoTeto}" permite parcelar em até ${tetoParcelas}x.`,
+          errorCode: 'installments_over_limit',
+          maxInstallments: tetoParcelas,
+        }, 200);
+      }
     }
 
     // Trava "1 ingresso por CPF" — só p/ eventos com limite. ANTES de reservar/criar order.
@@ -199,7 +242,9 @@ serve(async (req) => {
       }
     }
     const fee = await resolveFee(supabaseClient, eventId, 'card');
-    const serviceFee = Math.max(0, Math.round((totalAmount * fee.percent / 100 + fee.fixed) * 100) / 100);
+    // feeBase no lugar de totalAmount é a ÚNICA diferença. Mesmo arredondamento, uma vez só,
+    // no fim — somar/arredondar linha a linha mudaria centavos para todos os produtores.
+    const serviceFee = Math.max(0, Math.round((feeBase * fee.percent / 100 + fee.fixed) * 100) / 100);
     const finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
 
     const expiresAtIso = new Date(Date.now() + CARD_EXPIRATION_MINUTES * 60 * 1000).toISOString();
@@ -322,6 +367,25 @@ serve(async (req) => {
     });
     const mpPayment = await mpResponse.json();
     logStep('MP payment response', { status: mpPayment.status, statusDetail: mpPayment.status_detail, id: mpPayment.id });
+
+    // Captura o que o sistema jogava fora: face por lote + parcelas + bandeira.
+    // A bandeira vem da RESPOSTA do provedor (autoritativa), nao do navegador; o
+    // paymentMethodId do request e so fallback. Roda para pedido APROVADO ou RECUSADO --
+    // conferencia de completude nao pode ter buraco. Best-effort: nunca lanca.
+    await captureSaleTerms(supabaseClient, order.id,
+      lineItems.map((i) => ({
+        lotId: i.lotId,
+        lotName: i.lotName,
+        unitFace: i.price,
+        quantity: i.quantity,
+        modoTaxa: (lots.find((l: any) => l.id === i.lotId)?.modo_taxa) ?? 'cliente_paga',
+      })),
+      {
+        installments: mpPayment?.installments ?? installments,
+        brandRaw: mpPayment?.payment_method_id ?? paymentMethodId,
+        provider: 'mercadopago',
+        method: 'card',
+      });
 
 
     if (mpPayment.status === 'approved') {

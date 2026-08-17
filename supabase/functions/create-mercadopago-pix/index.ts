@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
+import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,13 +120,20 @@ serve(async (req) => {
     const lotIds = items.map(i => i.lotId);
     const { data: lots, error: lotsError } = await supabaseClient
       .from('event_lots')
-      .select('id, name, price, is_active, sales_start_type, start_date, starts_after_lot_id')
+      .select('id, name, price, is_active, sales_start_type, start_date, starts_after_lot_id, modo_taxa')
       .in('id', lotIds)
       .eq('event_id', eventId);
 
     if (lotsError || !lots) throw new Error('Erro ao buscar lotes');
 
     let totalAmount = 0;
+    // Base da taxa: soma SO das linhas de lote com modo_taxa='cliente_paga'. Acumulada no
+    // mesmo laco e na mesma ordem que totalAmount de proposito -- quando nenhum lote do
+    // carrinho e 'absorve' (o caso de todos os eventos existentes hoje), as duas somas sao
+    // a mesma sequencia de operacoes e feeBase === totalAmount bit a bit. Gemeo do que ha
+    // em process-card-payment; os dois precisam andar juntos, senao o mesmo lote sai por
+    // precos diferentes no cartao e no PIX. Ver §0-A do framework do rodeio.
+    let feeBase = 0;
     const lineItems: Array<{ lotId: string; lotName: string; quantity: number; price: number }> = [];
 
     for (const item of items) {
@@ -148,7 +156,12 @@ serve(async (req) => {
           throw new Error(`Lote "${lot.name}" ainda não está à venda`);
         }
       }
-      totalAmount += Number(lot.price) * item.quantity;
+      const lineTotal = Number(lot.price) * item.quantity;
+      totalAmount += lineTotal;
+      // Fail-safe para o comportamento ANTIGO: so 'absorve' exato tira a linha da base da
+      // taxa. Qualquer outro valor (nulo, vazio, inesperado) cai em 'cliente_paga', que e
+      // como o site sempre funcionou.
+      if (lot.modo_taxa !== 'absorve') feeBase += lineTotal;
       lineItems.push({ lotId: lot.id, lotName: lot.name, quantity: item.quantity, price: Number(lot.price) });
     }
 
@@ -204,7 +217,9 @@ serve(async (req) => {
       }
     }
     const fee = await resolveFee(supabaseClient, eventId, 'pix');
-    const serviceFee = Math.max(0, Math.round((totalAmount * fee.percent / 100 + fee.fixed) * 100) / 100);
+    // feeBase no lugar de totalAmount e a UNICA diferenca. Mesmo arredondamento, uma vez
+    // so, no fim -- somar/arredondar linha a linha mudaria centavos para todos.
+    const serviceFee = Math.max(0, Math.round((feeBase * fee.percent / 100 + fee.fixed) * 100) / 100);
     const finalAmount = Math.max(0.01, totalAmount - discountAmount + serviceFee);
 
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60 * 1000).toISOString();
@@ -256,6 +271,20 @@ serve(async (req) => {
       await supabaseClient.from('orders').delete().eq('id', order.id);
       throw new Error('Erro ao reservar ingressos');
     }
+
+    // Captura da venda (gemea da que existe em process-card-payment). PIX nao tem
+    // parcela nem bandeira -- mas grava do mesmo jeito, com installments=1: se so cartao
+    // gravasse, a conferencia de completude acusaria buraco para sempre num evento onde
+    // PIX e maioria. Best-effort: nunca lanca, nunca derruba a venda.
+    await captureSaleTerms(supabaseClient, order.id,
+      lineItems.map((i) => ({
+        lotId: i.lotId,
+        lotName: i.lotName,
+        unitFace: i.price,
+        quantity: i.quantity,
+        modoTaxa: (lots.find((l: any) => l.id === i.lotId)?.modo_taxa) ?? 'cliente_paga',
+      })),
+      { installments: 1, brandRaw: null, provider: 'mercadopago', method: 'pix' });
 
     // Split name and phone for MP antifraud (mirror process-card-payment)
     const nameParts = (customerName || '').trim().split(/\s+/).filter(Boolean);
