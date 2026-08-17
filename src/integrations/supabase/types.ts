@@ -2477,6 +2477,7 @@ export type Database = {
           customer_phone: string
           event_id: string
           extra_price: number
+          height: number
           hold_expires_at: string
           id: string
           label: string
@@ -2489,11 +2490,16 @@ export type Database = {
           order_id: string
           order_paid_at: string
           order_total: number
+          radius: number
+          rotation: number
           seat_type_name: string
           seats_sold: number
           shape: string
           sold_order_id: string
           status: string
+          width: number
+          x: number
+          y: number
         }[]
       }
       get_event_tracking: {
@@ -2546,6 +2552,7 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      prepare_event_seats: { Args: { _event_id: string }; Returns: Json }
       publish_event_with_snapshot: {
         Args: { _event_id: string }
         Returns: Json
@@ -2571,6 +2578,15 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      set_event_seat_terms: {
+        Args: {
+          _base_capacity: number
+          _base_price: number
+          _extra_price?: number
+          _seat_id: string
+        }
+        Returns: Json
+      }
       slugify: { Args: { _input: string }; Returns: string }
       sweep_expired_event_seat_holds: { Args: never; Returns: number }
       toggle_event_like: {
@@ -2582,6 +2598,10 @@ export type Database = {
       }
       unaccent: { Args: { "": string }; Returns: string }
       unpublish_event: { Args: { _event_id: string }; Returns: Json }
+      user_holds_ticket_for_event: {
+        Args: { _event_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "cliente" | "produtor" | "admin"
