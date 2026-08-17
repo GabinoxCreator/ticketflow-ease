@@ -20,9 +20,20 @@ export async function checkMarcelPixPaid(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CHECKPIX_TIMEOUT_MS);
   try {
+    // ⚠️ A API passou a EXIGIR `x-api-key` (17/08/2026). Sem o header ela
+    // responde 401, este helper devolve ok:false, e quem chama entende
+    // "provedor indisponível" e PULA o pedido para não matar venda paga.
+    //
+    // A intenção do caller está certa — errado era chamar sem a chave. O efeito
+    // era pedido da rota do Marcel que NUNCA expira, segurando estoque para
+    // sempre. Pego em auditoria com um pedido preso havia 37 minutos.
+    const apiKey = Deno.env.get('MARCEL_API_KEY');
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (apiKey) headers["x-api-key"] = apiKey;
+
     const resp = await fetch(`${marcelBase}/checkpix`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ transactionId: Number(transactionId) }),
       signal: controller.signal,
     });
