@@ -59,10 +59,48 @@ function statusMeta(s: EventTableRow['status']) {
 
 export function EventTablesTab({ eventId }: Props) {
   const { data, isLoading } = useEventTables(eventId);
+  const qcPrepare = useQueryClient();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<EventTableRow | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
+
+  // Traz as unidades do mapa para dentro do evento SEM publicar. Antes disso,
+  // a única forma de ter mesa/camarote no evento era publicar — e a venda
+  // interna acontece justamente antes de a venda pública abrir.
+  const prepararMapa = useMutation({
+    mutationFn: async () => {
+      // `as any` porque types.ts é auto-gerado e ainda não conhece a RPC nova —
+      // mesmo padrão do get_event_tables_management logo acima neste arquivo.
+      const { data: res, error } = await (supabase.rpc as any)('prepare_event_seats', {
+        _event_id: eventId,
+      });
+      if (error) throw error;
+      return res as { seats_created: number; seats_total: number };
+    },
+    onSuccess: (res) => {
+      qcPrepare.invalidateQueries({ queryKey: ['event-tables', eventId] });
+      qcPrepare.invalidateQueries({ queryKey: ['event-seats', eventId] });
+      toast.success(
+        res.seats_created > 0
+          ? `${res.seats_created} ${res.seats_created === 1 ? 'unidade liberada' : 'unidades liberadas'} para gestão.`
+          : 'Nenhuma unidade nova — o mapa já estava carregado.',
+      );
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { message?: string })?.message ?? '';
+      // Mensagens da RPC traduzidas: erro de banco cru não ajuda o produtor.
+      if (msg.includes('no_map')) {
+        toast.error('Este evento ainda não tem um mapa vinculado. Vincule em Editar evento.');
+      } else if (msg.includes('no_seats')) {
+        toast.error('O mapa vinculado não tem nenhuma unidade desenhada.');
+      } else if (msg.includes('forbidden')) {
+        toast.error('Você não tem permissão para preparar este evento.');
+      } else {
+        toast.error('Não foi possível carregar o mapa. Tente de novo.');
+      }
+    },
+  });
 
   const stats = useMemo(() => {
     const rows = data ?? [];
@@ -99,6 +137,36 @@ export function EventTablesTab({ eventId }: Props) {
         </div>
         <Skeleton className="h-64" />
       </div>
+    );
+  }
+
+  // Mapa vinculado mas nenhuma unidade dentro do evento ainda. Sem este passo o
+  // produtor via uma aba vazia sem saber o que fazer — e a saída antiga era
+  // publicar o evento, abrindo a venda no site antes da hora.
+  if ((data ?? []).length === 0) {
+    return (
+      <Card className="p-8 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+          <MapIcon className="h-6 w-6 text-primary" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">Carregue o mapa para começar a gerenciar</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            As unidades do mapa ainda não foram trazidas para este evento. Ao carregar,
+            cada uma aparece aqui para você acompanhar a ocupação e registrar as vendas
+            feitas por fora — <strong>sem publicar o evento e sem abrir a venda no site</strong>.
+          </p>
+        </div>
+        <Button
+          onClick={() => prepararMapa.mutate()}
+          disabled={prepararMapa.isPending}
+          size="lg"
+        >
+          {prepararMapa.isPending
+            ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Carregando…</>)
+            : (<><MapIcon className="h-4 w-4 mr-2" />Carregar mapa</>)}
+        </Button>
+      </Card>
     );
   }
 
