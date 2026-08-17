@@ -44,6 +44,12 @@ interface Props {
 
 const PAD = 30;
 
+/** Há mais de um tipo de assento em jogo? Só então o mapa ganha cabeçalhos. */
+function temGrupos(seats: EventTableRow[]): boolean {
+  const nomes = new Set(seats.map((s) => s.seat_type_name).filter(Boolean));
+  return nomes.size > 1;
+}
+
 export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
   const posicionadas = useMemo(
     () => seats.filter((s) => s.x != null && s.y != null),
@@ -61,11 +67,14 @@ export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
       maxX = Math.max(maxX, s.x! + w);
       maxY = Math.max(maxY, s.y! + h);
     }
+    // Folga extra no topo quando há cabeçalho de grupo, senão o rótulo do piso
+    // nasce fora do viewBox e some sem aviso.
+    const topo = temGrupos(posicionadas) ? PAD + 46 : PAD;
     return {
       x: minX - PAD,
-      y: minY - PAD,
+      y: minY - topo,
       w: maxX - minX + PAD * 2,
-      h: maxY - minY + PAD * 2,
+      h: maxY - minY + topo + PAD,
     };
   }, [posicionadas]);
 
@@ -74,6 +83,38 @@ export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
     for (const s of posicionadas) set.add(statusVisual(s));
     return set;
   }, [posicionadas]);
+
+  /**
+   * Cabeçalho de cada agrupamento (no rodeio, os pisos do camarote).
+   * Sem isso o produtor vê cinco colunas iguais e não sabe qual é qual — e é
+   * justamente o piso que define o preço. Agrupo por `seat_type_name` porque é
+   * assim que o sistema já separa preço e rótulo; se o evento não usar tipos
+   * distintos, sai um grupo só e nenhum cabeçalho é desenhado.
+   */
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, { nome: string; minX: number; maxX: number; minY: number; preco: number | null }>();
+    for (const s of posicionadas) {
+      const nome = s.seat_type_name ?? '';
+      if (!nome) continue;
+      const w = s.width ?? (s.radius ? s.radius * 2 : 80);
+      const atual = mapa.get(nome);
+      if (!atual) {
+        mapa.set(nome, { nome, minX: s.x!, maxX: s.x! + w, minY: s.y!, preco: s.base_price });
+      } else {
+        atual.minX = Math.min(atual.minX, s.x!);
+        atual.maxX = Math.max(atual.maxX, s.x! + w);
+        atual.minY = Math.min(atual.minY, s.y!);
+      }
+    }
+    return mapa.size > 1 ? [...mapa.values()] : [];
+  }, [posicionadas]);
+
+  const moeda = (v: number | null) =>
+    v == null || v === 0
+      ? null
+      : new Intl.NumberFormat('pt-BR', {
+          style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
+        }).format(v);
 
   if (posicionadas.length === 0) {
     return (
@@ -94,6 +135,31 @@ export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
           role="img"
           aria-label={`Planta com ${posicionadas.length} unidades`}
         >
+          {grupos.map((g) => {
+            const meio = (g.minX + g.maxX) / 2;
+            const preco = moeda(g.preco);
+            return (
+              <g key={g.nome}>
+                <text
+                  x={meio} y={g.minY - 26}
+                  textAnchor="middle" fill="#E7ECF3" fontSize={17} fontWeight={700}
+                  style={{ fontFamily: 'ui-monospace, monospace', letterSpacing: '0.06em' }}
+                >
+                  {g.nome.toUpperCase()}
+                </text>
+                {preco && (
+                  <text
+                    x={meio} y={g.minY - 10}
+                    textAnchor="middle" fill="#8C97A5" fontSize={13}
+                    style={{ fontFamily: 'ui-monospace, monospace' }}
+                  >
+                    {preco}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
           {posicionadas.map((s) => {
             const w = s.width ?? (s.radius ? s.radius * 2 : 80);
             const h = s.height ?? (s.radius ? s.radius * 2 : 80);
