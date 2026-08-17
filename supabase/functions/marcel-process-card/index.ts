@@ -62,12 +62,12 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { eventId, items, quote, installments, card, cartaoId,
+    const { eventId, items, quote, installments, card, cartaoId, couponId,
             customerName, customerEmail, customerPhone } = body;
 
     if (!eventId) return json({ error: 'Evento obrigatório' }, 400);
 
-    const preco = await resolverPreco(admin, eventId, items, 'card');
+    const preco = await resolverPreco(admin, eventId, items, 'card', couponId);
     const absorve = produtorAbsorve(preco.linhas);
 
     // Opções vindas da tabela versionada. `absorve` decide quem paga o custo:
@@ -90,6 +90,7 @@ serve(async (req) => {
         subtotal: preco.subtotal,
         totalFace: preco.totalFace,
         taxaAdministrativa: preco.taxaAdministrativa,
+        desconto: preco.desconto,
         produtorAbsorve: absorve,
         // `options` no formato que a tela de cartão já consome hoje (installments
         // / total / perInstallment). Mantido em inglês de propósito: mudar o nome
@@ -176,7 +177,8 @@ serve(async (req) => {
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
         total_amount: valorCobrado,
-        discount_amount: 0,
+        discount_amount: preco.desconto,
+        coupon_id: preco.cupomId,
         service_fee_amount: preco.taxaAdministrativa,
         payment_method: 'card',
         status: 'pending',

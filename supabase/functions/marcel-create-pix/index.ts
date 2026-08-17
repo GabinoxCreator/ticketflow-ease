@@ -18,7 +18,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, MarcelIndisponivel } from "../_shared/marcel.ts";
-import { reservarEstoque, devolverEstoque } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,35 +28,14 @@ const corsHeaders = {
 // A cobrança do Marcel expira em 1h. Seguro o pedido por menos para o estoque
 // voltar antes: ingresso preso é venda perdida.
 const PIX_EXPIRATION_MINUTES = 30;
-const DEFAULT_FEE_PERCENT = 10;
 
 const log = (step: string, d?: unknown) =>
   console.log(`[MARCEL-CREATE-PIX] ${step}${d ? ` - ${JSON.stringify(d)}` : ''}`);
-
-/** Adapta as linhas locais ao formato que a reserva compartilhada espera.
- *  Esta edge monta o carrinho inline (não usa `resolverPreco`), então a ponte
- *  fica aqui em vez de espalhar o formato pelos dois lados. */
-const preco_linhas_para_reserva = (
-  linhas: Array<{ lotId: string; lotName: string; quantity: number; price: number }>,
-) => linhas.map((l) => ({ ...l, modoTaxa: 'cliente_paga' }));
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-
-async function resolveFee(client: any, eventId: string) {
-  const { data } = await client
-    .from('event_fee_overrides')
-    .select('fee_percent, fee_fixed')
-    .eq('event_id', eventId)
-    .eq('payment_method', 'pix')
-    .maybeSingle();
-  return {
-    percent: data ? Number(data.fee_percent) : DEFAULT_FEE_PERCENT,
-    fixed: data ? Number(data.fee_fixed) : 0,
-  };
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -100,31 +79,11 @@ serve(async (req) => {
       .from('events').select('id, title, status').eq('id', eventId).maybeSingle();
     if (!event) return json({ error: 'Evento não encontrado' }, 404);
 
-    // PREÇO VEM DO BANCO. Nunca do cliente — é a trava contra manipulação.
-    const lotIds = items.map((i: any) => i.lotId);
-    const { data: lots, error: lotsError } = await admin
-      .from('event_lots')
-      .select('id, name, price, is_active, sales_start_type, start_date, starts_after_lot_id, modo_taxa')
-      .in('id', lotIds)
-      .eq('event_id', eventId);
-    if (lotsError || !lots) throw new Error('Erro ao buscar lotes');
-
-    let totalAmount = 0;
-    // Base da taxa: só as linhas de lote 'cliente_paga'. Lote 'absorve' sai da
-    // base, e é assim que o promocional do rodeio sai redondo para o comprador.
-    let feeBase = 0;
-    const lineItems: Array<{ lotId: string; lotName: string; quantity: number; price: number }> = [];
-
-    for (const item of items) {
-      const lot = lots.find((l: any) => l.id === item.lotId);
-      if (!lot) return json({ error: 'Lote inválido' }, 400);
-      if (!lot.is_active) return json({ error: `Lote "${lot.name}" não está à venda` }, 400);
-      const qty = Math.max(1, Math.trunc(Number(item.quantity) || 1));
-      const lineTotal = Number(lot.price) * qty;
-      totalAmount += lineTotal;
-      if (lot.modo_taxa !== 'absorve') feeBase += lineTotal;
-      lineItems.push({ lotId: lot.id, lotName: lot.name, quantity: qty, price: Number(lot.price) });
-    }
+    // PREÇO VEM DO BANCO, pela mesma função que o cartão usa. Manter a conta
+    // duplicada aqui foi o que deixou esta edge sem tratar cupom na 1ª versão:
+    // o cliente via o desconto na tela e era cobrado o valor cheio.
+    const preco = await resolverPreco(admin, eventId, items, 'pix', body.couponId);
+    const lineItems = preco.linhas;
 
     // Trava "1 ingresso por CPF" nos eventos que a exigem, ANTES de reservar.
     const ticketLimit = getTicketLimitForEvent(eventId);
@@ -136,14 +95,14 @@ serve(async (req) => {
       }
     }
 
-    const fee = await resolveFee(admin, eventId);
-    const serviceFee = Math.max(0, Math.round((feeBase * fee.percent / 100 + fee.fixed) * 100) / 100);
-    // PIX: sem taxa de processamento. Um arredondamento só, no fim.
-    const finalAmount = Math.max(0.01, Math.round((totalAmount + serviceFee) * 100) / 100);
+    // PIX: sem taxa de processamento (decisão do Gabriel, 17/08). O subtotal já
+    // é face − desconto + taxa administrativa.
+    const serviceFee = preco.taxaAdministrativa;
+    const finalAmount = preco.subtotal;
 
     // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto dois compradores levam o mesmo
     // último ingresso — e é com o lote acabando que mais gente compra junto.
-    reservado = await reservarEstoque(admin, preco_linhas_para_reserva(lineItems));
+    reservado = await reservarEstoque(admin, lineItems);
 
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60_000).toISOString();
 
@@ -155,7 +114,8 @@ serve(async (req) => {
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
         total_amount: finalAmount,
-        discount_amount: 0,
+        discount_amount: preco.desconto,
+        coupon_id: preco.cupomId,
         service_fee_amount: serviceFee,
         payment_method: 'pix',
         status: 'pending',
@@ -192,7 +152,9 @@ serve(async (req) => {
     await captureSaleTerms(admin, order.id,
       lineItems.map((i) => ({
         lotId: i.lotId, lotName: i.lotName, unitFace: i.price, quantity: i.quantity,
-        modoTaxa: (lots.find((l: any) => l.id === i.lotId)?.modo_taxa) ?? 'cliente_paga',
+        // O modo vem da própria linha resolvida — antes eu buscava numa lista de
+        // lotes que o refactor tirou daqui, e isso quebraria a função.
+        modoTaxa: i.modoTaxa,
       })),
       { installments: 1, brandRaw: null, provider: 'marcel', method: 'pix' });
 
@@ -240,6 +202,12 @@ serve(async (req) => {
     // então não há risco de devolver duas vezes e inflar o estoque.
     await devolverEstoque(admin, reservado);
 
+    // Carrinho inválido (lote de outro evento, lote inativo, sem estoque) é erro
+    // do pedido, não falha do sistema — devolve a mensagem que explica o motivo.
+    if (e instanceof CarrinhoInvalido) {
+      if (orderId) await admin.from('orders').update({ status: 'failed' }).eq('id', orderId);
+      return json({ error: e.message }, e.status);
+    }
     if (e instanceof MarcelIndisponivel) {
       log('Integração não configurada', { msg: e.message });
       if (orderId) await admin.from('orders').update({ status: 'failed' }).eq('id', orderId);

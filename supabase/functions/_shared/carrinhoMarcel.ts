@@ -27,7 +27,11 @@ export interface PrecoResolvido {
   totalFace: number;
   /** Taxa administrativa da plataforma (a "conveniência"). */
   taxaAdministrativa: number;
-  /** face + taxa administrativa. Base do cartão; total do PIX. */
+  /** Desconto do cupom, se houver e se ele estiver válido. */
+  desconto: number;
+  /** Cupom efetivamente aplicado — null quando não havia ou não valia mais. */
+  cupomId: string | null;
+  /** face − desconto + taxa administrativa. Base do cartão; total do PIX. */
   subtotal: number;
 }
 
@@ -65,6 +69,7 @@ export async function resolverPreco(
   eventId: string,
   items: Array<{ lotId: string; quantity: number }>,
   metodo: 'pix' | 'card',
+  couponId?: string | null,
 ): Promise<PrecoResolvido> {
   if (!Array.isArray(items) || items.length === 0) {
     throw new CarrinhoInvalido('Carrinho vazio');
@@ -91,7 +96,18 @@ export async function resolverPreco(
     if (!lot) throw new CarrinhoInvalido('Lote inválido');
     if (!lot.is_active) throw new CarrinhoInvalido(`Lote "${lot.name}" não está à venda`);
 
-    const qty = Math.max(1, Math.trunc(Number(item.quantity) || 1));
+    // Quantidade inválida é RECUSADA, não "corrigida" para 1. Antes, pedir 0 ou
+    // −5 ingressos criava um pedido de 1 e cobrava por ele: o comprador pediria
+    // uma coisa e pagaria por outra. Requisição malformada tem que falhar alto.
+    const qty = Number(item.quantity);
+    if (!Number.isInteger(qty) || qty < 1) {
+      throw new CarrinhoInvalido(`Quantidade inválida para "${lot.name}"`);
+    }
+    if (qty > 50) {
+      // Teto de sanidade: pedido de 10 mil ingressos é engano ou abuso, e
+      // reservaria o lote inteiro antes de alguém perceber.
+      throw new CarrinhoInvalido(`Quantidade acima do permitido para "${lot.name}"`);
+    }
     const linha = Number(lot.price) * qty;
     totalFace += linha;
     // Fail-safe para o comportamento antigo: só 'absorve' exato tira a linha da
@@ -107,6 +123,32 @@ export async function resolverPreco(
     });
   }
 
+  // CUPOM. Sem isto o cliente aplica o desconto, VÊ o valor abatido na tela e é
+  // cobrado o valor cheio — que foi o que aconteceu na primeira versão destas
+  // edges. O cupom é revalidado aqui no servidor (ativo, dentro da validade,
+  // dentro do limite de usos, e do MESMO evento): confiar no que o front mandou
+  // deixaria um cupom expirado valer para sempre.
+  let desconto = 0;
+  let cupomId: string | null = null;
+  if (couponId) {
+    const { data: cupom } = await client
+      .from('event_coupons')
+      .select('id, discount_type, discount_value, max_uses, uses_count, valid_until, is_active, event_id')
+      .eq('id', couponId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (cupom && cupom.is_active
+        && (!cupom.valid_until || new Date(cupom.valid_until).getTime() > Date.now())
+        && (cupom.max_uses == null || cupom.uses_count < cupom.max_uses)) {
+      desconto = cupom.discount_type === 'percent'
+        ? (totalFace * Number(cupom.discount_value)) / 100
+        // Desconto fixo nunca passa do valor da compra: senão o total fica
+        // negativo e a cobrança vira um crédito ao cliente.
+        : Math.min(Number(cupom.discount_value), totalFace);
+      cupomId = cupom.id;
+    }
+  }
+
   const taxa = await taxaDoEvento(client, eventId, metodo);
   // Um arredondamento só, no fim. Somar e arredondar linha a linha muda
   // centavos e faz a conta divergir do que o produtor espera receber.
@@ -114,9 +156,14 @@ export async function resolverPreco(
     0,
     Math.round((baseDaTaxa * taxa.percent / 100 + taxa.fixed) * 100) / 100,
   );
-  const subtotal = Math.max(0.01, Math.round((totalFace + taxaAdministrativa) * 100) / 100);
+  // Mesma ordem da rota do Mercado Pago: a taxa incide sobre a face, e o
+  // desconto entra depois. Inverter mudaria o valor cobrado de todo mundo.
+  const subtotal = Math.max(
+    0.01,
+    Math.round((totalFace - desconto + taxaAdministrativa) * 100) / 100,
+  );
 
-  return { linhas, totalFace, taxaAdministrativa, subtotal };
+  return { linhas, totalFace, taxaAdministrativa, desconto, cupomId, subtotal };
 }
 
 /** Todo o carrinho é de lote que o produtor absorve? Decide se o custo do
