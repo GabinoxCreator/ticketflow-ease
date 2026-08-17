@@ -21,6 +21,7 @@ import { Armchair, Search, CheckCircle2, Circle, Lock, Mail, Phone, User, Loader
 import { formatInSaoPaulo } from '@/lib/eventTime';
 import { toast } from 'sonner';
 import { EventTablesMapModal } from './EventTablesMapModal';
+import { EventTablesMapView } from './EventTablesMapView';
 
 async function parseInvokeError(error: unknown): Promise<string> {
   const e = error as { context?: { json?: () => Promise<{ error?: string }> }; message?: string };
@@ -126,7 +127,15 @@ export function EventTablesTab({ eventId }: Props) {
           .some((v) => v!.toLowerCase().includes(q)),
       );
     }
-    return rows.slice().sort((a, b) => (a.label ?? a.code ?? '').localeCompare(b.label ?? b.code ?? ''));
+    // Ordenação NATURAL, não alfabética: com 100 unidades o localeCompare puro
+    // devolve "Camarote 1, 10, 100, 11, 12…" e ninguém acha a unidade que quer.
+    // `numeric: true` faz o navegador comparar os trechos de número como número.
+    return rows.slice().sort((a, b) =>
+      (a.label ?? a.code ?? '').localeCompare(b.label ?? b.code ?? '', 'pt-BR', {
+        numeric: true,
+        sensitivity: 'base',
+      }),
+    );
   }, [data, filter, search]);
 
   if (isLoading) {
@@ -179,6 +188,14 @@ export function EventTablesTab({ eventId }: Props) {
         <StatCard label="Disponíveis" value={stats.available} icon={Circle} accent="primary" />
         <StatCard label="Ocupação" value={`${stats.occupancy}%`} icon={Lock} accent="pink" />
       </div>
+
+      {/* Planta aberta na própria aba, não escondida num modal: durante a venda
+          o produtor lê a ocupação de relance, e um clique já abre a unidade. */}
+      <EventTablesMapView
+        seats={data ?? []}
+        onSelect={setSelected}
+        selectedId={selected?.id ?? null}
+      />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

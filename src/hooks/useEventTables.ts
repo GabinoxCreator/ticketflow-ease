@@ -30,6 +30,14 @@ export interface EventTableRow {
   order_total: number | null;
   order_paid_at: string | null;
   seats_sold: number | null;
+  // Posição no mapa, para a aba desenhar a planta em vez de listar cards.
+  // Vem da mesma RPC; unidade desenhada antes desta mudança pode não ter.
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  height: number | null;
+  radius: number | null;
+  rotation: number | null;
 }
 
 /** "Disponível na prática": available, ou held com hold já expirado (gate do hold_seats). */
