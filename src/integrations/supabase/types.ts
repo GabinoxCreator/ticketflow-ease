@@ -2571,6 +2571,14 @@ export type Database = {
         Args: { _event_id: string }
         Returns: Json
       }
+      radar_pagamentos: {
+        Args: { _event_id?: string }
+        Returns: {
+          indicador: string
+          observacao: string
+          valor: string
+        }[]
+      }
       release_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
