@@ -17,7 +17,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
-import { criarPix, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
 
 const corsHeaders = {
@@ -166,7 +166,9 @@ serve(async (req) => {
       purchaseId: order.id,
       customer: {
         name: customerName, cpf: cleanCPF,
-        email: customerEmail, phone: (customerPhone || '').replace(/\D/g, '') || undefined,
+        email: customerEmail,
+        // Sem o código do país: com 13 dígitos a API RECUSA a cobrança.
+        phone: telefoneParaMarcel(customerPhone),
       },
     });
 

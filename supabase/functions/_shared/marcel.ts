@@ -162,3 +162,24 @@ export function reconciliar(purchaseId: string) {
     body: { purchaseId },
   });
 }
+
+/**
+ * Telefone no formato que a API aceita: DDD + número, SEM código de país.
+ *
+ * ⚠️ Descoberto em produção (18/08/2026), na primeira tentativa real de compra:
+ * telefone com 13 dígitos (`5548999171313`) faz a API RECUSAR a cobrança, e o
+ * cliente vê "erro na edge function" sem explicação. Com 11 (`48999171313`)
+ * passa. A documentação mostra o exemplo sem o país — e muito cadastro do site
+ * guarda o telefone COM o 55, então isso derrubaria parte das vendas.
+ *
+ * Devolve `undefined` quando não sobra um telefone plausível: o campo é
+ * opcional na API, e mandar lixo é pior do que não mandar.
+ */
+export function telefoneParaMarcel(bruto: string | null | undefined): string | undefined {
+  const d = String(bruto ?? '').replace(/\D/g, '');
+  if (!d) return undefined;
+  // 55 + DDD + 8 ou 9 dígitos → tira o país.
+  const semPais = (d.length === 12 || d.length === 13) && d.startsWith('55') ? d.slice(2) : d;
+  // Sobrou algo com cara de DDD + número? Senão, melhor omitir.
+  return (semPais.length === 10 || semPais.length === 11) ? semPais : undefined;
+}
