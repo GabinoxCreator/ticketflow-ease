@@ -1,28 +1,19 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { CreditCard, Loader2, Lock, User, Calendar, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { CartaoMarcelForm, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
+
+/*
+ * Passo do cartão no checkout de INGRESSO, pela rota do Marcel.
+ *
+ * A tela em si vive em `CartaoMarcelForm` — a mesma que o checkout de mesa usa.
+ * Aqui fica só o que é específico do ingresso: o carrinho de lotes, o cupom e a
+ * edge que cobra.
+ */
 
 interface CartItem {
   lotId: string;
   lotName: string;
   quantity: number;
   price: number;
-}
-
-interface InstallmentOption {
-  installments: number;
-  total: number;
-  perInstallment: number;
-  /** Custo da operadora nesta faixa de parcela. Vem do servidor junto com o
-   *  total, para a tela poder mostrar a linha "taxa de processamento" sem
-   *  refazer a conta — se ela recalculasse, poderia divergir do que é cobrado. */
-  processingFee?: number;
 }
 
 interface CheckoutStepCardMarcelProps {
@@ -51,235 +42,50 @@ export function CheckoutStepCardMarcel({
   onSuccess,
   onError,
 }: CheckoutStepCardMarcelProps) {
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardHolder, setCardHolder] = useState(customerName);
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [options, setOptions] = useState<InstallmentOption[]>([]);
-  const [selectedInstallments, setSelectedInstallments] = useState(1);
-  const [loadingQuote, setLoadingQuote] = useState(true);
-  // Composição do preço, vinda da cotação. Sem isto o cliente via "R$ 132" no
-  // resumo e "R$ 138,50" para pagar, com a diferença SEM explicação nenhuma —
-  // e diferença inexplicada no meio do pagamento faz gente desistir.
-  const [composicao, setComposicao] = useState<{
-    face: number; taxaAdm: number;
-  } | null>(null);
+  const carrinho = items.map(i => ({ lotId: i.lotId, quantity: i.quantity }));
 
-  // Cotação: pede à edge os 12 valores já precificados (servidor é a fonte da verdade;
-  // a tela nunca calcula preço). O invoke já leva o JWT do usuário logado (passa o gate).
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('marcel-process-card', {
-          body: {
-            eventId,
-            items: items.map(i => ({ lotId: i.lotId, quantity: i.quantity })),
-            couponId,
-            quote: true,
-          },
-        });
-        if (!active) return;
-        if (error) throw error;
-        if (Array.isArray(data?.options) && data.options.length > 0) {
-          setOptions(data.options);
-        }
-        if (typeof data?.totalFace === 'number' && typeof data?.taxaAdministrativa === 'number') {
-          setComposicao({ face: data.totalFace, taxaAdm: data.taxaAdministrativa });
-        }
-      } catch (err) {
-        // Fallback seguro: sem options → só 1x usando o totalAmount da prop. Não trava.
-        console.error('Quote error (Marcel):', err);
-      } finally {
-        if (active) setLoadingQuote(false);
-      }
-    })();
-    return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Valor exibido = total da opção selecionada (do servidor); fallback pro totalAmount da prop.
-  const opcaoEscolhida = options.find(o => o.installments === selectedInstallments);
-  const selectedTotal = opcaoEscolhida?.total ?? totalAmount;
-  const processingFee = opcaoEscolhida?.processingFee ?? 0;
-
-  const formatPrice = (price: number) =>
-    price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  const formatCardNumber = (value: string) =>
-    value.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
-
-  const formatExpiry = (value: string) => {
-    const n = value.replace(/\D/g, '').slice(0, 4);
-    return n.length > 2 ? `${n.slice(0, 2)}/${n.slice(2)}` : n;
+  // Cotação: pede à edge os valores já precificados. O servidor é a fonte da
+  // verdade; a tela nunca calcula preço.
+  const cotar = async (): Promise<CotacaoMarcel | null> => {
+    const { data, error } = await supabase.functions.invoke('marcel-process-card', {
+      body: { eventId, items: carrinho, couponId, quote: true },
+    });
+    if (error) throw error;
+    return data as CotacaoMarcel;
   };
 
-  const handleSubmit = async () => {
-    const cleanCard = cardNumber.replace(/\s/g, '');
-    const [expMonth, expYear] = expiryDate.split('/');
+  const cobrar = async ({ installments, card }: { installments: number; card: DadosDoCartao }) => {
+    const { data, error } = await supabase.functions.invoke('marcel-process-card', {
+      body: {
+        eventId,
+        items: carrinho,
+        customerName,
+        customerEmail,
+        customerPhone,
+        customerCPF: customerCPF.replace(/\D/g, ''),
+        couponId,
+        installments,
+        card,
+      },
+    });
 
-    if (cleanCard.length < 13 || !expMonth || !expYear || cvv.length < 3 || !cardHolder.trim()) {
-      toast.error('Preencha todos os campos corretamente.');
+    if (error) throw error;
+    if (data?.status === 'approved') {
+      onSuccess(data.orderId);
       return;
     }
-
-    setIsProcessing(true);
-    try {
-      const expiration = `${expMonth}/20${expYear}`;
-
-      const { data, error } = await supabase.functions.invoke('marcel-process-card', {
-        body: {
-          eventId,
-          items: items.map(i => ({ lotId: i.lotId, quantity: i.quantity })),
-          customerName,
-          customerEmail,
-          customerPhone,
-          customerCPF: customerCPF.replace(/\D/g, ''),
-          couponId,
-          installments: selectedInstallments,
-          card: {
-            holder: cardHolder.trim(),
-            number: cleanCard,
-            expiration,
-            cvv,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (data?.status === 'approved') {
-        onSuccess(data.orderId);
-      } else {
-        throw new Error(data?.error || 'Pagamento não aprovado. Tente outro cartão.');
-      }
-    } catch (err: any) {
-      console.error('Card payment error (Marcel):', err);
-      const msg = err.message || 'Erro ao processar pagamento';
-      toast.error(msg);
-      onError(msg);
-    } finally {
-      setIsProcessing(false);
-    }
+    const msg = data?.error || 'Pagamento não aprovado. Tente outro cartão.';
+    onError(msg);
+    throw new Error(msg);
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.25 }}
-      className="space-y-5"
-    >
-      <div className="text-center space-y-1 py-2">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Valor a pagar</p>
-        <p className="font-display font-bold text-4xl gradient-text tabular-nums">{formatPrice(selectedTotal)}</p>
-      </div>
-
-      {/* De onde vem cada centavo. É o padrão do mercado e resolve a pergunta
-          que o cliente faz sozinho: "por que aqui é mais caro que no resumo?" */}
-      {composicao && (
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-3.5 py-3 space-y-1.5 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Ingressos</span>
-            <span className="tabular-nums">{formatPrice(composicao.face)}</span>
-          </div>
-          {composicao.taxaAdm > 0 && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Taxa de serviço</span>
-              <span className="tabular-nums">{formatPrice(composicao.taxaAdm)}</span>
-            </div>
-          )}
-          {processingFee > 0 && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Taxa de processamento</span>
-              <span className="tabular-nums">{formatPrice(processingFee)}</span>
-            </div>
-          )}
-          <div className="flex justify-between pt-1.5 border-t border-border/60 font-semibold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatPrice(selectedTotal)}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Seletor de parcelas — valores vêm do servidor (cotação). Fallback: só 1x. */}
-      {loadingQuote ? (
-        <div className="flex justify-center py-1">
-          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : options.length > 0 ? (
-        <div>
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Parcelas
-          </Label>
-          <Select
-            value={String(selectedInstallments)}
-            onValueChange={(v) => setSelectedInstallments(Number(v))}
-          >
-            <SelectTrigger className="mt-1.5 h-12 bg-background/60 border-border/60">
-              <SelectValue placeholder="Selecione as parcelas" />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((opt) => (
-                <SelectItem key={opt.installments} value={String(opt.installments)}>
-                  {opt.installments} {opt.installments === 1 ? 'parcela' : 'parcelas'} de {formatPrice(opt.perInstallment)} ({formatPrice(opt.total)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : null}
-
-      <div className="space-y-2">
-        <Label htmlFor="m-cardNumber">Número do cartão</Label>
-        <div className="relative">
-          <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input id="m-cardNumber" inputMode="numeric" placeholder="0000 0000 0000 0000" className="pl-10"
-            value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="m-cardHolder">Nome no cartão</Label>
-        <div className="relative">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input id="m-cardHolder" placeholder="Como está no cartão" className="pl-10"
-            value={cardHolder} onChange={(e) => setCardHolder(e.target.value.toUpperCase())} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="m-expiry">Validade</Label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="m-expiry" inputMode="numeric" placeholder="MM/AA" className="pl-10"
-              value={expiryDate} onChange={(e) => setExpiryDate(formatExpiry(e.target.value))} />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="m-cvv">CVV</Label>
-          <div className="relative">
-            <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input id="m-cvv" inputMode="numeric" placeholder="000" className="pl-10" maxLength={4}
-              value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} />
-          </div>
-        </div>
-      </div>
-
-      <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold"
-        onClick={handleSubmit} disabled={isProcessing}>
-        {isProcessing ? (
-          <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processando...</>
-        ) : (
-          <><Lock className="w-5 h-5 mr-2" /> Pagar {formatPrice(selectedTotal)}</>
-        )}
-      </Button>
-
-      <p className="text-[11px] text-center text-muted-foreground flex items-center justify-center gap-1">
-        <Lock className="w-3 h-3" /> Pagamento processado com segurança
-      </p>
-    </motion.div>
+    <CartaoMarcelForm
+      totalAmount={totalAmount}
+      nomeSugerido={customerName}
+      rotuloFace="Ingressos"
+      cotar={cotar}
+      cobrar={cobrar}
+    />
   );
 }

@@ -200,6 +200,18 @@ verify_jwt = true
 [functions.marcel-process-card]
 verify_jwt = true
 
+# Cobrança PIX de MESA/CAMAROTE pela rota do Marcel. Gêmea da create-seat-pix.
+# verify_jwt=true: mesa é presa ao usuário desde o mapa (held_by_user_id), então
+# compra anônima não existe aqui nem faria sentido.
+[functions.marcel-create-seat-pix]
+verify_jwt = true
+
+# Cobrança no crédito de MESA/CAMAROTE. Aceita `quote:true` para cotar as
+# parcelas sem prender mesa nenhuma — cotar pela RPC de criação seguraria o
+# camarote de quem só está olhando o preço.
+[functions.marcel-charge-seat-card]
+verify_jwt = true
+
 # Varredura de pedidos pagos que ninguém confirmou. Como a API do Marcel não tem
 # webhook, ESTA função é o webhook: sem ela, cliente que paga e fecha a aba fica
 # com o pedido pendente para sempre. Chamada por cron, autentica por

@@ -28,6 +28,7 @@ import { CheckoutStepProgressiveForm } from '@/components/checkout/CheckoutStepP
 import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
 import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { SeatCheckoutCard, CARD_ERROR_MESSAGES } from '@/components/checkout/SeatCheckoutCard';
+import { SeatCheckoutCardMarcel } from '@/components/checkout/SeatCheckoutCardMarcel';
 import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
 
@@ -45,6 +46,9 @@ interface CustomerData {
 interface EventSummary {
   id: string;
   title: string;
+  /** Quem processa o pagamento deste evento. Decide as edges e o componente de
+   *  cartão — 'marcel' (SafeToPay) ou 'mercadopago'. */
+  payment_provider: string | null;
   slug: string | null;
   date: string;
   venue: string;
@@ -105,6 +109,10 @@ export default function SeatCheckout() {
   const [step, setStep] = useState<Step | null>(null);
 
   const [event, setEvent] = useState<EventSummary | null>(null);
+  // Default 'mercadopago' porque é o que vale para todo evento que ainda não
+  // migrou — nunca chutar 'marcel'.
+  const isMarcel = (event?.payment_provider ?? 'mercadopago') === 'marcel';
+  const CardStep = isMarcel ? SeatCheckoutCardMarcel : SeatCheckoutCard;
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [customer, setCustomer] = useState<CustomerData | null>(null);
@@ -127,7 +135,7 @@ export default function SeatCheckout() {
       setLoadingEvent(true);
       const { data: ev } = await supabase
         .from('events')
-        .select('id, title, slug, date, venue, city, state')
+        .select('id, title, slug, date, venue, city, state, payment_provider')
         .eq('id', eventId)
         .maybeSingle();
       if (ev) setEvent(ev as EventSummary);
@@ -262,7 +270,11 @@ export default function SeatCheckout() {
     pixRequestInFlightRef.current = true;
     setIsStartingPix(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-seat-pix', {
+      // A edge é escolhida pelo provedor DO EVENTO. As duas devolvem o mesmo
+      // formato (pixCode / orderId / holdExpiresAt), então daqui para baixo o
+      // tratamento é idêntico.
+      const pixFn = isMarcel ? 'marcel-create-seat-pix' : 'create-seat-pix';
+      const { data, error } = await supabase.functions.invoke(pixFn, {
         body: {
           eventId,
           holdToken: hold.token,
@@ -271,6 +283,7 @@ export default function SeatCheckout() {
           customerEmail: customer.email,
           customerCPF: customer.cpf,
           customerPhone: customer.phone,
+          // Antifraude do Mercado Pago. A rota do Marcel ignora o campo.
           deviceId: (window as any).MP_DEVICE_SESSION_ID || null,
         },
       });
@@ -305,13 +318,13 @@ export default function SeatCheckout() {
       setPixExpiresAt(data.expiresAt ? new Date(data.expiresAt) : new Date(Date.now() + 15 * 60_000));
       setStep('pix');
     } catch (err: any) {
-      console.error('create-seat-pix error', err);
+      console.error('erro ao criar PIX de mesa', err);
       handlePaymentFailedGeneric();
     } finally {
       pixRequestInFlightRef.current = false;
       setIsStartingPix(false);
     }
-  }, [hold, eventId, customer, seatPayload, updateHoldExpiresAt, handleHoldErrorRedirect, handleProviderUnreachable, handlePaymentFailedGeneric]);
+  }, [hold, eventId, customer, seatPayload, isMarcel, updateHoldExpiresAt, handleHoldErrorRedirect, handleProviderUnreachable, handlePaymentFailedGeneric]);
 
   // ----- Detector único (PIX + cartão). Fonte da verdade: webhook gravou orders.status='paid'.
   // Tentativa 1: edge check-mercadopago-payment (faz cross-validation valor+ext_ref).
@@ -320,10 +333,16 @@ export default function SeatCheckout() {
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
     try {
-      const { data, error } = await supabase.functions.invoke('check-mercadopago-payment', {
-        body: { paymentId: paymentId || null, orderId },
-      });
-      if (!error && data?.paid === true) return true;
+      // Perguntar ao provedor errado devolve 400 e o caminho rápido morre: o
+      // cliente paga e a tela só muda quando a varredura passa. Na rota do
+      // Marcel a edge acha o id da transação sozinha, pelo pedido.
+      const { data, error } = isMarcel
+        ? await supabase.functions.invoke('marcel-check-pix', { body: { orderId } })
+        : await supabase.functions.invoke('check-mercadopago-payment', {
+            body: { paymentId: paymentId || null, orderId },
+          });
+      // A edge do Mercado Pago responde `paid`; a do Marcel manda os dois.
+      if (!error && (data?.paid === true || data?.pago === true)) return true;
     } catch { /* segue pro fallback */ }
     try {
       const { data: row } = await supabase
@@ -335,7 +354,7 @@ export default function SeatCheckout() {
     } catch {
       return false;
     }
-  }, [orderId, paymentId]);
+  }, [orderId, paymentId, isMarcel]);
 
   const handlePaymentConfirmed = useCallback(() => {
     if (eventId) clearStoredOrderId(eventId);
@@ -572,7 +591,9 @@ export default function SeatCheckout() {
 
             {step === 'card' && (
               <motion.div key="card" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <SeatCheckoutCard
+                {/* Os dois componentes têm a MESMA assinatura de propósito: a
+                    troca de provedor não muda mais nada nesta tela. */}
+                <CardStep
                   eventId={eventId}
                   eventTitle={event.title}
                   holdToken={hold.token}

@@ -97,7 +97,13 @@ serve(async (req) => {
     for (const p of pedidos ?? []) {
       resumo.verificados++;
       try {
-        const resp = p.provider_transaction_id
+        // `/checkpix` é a consulta do PIX. Perguntar por ela o destino de uma
+        // cobrança de CARTÃO é perguntar do produto errado — e agora entram
+        // pedidos de mesa, que também podem ser no crédito. Para qualquer coisa
+        // que não seja PIX (ou quando falta o id da transação), o caminho é o
+        // `/reconcile` pelo purchaseId, que é o próprio id do pedido.
+        const ehPix = p.payment_method === 'pix';
+        const resp = (ehPix && p.provider_transaction_id)
           ? await consultarPix(p.provider_transaction_id)
           : await reconciliar(p.id);
 
