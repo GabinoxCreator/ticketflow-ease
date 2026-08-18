@@ -19,6 +19,10 @@ interface InstallmentOption {
   installments: number;
   total: number;
   perInstallment: number;
+  /** Custo da operadora nesta faixa de parcela. Vem do servidor junto com o
+   *  total, para a tela poder mostrar a linha "taxa de processamento" sem
+   *  refazer a conta — se ela recalculasse, poderia divergir do que é cobrado. */
+  processingFee?: number;
 }
 
 interface CheckoutStepCardMarcelProps {
@@ -55,6 +59,12 @@ export function CheckoutStepCardMarcel({
   const [options, setOptions] = useState<InstallmentOption[]>([]);
   const [selectedInstallments, setSelectedInstallments] = useState(1);
   const [loadingQuote, setLoadingQuote] = useState(true);
+  // Composição do preço, vinda da cotação. Sem isto o cliente via "R$ 132" no
+  // resumo e "R$ 138,50" para pagar, com a diferença SEM explicação nenhuma —
+  // e diferença inexplicada no meio do pagamento faz gente desistir.
+  const [composicao, setComposicao] = useState<{
+    face: number; taxaAdm: number;
+  } | null>(null);
 
   // Cotação: pede à edge os 12 valores já precificados (servidor é a fonte da verdade;
   // a tela nunca calcula preço). O invoke já leva o JWT do usuário logado (passa o gate).
@@ -75,6 +85,9 @@ export function CheckoutStepCardMarcel({
         if (Array.isArray(data?.options) && data.options.length > 0) {
           setOptions(data.options);
         }
+        if (typeof data?.totalFace === 'number' && typeof data?.taxaAdministrativa === 'number') {
+          setComposicao({ face: data.totalFace, taxaAdm: data.taxaAdministrativa });
+        }
       } catch (err) {
         // Fallback seguro: sem options → só 1x usando o totalAmount da prop. Não trava.
         console.error('Quote error (Marcel):', err);
@@ -87,8 +100,9 @@ export function CheckoutStepCardMarcel({
   }, []);
 
   // Valor exibido = total da opção selecionada (do servidor); fallback pro totalAmount da prop.
-  const selectedTotal =
-    options.find(o => o.installments === selectedInstallments)?.total ?? totalAmount;
+  const opcaoEscolhida = options.find(o => o.installments === selectedInstallments);
+  const selectedTotal = opcaoEscolhida?.total ?? totalAmount;
+  const processingFee = opcaoEscolhida?.processingFee ?? 0;
 
   const formatPrice = (price: number) =>
     price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -161,6 +175,38 @@ export function CheckoutStepCardMarcel({
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Valor a pagar</p>
         <p className="font-display font-bold text-4xl gradient-text tabular-nums">{formatPrice(selectedTotal)}</p>
       </div>
+
+      {/* De onde vem cada centavo. É o padrão do mercado e resolve a pergunta
+          que o cliente faz sozinho: "por que aqui é mais caro que no resumo?" */}
+      {composicao && (
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-3.5 py-3 space-y-1.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Ingressos</span>
+            <span className="tabular-nums">{formatPrice(composicao.face)}</span>
+          </div>
+          {composicao.taxaAdm > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Taxa de serviço</span>
+              <span className="tabular-nums">{formatPrice(composicao.taxaAdm)}</span>
+            </div>
+          )}
+          {processingFee > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">
+                Taxa de processamento
+                <span className="block text-[11px] opacity-70">
+                  custo da operadora do cartão
+                </span>
+              </span>
+              <span className="tabular-nums">{formatPrice(processingFee)}</span>
+            </div>
+          )}
+          <div className="flex justify-between pt-1.5 border-t border-border/60 font-semibold">
+            <span>Total</span>
+            <span className="tabular-nums">{formatPrice(selectedTotal)}</span>
+          </div>
+        </div>
+      )}
 
       {/* Seletor de parcelas — valores vêm do servidor (cotação). Fallback: só 1x. */}
       {loadingQuote ? (

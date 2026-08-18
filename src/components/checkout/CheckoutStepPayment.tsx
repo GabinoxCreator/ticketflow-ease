@@ -28,6 +28,10 @@ interface CheckoutStepPaymentProps {
   onApplyCoupon: (c: AppliedCoupon | null) => void;
   isProcessing: boolean;
   onSelectPayment: (method: 'pix' | 'card') => void;
+  /** Provedor do evento. Só serve para dizer a verdade sobre o parcelamento:
+   *  a rota do Marcel vai até 10x, a do Mercado Pago até 12x. Prometer 12 e
+   *  entregar 10 quebra a confiança logo na primeira tela do pagamento. */
+  paymentProvider?: string;
 }
 
 export function CheckoutStepPayment({
@@ -42,6 +46,7 @@ export function CheckoutStepPayment({
   onApplyCoupon,
   isProcessing,
   onSelectPayment,
+  paymentProvider,
 }: CheckoutStepPaymentProps) {
   const [couponInput, setCouponInput] = useState('');
   const [validating, setValidating] = useState(false);
@@ -281,7 +286,9 @@ export function CheckoutStepPayment({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-base">Cartão de Crédito</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Parcele em até 12x · Visa, Master, Elo</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Parcele em até {paymentProvider === 'marcel' ? 10 : 12}x · Visa, Master, Elo
+            </p>
           </div>
           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
         </button>

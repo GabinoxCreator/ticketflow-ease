@@ -102,6 +102,7 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
           >
             <button
               onClick={() => onQuantityChange(-1)}
+              aria-label={`Remover um ingresso de ${lot.name}`}
               disabled={quantity === 0}
               className={cn(
                 'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
@@ -122,6 +123,7 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
             </span>
             <button
               onClick={() => onQuantityChange(1)}
+              aria-label={`Adicionar um ingresso de ${lot.name}`}
               disabled={quantity >= maxQuantity || quantity >= available}
               className={cn(
                 'w-10 h-10 rounded-full border flex items-center justify-center transition-all',

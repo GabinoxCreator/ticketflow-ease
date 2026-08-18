@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ShieldCheck } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CheckoutStepProgressiveForm } from './CheckoutStepProgressiveForm';
 import { CheckoutStepCPF } from './CheckoutStepCPF';
@@ -337,6 +337,12 @@ export function CheckoutModal({
             : 'sm:max-w-md max-h-[90vh]'
         )}
       >
+        {/* Título só para leitor de tela. O modal desenha o próprio cabeçalho
+            (com o passo atual), mas o Dialog exige um DialogTitle para ser
+            anunciado — sem ele o Radix reclama no console e quem usa leitor de
+            tela ouve um diálogo sem nome no meio da compra. */}
+        <DialogTitle className="sr-only">Pagamento — {eventTitle}</DialogTitle>
+
         {/* Decoração de fundo - gradient sutil indigo/magenta */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 -right-20 w-80 h-80 rounded-full bg-primary/15 blur-3xl" />
@@ -401,6 +407,7 @@ export function CheckoutModal({
                 eventVenue={eventVenue}
                 items={items}
                 totalAmount={totalAmount}
+                paymentProvider={paymentProvider}
                 appliedCoupon={appliedCoupon}
                 onApplyCoupon={setAppliedCoupon}
                 isProcessing={isProcessing}
