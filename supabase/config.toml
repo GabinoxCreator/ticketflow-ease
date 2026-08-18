@@ -206,3 +206,9 @@ verify_jwt = true
 # x-api-key contra MARCEL_RECONCILE_KEY — sem o secret, recusa tudo.
 [functions.marcel-reconcile]
 verify_jwt = false
+
+# Ponte READ-ONLY para o sistema de gestão. verify_jwt = false porque quem chama é o
+# servidor da gestão com o token de serviço (x-service-token), não um navegador logado —
+# a própria função recusa qualquer chamada sem o token, antes de tocar no banco.
+[functions.gestao-sales-export]
+verify_jwt = false
