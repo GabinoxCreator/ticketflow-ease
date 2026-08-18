@@ -174,6 +174,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ⚠️ VAGA CONTESTADA CONTINUA OCUPADA, POR DECISÃO. Quando o cliente contesta
+    // a compra e o dinheiro volta, a FestPag **não devolve a vaga para a venda**
+    // automaticamente — vai para análise humana (decisão do Gabriel, 18/08; ver
+    // `Cofre-Negocios/FestPag/Decisões.md`). O motivo: a contestação chega dias
+    // depois, muitas vezes com a pessoa JÁ TENDO ENTRADO no evento.
+    //
+    // Consequência para esta conta: `sold_quantity` fica **de propósito** maior
+    // que o número de ingressos válidos. Sem descontar isso, o radar acusaria
+    // drift permanente em cima de um número que está certo — o mesmo erro que a
+    // venda na porta causava.
+    const contestadosPorLote = new Map<string, number>();
+    {
+      const { data: pedidosContestados } = await supa
+        .from("orders").select("id").in("status", ["charged_back", "refunded"]);
+      const ids = (pedidosContestados ?? []).map((o: any) => o.id);
+      if (ids.length > 0) {
+        // Só os ingressos que já saíram de circulação: os que continuam
+        // `valid`/`used` já são contados na conta normal, e somar de novo
+        // inverteria o erro.
+        const { data: tix } = await supa
+          .from("tickets").select("lot_id, status")
+          .in("order_id", ids);
+        for (const t of tix ?? []) {
+          if (!t.lot_id) continue;
+          if (t.status === "valid" || t.status === "used") continue;
+          contestadosPorLote.set(t.lot_id, (contestadosPorLote.get(t.lot_id) ?? 0) + 1);
+        }
+      }
+    }
+
     let confirmedDrift = 0;
     let reservationDrift = 0;
     if (lots) {
@@ -185,8 +215,11 @@ Deno.serve(async (req) => {
           .from("tickets").select("id", { count: "exact", head: true })
           .eq("lot_id", lot.id).in("status", ["valid", "used"]);
         // O esperado é: ingressos emitidos + o que foi vendido na porta (que não
-        // emite ingresso nenhum).
-        const esperado = (confirmedCount ?? 0) + (vendasNaPortaPorLote.get(lot.id) ?? 0);
+        // emite ingresso nenhum) + as vagas de compras contestadas, que seguem
+        // ocupadas até alguém analisar.
+        const esperado = (confirmedCount ?? 0)
+          + (vendasNaPortaPorLote.get(lot.id) ?? 0)
+          + (contestadosPorLote.get(lot.id) ?? 0);
         if (esperado !== (lot.sold_quantity ?? 0)) confirmedDrift++;
 
         // reservation drift: pending tickets in non-expired pending orders
