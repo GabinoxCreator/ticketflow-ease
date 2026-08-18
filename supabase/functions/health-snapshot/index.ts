@@ -153,6 +153,27 @@ Deno.serve(async (req) => {
     // Confirmed drift: lots where sold_quantity != count(valid tickets)
     const { data: lots } = await supa
       .from("event_lots").select("id, sold_quantity, reserved_quantity");
+
+    // ⚠️ VENDA NA PORTA NÃO GERA INGRESSO. O trigger `on_door_sale_insert` soma
+    // em `sold_quantity` a cada venda registrada em `door_sales`, e nenhum
+    // ticket é criado — é venda de balcão, com dinheiro na mão.
+    //
+    // Sem descontar isso, a conta "vendidos × ingressos" acusa drift em todo
+    // evento que vendeu na porta, e o radar fica marcando CRÍTICO para sempre.
+    // Foi o que aconteceu: em 18/08 o painel estava cravado em crítico, e os
+    // dois maiores "drifts" eram 142 e 49 — exatamente o número de ingressos
+    // vendidos na porta naqueles lotes. Alarme que sempre grita ninguém escuta:
+    // quando aparecer um descompasso de verdade, ele some no meio do barulho.
+    const vendasNaPortaPorLote = new Map<string, number>();
+    {
+      const { data: doorSales } = await supa
+        .from("door_sales").select("lot_id, quantity");
+      for (const d of doorSales ?? []) {
+        if (!d.lot_id) continue;
+        vendasNaPortaPorLote.set(d.lot_id, (vendasNaPortaPorLote.get(d.lot_id) ?? 0) + Number(d.quantity ?? 0));
+      }
+    }
+
     let confirmedDrift = 0;
     let reservationDrift = 0;
     if (lots) {
@@ -163,7 +184,10 @@ Deno.serve(async (req) => {
         const { count: confirmedCount } = await supa
           .from("tickets").select("id", { count: "exact", head: true })
           .eq("lot_id", lot.id).in("status", ["valid", "used"]);
-        if ((confirmedCount ?? 0) !== (lot.sold_quantity ?? 0)) confirmedDrift++;
+        // O esperado é: ingressos emitidos + o que foi vendido na porta (que não
+        // emite ingresso nenhum).
+        const esperado = (confirmedCount ?? 0) + (vendasNaPortaPorLote.get(lot.id) ?? 0);
+        if (esperado !== (lot.sold_quantity ?? 0)) confirmedDrift++;
 
         // reservation drift: pending tickets in non-expired pending orders
         const { data: pendingTix } = await supa

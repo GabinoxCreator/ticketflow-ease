@@ -103,7 +103,14 @@ const MinhaConta = () => {
     setIsUpdating(true);
     try {
       const cpfDigits = unformatCPF(data.cpf || '');
-      const update: Record<string, unknown> = {
+      // Tipado como as colunas de `profiles`, e não como Record<string, unknown>:
+      // o cliente do Supabase recusa um objeto genérico no update (era o único
+      // erro de tipo do projeto). Assim um nome de coluna errado é pego aqui.
+      const update: {
+        nome_completo: string;
+        whatsapp: string;
+        cpf?: string;
+      } = {
         nome_completo: data.nome_completo,
         whatsapp: data.whatsapp,
       };
