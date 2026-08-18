@@ -174,22 +174,31 @@ verify_jwt = false
 [functions.marcel-health]
 verify_jwt = true
 
-# Cobrança PIX pela API do Marcel. verify_jwt=false porque a compra de ingresso
-# não exige login (mesmo padrão das outras rotas de criação de cobrança).
+# Cobrança PIX pela API do Marcel.
+# ⚠️ verify_jwt=true, CORRIGIDO em 18/08. Nasceu `false` com a justificativa de que
+# "a compra de ingresso não exige login" — e isso é FALSO: o EventDetails abre o
+# modal de login antes do checkout. Aberta, ela deixava qualquer um criar pedidos
+# em massa, e cada pedido RESERVA estoque por 30 min: esgota-se um lote de graça.
+# As rotas equivalentes (create-mercadopago-pix, confra-create-pix) sempre foram true.
 [functions.marcel-create-pix]
-verify_jwt = false
+verify_jwt = true
 
 # Consulta do PIX — é ela que aprova o pedido, já que a API do Marcel não tem
-# webhook. Pública pelo mesmo motivo da criação; a promoção passa pela RPC
-# idempotente, então consultar à vontade é seguro.
+# webhook. A promoção passa pela RPC idempotente, então consultar à vontade é
+# seguro; mesmo assim exige login (18/08), porque a resposta diz se um pedido
+# qualquer foi pago e isso não é informação de rota aberta.
 [functions.marcel-check-pix]
-verify_jwt = false
+verify_jwt = true
 
-# Cobrança no crédito pela API do Marcel. Aceita `quote:true` para cotar as
-# parcelas sem criar nada — necessário porque a API recusa a venda inteira se a
+# Cobrança no crédito pela API do Marcel.
+# ⚠️ verify_jwt=true, CORRIGIDO em 18/08. Aberta, esta era a pior das três: recebe
+# número de cartão e repassa à adquirente com a NOSSA chave — ou seja, qualquer um
+# na internet podia usá-la para testar listas de cartões roubados, e a conta da
+# FestPag levaria os chargebacks e a marca de origem de fraude.
+# Aceita `quote:true` para cotar as parcelas sem criar nada — necessário porque a API recusa a venda inteira se a
 # parcela ficar abaixo de R$5, e a tela não pode oferecer opção que será negada.
 [functions.marcel-process-card]
-verify_jwt = false
+verify_jwt = true
 
 # Varredura de pedidos pagos que ninguém confirmou. Como a API do Marcel não tem
 # webhook, ESTA função é o webhook: sem ela, cliente que paga e fecha a aba fica

@@ -22,6 +22,8 @@ interface OrderRow {
   mp_payment_id: string | null;
   payment_method: string | null;
   coupon_id: string | null;
+  event_id: string;
+  provider_transaction_id: string | null;
 }
 
 function extractMpPaymentId(o: OrderRow): string | null {
@@ -68,6 +70,7 @@ serve(async (req) => {
     still_in_process: 0,
     inventory_corrections: 0,
     paid_tickets_reconciled: 0,
+    skipped_outro_provedor: 0,
     errors: 0,
     items: [] as any[],
   };
@@ -151,9 +154,20 @@ serve(async (req) => {
 
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
+    // ⚠️ ESTA ROTINA SÓ ENTENDE DE MERCADO PAGO. Ela pergunta o status na API do
+    // MP e, quando não acha o pagamento, EXPIRA o pedido e devolve o estoque.
+    // Um pedido da rota do Marcel não tem `mp_payment_id` — cairia direto no
+    // `no_payment_id` e seria expirado SEM NINGUÉM PERGUNTAR À SAFETOPAY. Se o
+    // cliente já tivesse pago, o pedido morria com o dinheiro dele dentro.
+    // (Achado em 18/08, na varredura de brechas da migração. Ela não roda por
+    // cron — é ferramenta manual de admin —, mas basta um uso para causar isso.)
+    const { data: eventosDeOutroProvedor } = await supabase
+      .from('events').select('id').neq('payment_provider', 'mercadopago');
+    const foraDoMP = new Set((eventosDeOutroProvedor || []).map((e: any) => e.id));
+
     const { data: candidates, error } = await supabase
       .from('orders')
-      .select('id, created_at, expires_at, mp_payment_id, payment_method, coupon_id')
+      .select('id, created_at, expires_at, mp_payment_id, payment_method, coupon_id, event_id, provider_transaction_id')
       .eq('status', 'pending')
       .or(`created_at.lt.${cutoff},expires_at.is.null`)
       .order('created_at', { ascending: true })
@@ -164,6 +178,17 @@ serve(async (req) => {
     for (const order of (candidates || []) as OrderRow[]) {
       stats.scanned++;
       const item: any = { order_id: order.id, created_at: order.created_at };
+
+      // Não é do Mercado Pago → esta rotina não tem o que dizer sobre ele.
+      // Quem cuida da rota do Marcel é a `marcel-reconcile` (a cada minuto) e a
+      // `expire-pending-orders`, que consultam o provedor CERTO antes de matar.
+      if (order.provider_transaction_id || foraDoMP.has(order.event_id)) {
+        stats.skipped_outro_provedor++;
+        item.action = 'skip_outro_provedor';
+        stats.items.push(item);
+        continue;
+      }
+
       try {
         const paymentId = extractMpPaymentId(order);
         item.mp_payment_id = paymentId;

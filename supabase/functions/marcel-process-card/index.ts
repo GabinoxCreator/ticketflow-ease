@@ -243,7 +243,15 @@ serve(async (req) => {
     // reconciliar depois uma recusa duvidosa (timeout que talvez tenha passado).
     if (prov?.transactionId) {
       await admin.from('orders')
-        .update({ provider_transaction_id: String(prov.transactionId) })
+        .update({
+          provider_transaction_id: String(prov.transactionId),
+          // O código de autorização é a prova de que o banco liberou a compra —
+          // é o que se cita numa contestação e o que o suporte do Marcel pede.
+          // Ele vinha na resposta e era jogado fora: só ia para o log e para a
+          // tela. A rota antiga (confra-process-card) já gravava; esta não
+          // gravava (corrigido em 18/08). É o mesmo princípio do NSU da POS.
+          provider_authorization_code: prov.authorizationCode ?? null,
+        })
         .eq('id', order.id);
     }
 

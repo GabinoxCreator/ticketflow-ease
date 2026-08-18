@@ -34,6 +34,8 @@ type OrderRow = {
   expires_at: string | null;
   event_id: string;
   mp_payment_id: string | null;
+  provider_transaction_id: string | null;
+  provider_pix_code: string | null;
   payment_method: string | null;
 };
 
@@ -45,6 +47,9 @@ export default function PedidoStatus() {
 
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [eventTitle, setEventTitle] = useState<string>('');
+  // Qual provedor confere este pagamento. Default 'mercadopago' porque é o que
+  // vale para todo evento que ainda não migrou — nunca chutar 'marcel'.
+  const [paymentProvider, setPaymentProvider] = useState<string>('mercadopago');
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -52,7 +57,12 @@ export default function PedidoStatus() {
   // guardamos localmente para conseguir remostrar o QR na volta. Sem ele a tela
   // ainda funciona: mostra o status e o botão de verificar.
   const [pending] = useState(() => (orderId ? readPendingCheckout(orderId) : null));
-  const [pixCode] = useState<string | null>(pending?.pixCode ?? null);
+  // O rascunho local resolve recarregar a página e voltar do app do banco, mas
+  // NÃO atravessa aparelho: quem abre o link do pedido no celular depois de
+  // comprar no computador ficava sem o QR de um pedido que já reservou ingresso
+  // dele. Desde 18/08 a rota do Marcel também guarda o código no pedido, então o
+  // banco é o segundo caminho — e o local continua valendo para o Mercado Pago.
+  const pixCode = pending?.pixCode ?? order?.provider_pix_code ?? null;
 
   const isPaid = order?.status === 'paid';
   const isPending = order?.status === 'pending';
@@ -62,7 +72,7 @@ export default function PedidoStatus() {
     if (!orderId) return null;
     const { data, error } = await supabase
       .from('orders')
-      .select('id, status, total_amount, expires_at, event_id, mp_payment_id, payment_method')
+      .select('id, status, total_amount, expires_at, event_id, mp_payment_id, provider_transaction_id, provider_pix_code, payment_method')
       .eq('id', orderId)
       .maybeSingle();
     if (error) {
@@ -86,10 +96,11 @@ export default function PedidoStatus() {
       if (row?.event_id) {
         const { data: ev } = await supabase
           .from('events')
-          .select('title')
+          .select('title, payment_provider')
           .eq('id', row.event_id)
           .maybeSingle();
         if (!cancelled && ev?.title) setEventTitle(ev.title);
+        if (!cancelled && ev?.payment_provider) setPaymentProvider(ev.payment_provider);
       }
       if (!cancelled) setLoading(false);
     })();
@@ -128,10 +139,20 @@ export default function PedidoStatus() {
   const checkPaymentStatus = useCallback(async (): Promise<boolean> => {
     if (!orderId) return false;
     try {
-      const { data, error } = await supabase.functions.invoke('check-mercadopago-payment', {
-        body: { orderId, paymentId: order?.mp_payment_id ?? pending?.paymentId ?? null },
-      });
-      if (!error && data?.paid === true) {
+      // A edge é escolhida pelo provedor DO EVENTO. Chamar a do Mercado Pago num
+      // pedido do Marcel devolve 400 ("paymentId and orderId are required") e o
+      // cliente fica olhando "aguardando" até o reconciliador passar — foi o que
+      // apareceu na verificação em produção da madrugada de 18/08.
+      const checkFn = paymentProvider === 'marcel' ? 'marcel-check-pix' : 'check-mercadopago-payment';
+      const { data, error } = checkFn === 'marcel-check-pix'
+        // A edge do Marcel só precisa do pedido: ela busca o id da transação no
+        // banco sozinha (e, se não houver, reconcilia pelo purchaseId).
+        ? await supabase.functions.invoke('marcel-check-pix', { body: { orderId } })
+        : await supabase.functions.invoke('check-mercadopago-payment', {
+            body: { orderId, paymentId: order?.mp_payment_id ?? pending?.paymentId ?? null },
+          });
+      // As duas edges respondem `paid`; a do Marcel também manda `pago`.
+      if (!error && (data?.paid === true || data?.pago === true)) {
         await fetchOrder();
         return true;
       }
@@ -141,7 +162,7 @@ export default function PedidoStatus() {
     // Mesmo sem resposta da edge, reler o banco cobre o caso do webhook já ter aprovado.
     const row = await fetchOrder();
     return row?.status === 'paid';
-  }, [orderId, order?.mp_payment_id, pending?.paymentId, fetchOrder]);
+  }, [orderId, order?.mp_payment_id, order?.provider_transaction_id, pending?.paymentId, paymentProvider, fetchOrder]);
 
   useEffect(() => { checkRef.current = checkPaymentStatus; }, [checkPaymentStatus]);
 

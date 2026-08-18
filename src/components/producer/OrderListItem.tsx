@@ -90,11 +90,11 @@ export function OrderListItem({ order, onSelect }: OrderListItemProps) {
                   {order.review_status === 'partial_delivery' ? (
                     <>
                       <strong className="text-red-400">Entrega parcial.</strong> Pagamento confirmado, mas só{' '}
-                      {order.review_reason?.delivered ?? '?'} de {order.review_reason?.expected ?? '?'} assentos foram entregues. Verifique no Mercado Pago e reembolse a diferença manualmente se necessário.
+                      {order.review_reason?.delivered ?? '?'} de {order.review_reason?.expected ?? '?'} assentos foram entregues. Confira no painel do provedor de pagamento e reembolse a diferença manualmente se necessário.
                     </>
                   ) : (
                     <>
-                      <strong className="text-red-400">Pago sem entrega.</strong> Pagamento confirmado no Mercado Pago, mas o pedido já estava {order.review_reason?.order_status ?? 'encerrado'} quando o webhook chegou. Nenhum assento foi entregue. Verifique e reembolse manualmente no painel do MP.
+                      <strong className="text-red-400">Pago sem entrega.</strong> O pagamento foi confirmado, mas o pedido já estava {order.review_reason?.order_status ?? 'encerrado'} quando a confirmação chegou — nenhum ingresso foi entregue. Confira no painel do provedor de pagamento e devolva o valor, ou entregue o ingresso manualmente.
                     </>
                   )}
                 </TooltipContent>
