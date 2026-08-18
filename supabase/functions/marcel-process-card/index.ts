@@ -250,7 +250,11 @@ serve(async (req) => {
       await admin.from('orders').update({ status: 'failed' }).eq('id', order.id);
       return json({
         aprovado: false,
-        error: prov?.error ?? 'recusado',
+        status: 'rejected',
+        orderId: order.id,
+        // A tela mostra `error` como mensagem, então ele precisa ser texto
+        // legível — não um código técnico que o comprador não entende.
+        error: prov?.message ?? 'Pagamento recusado. Tente outro cartão.',
         message: prov?.message ?? 'Pagamento recusado. Tente outro cartão.',
         ...(prov?.opcoes ? { opcoes: prov.opcoes } : {}),
       }, 200);
@@ -284,6 +288,11 @@ serve(async (req) => {
     log('Aprovado', { orderId: order.id, autorizacao: prov.authorizationCode });
     return json({
       aprovado: true,
+      // `status:'approved'` é o campo que a TELA lê para liberar. Sem ele, o
+      // checkout cai no ramo de erro mesmo com o pagamento aprovado — o cliente
+      // pagaria, veria "não aprovado" e tentaria de novo, pagando duas vezes.
+      // Pego em auditoria lendo o componente contra a resposta da função.
+      status: 'approved',
       orderId: order.id,
       parcelas: n,
       total: valorCobrado,
