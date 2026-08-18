@@ -192,12 +192,7 @@ export function CheckoutStepCardMarcel({
           )}
           {processingFee > 0 && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                Taxa de processamento
-                <span className="block text-[11px] opacity-70">
-                  custo da operadora do cartão
-                </span>
-              </span>
+              <span className="text-muted-foreground">Taxa de processamento</span>
               <span className="tabular-nums">{formatPrice(processingFee)}</span>
             </div>
           )}
