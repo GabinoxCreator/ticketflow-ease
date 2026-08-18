@@ -35,22 +35,38 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
 const brtDay = (iso: string) => new Date(new Date(iso).getTime() - BRT_OFFSET_MS).toISOString().slice(0, 10);
 
-// Como o cliente pagou. `payment_method` deste projeto tem valores livres vindos do
-// Mercado Pago e da venda manual — normalizar aqui evita a gestão ver "pix", "PIX" e
-// "account_money" como três coisas diferentes.
-type Method = "pix" | "credito" | "debito" | "dinheiro" | "cortesia" | "outros";
-function normalizeMethod(raw: unknown): Method {
+// Como o cliente pagou.
+//
+// Neste projeto o método vive em DOIS campos: `payment_method` guarda o caminho
+// ("card", "pix", "manual") e, quando é venda de portaria, o meio real fica em
+// `manual_payment_method`. Ler só o primeiro joga toda a venda manual num balaio de
+// "Outros" — foi o que aconteceu no primeiro teste: 62% do faturamento da Oktoberfest
+// caiu em "Outros" só porque "card" não estava mapeado.
+type Method = "pix" | "cartao" | "credito" | "debito" | "dinheiro" | "cortesia" | "outros";
+function normalizeMethod(raw: unknown, manual?: unknown): Method {
   const v = String(raw ?? "").toLowerCase().trim();
+  // Venda manual: o que vale é o meio informado por quem registrou na portaria.
+  if (v.includes("manual")) {
+    const m = String(manual ?? "").toLowerCase().trim();
+    if (m.includes("pix")) return "pix";
+    if (m.includes("cred")) return "credito";
+    if (m.includes("deb")) return "debito";
+    if (m.includes("dinheiro") || m.includes("cash") || m.includes("especie")) return "dinheiro";
+    if (m.includes("cortesia") || m.includes("free")) return "cortesia";
+    return "outros";
+  }
   if (!v) return "outros";
   if (v.includes("pix")) return "pix";
   if (v.includes("cred")) return "credito";
   if (v.includes("deb")) return "debito";
+  // "card" do Mercado Pago não distingue crédito de débito na hora do pedido.
+  if (v.includes("card") || v.includes("cart")) return "cartao";
   if (v.includes("dinheiro") || v.includes("cash") || v.includes("especie") || v.includes("money")) return "dinheiro";
   if (v.includes("cortesia") || v.includes("courtesy") || v.includes("free")) return "cortesia";
   return "outros";
 }
 const METHOD_LABEL: Record<Method, string> = {
-  pix: "PIX", credito: "Crédito", debito: "Débito",
+  pix: "PIX", cartao: "Cartão", credito: "Crédito", debito: "Débito",
   dinheiro: "Dinheiro", cortesia: "Cortesia", outros: "Outros",
 };
 
@@ -126,14 +142,14 @@ Deno.serve(async (req) => {
     type OrderRow = {
       id: string; event_id: string; created_at: string; total_amount: number | null;
       service_fee_amount: number | null; discount_amount: number | null;
-      status: string | null; payment_method: string | null; sale_origin: string | null;
-      customer_name: string | null; mp_payment_id: string | null;
+      status: string | null; payment_method: string | null; manual_payment_method: string | null;
+      sale_origin: string | null; customer_name: string | null; mp_payment_id: string | null;
     };
     const orders: OrderRow[] = [];
     for (let page = 0; page < 50; page++) {
       let q = admin
         .from("orders")
-        .select("id, event_id, created_at, total_amount, service_fee_amount, discount_amount, status, payment_method, sale_origin, customer_name, mp_payment_id")
+        .select("id, event_id, created_at, total_amount, service_fee_amount, discount_amount, status, payment_method, manual_payment_method, sale_origin, customer_name, mp_payment_id")
         .in("event_id", eventIds)
         .order("created_at", { ascending: true })
         .range(page * 1000, page * 1000 + 999);
@@ -158,7 +174,7 @@ Deno.serve(async (req) => {
       fees += Number(o.service_fee_amount ?? 0);
       discounts += Number(o.discount_amount ?? 0);
 
-      const m = normalizeMethod(o.payment_method);
+      const m = normalizeMethod(o.payment_method, o.manual_payment_method);
       const mb = byMethod.get(m) ?? { count: 0, gross: 0 };
       byMethod.set(m, { count: mb.count + 1, gross: mb.gross + v });
 
@@ -211,8 +227,8 @@ Deno.serve(async (req) => {
             id: o.id,
             at: o.created_at,
             customer: o.customer_name,
-            method: METHOD_LABEL[normalizeMethod(o.payment_method)],
-            method_key: normalizeMethod(o.payment_method),
+            method: METHOD_LABEL[normalizeMethod(o.payment_method, o.manual_payment_method)],
+            method_key: normalizeMethod(o.payment_method, o.manual_payment_method),
             origin: o.sale_origin || "online",
             total: round2(Number(o.total_amount ?? 0)),
             service_fee: round2(Number(o.service_fee_amount ?? 0)),
