@@ -237,6 +237,16 @@ serve(async (req) => {
       }, 202);
     }
 
+    // Guarda o identificador da transação ANTES de decidir aprovado/recusado.
+    // A recusa TAMBÉM vem com transactionId, e jogá-lo fora quebra duas coisas:
+    // o princípio de não descartar dado de transação, e a possibilidade de
+    // reconciliar depois uma recusa duvidosa (timeout que talvez tenha passado).
+    if (prov?.transactionId) {
+      await admin.from('orders')
+        .update({ provider_transaction_id: String(prov.transactionId) })
+        .eq('id', order.id);
+    }
+
     // Recusa chega com HTTP 200: a decisão é pelo campo `aprovado`, sempre.
     if (!prov?.aprovado) {
       log('Recusado', { orderId: order.id, msg: prov?.message, error: prov?.error });
@@ -259,10 +269,6 @@ serve(async (req) => {
         ...(prov?.opcoes ? { opcoes: prov.opcoes } : {}),
       }, 200);
     }
-
-    await admin.from('orders')
-      .update({ provider_transaction_id: String(prov.transactionId ?? '') })
-      .eq('id', order.id);
 
     // Grava o que o sistema jogava fora: face por lote, parcelas e bandeira.
     // A bandeira não vem nesta resposta — fica null, que é honesto: melhor o
