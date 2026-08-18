@@ -171,6 +171,9 @@ serve(async (req) => {
         .update({
           provider_transaction_id: String(prov.transactionId),
           provider_authorization_code: prov.authorizationCode ?? null,
+          // O motivo da recusa, pelo mesmo motivo do ingresso comum: sem ele,
+          // "não consegui pagar" vira adivinhação. Ver marcel-process-card.
+          mp_status_detail: (prov.message ?? prov.error ?? null),
         })
         .eq('id', pedido.orderId);
     }

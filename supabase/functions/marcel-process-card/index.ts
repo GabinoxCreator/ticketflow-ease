@@ -251,6 +251,16 @@ serve(async (req) => {
           // tela. A rota antiga (confra-process-card) já gravava; esta não
           // gravava (corrigido em 18/08). É o mesmo princípio do NSU da POS.
           provider_authorization_code: prov.authorizationCode ?? null,
+          // ⚠️ O MOTIVO DA RECUSA. Descoberto na marra em 18/08: uma cliente
+          // (Ana Paula) teve o cartão recusado 6 vezes seguidas e ninguém
+          // conseguiu dizer POR QUÊ — se foi falta de limite, cartão bloqueado,
+          // antifraude ou erro nosso. A adquirente devolve a razão na resposta e
+          // a gente jogava fora, guardando só o número da transação.
+          //
+          // Sem isto, toda reclamação de "não consegui pagar" vira adivinhação,
+          // e não dá para separar problema do cliente de problema nosso — que é
+          // a única pergunta que importa quando um cliente reclama.
+          mp_status_detail: (prov.message ?? prov.error ?? null),
         })
         .eq('id', order.id);
     }
