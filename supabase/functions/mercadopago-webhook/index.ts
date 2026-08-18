@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { avisarGestao } from "../_shared/avisarGestao.ts";
 import { maskEmail } from "../_shared/pii.ts";
 
 const corsHeaders = {
@@ -287,6 +288,40 @@ serve(async (req) => {
           action_required: 'manual_inventory_review',
         }));
         outcome = 'applied';
+
+        // O log acima existia desde sempre — e ninguém lê log. A partir de
+        // 18/08 o caso também vira aviso no sino do painel e push no app da
+        // FestPag, porque a decisão do Gabriel é que contestação vai para
+        // ANÁLISE HUMANA: se ninguém é avisado, não existe análise nenhuma.
+        // Nada é desfeito aqui — estoque e ingresso continuam como estavam.
+        try {
+          await supabase.from('orders')
+            .update({
+              review_status: 'paid_no_delivery',
+              review_flagged_at: new Date().toISOString(),
+              review_reason: {
+                motivo: mpStatus === 'refunded' ? 'estorno no Mercado Pago' : 'contestação no Mercado Pago',
+                mp_payment_id: paymentId,
+                detected_at: new Date().toISOString(),
+                order_status: newStatus,
+              },
+            })
+            .eq('id', changed.id)
+            .is('review_status', null);
+
+          const valorFmt = Number(changed.total_amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          await avisarGestao({
+            tipo: 'contestacao',
+            titulo: `Contestação de ${valorFmt} — precisa de análise`,
+            mensagem: `Uma venda de ${valorFmt} foi ${mpStatus === 'refunded' ? 'estornada' : 'contestada'} no Mercado Pago. `
+              + `O ingresso continua válido e a vaga segue contada como vendida — nada foi desfeito automaticamente, como combinado. `
+              + `Pedido ${changed.id}.`,
+            referencia: changed.id,
+          });
+        } catch (avisoErr) {
+          // Avisar é importante, mas não pode derrubar o tratamento do estorno.
+          log('falha ao sinalizar/avisar contestação (não fatal)', { e: String(avisoErr) });
+        }
 
         // ────────────────────────────────────────────────────────────────
         // ATIVAR SÓ APÓS EVENTO 25/07 — validar em homolog primeiro.

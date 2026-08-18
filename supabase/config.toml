@@ -212,6 +212,14 @@ verify_jwt = true
 [functions.marcel-charge-seat-card]
 verify_jwt = true
 
+# Vigia de contestação e estorno na rota do Marcel. A API deles NÃO tem webhook,
+# e a varredura de confirmação só olha pedido pendente — nenhuma rotina olhava
+# pedido PAGO, então uma venda estornada seguia como paga para sempre. Esta só
+# MARCA para análise e avisa a equipe; não desfaz nada (decisão do Gabriel:
+# contestação vai para análise humana). Cron horário, autentica por x-api-key.
+[functions.marcel-vigia-estornos]
+verify_jwt = false
+
 # Varredura de pedidos pagos que ninguém confirmou. Como a API do Marcel não tem
 # webhook, ESTA função é o webhook: sem ela, cliente que paga e fecha a aba fica
 # com o pedido pendente para sempre. Chamada por cron, autentica por
