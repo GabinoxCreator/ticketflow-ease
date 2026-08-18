@@ -4,7 +4,14 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { maskEmail } from "./pii.ts";
 
-export type OrderEmailSource = "card_inline" | "polling" | "webhook" | "smartpos";
+// A coluna `source` no banco é texto livre (não há CHECK), então valor novo não
+// quebra o envio — mas o tipo aqui existe para o autor de uma rota nova saber
+// que precisa se declarar. As fontes da rota do Marcel entraram em 18/08, depois
+// de já estarem enviando e-mail em produção com o tipo desatualizado.
+export type OrderEmailSource =
+  | "card_inline" | "polling" | "webhook" | "smartpos"
+  | "marcel-check-pix" | "marcel-process-card" | "marcel-reconcile"
+  | (string & {});
 export const ORDER_EMAIL_KIND = "paid_confirmation" as const;
 
 type OkResult = { ok: true; messageId?: string | null };

@@ -47,7 +47,7 @@ serve(async (req) => {
 
     const { data: order } = await admin
       .from('orders')
-      .select('id, status, provider_transaction_id, payment_method')
+      .select('id, status, provider_transaction_id, payment_method, total_amount')
       .eq('id', orderId)
       .maybeSingle();
 
@@ -108,6 +108,18 @@ serve(async (req) => {
     // `mismatch` = a RPC recusou promover (pedido sem tickets, ou já terminal).
     // Ela audita sozinha; aqui a resposta precisa ser honesta com o front.
     if (resultado.mismatch) {
+      // Mesmo caso do reconciliador: o cliente PAGOU e o pedido não pode ser
+      // promovido. Levanta a bandeira que o painel do produtor mostra em
+      // vermelho, senão o caso morre na auditoria que ninguém lê.
+      await admin.rpc('flag_order_paid_no_delivery', {
+        _order_id: order.id,
+        _mp_payment_id: String(order.provider_transaction_id ?? order.id),
+        _transaction_amount: order.total_amount,
+        _order_status: order.status,
+      }).then(
+        () => log('Sinalizado pago-sem-entrega no painel', { orderId }),
+        (e: unknown) => log('Falha ao sinalizar (não fatal)', { orderId, msg: String(e) }),
+      );
       log('Promoção recusada pela RPC', { orderId, resultado });
       return json({ paid: true, pago: true, status, promovido: false, erro: 'pedido_inconsistente' }, 409);
     }

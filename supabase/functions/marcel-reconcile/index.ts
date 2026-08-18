@@ -64,11 +64,27 @@ serve(async (req) => {
 
     // Inclui 'expired' de propósito: expirar aqui não impede o cliente de ter
     // pago lá. É o caso que mais dói — dinheiro entrou, ingresso não saiu.
+    // Só pedidos de eventos que estão NA ROTA DO MARCEL — varrer os do Mercado
+    // Pago aqui seria perguntar do produto errado ao fornecedor errado.
+    const { data: eventosMarcel } = await admin
+      .from('events').select('id').eq('payment_provider', 'marcel');
+    const idsMarcel = (eventosMarcel || []).map((e: any) => e.id);
+    if (idsMarcel.length === 0) {
+      return json({ ok: true, verificados: 0, pagos: 0, promovidos: 0, indefinidos: 0, falhas: 0, confirmados: [] });
+    }
+
+    // ⚠️ ANTES daqui havia um `.not('provider_transaction_id','is',null)`, e ele
+    // cegava a varredura justamente no caso mais grave: pedido cuja cobrança foi
+    // criada mas cujo id não chegou a ser gravado (queda entre a resposta da API
+    // e o UPDATE). O cliente TEM o código na mão e paga; o pedido fica invisível
+    // para sempre. É para isso que existe o `/reconcile` por purchaseId — que é o
+    // próprio id do pedido — e o `else` lá embaixo já sabia usá-lo, mas nunca era
+    // alcançado. Corrigido em 18/08.
     const { data: pedidos, error } = await admin
       .from('orders')
       .select('id, status, provider_transaction_id, payment_method, total_amount, created_at')
-      .in('status', ['pending', 'expired'])
-      .not('provider_transaction_id', 'is', null)
+      .in('status', ['pending', 'expired', 'failed'])
+      .in('event_id', idsMarcel)
       .gte('created_at', desde)
       .order('created_at', { ascending: true })
       .limit(LOTE_MAX);
@@ -97,10 +113,25 @@ serve(async (req) => {
         });
 
         if (r.mismatch) {
-          // Pedido pago que a RPC recusa promover é caso para humano: pode ser
-          // pedido sem tickets ou cancelado. Fica auditado por ela.
+          // O CLIENTE PAGOU E O PEDIDO ESTÁ ENCERRADO. A RPC se recusa a promover
+          // pedido terminal (é a regra certa: ressuscitar venda encerrada seria
+          // pior), então ela só audita — e auditoria ninguém lê.
+          //
+          // Levanto a MESMA bandeira que o webhook do Mercado Pago levanta: com
+          // ela o caso aparece em vermelho no painel do produtor, com o valor,
+          // para alguém devolver o dinheiro ou entregar o ingresso. Sem isto o
+          // caso morre no log e o cliente descobre na porta do evento.
+          await admin.rpc('flag_order_paid_no_delivery', {
+            _order_id: p.id,
+            _mp_payment_id: String(p.provider_transaction_id ?? p.id),
+            _transaction_amount: p.total_amount,
+            _order_status: p.status,
+          }).then(
+            () => log('Sinalizado pago-sem-entrega no painel', { orderId: p.id }),
+            (e: unknown) => log('Falha ao sinalizar (não fatal)', { orderId: p.id, msg: String(e) }),
+          );
           resumo.falhas++;
-          log('Promoção recusada — precisa de olho humano', { orderId: p.id });
+          log('Promoção recusada — precisa de olho humano', { orderId: p.id, situacao: p.status });
           continue;
         }
 

@@ -35,6 +35,7 @@ type OrderRow = {
   event_id: string;
   mp_payment_id: string | null;
   provider_transaction_id: string | null;
+  provider_pix_code: string | null;
   payment_method: string | null;
 };
 
@@ -56,7 +57,12 @@ export default function PedidoStatus() {
   // guardamos localmente para conseguir remostrar o QR na volta. Sem ele a tela
   // ainda funciona: mostra o status e o botão de verificar.
   const [pending] = useState(() => (orderId ? readPendingCheckout(orderId) : null));
-  const [pixCode] = useState<string | null>(pending?.pixCode ?? null);
+  // O rascunho local resolve recarregar a página e voltar do app do banco, mas
+  // NÃO atravessa aparelho: quem abre o link do pedido no celular depois de
+  // comprar no computador ficava sem o QR de um pedido que já reservou ingresso
+  // dele. Desde 18/08 a rota do Marcel também guarda o código no pedido, então o
+  // banco é o segundo caminho — e o local continua valendo para o Mercado Pago.
+  const pixCode = pending?.pixCode ?? order?.provider_pix_code ?? null;
 
   const isPaid = order?.status === 'paid';
   const isPending = order?.status === 'pending';
@@ -66,7 +72,7 @@ export default function PedidoStatus() {
     if (!orderId) return null;
     const { data, error } = await supabase
       .from('orders')
-      .select('id, status, total_amount, expires_at, event_id, mp_payment_id, provider_transaction_id, payment_method')
+      .select('id, status, total_amount, expires_at, event_id, mp_payment_id, provider_transaction_id, provider_pix_code, payment_method')
       .eq('id', orderId)
       .maybeSingle();
     if (error) {

@@ -184,9 +184,29 @@ serve(async (req) => {
       return json({ error: 'Não foi possível gerar o PIX. Tente novamente.' }, 502);
     }
 
-    await admin.from('orders')
-      .update({ provider_transaction_id: String(prov.transactionId) })
+    // Grava o id da transação E o código do PIX. Os dois importam:
+    //  · sem o id, a varredura não sabe o que perguntar ao provedor;
+    //  · sem o código, o cliente que trocar de aparelho ou limpar o navegador
+    //    perde o QR de um pedido que já reservou ingresso dele — o rascunho
+    //    local não atravessa dispositivo. A rota antiga (confra-create-pix) já
+    //    gravava `provider_pix_code`; esta tinha deixado de gravar (18/08).
+    const { error: updErr } = await admin.from('orders')
+      .update({
+        provider_transaction_id: String(prov.transactionId),
+        provider_pix_code: prov.pixCode,
+      })
       .eq('id', order.id);
+
+    if (updErr) {
+      // O cliente vai receber o código e pode pagar. Se o id não ficou gravado,
+      // o pedido some do radar da varredura — por isso isto NÃO pode passar em
+      // silêncio. A varredura ainda consegue achar a venda pelo purchaseId (o
+      // próprio id do pedido), que é justamente por isso que ele vai em toda
+      // cobrança; o log aqui é o que permite descobrir que isso aconteceu.
+      log('FALHA AO GRAVAR O ID DA TRANSAÇÃO — pedido depende do purchaseId', {
+        orderId: order.id, transactionId: prov.transactionId, erro: updErr.message,
+      });
+    }
 
     log('PIX criado', { orderId: order.id, transactionId: prov.transactionId });
 
