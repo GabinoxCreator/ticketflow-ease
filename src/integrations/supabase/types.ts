@@ -2571,6 +2571,17 @@ export type Database = {
         Args: { _event_id: string }
         Returns: Json
       }
+      quote_seat_total: {
+        Args: {
+          _event_id: string
+          _fee_fixed: number
+          _fee_percent: number
+          _hold_token: string
+          _seats: Json
+          _user_id: string
+        }
+        Returns: Json
+      }
       radar_pagamentos: {
         Args: { _event_id?: string }
         Returns: {
