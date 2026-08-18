@@ -167,12 +167,29 @@ Deno.serve(async (req) => {
     const byDay = new Map<string, { count: number; gross: number }>();
     const byOrigin = new Map<string, { count: number; gross: number }>();
     let gross = 0, fees = 0, discounts = 0;
+    // ⚠️ A DISTINÇÃO QUE MUDA O REPASSE (18/08, apontada pelo Gabriel).
+    //
+    // Venda MANUAL é a da portaria: o produtor recebeu o dinheiro na mão (espécie, PIX
+    // dele, maquininha dele). Esse dinheiro NUNCA passou pela FestPag — então não há o
+    // que repassar dele, e a taxa de conveniência normalmente nem é aplicada.
+    //
+    // Sem separar, o fechamento soma a venda de portaria no "líquido a repassar" e o
+    // financeiro paga dinheiro que o produtor já tem no bolso. No Oktoberfest isso seriam
+    // R$ 3.000 pagos a mais.
+    let grossOnline = 0, grossManual = 0, ordersOnline = 0, ordersManual = 0;
+    // Taxa cobrada em venda manual: quando acontece, a FestPag tem a RECEBER do produtor
+    // (não a descontar do repasse — o dinheiro nunca esteve com ela).
+    let feesOnManual = 0;
 
     for (const o of pagos) {
       const v = Number(o.total_amount ?? 0);
+      const fee = Number(o.service_fee_amount ?? 0);
+      const ehManual = (o.sale_origin || "online") === "manual";
       gross += v;
-      fees += Number(o.service_fee_amount ?? 0);
+      fees += fee;
       discounts += Number(o.discount_amount ?? 0);
+      if (ehManual) { grossManual += v; ordersManual += 1; feesOnManual += fee; }
+      else { grossOnline += v; ordersOnline += 1; }
 
       const m = normalizeMethod(o.payment_method, o.manual_payment_method);
       const mb = byMethod.get(m) ?? { count: 0, gross: 0 };
@@ -207,6 +224,22 @@ Deno.serve(async (req) => {
         // mais. Separada aqui para a gestão saber o que é do produtor e o que é nosso.
         service_fees: round2(fees),
         discounts: round2(discounts),
+
+        // --- O que separa "faturou" de "temos para repassar" ---
+        gross_online: round2(grossOnline),
+        gross_manual: round2(grossManual),
+        orders_online: ordersOnline,
+        orders_manual: ordersManual,
+        // O que a FestPag de fato custodiou: só a venda online passou pelo nosso caixa.
+        custodied: round2(grossOnline),
+        // O que sai para o produtor. NÃO usar `gross` aqui: somaria a venda de portaria,
+        // que ele já recebeu na mão.
+        net_to_transfer: round2(grossOnline - (fees - feesOnManual)),
+        // Taxa cobrada sobre venda manual: a FestPag tem a receber, não a descontar.
+        fees_on_manual: round2(feesOnManual),
+
+        // Mantido por compatibilidade com quem já lia este campo. ⚠️ NÃO é base de
+        // repasse — inclui a venda manual. Use `net_to_transfer`.
         net_to_producer: round2(gross - fees),
         average_ticket: pagos.length > 0 ? round2(gross / pagos.length) : 0,
         tickets_issued: ingressos ?? 0,
