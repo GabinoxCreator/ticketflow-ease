@@ -2410,6 +2410,14 @@ export type Database = {
         Args: { _event_id: string; _hold_token: string; _seat_ids: string[] }
         Returns: Json
       }
+      conflitos_cpf_por_dia: {
+        Args: { _cpf: string; _event_id: string; _itens: Json }
+        Returns: {
+          dia_label: string
+          event_day_id: string
+          motivo: string
+        }[]
+      }
       create_seat_order: {
         Args: {
           _customer_cpf: string
@@ -2430,6 +2438,12 @@ export type Database = {
       decrement_sold_quantity_legacy: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
+      }
+      dias_ocupados_por_cpf: {
+        Args: { _cpf: string; _event_id: string }
+        Returns: {
+          event_day_id: string
+        }[]
       }
       flag_order_paid_no_delivery: {
         Args: {
