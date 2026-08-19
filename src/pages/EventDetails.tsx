@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
@@ -216,6 +218,23 @@ const EventDetails = () => {
   // Lote agendado só entra na vitrine quando a hora chega; lote encadeado, quando o anterior esgota.
   const activeLots = isEventFinished ? [] : (lots || []).filter((lot) => isLotOpenForSale(lot, lots || []));
 
+  // As noites do evento, em ordem de calendário. Evento comum não tem nenhuma —
+  // e aí a vitrine segue agrupando por setor, como sempre.
+  const { data: eventDays } = useQuery({
+    queryKey: ['event-days-publico', eventId],
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Array<{ id: string; label: string; day_date: string }>> => {
+      const { data, error } = await (supabasePublic as any)
+        .from('event_days')
+        .select('id, label, day_date')
+        .eq('event_id', eventId)
+        .order('day_date', { ascending: true });
+      if (error) return [];
+      return data ?? [];
+    },
+  });
+
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('pt-BR', {
       weekday: 'long',
@@ -317,19 +336,54 @@ const EventDetails = () => {
     price: it.price,
   }));
 
-  // Group lots by sector
+  /**
+   * Agrupa os ingressos para a vitrine.
+   *
+   * Em evento de UM dia, agrupa por setor, como sempre foi.
+   *
+   * Em evento de VÁRIOS dias (o rodeio tem cinco noites e 18 lotes), agrupar
+   * por setor joga tudo numa lista corrida: quem quer só a noite de sábado
+   * precisa garimpar entre quarta, quinta e domingo. Aqui o grupo passa a ser a
+   * NOITE, em ordem de calendário, com o passe que vale todas elas em primeiro
+   * — é o produto de maior valor e quem o compra não precisa olhar o resto.
+   */
   const lotGroups = (() => {
-    const groups = new Map<string, typeof activeLots>();
-    for (const lot of activeLots) {
-      const key = lot.sector_name?.trim() || 'Ingresso';
-      if (!groups.has(key)) groups.set(key, [] as typeof activeLots);
-      groups.get(key)!.push(lot);
+    const temDias = (eventDays?.length ?? 0) > 0;
+
+    if (!temDias) {
+      const groups = new Map<string, typeof activeLots>();
+      for (const lot of activeLots) {
+        const key = lot.sector_name?.trim() || 'Ingresso';
+        if (!groups.has(key)) groups.set(key, [] as typeof activeLots);
+        groups.get(key)!.push(lot);
+      }
+      return Array.from(groups.entries()).sort(([a], [b]) => {
+        if (a === 'Ingresso') return -1;
+        if (b === 'Ingresso') return 1;
+        return 0;
+      });
     }
-    return Array.from(groups.entries()).sort(([a], [b]) => {
-      if (a === 'Ingresso') return -1;
-      if (b === 'Ingresso') return 1;
-      return 0;
-    });
+
+    const porDia = new Map<string, typeof activeLots>();
+    const passes: typeof activeLots = [];
+    const semDia: typeof activeLots = [];
+
+    for (const lot of activeLots) {
+      if ((lot as any).covers_all_days) { passes.push(lot); continue; }
+      const dayId = (lot as any).event_day_id as string | null;
+      if (!dayId) { semDia.push(lot); continue; }
+      if (!porDia.has(dayId)) porDia.set(dayId, [] as typeof activeLots);
+      porDia.get(dayId)!.push(lot);
+    }
+
+    const grupos: Array<[string, typeof activeLots]> = [];
+    if (passes.length) grupos.push(['Passe · todas as noites', passes]);
+    for (const d of eventDays ?? []) {
+      const doDia = porDia.get(d.id);
+      if (doDia?.length) grupos.push([d.label, doDia]);
+    }
+    if (semDia.length) grupos.push([semDia[0].sector_name?.trim() || 'Ingresso', semDia]);
+    return grupos;
   })();
 
   const canonicalUrl = `https://festpag.digital/evento/${event.slug ?? event.id}`;
@@ -499,6 +553,7 @@ const EventDetails = () => {
                   eventId={eventId}
                   eventSlugOrId={event.slug ?? event.id}
                   description={(event as any).mesa_reserva_description}
+                  seatNoun={(event as any).seat_noun}
                 />
               )}
 
