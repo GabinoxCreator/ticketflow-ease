@@ -128,12 +128,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // ⚠️ ESPERAR O PERFIL ANTES DE DIZER QUE TERMINOU DE CARREGAR.
+    // Antes, `fetchProfile` era disparado sem `await` e o `setIsLoading(false)`
+    // vinha logo atrás: quem abrisse o link do painel do produtor direto (ou
+    // desse F5 nele) era avaliado com o papel ainda vazio, e o ProtectedRoute
+    // mandava para a home. A pessoa achava que tinha perdido o acesso e
+    // entrava de novo pelo menu, onde já dava tempo de carregar.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
       }
       setIsLoading(false);
     });

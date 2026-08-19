@@ -16,6 +16,7 @@ import { EventDoorSalesTab } from '@/components/producer/tabs/EventDoorSalesTab'
 import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
 import { EventFinanceiroTab } from '@/components/producer/tabs/EventFinanceiroTab';
 import { EventTablesTab } from '@/components/producer/tabs/EventTablesTab';
+import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet, Armchair } from 'lucide-react';
@@ -63,12 +64,15 @@ export default function EventDashboard() {
   }
 
   const showTables = event.event_type === 'mesa' || event.event_type === 'hibrido';
+  // Como este produtor chama o produto do mapa. No rodeio é "camarote" — e a
+  // aba precisa dizer isso, não "Mesas": é o primeiro lugar em que ele olha.
+  const vocab = vocabularioAssento((event as any).seat_noun);
 
   const tabItems = [
     { value: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
     { value: 'data', label: 'Dados', icon: FileText },
     { value: 'lots', label: 'Ingressos', icon: Ticket },
-    ...(showTables ? [{ value: 'tables', label: 'Mesas', icon: Armchair }] : []),
+    ...(showTables ? [{ value: 'tables', label: vocab.Plural, icon: Armchair }] : []),
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'checkin', label: 'Check-in', icon: ScanLine },

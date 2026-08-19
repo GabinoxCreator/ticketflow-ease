@@ -55,6 +55,26 @@ export function isEffectivelyAvailable(row: Pick<EventTableRow, 'status' | 'hold
 // role authenticated, então não dá mais pra ler PII de terceiro direto na
 // tabela. A RPC devolve seats + dados do comprador + ingressos emitidos numa
 // chamada só, no MESMO formato que este hook sempre entregou.
+/**
+ * Como este evento chama o item do mapa: "mesa" (padrão) ou o que o produtor
+ * definir — "camarote", no rodeio. Vem de `events.seat_noun`; nulo = "mesa",
+ * que é o comportamento de todos os eventos existentes.
+ */
+export function useSeatNoun(eventId: string | undefined) {
+  return useQuery({
+    queryKey: ['event-seat-noun', eventId],
+    enabled: !!eventId,
+    // Muda uma vez na vida do evento: não faz sentido rebuscar a cada foco.
+    staleTime: 10 * 60 * 1000,
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await (supabase as any)
+        .from('events').select('seat_noun').eq('id', eventId!).maybeSingle();
+      if (error) return null;
+      return data?.seat_noun ?? null;
+    },
+  });
+}
+
 export function useEventTables(eventId: string | undefined) {
   return useQuery({
     queryKey: ['event-tables', eventId],

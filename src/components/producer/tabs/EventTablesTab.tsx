@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventTables, isEffectivelyAvailable, type EventTableRow } from '@/hooks/useEventTables';
+import { useSeatNoun } from '@/hooks/useEventTables';
+import { vocabularioAssento, type VocabularioAssento } from '@/lib/vocabularioAssento';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -44,16 +46,16 @@ function formatCurrency(v: number | null) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 }
 
-function statusMeta(s: EventTableRow['status']) {
+function statusMeta(s: EventTableRow['status'], g: 'a' | 'o' = 'a') {
   switch (s) {
     case 'sold':
-      return { label: 'Vendida', cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
+      return { label: `Vendid${g}`, cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
     case 'held':
-      return { label: 'Reservada', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
+      return { label: `Reservad${g}`, cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
     case 'manual':
       return { label: 'Manual', cls: 'bg-amber-500/15 text-amber-200 border-amber-500/40' };
     case 'blocked':
-      return { label: 'Bloqueada', cls: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30' };
+      return { label: `Bloquead${g}`, cls: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30' };
     default:
       return { label: 'Disponível', cls: 'bg-primary/15 text-primary border-primary/30' };
   }
@@ -61,6 +63,10 @@ function statusMeta(s: EventTableRow['status']) {
 
 export function EventTablesTab({ eventId }: Props) {
   const { data, isLoading } = useEventTables(eventId);
+  // Como este produtor chama o produto do mapa. No rodeio é "camarote" — e o
+  // painel inteiro fala a língua dele, inclusive na concordância.
+  const { data: seatNoun } = useSeatNoun(eventId);
+  const v = vocabularioAssento(seatNoun);
   const qcPrepare = useQueryClient();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
@@ -184,7 +190,7 @@ export function EventTablesTab({ eventId }: Props) {
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} icon={Armchair} />
-        <StatCard label="Vendidas" value={stats.sold} icon={CheckCircle2} accent="emerald" />
+        <StatCard label={`Vendid${v.genero}s`} value={stats.sold} icon={CheckCircle2} accent="emerald" />
         <StatCard label="Manual" value={stats.manual} icon={Lock} accent="amber" />
         <StatCard label="Disponíveis" value={stats.available} icon={Circle} accent="primary" />
         <StatCard label="Ocupação" value={`${stats.occupancy}%`} icon={Lock} accent="pink" />
@@ -202,7 +208,7 @@ export function EventTablesTab({ eventId }: Props) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por mesa, cliente ou e-mail…"
+            placeholder={`Buscar por ${v.singular}, cliente ou e-mail…`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -211,7 +217,7 @@ export function EventTablesTab({ eventId }: Props) {
         <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
           <TabsList>
             <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="sold">Vendidas</TabsTrigger>
+            <TabsTrigger value="sold">Vendid{v.genero}s</TabsTrigger>
             <TabsTrigger value="manual">Manual</TabsTrigger>
             <TabsTrigger value="available">Disponíveis</TabsTrigger>
           </TabsList>
@@ -225,20 +231,20 @@ export function EventTablesTab({ eventId }: Props) {
       {filtered.length === 0 ? (
         <Card className="p-12 text-center text-muted-foreground">
           {(data ?? []).length === 0
-            ? 'Nenhuma mesa configurada para este evento.'
-            : 'Nenhuma mesa encontrada com esses filtros.'}
+            ? `Nenhum${v.genero === 'a' ? 'a' : ''} ${v.singular} configurad${v.genero} para este evento.`
+            : `Nenhum${v.genero === 'a' ? 'a' : ''} ${v.singular} encontrad${v.genero} com esses filtros.`}
         </Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {filtered.map((t) => {
-            const meta = statusMeta(t.status);
+            const meta = statusMeta(t.status, v.genero);
             return (
               <button key={t.id} onClick={() => setSelected(t)} className="text-left">
                 <Card className="p-4 hover:border-primary/50 transition-colors h-full">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
                       <div className="text-sm text-muted-foreground">{t.code ?? '—'}</div>
-                      <div className="font-semibold truncate">{t.label ?? 'Mesa'}</div>
+                      <div className="font-semibold truncate">{t.label ?? v.Singular}</div>
                     </div>
                     <Badge variant="outline" className={meta.cls}>{meta.label}</Badge>
                   </div>
@@ -273,6 +279,7 @@ export function EventTablesTab({ eventId }: Props) {
         table={selected}
         eventId={eventId}
         onClose={() => setSelected(null)}
+        v={v}
       />
 
       <EventTablesMapModal eventId={eventId} open={mapOpen} onOpenChange={setMapOpen} />
@@ -308,11 +315,13 @@ function StatCard({
 }
 
 function TableDetailModal({
-  table, eventId, onClose,
+  table, eventId, onClose, v,
 }: {
   table: EventTableRow | null;
   eventId: string;
   onClose: () => void;
+  /** Como este evento chama o item do mapa (mesa, camarote…), já com o gênero. */
+  v: VocabularioAssento;
 }) {
   const qc = useQueryClient();
   const [closeOpen, setCloseOpen] = useState(false);
@@ -331,7 +340,7 @@ function TableDetailModal({
       return data;
     },
     onSuccess: () => {
-      toast.success('Mesa fechada manualmente.');
+      toast.success(`${v.Singular} fechad${v.genero} manualmente.`);
       setCloseOpen(false);
       onClose();
       invalidate();
@@ -339,13 +348,13 @@ function TableDetailModal({
     onError: (e: Error) => {
       const msg = e.message;
       if (msg === 'seat_unavailable') {
-        toast.error('A mesa não está mais disponível. Atualizando…');
+        toast.error(`${v.artigoMaiusculo} ${v.singular} não está mais disponível. Atualizando…`);
         invalidate();
         onClose();
       } else if (msg === 'forbidden') {
-        toast.error('Você não tem permissão para essa mesa.');
+        toast.error(`Você não tem permissão para ${v.demonstrativo} ${v.singular}.`);
       } else {
-        toast.error('Erro ao fechar a mesa.');
+        toast.error(`Erro ao fechar ${v.artigo} ${v.singular}.`);
       }
     },
   });
@@ -358,24 +367,24 @@ function TableDetailModal({
       return data;
     },
     onSuccess: () => {
-      toast.success('Mesa reaberta.');
+      toast.success(`${v.Singular} reabert${v.genero}.`);
       setReopenOpen(false);
       onClose();
       invalidate();
     },
     onError: (e: Error) => {
       if (e.message === 'not_manual') {
-        toast.error('Estado da mesa mudou. Atualizando…');
+        toast.error(`Estado d${v.artigo} ${v.singular} mudou. Atualizando…`);
         invalidate();
         onClose();
       } else {
-        toast.error('Erro ao reabrir a mesa.');
+        toast.error(`Erro ao reabrir ${v.artigo} ${v.singular}.`);
       }
     },
   });
 
   if (!table) return null;
-  const meta = statusMeta(table.status);
+  const meta = statusMeta(table.status, v.genero);
   const canClose = isEffectivelyAvailable(table);
   const canReopen = table.status === 'manual';
 
@@ -386,7 +395,7 @@ function TableDetailModal({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Armchair className="h-5 w-5" />
-              {table.label ?? 'Mesa'}{' '}
+              {table.label ?? v.Singular}{' '}
               {table.code && <span className="text-muted-foreground text-sm">({table.code})</span>}
             </DialogTitle>
             <DialogDescription asChild>
@@ -473,12 +482,12 @@ function TableDetailModal({
               )}
               {canReopen && (
                 <Button className="w-full" variant="outline" onClick={() => setReopenOpen(true)}>
-                  Reabrir mesa
+                  Reabrir {v.singular}
                 </Button>
               )}
               {!canClose && !canReopen && (
                 <Button disabled className="w-full" variant="outline">
-                  Mesa indisponível para fechamento manual
+                  {v.Singular} indisponível para fechamento manual
                 </Button>
               )}
             </div>
@@ -491,14 +500,15 @@ function TableDetailModal({
         onOpenChange={setCloseOpen}
         loading={closeMut.isPending}
         onConfirm={(payload) => closeMut.mutate({ seat_id: table.id, ...payload })}
+        v={v}
       />
 
       <AlertDialog open={reopenOpen} onOpenChange={setReopenOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reabrir mesa?</AlertDialogTitle>
+            <AlertDialogTitle>Reabrir {v.singular}?</AlertDialogTitle>
             <AlertDialogDescription>
-              A mesa voltará a ficar disponível para venda no checkout público.
+              {v.artigoMaiusculo} {v.singular} voltará a ficar disponível para venda no checkout público.
               Os dados da reserva manual serão apagados.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -519,12 +529,13 @@ function TableDetailModal({
 }
 
 function ManualCloseDialog({
-  open, onOpenChange, loading, onConfirm,
+  open, onOpenChange, loading, onConfirm, v,
 }: {
   open: boolean;
-  onOpenChange: (v: boolean) => void;
+  onOpenChange: (aberto: boolean) => void;
   loading: boolean;
   onConfirm: (payload: { holder_name?: string; holder_phone?: string; notes?: string }) => void;
+  v: VocabularioAssento;
 }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -542,9 +553,9 @@ function ManualCloseDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Fechar mesa manualmente</DialogTitle>
+          <DialogTitle>Fechar {v.singular} manualmente</DialogTitle>
           <DialogDescription>
-            A mesa fica indisponível no checkout público. Todos os campos são opcionais.
+            {v.artigoMaiusculo} {v.singular} fica indisponível no checkout público. Todos os campos são opcionais.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -574,7 +585,7 @@ function ManualCloseDialog({
             disabled={loading}
           >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Fechar mesa
+            Fechar {v.singular}
           </Button>
         </DialogFooter>
       </DialogContent>
