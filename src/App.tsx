@@ -82,6 +82,7 @@ const App = () => (
                 {/* Public */}
                 <Route path="/" element={<Index />} />
                 <Route path="/lp" element={<LandingLp />} />
+                <Route path="/lp2" element={<LandingLp2 />} />
                 <Route path="/evento/:id/mapa" element={<EventMapPage />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Navigate to="/" replace />} />
