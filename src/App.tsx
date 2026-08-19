@@ -58,6 +58,7 @@ import AdminLeads from "./pages/admin/AdminLeads";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
 import LandingLp from "./pages/LandingLp";
+import LandingLp2 from "./pages/LandingLp2";
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
