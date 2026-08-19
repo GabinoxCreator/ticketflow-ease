@@ -2080,6 +2080,75 @@ export type Database = {
           },
         ]
       }
+      ticket_transfers: {
+        Row: {
+          accepted_at: string | null
+          accepted_by_user_id: string | null
+          cancelled_at: string | null
+          created_at: string
+          event_id: string
+          expires_at: string
+          from_holder_name: string | null
+          from_user_id: string | null
+          id: string
+          status: string
+          ticket_id: string
+          to_cpf: string
+          to_email: string | null
+          to_phone: string | null
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by_user_id?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          event_id: string
+          expires_at: string
+          from_holder_name?: string | null
+          from_user_id?: string | null
+          id?: string
+          status?: string
+          ticket_id: string
+          to_cpf: string
+          to_email?: string | null
+          to_phone?: string | null
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by_user_id?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          event_id?: string
+          expires_at?: string
+          from_holder_name?: string | null
+          from_user_id?: string | null
+          id?: string
+          status?: string
+          ticket_id?: string
+          to_cpf?: string
+          to_email?: string | null
+          to_phone?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_transfers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_transfers_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           abada_redeemed_at: string | null
@@ -2087,6 +2156,7 @@ export type Database = {
           created_at: string
           event_id: string
           event_seat_id: string | null
+          holder_cpf: string | null
           holder_email: string | null
           holder_name: string
           holder_phone: string | null
@@ -2105,6 +2175,7 @@ export type Database = {
           created_at?: string
           event_id: string
           event_seat_id?: string | null
+          holder_cpf?: string | null
           holder_email?: string | null
           holder_name: string
           holder_phone?: string | null
@@ -2123,6 +2194,7 @@ export type Database = {
           created_at?: string
           event_id?: string
           event_seat_id?: string | null
+          holder_cpf?: string | null
           holder_email?: string | null
           holder_name?: string
           holder_phone?: string | null
@@ -2327,6 +2399,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      aceitar_transferencia_ingresso: {
+        Args: {
+          _cpf_informado: string
+          _email: string
+          _nome: string
+          _novo_user_id: string
+          _telefone: string
+          _token: string
+        }
+        Returns: Json
+      }
       admin_attach_payout_receipt: {
         Args: { p_path: string; p_payout_id: string }
         Returns: Json
@@ -2383,6 +2466,10 @@ export type Database = {
       }
       cancel_paid_order: {
         Args: { _order_id: string; _reason?: string; _target_status: string }
+        Returns: Json
+      }
+      cancelar_transferencia_ingresso: {
+        Args: { _transfer_id: string; _user_id: string }
         Returns: Json
       }
       check_rate_limit: {
@@ -2444,6 +2531,10 @@ export type Database = {
         Returns: {
           event_day_id: string
         }[]
+      }
+      expirar_transferencias_vencidas: {
+        Args: { _ticket_id?: string }
+        Returns: number
       }
       flag_order_paid_no_delivery: {
         Args: {
@@ -2537,6 +2628,17 @@ export type Database = {
       }
       hold_seats: {
         Args: { _event_id: string; _seat_ids: string[]; _window?: string }
+        Returns: Json
+      }
+      iniciar_transferencia_ingresso: {
+        Args: {
+          _ticket_id: string
+          _to_cpf: string
+          _to_email: string
+          _to_phone: string
+          _token: string
+          _user_id: string
+        }
         Returns: Json
       }
       is_event_checkin_open: {
