@@ -193,6 +193,27 @@ const EventDetails = () => {
 
   const isLoading = eventLoading || lotsLoading;
 
+  // ⚠️ ANTES dos returns antecipados abaixo. Hook depois de `return` roda em
+  // uns renders e não em outros — o React conta os hooks e derruba a página
+  // inteira (erro #310). Foi o que aconteceu aqui em 19/08.
+  //
+  // As noites do evento, em ordem de calendário. Evento comum não tem nenhuma,
+  // e aí a vitrine segue agrupando por setor, como sempre.
+  const { data: eventDays } = useQuery({
+    queryKey: ['event-days-publico', eventId],
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Array<{ id: string; label: string; day_date: string }>> => {
+      const { data, error } = await (supabasePublic as any)
+        .from('event_days')
+        .select('id, label, day_date')
+        .eq('event_id', eventId)
+        .order('day_date', { ascending: true });
+      if (error) return [];
+      return data ?? [];
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -218,22 +239,6 @@ const EventDetails = () => {
   // Lote agendado só entra na vitrine quando a hora chega; lote encadeado, quando o anterior esgota.
   const activeLots = isEventFinished ? [] : (lots || []).filter((lot) => isLotOpenForSale(lot, lots || []));
 
-  // As noites do evento, em ordem de calendário. Evento comum não tem nenhuma —
-  // e aí a vitrine segue agrupando por setor, como sempre.
-  const { data: eventDays } = useQuery({
-    queryKey: ['event-days-publico', eventId],
-    enabled: !!eventId,
-    staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Array<{ id: string; label: string; day_date: string }>> => {
-      const { data, error } = await (supabasePublic as any)
-        .from('event_days')
-        .select('id, label, day_date')
-        .eq('event_id', eventId)
-        .order('day_date', { ascending: true });
-      if (error) return [];
-      return data ?? [];
-    },
-  });
 
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('pt-BR', {
