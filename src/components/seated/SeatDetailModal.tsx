@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Minus, Plus, Loader2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { EventSeatRow } from '@/hooks/useEventSeats';
+import { vocabularioAssento } from '@/lib/vocabularioAssento';
 
 interface Props {
   seat: EventSeatRow | null;
@@ -12,12 +13,15 @@ interface Props {
   isProcessing?: boolean;
   onClose: () => void;
   onConfirm: (seatId: string, addons: number) => void;
+  /** `events.seat_noun` — vazio vira "mesa", que é o padrão dos outros eventos. */
+  seatNoun?: string | null;
 }
 
 const formatPrice = (price: number) =>
   price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function SeatDetailModal({ seat, open, isProcessing, onClose, onConfirm }: Props) {
+export function SeatDetailModal({ seat, open, isProcessing, onClose, onConfirm, seatNoun }: Props) {
+  const v = vocabularioAssento(seatNoun);
   const isMobile = useIsMobile();
   const [addons, setAddons] = useState(0);
 
@@ -33,7 +37,7 @@ export function SeatDetailModal({ seat, open, isProcessing, onClose, onConfirm }
   const base = Number(seat.base_price ?? 0);
   const extra = Number(seat.extra_price ?? 0);
   const total = base + extra * addons;
-  const label = seat.label || seat.code || 'Mesa';
+  const label = seat.label || seat.code || v.Singular;
 
   const body: ReactNode = (
     <div className="space-y-4 py-2">
@@ -78,7 +82,7 @@ export function SeatDetailModal({ seat, open, isProcessing, onClose, onConfirm }
       <div className="rounded-xl bg-muted/40 p-4 space-y-2 text-sm">
         <div className="flex justify-between">
           <span>
-            Mesa {baseCap > 0 ? `(${baseCap} ${baseCap === 1 ? 'pessoa' : 'pessoas'})` : ''}
+            {v.Singular} {baseCap > 0 ? `(${baseCap} ${baseCap === 1 ? 'pessoa' : 'pessoas'})` : ''}
           </span>
           <span className="tabular-nums">{formatPrice(base)}</span>
         </div>
@@ -122,7 +126,7 @@ export function SeatDetailModal({ seat, open, isProcessing, onClose, onConfirm }
   );
 
   const titleText = label;
-  const descText = `${seat.seat_type_name || 'Mesa'}${baseCap > 0 ? ` · Inclui ${baseCap} ${baseCap === 1 ? 'pessoa' : 'pessoas'}` : ''}`;
+  const descText = `${seat.seat_type_name || v.Singular}${baseCap > 0 ? ` · Inclui ${baseCap} ${baseCap === 1 ? 'pessoa' : 'pessoas'}` : ''}`;
 
   if (isMobile) {
     return (

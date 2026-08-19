@@ -5,6 +5,7 @@ import type { EventSeatRow } from '@/hooks/useEventSeats';
 import type { HoldState } from '@/hooks/useSeatHold';
 import { HoldCountdown } from './HoldCountdown';
 import { goToSeatCheckout } from '@/lib/seatCheckoutNav';
+import { vocabularioAssento } from '@/lib/vocabularioAssento';
 
 interface Props {
   seats: EventSeatRow[];
@@ -14,6 +15,8 @@ interface Props {
   onRelease: () => void;
   setSeatAddon: (seatId: string, qty: number) => void;
   markProceeding: () => void;
+  /** `events.seat_noun` — vazio vira "mesa", que é o padrão dos outros eventos. */
+  seatNoun?: string | null;
 }
 
 const formatPrice = (price: number) =>
@@ -27,15 +30,17 @@ export function SelectionPanel({
   onRelease,
   setSeatAddon,
   markProceeding,
+  seatNoun,
 }: Props) {
   const navigate = useNavigate();
+  const v = vocabularioAssento(seatNoun);
 
   if (!hold) {
     return (
       <div className="bg-card rounded-2xl border border-border p-5 sticky top-4">
         <h3 className="font-display font-semibold text-lg mb-3">Sua seleção</h3>
         <p className="text-sm text-muted-foreground">
-          Clique numa mesa disponível no mapa para reservar.
+          Clique n{v.artigo === 'o' ? 'um' : 'uma'} {v.singular} disponível no mapa para reservar.
         </p>
       </div>
     );
@@ -76,7 +81,7 @@ export function SelectionPanel({
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{s.label || s.code || 'Mesa'}</p>
+                  <p className="font-medium truncate">{s.label || s.code || v.Singular}</p>
                   {s.seat_type_name && (
                     <p className="text-xs text-muted-foreground truncate">
                       {s.seat_type_name}

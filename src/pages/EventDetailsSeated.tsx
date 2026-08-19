@@ -12,6 +12,7 @@ import { SelectionPanel } from '@/components/seated/SelectionPanel';
 import { SeatDetailModal } from '@/components/seated/SeatDetailModal';
 import { goToSeatCheckout } from '@/lib/seatCheckoutNav';
 import type { VStatus } from '@/components/seated/SeatNode';
+import { vocabularioAssento } from '@/lib/vocabularioAssento';
 
 interface Props {
   event: any;
@@ -196,7 +197,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   return (
     <>
       <Helmet>
-        <title>{event.title} - Mapa de Mesas - FestPag</title>
+        <title>{event.title} - Mapa de {vocabularioAssento(event.seat_noun).Plural} - FestPag</title>
       </Helmet>
 
       {/* Link de pacote: o comprador vê o que foi combinado e paga tudo de uma
@@ -270,6 +271,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
 
         <aside className="border-t lg:border-t-0 lg:border-l border-border bg-background overflow-y-auto p-4 min-h-0">
           <SelectionPanel
+            seatNoun={event.seat_noun}
             seats={seats ?? []}
             hold={hold}
             addons={addons}
@@ -282,6 +284,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       </div>
 
       <SeatDetailModal
+        seatNoun={event.seat_noun}
         seat={modalSeat}
         open={!!modalSeatId}
         isProcessing={isHolding}
