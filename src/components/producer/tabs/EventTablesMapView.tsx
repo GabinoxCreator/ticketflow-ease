@@ -40,6 +40,12 @@ interface Props {
   seats: EventTableRow[];
   onSelect: (seat: EventTableRow) => void;
   selectedId?: string | null;
+  /**
+   * Unidades marcadas para uma venda em lote. O produtor fecha dois, três
+   * camarotes numa negociação só — clicar em um de cada vez e mandar dois links
+   * é o caminho para o comprador pagar um e esquecer o outro.
+   */
+  selectedIds?: Set<string>;
 }
 
 const PAD = 30;
@@ -50,7 +56,7 @@ function temGrupos(seats: EventTableRow[]): boolean {
   return nomes.size > 1;
 }
 
-export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
+export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }: Props) {
   const posicionadas = useMemo(
     () => seats.filter((s) => s.x != null && s.y != null),
     [seats],
@@ -165,7 +171,8 @@ export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
             const h = s.height ?? (s.radius ? s.radius * 2 : 80);
             const vs = statusVisual(s);
             const c = CORES[vs];
-            const selecionada = selectedId === s.id;
+            const noLote = selectedIds?.has(s.id) ?? false;
+            const selecionada = selectedId === s.id || noLote;
             // Só escreve o número quando cabe — em planta cheia, texto miúdo
             // vira sujeira e atrapalha mais do que ajuda.
             const cabeTexto = w >= 34 && h >= 16;
@@ -187,7 +194,7 @@ export function EventTablesMapView({ seats, onSelect, selectedId }: Props) {
                 <title>{`${nome} — ${c.rotulo}`}</title>
                 <rect
                   x={s.x!} y={s.y!} width={w} height={h} rx={4}
-                  fill={c.fill}
+                  fill={noLote ? '#7C3AED' : c.fill}
                   stroke={selecionada ? '#FFFFFF' : c.stroke}
                   strokeWidth={selecionada ? 3 : 1.5}
                 />

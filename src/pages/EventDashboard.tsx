@@ -138,7 +138,7 @@ export default function EventDashboard() {
 
         {showTables && (
           <TabsContent value="tables">
-            <EventTablesTab eventId={event.id} />
+            <EventTablesTab eventId={event.id} eventTitle={event.title} />
           </TabsContent>
         )}
 

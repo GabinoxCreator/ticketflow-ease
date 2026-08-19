@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventSeats, type EventSeatRow } from '@/hooks/useEventSeats';
@@ -51,7 +52,37 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   const unidadeDoLink = searchParams.get('unidade');
   const jaAbriuDoLink = useRef(false);
 
+  /**
+   * Link de PACOTE: `?unidades=C007,C008,C009`.
+   *
+   * A negociação de camarote costuma fechar mais de um. Mandar um link por
+   * unidade é o caminho mais curto para o comprador pagar o primeiro, esquecer
+   * o segundo, e o produtor descobrir na véspera. Com o pacote ele confere tudo
+   * numa tela e paga de uma vez.
+   */
+  const codigosDoPacote = useMemo(() => {
+    const bruto = searchParams.get('unidades');
+    if (!bruto) return [] as string[];
+    return bruto.split(',').map((c) => c.trim().toLowerCase()).filter(Boolean);
+  }, [searchParams]);
+
+  const unidadesDoPacote = useMemo(() => {
+    if (!codigosDoPacote.length || !seats?.length) return [] as typeof seats;
+    return seats.filter((s) => codigosDoPacote.includes((s.code ?? '').toLowerCase()));
+  }, [codigosDoPacote, seats]);
+
+  /** Só dá para reservar o pacote inteiro se TODAS ainda estiverem livres. */
+  const pacoteDisponivel = unidadesDoPacote.length > 0
+    && unidadesDoPacote.every((s) => s.status === 'available' || s.status === 'held');
+
+  const totalDoPacote = useMemo(
+    () => unidadesDoPacote.reduce((soma, s) => soma + Number(s.base_price ?? 0), 0),
+    [unidadesDoPacote],
+  );
+
   useEffect(() => {
+    // Link de pacote tem tela própria — não abre o modal de uma unidade.
+    if (codigosDoPacote.length > 0) return;
     if (jaAbriuDoLink.current || !unidadeDoLink || !seats?.length) return;
     const alvo = seats.find(
       (s) => (s.code ?? '').toLowerCase() === unidadeDoLink.toLowerCase(),
@@ -63,7 +94,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
     if (alvo.status === 'available' || alvo.status === 'held') {
       setModalSeatId(alvo.id);
     }
-  }, [unidadeDoLink, seats]);
+  }, [unidadeDoLink, seats, codigosDoPacote]);
 
   const myHoldSeatIds = useMemo(() => new Set(hold?.seatIds ?? []), [hold]);
 
@@ -130,6 +161,26 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
     [user, holdSelected, navigate, markProceeding, eventId]
   );
 
+  const reservarPacote = useCallback(async () => {
+    if (!user) { setAuthOpen(true); return; }
+    if (!pacoteDisponivel) return;
+    setIsHolding(true);
+    try {
+      const ids = unidadesDoPacote.map((s) => s.id);
+      // Cada unidade entra com a quantidade de ingressos que o produtor fechou.
+      const iniciais: Record<string, number> = {};
+      for (const s of unidadesDoPacote) {
+        const base = Number(s.base_capacity ?? 0);
+        if (base > 0) iniciais[s.id] = base;
+      }
+      const result = await holdSelected(ids, iniciais);
+      if (!result) return;
+      goToSeatCheckout(navigate, markProceeding, eventId);
+    } finally {
+      setIsHolding(false);
+    }
+  }, [user, pacoteDisponivel, unidadesDoPacote, holdSelected, navigate, markProceeding, eventId]);
+
   if (!event.map_snapshot) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 text-center">
@@ -147,6 +198,48 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       <Helmet>
         <title>{event.title} - Mapa de Mesas - FestPag</title>
       </Helmet>
+
+      {/* Link de pacote: o comprador vê o que foi combinado e paga tudo de uma
+          vez. Fica ACIMA do mapa porque é a razão de ele ter aberto a página —
+          o mapa é conferência, não busca. */}
+      {unidadesDoPacote.length > 0 && (
+        <div className="border-b border-border bg-card/80 backdrop-blur px-4 py-3">
+          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+            <div className="min-w-0">
+              <p className="font-display font-semibold text-base leading-tight">
+                {unidadesDoPacote.length === 1
+                  ? 'Sua reserva'
+                  : `Seu pacote · ${unidadesDoPacote.length} unidades`}
+              </p>
+              <p className="text-sm text-muted-foreground truncate">
+                {unidadesDoPacote.map((s) => s.label ?? s.code).join(' · ')}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Total</p>
+                <p className="font-display font-bold text-xl gradient-text tabular-nums">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalDoPacote)}
+                </p>
+              </div>
+              <Button
+                variant="hero" size="lg"
+                onClick={reservarPacote}
+                disabled={!pacoteDisponivel || isHolding}
+              >
+                {isHolding
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reservando…</>
+                  : pacoteDisponivel ? 'Reservar e pagar' : 'Indisponível'}
+              </Button>
+            </div>
+          </div>
+          {!pacoteDisponivel && unidadesDoPacote.length > 0 && (
+            <p className="max-w-3xl mx-auto text-xs text-amber-400 mt-2">
+              Alguma das unidades deste link já não está disponível. Fale com quem enviou.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-[1fr_360px] lg:grid-rows-[minmax(0,1fr)] gap-0 h-full min-h-0">
         <div className="min-w-0 min-h-0 h-full flex flex-col">

@@ -24,6 +24,7 @@ import { formatInSaoPaulo } from '@/lib/eventTime';
 import { toast } from 'sonner';
 import { EventTablesMapModal } from './EventTablesMapModal';
 import { EventTablesMapView } from './EventTablesMapView';
+import { FecharVendaEmLote } from './FecharVendaEmLote';
 import { CamaroteTermosForm } from './CamaroteTermosForm';
 
 async function parseInvokeError(error: unknown): Promise<string> {
@@ -39,6 +40,8 @@ type FilterKey = 'all' | 'sold' | 'available' | 'manual';
 
 interface Props {
   eventId: string;
+  /** Só para o texto pronto do WhatsApp na venda em lote. */
+  eventTitle?: string;
 }
 
 function formatCurrency(v: number | null) {
@@ -61,12 +64,41 @@ function statusMeta(s: EventTableRow['status'], g: 'a' | 'o' = 'a') {
   }
 }
 
-export function EventTablesTab({ eventId }: Props) {
+export function EventTablesTab({ eventId, eventTitle }: Props) {
   const { data, isLoading } = useEventTables(eventId);
   // Como este produtor chama o produto do mapa. No rodeio é "camarote" — e o
   // painel inteiro fala a língua dele, inclusive na concordância.
   const { data: seatNoun } = useSeatNoun(eventId);
   const v = vocabularioAssento(seatNoun);
+
+  // Venda em lote: o produtor fecha dois, três camarotes numa negociação só.
+  // Clicar num de cada vez e mandar dois links é o caminho para o comprador
+  // pagar um e esquecer o outro.
+  const [loteIds, setLoteIds] = useState<Set<string>>(new Set());
+  const [fecharLoteAberto, setFecharLoteAberto] = useState(false);
+
+  const alternarNoLote = (seat: EventTableRow) => {
+    setLoteIds((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(seat.id)) novo.delete(seat.id); else novo.add(seat.id);
+      return novo;
+    });
+  };
+
+  /**
+   * Clique na planta. Unidade LIVRE entra e sai do lote; unidade já vendida,
+   * reservada ou fechada abre a ficha — que é o que o produtor quer ver nela.
+   * Sem essa separação, tentar montar um lote abriria uma janela a cada clique.
+   */
+  const aoClicarNaPlanta = (seat: EventTableRow) => {
+    if (seat.status === 'available') alternarNoLote(seat);
+    else setSelected(seat);
+  };
+
+  const noLote = useMemo(
+    () => (data ?? []).filter((s) => loteIds.has(s.id)),
+    [data, loteIds],
+  );
   const qcPrepare = useQueryClient();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [search, setSearch] = useState('');
@@ -200,9 +232,39 @@ export function EventTablesTab({ eventId }: Props) {
           o produtor lê a ocupação de relance, e um clique já abre a unidade. */}
       <EventTablesMapView
         seats={data ?? []}
-        onSelect={setSelected}
+        onSelect={aoClicarNaPlanta}
         selectedId={selected?.id ?? null}
+        selectedIds={loteIds}
       />
+
+      {/* Barra do lote: só existe quando há algo selecionado, e some sozinha ao
+          limpar. Fica logo abaixo da planta para o produtor ver o que montou
+          sem tirar os olhos do mapa. */}
+      {noLote.length > 0 && (
+        /* Fixa na tela, não presa ao fluxo: a planta do rodeio tem 100 unidades
+           e passa muito da altura da janela. Uma barra que rola junto sumiria
+           justo quando o produtor está escolhendo lá embaixo. */
+        <div className="fixed bottom-4 left-4 right-4 lg:left-[272px] z-50 rounded-2xl border-2 border-primary/60 bg-card/95 backdrop-blur px-4 py-3 shadow-xl shadow-primary/20">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm">
+                {noLote.length} {noLote.length === 1 ? v.singular : v.plural} selecionad{v.genero}{noLote.length === 1 ? '' : 's'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {noLote.map((s) => s.label ?? s.code).join(' · ')}
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setLoteIds(new Set())}>
+                Limpar
+              </Button>
+              <Button variant="hero" size="sm" onClick={() => setFecharLoteAberto(true)}>
+                Fechar venda
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -283,6 +345,23 @@ export function EventTablesTab({ eventId }: Props) {
       />
 
       <EventTablesMapModal eventId={eventId} open={mapOpen} onOpenChange={setMapOpen} />
+
+      <FecharVendaEmLote
+        open={fecharLoteAberto}
+        // A seleção só é limpa ao FECHAR o diálogo, nunca ao salvar: limpar no
+        // salvamento esvaziava a lista de que o próprio diálogo depende, e o
+        // link do pacote saía sem nenhuma unidade — o produtor mandaria um
+        // endereço quebrado para o comprador.
+        onOpenChange={(aberto) => {
+          setFecharLoteAberto(aberto);
+          if (!aberto) setLoteIds(new Set());
+        }}
+        seats={noLote}
+        eventId={eventId}
+        eventTitle={eventTitle ?? 'seu evento'}
+        v={v}
+        onSaved={() => qcPrepare.invalidateQueries({ queryKey: ['event-tables', eventId] })}
+      />
     </div>
   );
 }
