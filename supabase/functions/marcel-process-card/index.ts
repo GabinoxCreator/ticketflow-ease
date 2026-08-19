@@ -21,6 +21,7 @@ import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-tic
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
+import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 
 const corsHeaders = {
@@ -162,6 +163,15 @@ serve(async (req) => {
       if (jaTem + pedindo > ticketLimit) {
         return json({ error: `Limite de ${ticketLimit} ingresso(s) por CPF neste evento.` }, 400);
       }
+    }
+
+    // 1 ingresso por CPF em cada NOITE (trava anti-cambista do rodeio). Antes de
+    // reservar: barrar depois de prender estoque daria ao cambista o poder de
+    // esgotar o lote só tentando. Evento sem noites cadastradas passa liso.
+    const conflitos = await conflitosDeCpfPorDia(admin, eventId, cleanCPF, preco.linhas);
+    if (conflitos.length > 0) {
+      log('Barrado por 1 CPF/dia', { conflitos });
+      return json({ error: mensagemDoConflito(conflitos) }, 409);
     }
 
     // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto, dois compradores levam o mesmo

@@ -19,6 +19,7 @@ import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-tic
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
+import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,6 +94,16 @@ serve(async (req) => {
       if (jaTem + pedindo > ticketLimit) {
         return json({ error: `Limite de ${ticketLimit} ingresso(s) por CPF neste evento.` }, 400);
       }
+    }
+
+    // 1 ingresso por CPF em cada NOITE (trava anti-cambista do rodeio). Fica
+    // ANTES de reservar: barrar depois de prender estoque daria ao cambista o
+    // poder de esgotar o lote só tentando. Em evento sem noites cadastradas
+    // isto não devolve nada e a venda segue igual a hoje.
+    const conflitos = await conflitosDeCpfPorDia(admin, eventId, cleanCPF, lineItems);
+    if (conflitos.length > 0) {
+      log('Barrado por 1 CPF/dia', { conflitos });
+      return json({ error: mensagemDoConflito(conflitos) }, 409);
     }
 
     // PIX: sem taxa de processamento (decisão do Gabriel, 17/08). O subtotal já
