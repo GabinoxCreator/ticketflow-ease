@@ -58,6 +58,7 @@ import AdminLeads from "./pages/admin/AdminLeads";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
 import LandingLp from "./pages/LandingLp";
+import LandingLp2 from "./pages/LandingLp2";
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
@@ -81,6 +82,7 @@ const App = () => (
                 {/* Public */}
                 <Route path="/" element={<Index />} />
                 <Route path="/lp" element={<LandingLp />} />
+                <Route path="/lp2" element={<LandingLp2 />} />
                 <Route path="/evento/:id/mapa" element={<EventMapPage />} />
                 <Route path="/evento/:id" element={<EventDetails />} />
                 <Route path="/checkout" element={<Navigate to="/" replace />} />
