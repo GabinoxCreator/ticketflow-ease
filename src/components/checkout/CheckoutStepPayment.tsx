@@ -32,6 +32,13 @@ interface CheckoutStepPaymentProps {
    *  a rota do Marcel vai até 10x, a do Mercado Pago até 12x. Prometer 12 e
    *  entregar 10 quebra a confiança logo na primeira tela do pagamento. */
   paymentProvider?: string;
+  /** Há passe permanente no carrinho (lote que vale todas as noites). Quando há,
+   *  o comprador precisa aceitar explicitamente que o passe trava no CPF de quem
+   *  usar — §4b do framework do Rodeio. */
+  temPassePermanente?: boolean;
+  /** O aceite do passe. Sem ele, o pagamento não abre. */
+  passeAceito?: boolean;
+  onPasseAceitoChange?: (v: boolean) => void;
 }
 
 export function CheckoutStepPayment({
@@ -47,6 +54,9 @@ export function CheckoutStepPayment({
   isProcessing,
   onSelectPayment,
   paymentProvider,
+  temPassePermanente = false,
+  passeAceito = false,
+  onPasseAceitoChange,
 }: CheckoutStepPaymentProps) {
   const [couponInput, setCouponInput] = useState('');
   const [validating, setValidating] = useState(false);
@@ -231,6 +241,39 @@ export function CheckoutStepPayment({
         </div>
       </div>
 
+      {/* Passe permanente: aviso e aceite explícito (§4b do framework do Rodeio).
+          Ele existe porque a consequência só aparece DEPOIS — no dia em que a
+          pessoa usa o passe, ele trava no CPF dela e não pode mais ser passado
+          para ninguém. Quem compra para a família precisa saber disso ANTES,
+          não na portaria. */}
+      {temPassePermanente && (
+        <label
+          htmlFor="aceite-passe"
+          className={cn(
+            'flex gap-3 items-start rounded-2xl border-2 px-4 py-3.5 cursor-pointer transition-all',
+            passeAceito
+              ? 'border-primary/60 bg-primary/5'
+              : 'border-amber-500/50 bg-amber-500/10',
+          )}
+        >
+          <input
+            id="aceite-passe"
+            type="checkbox"
+            checked={passeAceito}
+            onChange={(e) => onPasseAceitoChange?.(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-primary cursor-pointer"
+          />
+          <span className="text-xs leading-relaxed text-muted-foreground">
+            <strong className="text-foreground block mb-1">
+              Este passe vale as 5 noites — e trava no CPF de quem usar.
+            </strong>
+            Você pode passá-lo para outra pessoa <strong className="text-foreground">enquanto ninguém entrou</strong> com ele.
+            Na primeira entrada, o passe fica preso ao CPF de quem entrou e não pode mais ser transferido.
+            Faltar uma noite não invalida as outras.
+          </span>
+        </label>
+      )}
+
       {/* Forma de pagamento */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -241,7 +284,7 @@ export function CheckoutStepPayment({
 
         <button
           onClick={() => handleSelect('pix')}
-          disabled={isProcessing}
+          disabled={isProcessing || (temPassePermanente && !passeAceito)}
           className={cn(
             'group relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 text-left overflow-hidden',
             'border-border/60 bg-card/60 backdrop-blur',
@@ -271,7 +314,7 @@ export function CheckoutStepPayment({
 
         <button
           onClick={() => handleSelect('card')}
-          disabled={isProcessing}
+          disabled={isProcessing || (temPassePermanente && !passeAceito)}
           className={cn(
             'group relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 text-left',
             'border-border/60 bg-card/60 backdrop-blur',

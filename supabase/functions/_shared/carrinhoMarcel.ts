@@ -14,6 +14,9 @@
 export const DEFAULT_FEE_PERCENT = 10;
 
 export interface LinhaCarrinho {
+  /** Lote que vale TODAS as noites (passe permanente do rodeio). Falso em
+   *  evento comum — é a coluna `covers_all_days`, que só o rodeio preenche. */
+  cobreTodosOsDias?: boolean;
   lotId: string;
   lotName: string;
   quantity: number;
@@ -78,7 +81,7 @@ export async function resolverPreco(
   const lotIds = items.map((i) => i.lotId);
   const { data: lots, error } = await client
     .from('event_lots')
-    .select('id, name, price, is_active, modo_taxa')
+    .select('id, name, price, is_active, modo_taxa, covers_all_days')
     .in('id', lotIds)
     .eq('event_id', eventId);
 
@@ -120,6 +123,7 @@ export async function resolverPreco(
       quantity: qty,
       price: Number(lot.price),
       modoTaxa: lot.modo_taxa ?? 'cliente_paga',
+      cobreTodosOsDias: lot.covers_all_days === true,
     });
   }
 
@@ -171,6 +175,19 @@ export async function resolverPreco(
  *  promocionais do rodeio). */
 export function produtorAbsorve(linhas: LinhaCarrinho[]): boolean {
   return linhas.length > 0 && linhas.every((l) => l.modoTaxa === 'absorve');
+}
+
+/**
+ * O carrinho leva passe permanente?
+ *
+ * Quando leva, o comprador PRECISA ter aceitado que o passe trava no CPF de
+ * quem usar (§4b do framework do Rodeio). Validar isso só na tela seria enfeite:
+ * quem chamasse a função direto passaria por cima, e a pessoa descobriria a
+ * regra na portaria, no dia — que é exatamente o que o aviso existe para
+ * evitar.
+ */
+export function temPassePermanente(linhas: LinhaCarrinho[]): boolean {
+  return linhas.some((l) => l.cobreTodosOsDias === true);
 }
 
 /**

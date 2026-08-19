@@ -79,6 +79,11 @@ export function CheckoutModal({
   const [pixData, setPixData] = useState<{ code: string; expiresAt: Date; amount?: number } | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<'pix' | 'card' | null>(null);
   const [paymentProvider, setPaymentProvider] = useState<string>('mercadopago');
+  // Passe permanente no carrinho (lote que vale todas as noites) e o aceite do
+  // comprador. Quem define o que é passe é o banco, pela coluna
+  // `covers_all_days` — a tela só mostra o aviso quando ele existe.
+  const [temPassePermanente, setTemPassePermanente] = useState(false);
+  const [passeAceito, setPasseAceito] = useState(false);
 
   const { fees } = useEventFees(eventId);
   const activePercent = selectedMethod === 'pix' ? fees.pixPercent : fees.cardPercent;
@@ -140,8 +145,25 @@ export function CheckoutModal({
         return;
       }
       setPaymentProvider(data?.payment_provider || 'mercadopago');
+
+      // Algum lote do carrinho vale todas as noites? É isso que liga o aviso do
+      // passe permanente. Falhar aqui não bloqueia a compra — o servidor confere
+      // de novo antes de cobrar, e é lá que a regra vale de verdade.
+      try {
+        const ids = items.map((i) => i.lotId);
+        if (ids.length > 0) {
+          const { data: lotes } = await supabase
+            .from('event_lots')
+            .select('id, covers_all_days')
+            .in('id', ids);
+          if (!cancelled) {
+            setTemPassePermanente((lotes ?? []).some((l: any) => l.covers_all_days === true));
+          }
+        }
+      } catch { /* sem o aviso na tela; o servidor ainda barra se faltar o aceite */ }
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, eventId]);
 
   const handleFormComplete = (data: { cpf: string; name: string; email: string; phone: string }) => {
@@ -188,6 +210,8 @@ export function CheckoutModal({
           customerCPF: cpfDigits,
           customerPhone: customerData.phone,
           couponId: appliedCoupon?.couponId,
+          // O servidor confere de novo: sem o aceite, passe permanente não vende.
+          passeAceito,
           deviceId,
         },
       });
@@ -412,6 +436,9 @@ export function CheckoutModal({
                 onApplyCoupon={setAppliedCoupon}
                 isProcessing={isProcessing}
                 onSelectPayment={handlePaymentSelect}
+                temPassePermanente={temPassePermanente}
+                passeAceito={passeAceito}
+                onPasseAceitoChange={setPasseAceito}
               />
             )}
 
@@ -423,6 +450,7 @@ export function CheckoutModal({
                 items={items}
                 totalAmount={finalAmount}
                 couponId={appliedCoupon?.couponId}
+                passeAceito={passeAceito}
                 customerName={customerData.name}
                 customerEmail={customerData.email}
                 customerPhone={customerData.phone}

@@ -22,6 +22,9 @@ interface CheckoutStepCardMarcelProps {
   items: CartItem[];
   totalAmount: number;
   couponId?: string;
+  /** Aceite das condições do passe permanente. O servidor recusa a cobrança
+   *  sem ele quando há passe no carrinho (§4b do framework do Rodeio). */
+  passeAceito?: boolean;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -35,6 +38,7 @@ export function CheckoutStepCardMarcel({
   items,
   totalAmount,
   couponId,
+  passeAceito,
   customerName,
   customerEmail,
   customerPhone,
@@ -64,6 +68,7 @@ export function CheckoutStepCardMarcel({
         customerPhone,
         customerCPF: customerCPF.replace(/\D/g, ''),
         couponId,
+        passeAceito,
         installments,
         card,
       },

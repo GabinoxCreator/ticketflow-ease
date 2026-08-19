@@ -18,7 +18,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
-import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 
 const corsHeaders = {
@@ -94,6 +94,14 @@ serve(async (req) => {
       if (jaTem + pedindo > ticketLimit) {
         return json({ error: `Limite de ${ticketLimit} ingresso(s) por CPF neste evento.` }, 400);
       }
+    }
+
+    // Passe permanente exige aceite explícito (§4b do framework do Rodeio):
+    // ao ser usado, o passe trava no CPF de quem entrou e não pode mais ser
+    // transferido. Quem compra para a família precisa saber ANTES, não na
+    // portaria. A tela mostra o aviso; aqui a regra é cumprida.
+    if (temPassePermanente(lineItems) && body.passeAceito !== true) {
+      return json({ error: 'Para comprar o passe permanente, é preciso aceitar as condições de uso.' }, 400);
     }
 
     // 1 ingresso por CPF em cada NOITE (trava anti-cambista do rodeio). Fica
