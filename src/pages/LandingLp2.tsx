@@ -233,10 +233,10 @@ const LandingLp2 = () => (
         <div className="lp2-art">
           <div className="lp2-glow" />
           <div className="lp2-glow2" />
-          <img className="lp2-dev lp2-mac" src={macbookAsset.url} alt="Painel do produtor FestPag em um notebook" />
-          <img className="lp2-dev lp2-totem" src={totemAsset.url} alt="Totem de autoatendimento FestPag com pinpad" />
-          <img className="lp2-dev lp2-iphone" src={iphoneAsset.url} alt="Ingresso digital com QR Code no celular" />
-          <img className="lp2-dev lp2-pos" src={posAsset.url} alt="Maquininha FestPag na tela de pagamento" />
+          <img className="lp2-dev lp2-mac" src={macbookImg} alt="Painel do produtor FestPag em um notebook" />
+          <img className="lp2-dev lp2-totem" src={totemImg} alt="Totem de autoatendimento FestPag com pinpad" />
+          <img className="lp2-dev lp2-iphone" src={iphoneImg} alt="Ingresso digital com QR Code no celular" />
+          <img className="lp2-dev lp2-pos" src={posImg} alt="Maquininha FestPag na tela de pagamento" />
           <svg className="lp2-thread" viewBox="0 0 600 600" preserveAspectRatio="none" aria-hidden="true">
             <path d="M -260 470 L 130 470 C 200 470 208 420 208 372" />
             <circle cx="208" cy="368" r="4" />
