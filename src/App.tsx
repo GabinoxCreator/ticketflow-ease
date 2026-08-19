@@ -23,6 +23,7 @@ import CheckoutSuccess from "./pages/CheckoutSuccess";
 import Financeiro from "./pages/Financeiro";
 import FinanceiroEvento from "./pages/FinanceiroEvento";
 import MeusIngressos from "./pages/MeusIngressos";
+import TransferenciaIngresso from "./pages/TransferenciaIngresso";
 import PedidoStatus from "./pages/PedidoStatus";
 import SeatCheckout from "./pages/SeatCheckout";
 import MinhaConta from "./pages/MinhaConta";
@@ -94,6 +95,9 @@ const App = () => (
                 <Route path="/ajuda" element={<CentralDeAjuda />} />
 
                 {/* Client Protected */}
+                {/* Link de transferência de ingresso: PÚBLICA de propósito — quem recebe
+                    ainda não tem conta, e é esta tela que pede para ela criar. */}
+                <Route path="/transferencia/:token" element={<TransferenciaIngresso />} />
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />

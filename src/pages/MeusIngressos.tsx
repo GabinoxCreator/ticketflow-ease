@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
+import { TransferirIngresso } from '@/components/tickets/TransferirIngresso';
 import { formatInSaoPaulo } from '@/lib/eventTime';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -43,12 +44,12 @@ function groupByOrder(tickets: UserTicket[]): UserTicket[][] {
   return order.map((k) => map.get(k)!);
 }
 
-const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
+const OrderGroupCard = ({ tickets, onTransferChange }: { tickets: UserTicket[]; onTransferChange?: () => void }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
 
   if (tickets.length === 1) {
-    return <TicketCardSimple ticket={tickets[0]} />;
+    return <TicketCardSimple ticket={tickets[0]} onTransferChange={onTransferChange} />;
   }
 
   const first = tickets[0];
@@ -165,7 +166,7 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
                 Cada ingresso abaixo tem um QR code único — toque em "Usar Ingresso" para apresentar.
               </p>
               {tickets.map((t) => (
-                <TicketCardSimple key={t.id} ticket={t} compact />
+                <TicketCardSimple key={t.id} ticket={t} compact onTransferChange={onTransferChange} />
               ))}
             </div>
           )}
@@ -178,7 +179,7 @@ const OrderGroupCard = ({ tickets }: { tickets: UserTicket[] }) => {
 
 
 
-const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; compact?: boolean }) => {
+const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticket: UserTicket; compact?: boolean; onTransferChange?: () => void }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -617,6 +618,14 @@ const TicketCardSimple = ({ ticket, compact = false }: { ticket: UserTicket; com
             </div>
           </div>
 
+          {/* Transferir o ingresso para outra pessoa. Só aparece em ingresso
+              válido e não usado — o próprio componente decide, e some sozinho
+              quando não cabe. Quando há transferência em andamento, ele vira o
+              aviso de "transferindo" com a opção de cancelar. */}
+          <div className="shrink-0 px-4 pb-3">
+            <TransferirIngresso ticket={ticket} onChange={onTransferChange} />
+          </div>
+
           {/* FOOTER sticky com ações */}
           <div className="shrink-0 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2">
             <Button
@@ -684,7 +693,7 @@ const EmptyState = ({ title, description }: { title: string; description: string
 );
 
 const MeusIngressos = () => {
-  const { upcomingTickets, pastTickets, cancelledTickets, isLoading } = useUserTickets();
+  const { upcomingTickets, pastTickets, cancelledTickets, isLoading, refetch } = useUserTickets();
 
   return (
     <>
@@ -796,7 +805,7 @@ const MeusIngressos = () => {
                 </>
               ) : upcomingTickets.length > 0 ? (
                 groupByOrder(upcomingTickets).map((group) => (
-                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} onTransferChange={() => refetch()} />
                 ))
               ) : (
                 <EmptyState
@@ -814,7 +823,7 @@ const MeusIngressos = () => {
                 </>
               ) : pastTickets.length > 0 ? (
                 groupByOrder(pastTickets).map((group) => (
-                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} onTransferChange={() => refetch()} />
                 ))
               ) : (
                 <EmptyState
@@ -829,7 +838,7 @@ const MeusIngressos = () => {
                 <TicketSkeleton />
               ) : cancelledTickets.length > 0 ? (
                 groupByOrder(cancelledTickets).map((group) => (
-                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} />
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} onTransferChange={() => refetch()} />
                 ))
               ) : (
                 <EmptyState

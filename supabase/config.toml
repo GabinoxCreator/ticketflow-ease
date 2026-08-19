@@ -232,3 +232,23 @@ verify_jwt = false
 # a própria função recusa qualquer chamada sem o token, antes de tocar no banco.
 [functions.gestao-sales-export]
 verify_jwt = false
+
+# Transferência de ingresso (§4 do framework do Rodeio).
+# O dono inicia e cancela logado — o ingresso é dele, e quem manda é a sessão,
+# nunca um id vindo do navegador.
+[functions.ticket-transfer-start]
+verify_jwt = true
+
+[functions.ticket-transfer-cancel]
+verify_jwt = true
+
+# Pública: quem recebe o link ainda NÃO tem conta — é esta tela que vai pedir
+# para ela criar uma. Devolve só o que serve para reconhecer o convite: evento,
+# primeiro nome de quem enviou e os 3 últimos dígitos do CPF. Nunca o QR.
+[functions.ticket-transfer-info]
+verify_jwt = false
+
+# O aceite exige estar logado: a tela cria a conta e só então chama esta função.
+# A trava contra link vazado é o CPF, conferido dentro da RPC.
+[functions.ticket-transfer-accept]
+verify_jwt = true

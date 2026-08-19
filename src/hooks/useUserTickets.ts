@@ -43,6 +43,17 @@ export interface UserTicket {
     code: string | null;
     seat_type_name: string | null;
   } | null;
+  /**
+   * Transferência em andamento, quando existe. Enquanto ela está aqui, o
+   * ingresso aparece como "transferindo" e o dono só tem a opção de cancelar —
+   * ele continua sendo o dono até alguém aceitar.
+   */
+  transfer?: {
+    id: string;
+    status: string;
+    expires_at: string;
+    to_cpf_final: string;
+  } | null;
 }
 
 /**
@@ -70,7 +81,7 @@ export function ticketEventDisplay(event: UserTicket['event']) {
 export function useUserTickets() {
   const { user } = useAuth();
 
-  const { data: tickets, isLoading, error } = useQuery({
+  const { data: tickets, isLoading, error, refetch } = useQuery({
     queryKey: ['user-tickets', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -103,7 +114,36 @@ export function useUserTickets() {
 
       if (error) throw error;
       // Filter out pending tickets (not yet paid)
-      return (data as unknown as UserTicket[]).filter(t => t.status !== 'pending');
+      const lista = (data as unknown as UserTicket[]).filter(t => t.status !== 'pending');
+
+      // Transferências em andamento dos ingressos desta pessoa. Consulta
+      // separada de propósito: um embed aqui faria a lista inteira depender de
+      // uma tabela que a maioria dos clientes nunca vai usar, e ingresso é o
+      // que não pode sumir da tela. Falhar aqui só tira o aviso de
+      // "transferindo" — nunca o ingresso.
+      try {
+        const ids = lista.map(t => t.id);
+        if (ids.length > 0) {
+          // `as any` porque `types.ts` é auto-gerado e ainda não tem a tabela
+          // nova — mesmo contorno já usado no `claim_my_orphan_orders` acima.
+          // Sai sozinho quando os tipos forem regerados.
+          const { data: transfers } = await (supabase as any)
+            .from('ticket_transfers')
+            .select('id, ticket_id, status, expires_at, to_cpf')
+            .in('ticket_id', ids)
+            .eq('status', 'pendente');
+          const porTicket = new Map<string, any>();
+          for (const tr of transfers ?? []) porTicket.set(tr.ticket_id, tr);
+          for (const t of lista) {
+            const tr = porTicket.get(t.id);
+            t.transfer = tr
+              ? { id: tr.id, status: tr.status, expires_at: tr.expires_at, to_cpf_final: String(tr.to_cpf ?? '').slice(-3) }
+              : null;
+          }
+        }
+      } catch { /* sem o aviso de transferência, mas com os ingressos na tela */ }
+
+      return lista;
     },
     enabled: !!user,
   });
@@ -142,5 +182,7 @@ export function useUserTickets() {
     cancelledTickets,
     isLoading,
     error,
+    /** Recarrega a lista — usado depois de iniciar ou cancelar uma transferência. */
+    refetch,
   };
 }
