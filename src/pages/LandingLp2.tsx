@@ -1,10 +1,10 @@
 import { Helmet } from 'react-helmet-async';
 import { Ticket, Tablet, CreditCard, ScanLine, LayoutDashboard, Mouse } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
-import totemAsset from '@/assets/lp2/totem-cardapio.png.asset.json';
-import macbookAsset from '@/assets/lp2/macbook-dashboard.png.asset.json';
-import iphoneAsset from '@/assets/lp2/iphone-ingressos.png.asset.json';
-import posAsset from '@/assets/lp2/maquininha-pagamento.png.asset.json';
+import totemImg from '@/assets/lp2/totem-cardapio.png';
+import macbookImg from '@/assets/lp2/macbook-dashboard.png';
+import iphoneImg from '@/assets/lp2/iphone-ingressos.png';
+import posImg from '@/assets/lp2/maquininha-pagamento.png';
 
 const NOISE =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E\")";
