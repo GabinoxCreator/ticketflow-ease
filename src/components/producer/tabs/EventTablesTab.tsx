@@ -19,12 +19,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Armchair, Search, CheckCircle2, Circle, Lock, Mail, Phone, User, Loader2, Map as MapIcon } from 'lucide-react';
+import { Armchair, Search, CheckCircle2, Circle, Lock, Mail, Phone, User, Loader2, Map as MapIcon, Printer } from 'lucide-react';
 import { formatInSaoPaulo } from '@/lib/eventTime';
 import { toast } from 'sonner';
 import { EventTablesMapModal } from './EventTablesMapModal';
 import { EventTablesMapView } from './EventTablesMapView';
 import { FecharVendaEmLote } from './FecharVendaEmLote';
+import { CamarotePulseiras } from './CamarotePulseiras';
 import { CamaroteTermosForm } from './CamaroteTermosForm';
 
 async function parseInvokeError(error: unknown): Promise<string> {
@@ -74,6 +75,10 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
   // Venda em lote: o produtor fecha dois, três camarotes numa negociação só.
   // Clicar num de cada vez e mandar dois links é o caminho para o comprador
   // pagar um e esquecer o outro.
+  // Duas telas dentro da mesma aba: a planta (vender) e as pulseiras
+  // (entregar). São momentos diferentes da operação — uma antes do evento,
+  // outra na véspera — e misturar as duas numa lista só deixaria as duas piores.
+  const [secao, setSecao] = useState<'mapa' | 'pulseiras'>('mapa');
   const [loteIds, setLoteIds] = useState<Set<string>>(new Set());
   const [fecharLoteAberto, setFecharLoteAberto] = useState(false);
 
@@ -220,6 +225,26 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Navegação entre as duas telas da seção. */}
+      <div className="flex gap-2">
+        <Button
+          variant={secao === 'mapa' ? 'default' : 'outline'} size="sm"
+          onClick={() => setSecao('mapa')}
+        >
+          Mapa e vendas
+        </Button>
+        <Button
+          variant={secao === 'pulseiras' ? 'default' : 'outline'} size="sm"
+          onClick={() => setSecao('pulseiras')}
+        >
+          <Printer className="w-4 h-4 mr-2" /> Pulseiras
+        </Button>
+      </div>
+
+      {secao === 'pulseiras' ? (
+        <CamarotePulseiras eventId={eventId} eventTitle={eventTitle ?? 'Evento'} v={v} />
+      ) : (
+      <>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} icon={Armchair} />
         <StatCard label={`Vendid${v.genero}s`} value={stats.sold} icon={CheckCircle2} accent="emerald" />
@@ -343,6 +368,9 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
         onClose={() => setSelected(null)}
         v={v}
       />
+
+      </>
+      )}
 
       <EventTablesMapModal eventId={eventId} open={mapOpen} onOpenChange={setMapOpen} />
 
