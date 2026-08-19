@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export interface EventLot {
@@ -48,14 +49,30 @@ export interface LotFormData {
 
 export function useEventLots(eventId: string | undefined) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: lots, isLoading, error } = useQuery({
-    queryKey: ['event-lots', eventId],
+    // O usuário entra na chave: sem isso, a lista carregada antes do login
+    // (sem rascunho) ficaria em cache e o painel continuaria vazio.
+    queryKey: ['event-lots', eventId, user?.id ?? 'anon'],
     queryFn: async () => {
       if (!eventId) return [];
 
-      // Leitura pública: client sem sessão, não espera o refresh de token.
-      const { data, error } = await supabasePublic
+      // ⚠️ QUEM LÊ MUDA O QUE APARECE.
+      //
+      // A regra do banco libera lote de evento PUBLICADO para qualquer um, e
+      // lote de evento em rascunho só para o dono. O client público não leva
+      // sessão, então `auth.uid()` chega vazio e o rascunho some — inclusive
+      // para o produtor, no painel dele. Foi assim que os 18 lotes do rodeio
+      // ficaram invisíveis: existiam no banco e a tela dizia "nenhum setor
+      // criado ainda".
+      //
+      // Com sessão, usa o client autenticado (enxerga o rascunho do dono). Sem
+      // sessão, segue no público, que não espera refresh de token — é o caminho
+      // da página do evento, onde a velocidade importa e só há publicado.
+      const client = user ? supabase : supabasePublic;
+
+      const { data, error } = await client
         .from('event_lots')
         .select('*')
         .eq('event_id', eventId)
