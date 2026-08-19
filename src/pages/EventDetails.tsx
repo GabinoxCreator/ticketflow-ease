@@ -11,6 +11,7 @@ import {
   Heart,
   AlertCircle,
   Loader2,
+  Star,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -61,6 +62,27 @@ const getAnonymousId = () => {
   }
   return id;
 };
+
+/**
+ * Tira do nome do lote o pedaço que o cabeçalho do grupo já diz.
+ *
+ * O lote se chama "1º Lote - Sábado 10/10" — é o nome oficial, o que sai no
+ * ingresso, no relatório e no painel. Mas dentro do bloco "SÁBADO 10/10" a
+ * data aparece duas vezes na mesma altura da tela: o olho lê ruído em vez de
+ * lote. Aqui só a apresentação muda; o nome no banco continua completo.
+ */
+function semRepetirOGrupo(nomeDoLote: string, tituloDoGrupo: string): string {
+  const normalizar = (t: string) => t.trim().toLowerCase();
+  const grupo = normalizar(tituloDoGrupo);
+  if (!grupo) return nomeDoLote;
+
+  // Aceita os separadores que o produtor usa na mão: "-", "–", "—", "·".
+  const corte = nomeDoLote.replace(/\s*[-–—·]\s*[^-–—·]+$/, '');
+  const sufixo = nomeDoLote.slice(corte.length).replace(/^\s*[-–—·]\s*/, '');
+
+  if (corte && normalizar(sufixo) === grupo) return corte.trim();
+  return nomeDoLote;
+}
 
 const EventDetails = () => {
   const { id: slugOrId } = useParams<{ id: string }>();
@@ -352,7 +374,12 @@ const EventDetails = () => {
    * NOITE, em ordem de calendário, com o passe que vale todas elas em primeiro
    * — é o produto de maior valor e quem o compra não precisa olhar o resto.
    */
-  const lotGroups = (() => {
+  // Grupos da vitrine: [título, lotes, é o passe?].
+  //
+  // O passe vem marcado porque ele é o produto que o produtor quer vender —
+  // vale as 5 noites e sai mais barato que comprar noite a noite. Numa lista
+  // de 6 blocos iguais ele passa despercebido.
+  const lotGroups: Array<[string, typeof activeLots, boolean]> = (() => {
     const temDias = (eventDays?.length ?? 0) > 0;
 
     if (!temDias) {
@@ -362,11 +389,13 @@ const EventDetails = () => {
         if (!groups.has(key)) groups.set(key, [] as typeof activeLots);
         groups.get(key)!.push(lot);
       }
-      return Array.from(groups.entries()).sort(([a], [b]) => {
-        if (a === 'Ingresso') return -1;
-        if (b === 'Ingresso') return 1;
-        return 0;
-      });
+      return Array.from(groups.entries())
+        .sort(([a], [b]) => {
+          if (a === 'Ingresso') return -1;
+          if (b === 'Ingresso') return 1;
+          return 0;
+        })
+        .map(([nome, lotes]) => [nome, lotes, false] as [string, typeof activeLots, boolean]);
     }
 
     const porDia = new Map<string, typeof activeLots>();
@@ -381,13 +410,13 @@ const EventDetails = () => {
       porDia.get(dayId)!.push(lot);
     }
 
-    const grupos: Array<[string, typeof activeLots]> = [];
-    if (passes.length) grupos.push(['Passe · todas as noites', passes]);
+    const grupos: Array<[string, typeof activeLots, boolean]> = [];
+    if (passes.length) grupos.push(['Passe · todas as noites', passes, true]);
     for (const d of eventDays ?? []) {
       const doDia = porDia.get(d.id);
-      if (doDia?.length) grupos.push([d.label, doDia]);
+      if (doDia?.length) grupos.push([d.label, doDia, false]);
     }
-    if (semDia.length) grupos.push([semDia[0].sector_name?.trim() || 'Ingresso', semDia]);
+    if (semDia.length) grupos.push([semDia[0].sector_name?.trim() || 'Ingresso', semDia, false]);
     return grupos;
   })();
 
@@ -577,21 +606,45 @@ const EventDetails = () => {
                       </span>
                     )}
                   </div>
-                  {lotGroups.map(([sectorName, sectorLots]) => (
+                  {lotGroups.map(([sectorName, sectorLots, ehPasse]) => (
                     <div
                       key={sectorName}
-                      className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl overflow-hidden shadow-lg shadow-primary/5"
+                      className={
+                        ehPasse
+                          ? 'relative rounded-2xl border-2 border-primary/60 bg-card/80 backdrop-blur-xl overflow-hidden shadow-xl shadow-primary/25 ring-1 ring-primary/20'
+                          : 'rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl overflow-hidden shadow-lg shadow-primary/5'
+                      }
                     >
-                      <div className="px-5 md:px-6 py-4 bg-gradient-to-r from-primary/15 via-primary/10 to-accent/10 border-b border-border/40">
-                        <h3 className="font-display font-bold text-sm uppercase tracking-[0.2em] text-primary">
+                      <div
+                        className={
+                          ehPasse
+                            ? 'px-5 md:px-6 py-4 bg-gradient-to-r from-primary/40 via-primary/25 to-accent/25 border-b border-primary/30 flex items-center justify-between gap-3'
+                            : 'px-5 md:px-6 py-4 bg-gradient-to-r from-primary/15 via-primary/10 to-accent/10 border-b border-border/40'
+                        }
+                      >
+                        <h3
+                          className={
+                            ehPasse
+                              ? 'font-display font-bold text-sm uppercase tracking-[0.2em] text-primary-foreground flex items-center gap-2'
+                              : 'font-display font-bold text-sm uppercase tracking-[0.2em] text-primary'
+                          }
+                        >
+                          {ehPasse && <Star className="w-4 h-4 fill-current shrink-0" />}
                           {sectorName}
                         </h3>
+                        {/* O selo é o que faz o passe ser lido primeiro numa lista
+                            de seis blocos — sem ele, ele vira "mais um lote". */}
+                        {ehPasse && (
+                          <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-lg">
+                            Melhor escolha
+                          </span>
+                        )}
                       </div>
                       <div className="divide-y divide-border/40">
                         {sectorLots.map((lot) => (
                           <LotCard
                             key={lot.id}
-                            lot={lot}
+                            lot={{ ...lot, name: semRepetirOGrupo(lot.name, sectorName) }}
                             quantity={selectedLots[lot.id] || 0}
                             onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
                             formatPrice={formatPrice}
