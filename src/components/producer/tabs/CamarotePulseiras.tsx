@@ -119,19 +119,27 @@ export function CamarotePulseiras({ eventId, eventTitle, v }: Props) {
 
   const selecionados = linhas.filter((l) => marcados.has(l.seat_id));
 
-  /** Abre a folha de impressão e marca como impresso ao voltar. */
+  /**
+   * Abre a PRÉ-VISUALIZAÇÃO da folha. O produtor confere o que vai sair antes
+   * de gastar papel — e, mais importante, antes de gastar pulseira: uma folha
+   * errada aqui vira gente sem acesso na porta. A impressão só acontece quando
+   * ele confirma.
+   */
   const imprimir = (linhasParaImprimir: Linha[]) => {
     if (!linhasParaImprimir.length) return;
     setImprimindo(linhasParaImprimir);
-    // Espera a folha entrar na tela antes de chamar a impressão do navegador.
-    setTimeout(() => {
-      window.print();
-      setImprimindo(null);
-      marcar.mutate(
-        { ids: linhasParaImprimir.map((l) => l.seat_id), acao: 'imprimir' },
-        { onSuccess: () => toast.success(`${linhasParaImprimir.length} ${linhasParaImprimir.length === 1 ? v.singular : v.plural} marcad${v.genero}${linhasParaImprimir.length === 1 ? '' : 's'} como impress${v.genero}${linhasParaImprimir.length === 1 ? '' : 's'}.`) },
-      );
-    }, 400);
+  };
+
+  /** Confirmou: manda para a impressora e tira da fila. */
+  const confirmarImpressao = () => {
+    const alvo = imprimindo ?? [];
+    if (!alvo.length) return;
+    window.print();
+    marcar.mutate(
+      { ids: alvo.map((l) => l.seat_id), acao: 'imprimir' },
+      { onSuccess: () => toast.success(`${alvo.length} ${alvo.length === 1 ? v.singular : v.plural} marcad${v.genero}${alvo.length === 1 ? '' : 's'} como impress${v.genero}${alvo.length === 1 ? '' : 's'}.`) },
+    );
+    setImprimindo(null);
   };
 
   if (isLoading) {
@@ -154,34 +162,54 @@ export function CamarotePulseiras({ eventId, eventTitle, v }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* A folha de impressão: só existe no papel. Some da tela e leva o resto
-          do painel junto quando o navegador imprime. */}
-      {imprimindo && (
-        <div className="hidden print:block fixed inset-0 bg-white text-black p-8 z-[9999]">
-          <h1 className="text-2xl font-bold mb-1">{eventTitle}</h1>
-          <p className="text-sm mb-6">Pulseiras · {imprimindo.length} {imprimindo.length === 1 ? v.singular : v.plural}</p>
-          {imprimindo.map((l) => (
-            <div key={l.seat_id} className="border-2 border-black rounded p-4 mb-4 break-inside-avoid">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-3xl font-black leading-none">{l.label ?? l.code}</p>
-                  {l.seat_type_name && <p className="text-lg">{l.seat_type_name}</p>}
+      {/* A folha, em pré-visualização. Na tela aparece dentro de um diálogo; na
+          impressora, ocupa a página inteira e leva o resto do painel embora
+          (tudo o mais é print:hidden). */}
+      <Dialog open={!!imprimindo} onOpenChange={(o) => !o && setImprimindo(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto print:max-w-none print:max-h-none print:overflow-visible print:border-0 print:shadow-none">
+          <DialogHeader className="print:hidden">
+            <DialogTitle>Conferir antes de imprimir</DialogTitle>
+            <DialogDescription>
+              {imprimindo?.length} {imprimindo?.length === 1 ? v.singular : v.plural} ·{' '}
+              {(imprimindo ?? []).reduce((s, l) => s + l.quantidade, 0)} pulseiras
+            </DialogDescription>
+          </DialogHeader>
+
+          <div id="folha-pulseiras" className="bg-white text-black p-6 rounded-lg print:p-0 print:rounded-none">
+            <h1 className="text-2xl font-bold mb-1">{eventTitle}</h1>
+            <p className="text-sm mb-5 text-black/70">
+              Pulseiras · {imprimindo?.length} {imprimindo?.length === 1 ? v.singular : v.plural}
+            </p>
+            {(imprimindo ?? []).map((l) => (
+              <div key={l.seat_id} className="border-2 border-black rounded p-4 mb-4 break-inside-avoid">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="min-w-0">
+                    <p className="text-3xl font-black leading-none">{l.label ?? l.code}</p>
+                    {l.seat_type_name && <p className="text-lg">{l.seat_type_name}</p>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-4xl font-black leading-none">{l.quantidade}</p>
+                    <p className="text-[10px] uppercase tracking-wide">pulseiras</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-4xl font-black leading-none">{l.quantidade}</p>
-                  <p className="text-xs uppercase tracking-wide">pulseiras</p>
+                <div className="mt-3 pt-3 border-t border-black/30 text-sm space-y-0.5">
+                  <p><strong>Comprador:</strong> {l.comprador ?? '—'}</p>
+                  {l.comprador_telefone && <p><strong>Contato:</strong> {l.comprador_telefone}</p>}
+                  <p><strong>Valor:</strong> {brl(Number(l.valor ?? 0))}</p>
+                  <p className="pt-2 text-xs">Retirado por: ______________________________  Data: ____/____</p>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-black/30 text-sm">
-                <p><strong>Comprador:</strong> {l.comprador ?? '—'}</p>
-                {l.comprador_telefone && <p><strong>Contato:</strong> {l.comprador_telefone}</p>}
-                <p><strong>Valor:</strong> {brl(Number(l.valor ?? 0))}</p>
-                <p className="mt-2 text-xs">Retirado por: _______________________________  Data: ____/____</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+
+          <div className="flex gap-2 print:hidden">
+            <Button variant="outline" className="flex-1" onClick={() => setImprimindo(null)}>Cancelar</Button>
+            <Button variant="hero" className="flex-1" onClick={confirmarImpressao}>
+              <Printer className="w-4 h-4 mr-2" /> Imprimir agora
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:hidden">
         <Card><CardContent className="p-4">
