@@ -800,6 +800,10 @@ export type Database = {
           updated_at: string
           venue_seat_id: string | null
           width: number | null
+          wristbands_delivered_at: string | null
+          wristbands_delivered_by: string | null
+          wristbands_delivered_to: string | null
+          wristbands_printed_at: string | null
           x: number | null
           y: number | null
         }
@@ -837,6 +841,10 @@ export type Database = {
           updated_at?: string
           venue_seat_id?: string | null
           width?: number | null
+          wristbands_delivered_at?: string | null
+          wristbands_delivered_by?: string | null
+          wristbands_delivered_to?: string | null
+          wristbands_printed_at?: string | null
           x?: number | null
           y?: number | null
         }
@@ -874,6 +882,10 @@ export type Database = {
           updated_at?: string
           venue_seat_id?: string | null
           width?: number | null
+          wristbands_delivered_at?: string | null
+          wristbands_delivered_by?: string | null
+          wristbands_delivered_to?: string | null
+          wristbands_printed_at?: string | null
           x?: number | null
           y?: number | null
         }
@@ -931,6 +943,7 @@ export type Database = {
           payment_provider: string
           producer_id: string
           producer_profile_id: string | null
+          seat_noun: string | null
           short_description: string | null
           slug: string | null
           state: string
@@ -964,6 +977,7 @@ export type Database = {
           payment_provider?: string
           producer_id: string
           producer_profile_id?: string | null
+          seat_noun?: string | null
           short_description?: string | null
           slug?: string | null
           state: string
@@ -997,6 +1011,7 @@ export type Database = {
           payment_provider?: string
           producer_id?: string
           producer_profile_id?: string | null
+          seat_noun?: string | null
           short_description?: string | null
           slug?: string | null
           state?: string
@@ -2545,6 +2560,25 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_camarote_wristbands: {
+        Args: { _event_id: string }
+        Returns: {
+          code: string
+          comprador: string
+          comprador_email: string
+          comprador_telefone: string
+          delivered_at: string
+          delivered_to: string
+          label: string
+          order_id: string
+          pago_em: string
+          printed_at: string
+          quantidade: number
+          seat_id: string
+          seat_type_name: string
+          valor: number
+        }[]
+      }
       get_cron_health: { Args: never; Returns: Json }
       get_cron_secret: { Args: never; Returns: string }
       get_event_fee: {
@@ -2667,6 +2701,10 @@ export type Database = {
           source: string
           whatsapp: string
         }[]
+      }
+      marcar_pulseiras: {
+        Args: { _acao: string; _retirado_por?: string; _seat_ids: string[] }
+        Returns: number
       }
       opcoes_parcelamento: {
         Args: {
