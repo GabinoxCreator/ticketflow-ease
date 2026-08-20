@@ -20,6 +20,7 @@ import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
+import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +63,11 @@ serve(async (req) => {
     // campo que chega com nome ligeiramente diferente vira CPF vazio silencioso.
     const cleanCPF = unformatCPF(body.customerCPF ?? body.customerCpf);
     if (!validateCPF(cleanCPF)) return json({ error: 'CPF inválido' }, 400);
+
+    // Nome de gente, não CPF digitado no campo errado (caso real de 19/08).
+    const erroNome = validarNomePessoa(customerName);
+    if (erroNome) return json({ error: erroNome }, 400);
+    const nomeLimpo = normalizarNomePessoa(customerName);
 
     // Quem é o comprador: o token, não o corpo da requisição.
     let userId: string | null = null;
@@ -129,7 +135,7 @@ serve(async (req) => {
       .from('orders')
       .insert({
         event_id: eventId,
-        customer_name: customerName,
+        customer_name: nomeLimpo,
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
         total_amount: finalAmount,
@@ -154,7 +160,7 @@ serve(async (req) => {
     const ticketsToCreate = lineItems.flatMap((item) =>
       Array.from({ length: item.quantity }, () => ({
         event_id: eventId, order_id: order.id, lot_id: item.lotId,
-        holder_name: customerName, holder_email: customerEmail,
+        holder_name: nomeLimpo, holder_email: customerEmail,
         holder_phone: customerPhone || null, user_id: userId, status: 'pending',
       })),
     );
@@ -184,7 +190,7 @@ serve(async (req) => {
       description: `${event.title}`.slice(0, 120),
       purchaseId: order.id,
       customer: {
-        name: customerName, cpf: cleanCPF,
+        name: nomeLimpo, cpf: cleanCPF,
         email: customerEmail,
         // Sem o código do país: com 13 dígitos a API RECUSA a cobrança.
         phone: telefoneParaMarcel(customerPhone),

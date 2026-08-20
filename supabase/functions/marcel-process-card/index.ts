@@ -23,6 +23,7 @@ import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -124,6 +125,11 @@ serve(async (req) => {
     // vazio em silêncio, e a venda cairia num "CPF inválido" sem explicação.
     const cleanCPF = unformatCPF(body.customerCPF ?? body.customerCpf);
     if (!validateCPF(cleanCPF)) return json({ error: 'CPF inválido' }, 400);
+
+    // Nome de gente, não CPF digitado no campo errado (caso real de 19/08).
+    const erroNome = validarNomePessoa(customerName);
+    if (erroNome) return json({ error: erroNome }, 400);
+    const nomeLimpo = normalizarNomePessoa(customerName);
     if (!card && !cartaoId) return json({ error: 'Dados do cartão obrigatórios' }, 400);
 
     const n = Math.trunc(Number(installments) || 1);
@@ -191,7 +197,7 @@ serve(async (req) => {
       .from('orders')
       .insert({
         event_id: eventId,
-        customer_name: customerName,
+        customer_name: nomeLimpo,
         customer_email: customerEmail,
         customer_phone: customerPhone || null,
         total_amount: valorCobrado,
@@ -212,7 +218,7 @@ serve(async (req) => {
     const ticketsToCreate = preco.linhas.flatMap((item) =>
       Array.from({ length: item.quantity }, () => ({
         event_id: eventId, order_id: order.id, lot_id: item.lotId,
-        holder_name: customerName, holder_email: customerEmail,
+        holder_name: nomeLimpo, holder_email: customerEmail,
         holder_phone: customerPhone || null, user_id: userId, status: 'pending',
       })),
     );
@@ -237,7 +243,7 @@ serve(async (req) => {
         // pedido em dúvida fica em dúvida para sempre.
         purchaseId: order.id,
         card, cartaoId,
-        customer: { name: customerName, cpf: cleanCPF, email: customerEmail },
+        customer: { name: nomeLimpo, cpf: cleanCPF, email: customerEmail },
       });
     } catch (err) {
       // ⚠️ Timeout ou 500 NÃO é recusa: a cobrança PODE ter passado. Refazer às

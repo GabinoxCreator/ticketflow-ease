@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
+import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,6 +154,13 @@ serve(async (req) => {
       return json({ error: 'invalid_cpf', message: 'CPF inválido. Verifique e tente novamente.' }, 400);
     }
 
+    // Nome de gente, não CPF digitado no campo errado (caso real de 19/08).
+    const erroNome = validarNomePessoa(customerName);
+    if (erroNome) {
+      return json({ error: 'invalid_name', message: erroNome }, 400);
+    }
+    const nomeLimpo = normalizarNomePessoa(customerName);
+
     // Event sanity
     const { data: event, error: eventError } = await supabase
       .from('events')
@@ -180,7 +188,7 @@ serve(async (req) => {
         _seats: seats.map(s => ({ seat_id: s.seatId, addons: Math.max(0, Number(s.addons || 0)) })),
         _fee_percent: feePercent,
         _fee_fixed: feeFixed,
-        _customer_name: customerName,
+        _customer_name: nomeLimpo,
         _customer_email: customerEmail,
         _customer_cpf: cleanCPF,
         _customer_phone: customerPhone || null,
@@ -292,7 +300,7 @@ serve(async (req) => {
 
     // --- TRY #2: MP POST ---
     // Antifraude
-    const nameParts = (customerName || '').trim().split(/\s+/).filter(Boolean);
+    const nameParts = nomeLimpo.split(/\s+/).filter(Boolean);
     const firstName = nameParts[0] || 'Cliente';
     const lastName = nameParts.slice(1).join(' ') || firstName;
     const phoneDigits = (customerPhone || '').replace(/\D/g, '');

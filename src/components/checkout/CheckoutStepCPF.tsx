@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCPF, validateCPF, unformatCPF } from '@/utils/cpfValidator';
 import { cn } from '@/lib/utils';
+import { validarNomePessoa, normalizarNomePessoa } from '@/lib/nomePessoa';
 
 interface CheckoutStepCPFProps {
   initialCPF?: string;
@@ -61,8 +62,9 @@ export function CheckoutStepCPF({
     }
 
     if (requireName) {
-      if (name.trim().length < 3) {
-        setNameError('Nome deve ter pelo menos 3 caracteres');
+      const erroNome = validarNomePessoa(name);
+      if (erroNome) {
+        setNameError(erroNome);
         hasError = true;
       } else {
         setNameError('');
@@ -80,7 +82,7 @@ export function CheckoutStepCPF({
     }
 
     if (!hasError) {
-      onContinue(digits, name.trim(), email.trim());
+      onContinue(digits, normalizarNomePessoa(name), email.trim());
     }
   };
 
