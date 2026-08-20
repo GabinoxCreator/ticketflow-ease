@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_nomes_google_20260820: {
+        Row: {
+          criado_em: string | null
+          registro_id: string | null
+          tipo: string | null
+          valor_antes: string | null
+          valor_depois: string | null
+        }
+        Insert: {
+          criado_em?: string | null
+          registro_id?: string | null
+          tipo?: string | null
+          valor_antes?: string | null
+          valor_depois?: string | null
+        }
+        Update: {
+          criado_em?: string | null
+          registro_id?: string | null
+          tipo?: string | null
+          valor_antes?: string | null
+          valor_depois?: string | null
+        }
+        Relationships: []
+      }
       admin_section_permissions: {
         Row: {
           created_at: string
