@@ -46,39 +46,15 @@ export const MesaReservaCTA = ({ eventId, eventSlugOrId, description, seatNoun }
         </div>
       ) : (
         <>
-          {sectors && sectors.length > 0 && (
-            <ul className="space-y-2 mb-4 border-t border-border/40 pt-3">
-              {sectors.map((s) => {
-                const extras = Math.max(0, s.maxCapacity - s.baseCapacity);
-                return (
-                  <li
-                    key={s.seatTypeName}
-                    className="flex items-start gap-2 text-sm break-words"
-                  >
-                    <span className="text-primary mt-1 shrink-0">•</span>
-                    <span className="min-w-0">
-                      <span className="font-semibold uppercase tracking-wide">
-                        {s.seatTypeName}
-                      </span>
-                      {s.baseCapacity > 0 && (
-                        <span className="text-muted-foreground">
-                          {' · '}
-                          {s.baseCapacity} {s.baseCapacity === 1 ? 'pessoa' : 'pessoas'}
-                          {extras > 0 && ` + até ${extras} extra${extras > 1 ? 's' : ''}`}
-                        </span>
-                      )}
-                      {/* SEM PREÇO AQUI (decisão do Gabriel, 19/08). Camarote é
-                          venda negociada: o valor sai na conversa, junto com o
-                          que está incluso. Preço na vitrine faz a pessoa
-                          comparar número seco e desistir antes de falar com
-                          alguém — e ele varia por piso e por acordo. Quem abre
-                          o mapa vê o valor de cada unidade. */}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          {/* SEM a lista de pisos (decisão do Gabriel, 20/08) — nem preço, nem
+              capacidade. Camarote é venda negociada: quantas pessoas cabem e
+              quanto custa saem na conversa, junto com o que está incluso.
+              A lista ainda expunha detalhe operacional que muda por acordo:
+              quando o produtor fechou 4 unidades com capacidade combinada, a
+              vitrine passou a anunciar "PISO A · 40 pessoas" para o público
+              inteiro. Quem abre o mapa vê o valor de cada unidade.
+              `useEventSeatAvailability` segue aqui porque é o que sabe dizer
+              se tudo esgotou. */}
 
           <div className="flex items-center justify-end gap-4 flex-wrap">
             {allSoldOut ? (
