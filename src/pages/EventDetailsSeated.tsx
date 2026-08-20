@@ -99,8 +99,21 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
 
   const myHoldSeatIds = useMemo(() => new Set(hold?.seatIds ?? []), [hold]);
 
+  /** Códigos que vieram no link, para o mapa marcá-los. */
+  const idsDoPacote = useMemo(
+    () => new Set(unidadesDoPacote.map((s) => s.id)),
+    [unidadesDoPacote],
+  );
+
   const resolveVisualStatus = useCallback(
     (seat: EventSeatRow): VStatus => {
+      // Link de pacote: as unidades combinadas nascem MARCADAS no mapa. Sem
+      // isto o comprador abria um mapa de 100 iguais, com uma barra no topo
+      // falando de "4 unidades" que ele não conseguia enxergar — e a dúvida,
+      // numa compra de dezenas de milhares, faz a pessoa parar (Gabriel, 20/08).
+      if (idsDoPacote.has(seat.id) && (seat.status === 'available' || seat.status === 'held')) {
+        return 'selected-mine';
+      }
       // 'manual' = mesa fechada pelo produtor fora do checkout. Tratada como
       // indisponível no mapa público (não clicável, mesma aparência de sold).
       if (seat.status === 'manual') return 'sold';
@@ -120,7 +133,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       }
       return 'available';
     },
-    [user, myHoldSeatIds]
+    [user, myHoldSeatIds, idsDoPacote]
   );
 
   const handleToggleSeat = useCallback(
@@ -168,13 +181,17 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
     setIsHolding(true);
     try {
       const ids = unidadesDoPacote.map((s) => s.id);
-      // Cada unidade entra com a quantidade de ingressos que o produtor fechou.
-      const iniciais: Record<string, number> = {};
-      for (const s of unidadesDoPacote) {
-        const base = Number(s.base_capacity ?? 0);
-        if (base > 0) iniciais[s.id] = base;
-      }
-      const result = await holdSelected(ids, iniciais);
+      // ⚠️ SEM adicionais. Aqui morava um bug caro (achado em 20/08): este trecho
+      // mandava `addons = base_capacity`, confundindo "quantos ingressos o
+      // camarote dá" com "quantas pessoas ALÉM da capacidade". A capacidade já
+      // está no preço; adicional é só o que passa dela.
+      //
+      // O estrago não era só o resumo dizer "80 pessoas": o servidor RECUSA a
+      // cotação de adicional que não cabe, a tela engolia o erro, e o comprador
+      // ficava sem parcelamento vendo um total menor do que seria cobrado. Numa
+      // venda de R$ 22 mil. Quem fechar o pacote com ingresso extra ajusta na
+      // tela do mapa — que é onde o extra tem preço na frente.
+      const result = await holdSelected(ids);
       if (!result) return;
       goToSeatCheckout(navigate, markProceeding, eventId);
     } finally {
@@ -272,6 +289,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
         <aside className="border-t lg:border-t-0 lg:border-l border-border bg-background overflow-y-auto p-4 min-h-0">
           <SelectionPanel
             seatNoun={event.seat_noun}
+            unidadesDoPacote={unidadesDoPacote}
             seats={seats ?? []}
             hold={hold}
             addons={addons}

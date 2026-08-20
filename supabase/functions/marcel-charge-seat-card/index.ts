@@ -22,6 +22,7 @@ import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import {
+import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
   corsMesa, jsonMesa, adminClient, exigirUsuario, exigirCpfValido, eventoPublicado,
   abrirPedidoDeMesa, desfazerPedidoDeMesa, cotarMesa, MesaInvalida,
   type AssentoPedido,
@@ -116,13 +117,21 @@ serve(async (req) => {
 
     // ---- Cobrança de verdade -------------------------------------------------
     const cleanCPF = exigirCpfValido(body.customerCPF ?? body.customerCpf);
+
+    // Nome de gente, não CPF digitado no campo errado (caso real de 19/08).
+    // ⚠️ Estas duas edges de camarote ficaram de fora quando a trava subiu em
+    // 20/08 — eu protegi as equivalentes do Mercado Pago por engano, e são
+    // ESTAS que o rodeio usa.
+    const erroNome = validarNomePessoa(customerName);
+    if (erroNome) return jsonMesa({ error: 'invalid_name', message: erroNome }, 400);
+    const nomeLimpo = normalizarNomePessoa(customerName);
     if (!card && !cartaoId) return jsonMesa({ error: 'invalid_request', message: 'Dados do cartão obrigatórios' }, 400);
 
     const event = await eventoPublicado(admin, eventId);
 
     const pedido = await abrirPedidoDeMesa(admin, {
       eventId, userId, holdToken, seats,
-      customerName, customerEmail, customerCpf: cleanCPF, customerPhone,
+      customerName: nomeLimpo, customerEmail, customerCpf: cleanCPF, customerPhone,
       metodo: 'card', janela: JANELA_CARTAO,
     });
     orderId = pedido.orderId;
@@ -160,7 +169,7 @@ serve(async (req) => {
       description: `${event.title} - Mesa`.slice(0, 120),
       purchaseId: pedido.orderId,
       ...(cartaoId ? { cartaoId } : { card: card as any }),
-      customer: { name: customerName, cpf: cleanCPF, email: customerEmail },
+      customer: { name: nomeLimpo, cpf: cleanCPF, email: customerEmail },
     });
 
     // Guarda o identificador ANTES de decidir aprovado/recusado: a recusa também

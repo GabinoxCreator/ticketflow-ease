@@ -113,6 +113,9 @@ export default function SeatCheckout() {
   // migrou — nunca chutar 'marcel'.
   const isMarcel = (event?.payment_provider ?? 'mercadopago') === 'marcel';
   const CardStep = isMarcel ? SeatCheckoutCardMarcel : SeatCheckoutCard;
+  // Prometer 12 e entregar 10 quebra a confiança na tela do pagamento — e a
+  // API do Marcel recusa a venda inteira acima do teto dela.
+  const maxParcelas = isMarcel ? 10 : 12;
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [customer, setCustomer] = useState<CustomerData | null>(null);
@@ -135,7 +138,7 @@ export default function SeatCheckout() {
       setLoadingEvent(true);
       const { data: ev } = await supabase
         .from('events')
-        .select('id, title, slug, date, venue, city, state, payment_provider')
+        .select('id, title, slug, date, venue, city, state, payment_provider, seat_noun')
         .eq('id', eventId)
         .maybeSingle();
       if (ev) setEvent(ev as EventSummary);
@@ -473,7 +476,7 @@ export default function SeatCheckout() {
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
             {(['method', 'pix', 'card', 'awaiting'] as Step[]).includes(step) ? (
               <div className="mb-5">
-                <SeatOrderSummary event={event} seats={seats} addons={addons} subtotal={subtotal} serviceFee={serviceFee} totalAmount={totalAmount} />
+                <SeatOrderSummary event={event} seats={seats} addons={addons} subtotal={subtotal} serviceFee={serviceFee} totalAmount={totalAmount} seatNoun={(event as any)?.seat_noun} />
               </div>
             ) : (
               <>
@@ -554,7 +557,7 @@ export default function SeatCheckout() {
                 <button
                   type="button"
                   onClick={() => setStep('card')}
-                  aria-label="Pagar com cartão de crédito em até 12 parcelas"
+                  aria-label={`Pagar com cartão de crédito em até ${maxParcelas} parcelas`}
                   className="group w-full rounded-2xl p-5 text-left bg-card border border-border/70 transition-all duration-300 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 active:scale-[0.99]"
                 >
                   <div className="flex items-center gap-4">
@@ -563,7 +566,7 @@ export default function SeatCheckout() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-display font-semibold text-base leading-tight">Pagar com cartão</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">Crédito · parcele em até 12x</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">Crédito · parcele em até {maxParcelas}x</p>
                     </div>
                     <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" aria-hidden="true" />
                   </div>

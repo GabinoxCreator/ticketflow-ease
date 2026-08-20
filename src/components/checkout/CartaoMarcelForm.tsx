@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Loader2, Lock, User, Calendar, Shield } from 'lucide-react';
+import { CreditCard, Loader2, Lock, User, Calendar, Shield, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,6 +77,10 @@ export function CartaoMarcelForm({
   // resumo e outro para pagar, com a diferença SEM explicação nenhuma — e
   // diferença inexplicada no meio do pagamento faz gente desistir.
   const [composicao, setComposicao] = useState<{ face: number; taxaAdm: number } | null>(null);
+  // A cotação falhou. Precisa aparecer na tela: sem isto o seletor de parcelas
+  // simplesmente sumia, o cliente achava que o evento não parcela, e o total
+  // mostrado era o de antes do custo do cartão — menor do que ele pagaria.
+  const [quoteFalhou, setQuoteFalhou] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -84,13 +88,23 @@ export function CartaoMarcelForm({
       try {
         const r = await cotar();
         if (!active || !r) return;
-        if (Array.isArray(r.options) && r.options.length > 0) setOptions(r.options);
+        if (Array.isArray(r.options) && r.options.length > 0) {
+          setOptions(r.options);
+        } else {
+          // Respondeu, mas sem nenhuma faixa de parcela: para o comprador é
+          // igual a ter falhado.
+          setQuoteFalhou(true);
+        }
         if (typeof r.totalFace === 'number' && typeof r.taxaAdministrativa === 'number') {
           setComposicao({ face: r.totalFace, taxaAdm: r.taxaAdministrativa });
         }
       } catch (err) {
-        // Fallback seguro: sem opções, o cliente ainda paga à vista. Não travar.
+        // ⚠️ NÃO seguir em silêncio. Isto já custou caro (20/08): a cotação
+        // recusava o pedido, o seletor de parcelas sumia sem explicação e o
+        // botão exibia o total ANTES do custo do cartão. O cliente pagaria um
+        // valor que a tela nunca mostrou — ou levaria uma recusa sem motivo.
         console.error('Quote error (Marcel):', err);
+        if (active) setQuoteFalhou(true);
       } finally {
         if (active) setLoadingQuote(false);
       }
@@ -188,6 +202,20 @@ export function CartaoMarcelForm({
         <div className="flex justify-center py-1">
           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
         </div>
+      ) : quoteFalhou ? (
+        /* Falar a verdade em vez de sumir com o parcelamento. Sem isto o
+           comprador conclui que o evento não parcela — e paga um valor que a
+           tela não conferiu com o servidor. */
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3.5 py-3 flex gap-2.5">
+          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <p className="font-semibold text-amber-300">Não consegui calcular as parcelas agora.</p>
+            <p className="text-muted-foreground mt-0.5">
+              Recarregue a página e tente de novo. Se continuar, fale com quem te enviou o link —
+              não conclua o pagamento sem ver o valor das parcelas.
+            </p>
+          </div>
+        </div>
       ) : options.length > 0 ? (
         <div>
           <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
@@ -249,7 +277,7 @@ export function CartaoMarcelForm({
       </div>
 
       <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold"
-        onClick={handleSubmit} disabled={isProcessing}>
+        onClick={handleSubmit} disabled={isProcessing || quoteFalhou}>
         {isProcessing ? (
           <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processando...</>
         ) : (

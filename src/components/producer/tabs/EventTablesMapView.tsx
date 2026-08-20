@@ -98,18 +98,31 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }:
    * distintos, sai um grupo só e nenhum cabeçalho é desenhado.
    */
   const grupos = useMemo(() => {
-    const mapa = new Map<string, { nome: string; minX: number; maxX: number; minY: number; preco: number | null }>();
+    const mapa = new Map<string, {
+      nome: string; minX: number; maxX: number; minY: number;
+      precoMin: number | null; precoMax: number | null;
+    }>();
     for (const s of posicionadas) {
       const nome = s.seat_type_name ?? '';
       if (!nome) continue;
       const w = s.width ?? (s.radius ? s.radius * 2 : 80);
+      const p = s.base_price;
       const atual = mapa.get(nome);
       if (!atual) {
-        mapa.set(nome, { nome, minX: s.x!, maxX: s.x! + w, minY: s.y!, preco: s.base_price });
+        mapa.set(nome, { nome, minX: s.x!, maxX: s.x! + w, minY: s.y!, precoMin: p, precoMax: p });
       } else {
         atual.minX = Math.min(atual.minX, s.x!);
         atual.maxX = Math.max(atual.maxX, s.x! + w);
         atual.minY = Math.min(atual.minY, s.y!);
+        // ⚠️ O preço tem que olhar TODAS as unidades do piso, não só a primeira.
+        // Fechar a venda de 4 camarotes por um valor combinado muda o preço só
+        // daqueles 4 — e o cabeçalho passava a anunciar esse valor como se fosse
+        // o do piso inteiro. O produtor lia "Piso A R$ 5.000" com 16 unidades a
+        // R$ 8.000 embaixo (achado em 20/08).
+        if (p != null) {
+          atual.precoMin = atual.precoMin == null ? p : Math.min(atual.precoMin, p);
+          atual.precoMax = atual.precoMax == null ? p : Math.max(atual.precoMax, p);
+        }
       }
     }
     return mapa.size > 1 ? [...mapa.values()] : [];
@@ -143,7 +156,12 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }:
         >
           {grupos.map((g) => {
             const meio = (g.minX + g.maxX) / 2;
-            const preco = moeda(g.preco);
+            // Preço único no piso → mostra o valor. Preços diferentes (venda
+            // fechada em algumas unidades) → mostra a faixa, em vez de eleger
+            // um deles e mentir sobre os outros.
+            const pMin = moeda(g.precoMin);
+            const pMax = moeda(g.precoMax);
+            const preco = !pMin ? null : (pMin === pMax ? pMin : `${pMin} a ${pMax}`);
             return (
               <g key={g.nome}>
                 <text

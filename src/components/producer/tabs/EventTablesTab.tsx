@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventTables, isEffectivelyAvailable, type EventTableRow } from '@/hooks/useEventTables';
 import { useSeatNoun } from '@/hooks/useEventTables';
@@ -71,6 +71,22 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
   // painel inteiro fala a língua dele, inclusive na concordância.
   const { data: seatNoun } = useSeatNoun(eventId);
   const v = vocabularioAssento(seatNoun);
+
+  // Quantas noites o evento tem. É o que transforma "10 ingressos por noite"
+  // no número de pulseiras que a gráfica precisa imprimir — e foi onde o
+  // produtor se confundiu na primeira venda (20/08): sem ver o total, ele
+  // digitou no campo "por noite" o número que tinha em mente para o pacote.
+  const { data: noitesDoEvento } = useQuery({
+    queryKey: ['event-days-count', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('event_days')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', eventId);
+      return count ?? 0;
+    },
+  });
 
   // Venda em lote: o produtor fecha dois, três camarotes numa negociação só.
   // Clicar num de cada vez e mandar dois links é o caminho para o comprador
@@ -388,6 +404,7 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
         eventId={eventId}
         eventTitle={eventTitle ?? 'seu evento'}
         v={v}
+        noites={noitesDoEvento}
         onSaved={() => qcPrepare.invalidateQueries({ queryKey: ['event-tables', eventId] })}
       />
     </div>
