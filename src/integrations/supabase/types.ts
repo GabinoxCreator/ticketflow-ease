@@ -2570,8 +2570,10 @@ export type Database = {
           delivered_at: string
           delivered_to: string
           label: string
+          noites: number
           order_id: string
           pago_em: string
+          pessoas: number
           printed_at: string
           quantidade: number
           seat_id: string
