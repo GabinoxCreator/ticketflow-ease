@@ -23,6 +23,7 @@ import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import {
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
+import { bandeiraDoCartao } from '../_shared/bandeiraCartao.ts';
   corsMesa, jsonMesa, adminClient, exigirUsuario, exigirCpfValido, eventoPublicado,
   abrirPedidoDeMesa, desfazerPedidoDeMesa, cotarMesa, MesaInvalida,
   type AssentoPedido,
@@ -210,7 +211,10 @@ serve(async (req) => {
         quantity: 1,
         modoTaxa: 'repassa',
       }],
-      { installments: n, brandRaw: null, provider: 'marcel', method: 'card' });
+      // Mesma razão da rota de ingresso: a Safe2Pay não devolve a bandeira, e
+      // os primeiros dígitos do cartão já dizem qual é. Só o nome é guardado.
+      { installments: n, brandRaw: card ? bandeiraDoCartao((card as { number?: string }).number) : null,
+        provider: 'marcel', method: 'card' });
 
     const resultado = await applyOrderApproved(admin, {
       orderId: pedido.orderId,

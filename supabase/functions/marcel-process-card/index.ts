@@ -24,6 +24,7 @@ import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, Carri
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
+import { bandeiraDoCartao } from '../_shared/bandeiraCartao.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -313,14 +314,18 @@ serve(async (req) => {
     }
 
     // Grava o que o sistema jogava fora: face por lote, parcelas e bandeira.
-    // A bandeira não vem nesta resposta — fica null, que é honesto: melhor o
-    // motor de repasse saber que não sabe do que chutar a faixa mais barata.
+    // A bandeira não vem na resposta da Safe2Pay, mas os primeiros dígitos do
+    // cartão já dizem qual é — e é o que o motor de repasse precisa para saber
+    // o custo real da venda. Só o NOME sai daqui; nada do número é guardado.
+    // Sem isto, cada venda passava com a bandeira vazia, e o framework marca
+    // esse dado como irrecuperável depois do fato.
+    const bandeira = card ? bandeiraDoCartao((card as { number?: string }).number) : null;
     await captureSaleTerms(admin, order.id,
       preco.linhas.map((i) => ({
         lotId: i.lotId, lotName: i.lotName, unitFace: i.price,
         quantity: i.quantity, modoTaxa: i.modoTaxa,
       })),
-      { installments: n, brandRaw: null, provider: 'marcel', method: 'card' });
+      { installments: n, brandRaw: bandeira, provider: 'marcel', method: 'card' });
 
     const resultado = await applyOrderApproved(admin, {
       orderId: order.id,

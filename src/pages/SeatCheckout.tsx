@@ -31,6 +31,7 @@ import { SeatCheckoutCard, CARD_ERROR_MESSAGES } from '@/components/checkout/Sea
 import { SeatCheckoutCardMarcel } from '@/components/checkout/SeatCheckoutCardMarcel';
 import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
+import { vocabularioAssento } from '@/lib/vocabularioAssento';
 
 
 type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
@@ -116,6 +117,7 @@ export default function SeatCheckout() {
   // Prometer 12 e entregar 10 quebra a confiança na tela do pagamento — e a
   // API do Marcel recusa a venda inteira acima do teto dela.
   const maxParcelas = isMarcel ? 10 : 12;
+  const vSeat = vocabularioAssento((event as any)?.seat_noun);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [customer, setCustomer] = useState<CustomerData | null>(null);
@@ -474,7 +476,34 @@ export default function SeatCheckout() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
-            {(['method', 'pix', 'card', 'awaiting'] as Step[]).includes(step) ? (
+            {/* No momento de digitar cartão ou ler o QR, a conta já foi conferida:
+                repetir subtotal, taxa e linha por linha ali em cima só disputa
+                atenção com o que importa (Gabriel, 20/08). Fica o essencial —
+                o que está sendo comprado e quanto é — e o detalhe volta num
+                toque, para quem quiser reconferir sem voltar a tela. */}
+            {(['pix', 'card', 'awaiting'] as Step[]).includes(step) ? (
+              <details className="mb-5 group">
+                <summary className="list-none cursor-pointer flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="font-display font-semibold text-base block truncate">{event.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {seats.length} {seats.length === 1 ? vSeat.singular : vSeat.plural}
+                      <span className="ml-1.5 text-primary group-open:hidden">ver detalhes</span>
+                      <span className="ml-1.5 text-primary hidden group-open:inline">ocultar</span>
+                    </span>
+                  </span>
+                  <span className="text-right shrink-0">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">Total</span>
+                    <span className="font-display font-bold text-xl gradient-text tabular-nums">
+                      {totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </span>
+                </summary>
+                <div className="mt-4 pt-4 border-t border-border/60">
+                  <SeatOrderSummary event={event} seats={seats} addons={addons} subtotal={subtotal} serviceFee={serviceFee} totalAmount={totalAmount} seatNoun={(event as any)?.seat_noun} />
+                </div>
+              </details>
+            ) : step === 'method' ? (
               <div className="mb-5">
                 <SeatOrderSummary event={event} seats={seats} addons={addons} subtotal={subtotal} serviceFee={serviceFee} totalAmount={totalAmount} seatNoun={(event as any)?.seat_noun} />
               </div>
