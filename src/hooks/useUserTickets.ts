@@ -78,6 +78,22 @@ export function ticketEventDisplay(event: UserTicket['event']) {
   };
 }
 
+/** Um ingresso que esta pessoa transferiu. Sem `ticket_code`: o QR é do novo dono. */
+export interface IngressoTransferido {
+  ticket_id: string;
+  event_id: string;
+  event_title: string;
+  event_date: string;
+  event_time: string | null;
+  event_venue: string | null;
+  event_city: string | null;
+  event_image: string | null;
+  lot_name: string | null;
+  seat_label: string | null;
+  para_cpf_final: string | null;
+  transferido_em: string;
+}
+
 export function useUserTickets() {
   const { user } = useAuth();
 
@@ -175,11 +191,27 @@ export function useUserTickets() {
 
   const cancelledTickets = tickets?.filter(t => t.status === 'cancelled') || [];
 
+  // Os que EU transferi. Ficam como registro: quem enviou precisa ver que o
+  // ingresso foi para alguém, em vez de vê-lo simplesmente sumir da tela
+  // (Gabriel, 21/08). Consulta separada e tolerante a falha — se ela cair, a
+  // lista de ingressos continua inteira.
+  const { data: transferidos } = useQuery({
+    queryKey: ['ingressos-transferidos', user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<IngressoTransferido[]> => {
+      const { data, error } = await (supabase.rpc as any)('meus_ingressos_transferidos');
+      if (error) return [];
+      return (data ?? []) as IngressoTransferido[];
+    },
+  });
+
   return {
     tickets,
     upcomingTickets,
     pastTickets,
     cancelledTickets,
+    /** Ingressos que esta pessoa passou para outra. Sem QR — só o registro. */
+    transferidos: transferidos ?? [],
     isLoading,
     error,
     /** Recarrega a lista — usado depois de iniciar ou cancelar uma transferência. */
