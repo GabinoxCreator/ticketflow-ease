@@ -29,21 +29,31 @@ interface Props {
   className?: string;
 }
 
-/** Fileira do camarote. A de baixo (colada na arena) é a mais alta e opaca. */
-function Degrau({ indice, total, aceso }: { indice: number; total: number; aceso: boolean }) {
-  // A fileira 1 encosta na arena; as seguintes recuam e perdem força. É a
-  // mesma gradação do croqui aprovado, agora com altura.
+/**
+ * Fileira do camarote. A de baixo (colada na arena) é a mais forte.
+ *
+ * ⚠️ A altura vem de `flex`, não de pixel fixo. A primeira versão calculava
+ * `26 - indice * 3.2` px, e na vista de cima o setor inteiro sumia da tela
+ * (Gabriel, 21/08): alturas fixas dentro de um container flexível não enchem o
+ * espaço, e sem a inclinação para dar volume não sobrava nada visível.
+ * Dividindo o espaço, as cinco fileiras aparecem sempre — com ou sem
+ * perspectiva.
+ *
+ * O relevo (`translateZ`) só entra quando o mapa está inclinado: em cima de uma
+ * planta reta ele não acrescenta nada e ainda arrisca sumir com o elemento.
+ */
+function Degrau({ indice, total, aceso, comRelevo }: {
+  indice: number; total: number; aceso: boolean; comRelevo: boolean;
+}) {
   const forca = 1 - (indice / Math.max(total, 1)) * 0.55;
-  const altura = 26 - indice * 3.2;
 
   return (
     <div
-      className="relative rounded-[2px] transition-all duration-500"
+      className="relative flex-1 min-h-[9px] rounded-[2px] transition-all duration-500"
       style={{
-        height: `${altura}px`,
         background: '#1E9BF0',
         opacity: aceso ? forca : forca * 0.62,
-        transform: `translateZ(${(total - indice) * 7}px)`,
+        transform: comRelevo ? `translateZ(${(total - indice) * 7}px)` : undefined,
         boxShadow: aceso ? `0 0 18px rgba(30,155,240,${0.28 * forca})` : 'none',
       }}
     />
@@ -52,7 +62,10 @@ function Degrau({ indice, total, aceso }: { indice: number; total: number; aceso
 
 export function MapaArena({ mapa, className }: Props) {
   const [aberto, setAberto] = useState<string | null>(null);
-  const [girado, setGirado] = useState(true);
+  // Vista de cima como padrão (Gabriel, 21/08): é a leitura mais direta de
+  // "o que fica onde". A perspectiva fica a um toque, para quem quiser ver o
+  // volume das fileiras do camarote.
+  const [girado, setGirado] = useState(false);
 
   const setorAberto: SetorDaArena | undefined =
     mapa.setores.find((s) => s.id === aberto);
@@ -178,8 +191,8 @@ export function MapaArena({ mapa, className }: Props) {
                   onClick={() => alternar(camarote.id)}
                   aria-pressed={aberto === camarote.id}
                   aria-label={`${camarote.nome}: ${camarote.descricao}`}
-                  className="flex-1 min-h-[150px] flex flex-col justify-end gap-[3px] rounded-sm p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  style={{ transformStyle: 'preserve-3d' }}
+                  className="flex-1 min-h-[150px] flex flex-col justify-stretch gap-[3px] rounded-sm p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  style={{ transformStyle: girado ? 'preserve-3d' : undefined }}
                 >
                   {Array.from({ length: mapa.camarote.degraus }).map((_, i) => (
                     <Degrau
@@ -187,6 +200,7 @@ export function MapaArena({ mapa, className }: Props) {
                       indice={mapa.camarote.degraus - 1 - i}
                       total={mapa.camarote.degraus}
                       aceso={aberto === null || aberto === camarote.id}
+                      comRelevo={girado}
                     />
                   ))}
                 </button>
