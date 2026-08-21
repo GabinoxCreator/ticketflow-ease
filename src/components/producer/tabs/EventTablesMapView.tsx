@@ -154,9 +154,12 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds, p
         >
           {grupos.map((g) => {
             const meio = (g.minX + g.maxX) / 2;
-            // O cabeçalho mostra o preço de TABELA do piso, que não muda quando
-            // uma unidade é negociada. Antes ele exibia o preço da primeira
-            // unidade e mudava sozinho a cada venda fechada.
+            // O cabeçalho do piso mostra o preço de TABELA e MAIS NADA (regra do
+            // Gabriel, dita duas vezes). Não muda quando uma unidade é negociada,
+            // e não conta quantas foram: desconto é assunto da VENDA, não do
+            // piso. Antes exibia o preço da primeira unidade e mudava sozinho a
+            // cada negociação; depois eu acrescentei "N com desconto" ao lado, e
+            // o texto invadia a coluna do piso vizinho.
             //
             // Sem a tabela carregada (evento antigo, tipo renomeado), cai na
             // faixa das unidades — que ao menos não elege um preço e mente
@@ -168,15 +171,6 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds, p
               ? moeda(daTabela)
               : (!pMin ? null : (pMin === pMax ? pMin : `${pMin} a ${pMax}`));
 
-            // Quantas unidades saíram da tabela. O preço do piso é FIXO; quando
-            // o produtor fecha por menos, aquilo é DESCONTO naquela unidade, não
-            // um preço novo do piso (palavra dele, 20/08). Por isso o cabeçalho
-            // nunca muda e o que aparece do lado é a contagem de exceções.
-            const foraDaTabela = daTabela == null
-              ? 0
-              : posicionadas.filter(
-                  (s) => (s.seat_type_name ?? '') === g.nome && Number(s.base_price ?? 0) !== daTabela,
-                ).length;
             return (
               <g key={g.nome}>
                 <text
@@ -193,11 +187,6 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds, p
                     style={{ fontFamily: 'ui-monospace, monospace' }}
                   >
                     {preco}
-                    {foraDaTabela > 0 && (
-                      <tspan fill="#C9A227">
-                        {'  '}· {foraDaTabela} com desconto
-                      </tspan>
-                    )}
                   </text>
                 )}
               </g>
