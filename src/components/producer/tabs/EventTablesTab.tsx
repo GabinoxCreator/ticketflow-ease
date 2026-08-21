@@ -72,6 +72,29 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
   const { data: seatNoun } = useSeatNoun(eventId);
   const v = vocabularioAssento(seatNoun);
 
+  // Preço de TABELA de cada piso, direto de `seat_types`.
+  //
+  // O cabeçalho do mapa mostrava o preço da primeira unidade do piso, e por isso
+  // mudava sozinho: fechar dois camarotes do Piso B por R$ 5.000 fazia o mapa
+  // anunciar "PISO B · R$ 5.000" com 18 unidades a R$ 8.000 embaixo (Gabriel,
+  // 20/08 — apontou duas vezes). Preço de piso é do PISO: negociar uma unidade
+  // não muda a tabela. Casado por nome porque é o que a RPC do painel devolve.
+  const { data: precoDeTabela } = useQuery({
+    queryKey: ['seat-types-preco', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('seat_types')
+        .select('name, base_price')
+        .eq('is_active', true);
+      const m: Record<string, number> = {};
+      for (const t of data ?? []) {
+        if (t.name && t.base_price != null) m[t.name] = Number(t.base_price);
+      }
+      return m;
+    },
+  });
+
   // Quantas noites o evento tem. É o que transforma "10 ingressos por noite"
   // no número de pulseiras que a gráfica precisa imprimir — e foi onde o
   // produtor se confundiu na primeira venda (20/08): sem ver o total, ele
@@ -276,6 +299,7 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
         onSelect={aoClicarNaPlanta}
         selectedId={selected?.id ?? null}
         selectedIds={loteIds}
+        precoDeTabela={precoDeTabela}
       />
 
       {/* Barra do lote: só existe quando há algo selecionado, e some sozinha ao

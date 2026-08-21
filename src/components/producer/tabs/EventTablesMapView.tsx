@@ -46,6 +46,9 @@ interface Props {
    * é o caminho para o comprador pagar um e esquecer o outro.
    */
   selectedIds?: Set<string>;
+  /** `{ "Piso A": 9000 }` — preço de TABELA, de `seat_types`. É fixo: negociar
+   *  uma unidade não muda o valor do piso. */
+  precoDeTabela?: Record<string, number>;
 }
 
 const PAD = 30;
@@ -56,7 +59,7 @@ function temGrupos(seats: EventTableRow[]): boolean {
   return nomes.size > 1;
 }
 
-export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }: Props) {
+export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds, precoDeTabela }: Props) {
   const posicionadas = useMemo(
     () => seats.filter((s) => s.x != null && s.y != null),
     [seats],
@@ -114,11 +117,6 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }:
         atual.minX = Math.min(atual.minX, s.x!);
         atual.maxX = Math.max(atual.maxX, s.x! + w);
         atual.minY = Math.min(atual.minY, s.y!);
-        // ⚠️ O preço tem que olhar TODAS as unidades do piso, não só a primeira.
-        // Fechar a venda de 4 camarotes por um valor combinado muda o preço só
-        // daqueles 4 — e o cabeçalho passava a anunciar esse valor como se fosse
-        // o do piso inteiro. O produtor lia "Piso A R$ 5.000" com 16 unidades a
-        // R$ 8.000 embaixo (achado em 20/08).
         if (p != null) {
           atual.precoMin = atual.precoMin == null ? p : Math.min(atual.precoMin, p);
           atual.precoMax = atual.precoMax == null ? p : Math.max(atual.precoMax, p);
@@ -156,12 +154,29 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }:
         >
           {grupos.map((g) => {
             const meio = (g.minX + g.maxX) / 2;
-            // Preço único no piso → mostra o valor. Preços diferentes (venda
-            // fechada em algumas unidades) → mostra a faixa, em vez de eleger
-            // um deles e mentir sobre os outros.
+            // O cabeçalho mostra o preço de TABELA do piso, que não muda quando
+            // uma unidade é negociada. Antes ele exibia o preço da primeira
+            // unidade e mudava sozinho a cada venda fechada.
+            //
+            // Sem a tabela carregada (evento antigo, tipo renomeado), cai na
+            // faixa das unidades — que ao menos não elege um preço e mente
+            // sobre os outros.
+            const daTabela = precoDeTabela?.[g.nome];
             const pMin = moeda(g.precoMin);
             const pMax = moeda(g.precoMax);
-            const preco = !pMin ? null : (pMin === pMax ? pMin : `${pMin} a ${pMax}`);
+            const preco = daTabela != null
+              ? moeda(daTabela)
+              : (!pMin ? null : (pMin === pMax ? pMin : `${pMin} a ${pMax}`));
+
+            // Quantas unidades saíram da tabela. O preço do piso é FIXO; quando
+            // o produtor fecha por menos, aquilo é DESCONTO naquela unidade, não
+            // um preço novo do piso (palavra dele, 20/08). Por isso o cabeçalho
+            // nunca muda e o que aparece do lado é a contagem de exceções.
+            const foraDaTabela = daTabela == null
+              ? 0
+              : posicionadas.filter(
+                  (s) => (s.seat_type_name ?? '') === g.nome && Number(s.base_price ?? 0) !== daTabela,
+                ).length;
             return (
               <g key={g.nome}>
                 <text
@@ -178,6 +193,11 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds }:
                     style={{ fontFamily: 'ui-monospace, monospace' }}
                   >
                     {preco}
+                    {foraDaTabela > 0 && (
+                      <tspan fill="#C9A227">
+                        {'  '}· {foraDaTabela} com desconto
+                      </tspan>
+                    )}
                   </text>
                 )}
               </g>

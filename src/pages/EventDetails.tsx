@@ -51,6 +51,8 @@ import { trackDonationClick } from '@/lib/donationTelemetry';
 import { useDonationProgress } from '@/hooks/useDonationProgress';
 import { podeSomarMaisUm, regraValeNesteEvento } from '@/lib/umIngressoPorNoite';
 import { AvisoUmPorNoite } from '@/components/event/AvisoUmPorNoite';
+import { MapaArena } from '@/components/event/MapaArena';
+import { getMapaDaArena } from '@/data/mapasDeArena';
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -290,6 +292,10 @@ const EventDetails = () => {
   for (const d of eventDays ?? []) rotulosDeNoite[d.id] = d.label;
 
   const regraDeNoiteAtiva = regraValeNesteEvento(activeLots as any);
+
+  // Planta do local. Dado curado por evento (mesmo padrão de limite de ingresso
+  // e campanha de doação); evento sem planta não mostra nada.
+  const mapaDaArena = getMapaDaArena(eventId);
 
   const handleQuantityChange = (lotId: string, delta: number) => {
     const lote = activeLots.find((l) => l.id === lotId);
@@ -695,6 +701,12 @@ const EventDetails = () => {
                   ))}
                 </motion.div>
               )}
+
+              {/* A planta da arena, depois dos ingressos: quem chegou até aqui já
+                  viu preço e data, e a pergunta que sobra é "onde eu vou ficar".
+                  Só aparece em evento que tem planta curada — os outros nem
+                  renderizam nada. */}
+              {mapaDaArena && <MapaArena mapa={mapaDaArena} />}
 
               {(event.description || event.short_description) && (
                 <motion.section
