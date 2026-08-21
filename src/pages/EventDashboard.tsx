@@ -11,15 +11,13 @@ import { EventOrdersTab } from '@/components/producer/tabs/EventOrdersTab';
 import { EventParticipantsTab } from '@/components/producer/tabs/EventParticipantsTab';
 import { EventListsTab } from '@/components/producer/tabs/EventListsTab';
 import { useEvent } from '@/hooks/useEvents';
-import { EventCheckinTab } from '@/components/producer/tabs/EventCheckinTab';
-import { EventDoorSalesTab } from '@/components/producer/tabs/EventDoorSalesTab';
 import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
 import { EventFinanceiroTab } from '@/components/producer/tabs/EventFinanceiroTab';
 import { EventTablesTab } from '@/components/producer/tabs/EventTablesTab';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, ScanLine, DollarSign, Tag, Wallet, Armchair } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, Tag, Wallet, Armchair } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -68,6 +66,15 @@ export default function EventDashboard() {
   // aba precisa dizer isso, não "Mesas": é o primeiro lugar em que ele olha.
   const vocab = vocabularioAssento((event as any).seat_noun);
 
+  // ⚠️ SEM "Check-in" e sem "Portaria" (Gabriel, 20/08). Os dois não pertencem
+  // ao painel do produtor: o check-in acontece no app do colaborador e no
+  // equipamento, e a portaria é outro produto, com outra operação.
+  //
+  // O histórico de portaria NÃO se perde: as 115 vendas já registradas (R$ 7.150,
+  // de um evento só, a última em 25/05) continuam no banco e seguem entrando na
+  // aba Financeiro e no fechamento. O que sai é a tela de lançar e consultar.
+  // `EventCheckinTab` e `EventDoorSalesTab` continuam no repositório, sem uso —
+  // apagar arquivo é decisão à parte.
   const tabItems = [
     { value: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
     { value: 'data', label: 'Dados', icon: FileText },
@@ -75,8 +82,6 @@ export default function EventDashboard() {
     ...(showTables ? [{ value: 'tables', label: vocab.Plural, icon: Armchair }] : []),
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
-    { value: 'checkin', label: 'Check-in', icon: ScanLine },
-    { value: 'doorsales', label: 'Portaria', icon: DollarSign },
     { value: 'financeiro', label: 'Financeiro', icon: Wallet },
     { value: 'lists', label: 'Listas', icon: Gift },
     { value: 'coupons', label: 'Cupons', icon: Tag },
@@ -148,14 +153,6 @@ export default function EventDashboard() {
 
         <TabsContent value="participants">
           <EventParticipantsTab eventId={event.id} />
-        </TabsContent>
-
-        <TabsContent value="checkin">
-          <EventCheckinTab eventId={event.id} />
-        </TabsContent>
-
-        <TabsContent value="doorsales">
-          <EventDoorSalesTab eventId={event.id} />
         </TabsContent>
 
         <TabsContent value="financeiro">
