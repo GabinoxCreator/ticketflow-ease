@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatEventDate } from '@/lib/eventTime';
+import { AceiteDoIngresso } from '@/components/tickets/AceiteDoIngresso';
 
 /*
  * Página do link de transferência — o que QUEM RECEBE vê.
@@ -53,11 +54,7 @@ export default function TransferenciaIngresso() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
   const [cpf, setCpf] = useState('');
-  const [telefone, setTelefone] = useState('');
   const [processando, setProcessando] = useState(false);
   const [pronto, setPronto] = useState(false);
 
@@ -77,59 +74,31 @@ export default function TransferenciaIngresso() {
     })();
   }, [token]);
 
-  const aceitar = async () => {
-    const cpfLimpo = cpf.replace(/\D/g, '');
+  /**
+   * Aceita o ingresso. O login já foi resolvido antes de chegar aqui — pelo
+   * wizard (quem chega de fora) ou pela sessão que já existia.
+   *
+   * A conferência do CPF acontece no SERVIDOR: o que o wizard faz é evitar que
+   * a pessoa preencha o resto à toa quando o convite não é dela.
+   */
+  const aceitar = async ({ cpf: cpfInformado, nome: nomeInformado, telefone: telInformado }: {
+    cpf: string; nome?: string; telefone?: string;
+  }) => {
+    const cpfLimpo = (cpfInformado ?? '').replace(/\D/g, '');
     if (cpfLimpo.length !== 11) { toast.error('Informe seu CPF.'); return; }
 
     setProcessando(true);
     try {
-      if (!user) {
-        // Quem JÁ tem conta neste CPF entra; quem não tem, cria. A tela já
-        // sabe qual é o caso antes de a pessoa digitar (Gabriel, 21/08) — antes
-        // ela só sabia criar, e quem já era cliente levava "já existe um e-mail
-        // assim" no fim do preenchimento, sem saída.
-        if (info?.jaTemConta) {
-          if (!email.trim() || !senha) {
-            toast.error('Informe o e-mail e a senha da sua conta para entrar.');
-            setProcessando(false);
-            return;
-          }
-          const { error: loginErr } = await supabase.auth.signInWithPassword({
-            email: email.trim(), password: senha,
-          });
-          if (loginErr) {
-            toast.error('E-mail ou senha não conferem. Se esqueceu a senha, use "Esqueci minha senha" e volte a este link.');
-            setProcessando(false);
-            return;
-          }
-        } else {
-          if (!nome.trim() || !email.trim() || senha.length < 6) {
-            toast.error('Preencha nome, e-mail e uma senha de pelo menos 6 caracteres.');
-            setProcessando(false);
-            return;
-          }
-          const { error: signErr } = await supabase.auth.signUp({
-            email: email.trim(),
-            password: senha,
-            options: { data: { nome_completo: nome.trim() } },
-          });
-          if (signErr) {
-            // O CPF não tinha conta, mas o e-mail digitado já é de alguém.
-            const { error: loginErr } = await supabase.auth.signInWithPassword({ email: email.trim(), password: senha });
-            if (loginErr) {
-              toast.error('Já existe uma conta com esse e-mail. Entre com a senha dela, ou use outro e-mail.');
-              setProcessando(false);
-              return;
-            }
-          }
-        }
-      }
-
       const { data, error } = await supabase.functions.invoke('ticket-transfer-accept', {
-        body: { token, cpf: cpfLimpo, nome: nome.trim() || undefined, telefone: telefone.replace(/\D/g, '') || undefined },
+        body: { token, cpf: cpfLimpo, nome: nomeInformado || undefined, telefone: telInformado || undefined },
       });
-      if (error) throw error;
-      if (data?.error) { toast.error(data.error); setProcessando(false); return; }
+      // O motivo vem no corpo; `invoke` lança sempre a mesma frase genérica.
+      if (data?.error) { toast.error(data.error); return; }
+      if (error) {
+        const corpo = await (error as any)?.context?.json?.().catch(() => null);
+        toast.error(corpo?.error || 'Não foi possível aceitar o ingresso.');
+        return;
+      }
 
       setPronto(true);
       setTimeout(() => navigate('/meus-ingressos'), 2200);
@@ -238,92 +207,45 @@ export default function TransferenciaIngresso() {
           </div>
         )}
 
-        <div className="rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-3 flex gap-2.5">
-          <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Este ingresso foi reservado para o CPF terminado em <strong className="text-foreground">{info.cpfFinal}</strong>.
-            Só ele consegue aceitar.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {!user && info.jaTemConta && (
-            /* Já é cliente. Não faz sentido pedir para criar conta de novo —
-               e era exatamente onde a pessoa travava antes. */
-            <>
-              <div className="rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-3">
-                <p className="text-sm font-medium">Você já tem conta na FestPag</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  {info.emailMascarado
-                    ? <>Encontramos uma conta neste CPF, com o e-mail <strong className="text-foreground">{info.emailMascarado}</strong>. Entre nela para receber o ingresso.</>
-                    : <>Encontramos uma conta neste CPF. Entre nela para receber o ingresso.</>}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="a-email">Seu e-mail</Label>
-                <Input id="a-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="a-senha">Sua senha</Label>
-                <Input id="a-senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="A senha da sua conta" />
-                <p className="text-[11px] text-muted-foreground">
-                  Esqueceu?{' '}
-                  <button type="button" className="text-primary hover:underline"
-                    onClick={() => navigate('/auth?mode=reset')}>
-                    Recupere a senha
-                  </button>
-                  {' '}e volte a este link — ele vale 24 horas.
-                </p>
-              </div>
-            </>
-          )}
-
-          {!user && !info.jaTemConta && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="a-nome">Seu nome completo</Label>
-                <Input id="a-nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Como no documento" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="a-email">Seu e-mail</Label>
-                <Input id="a-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="a-senha">Crie uma senha</Label>
-                <Input id="a-senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" />
-                <p className="text-[11px] text-muted-foreground">
-                  É com ela que você acessa seus ingressos no dia do evento.
-                </p>
-              </div>
-            </>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="a-cpf">Seu CPF</Label>
-            <Input id="a-cpf" inputMode="numeric" placeholder="000.000.000-00"
-              value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} />
-          </div>
-
-          {!user && (
-            <div className="space-y-2">
-              <Label htmlFor="a-tel">WhatsApp <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-              <Input id="a-tel" inputMode="numeric" placeholder="(17) 99999-9999"
-                value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+        {/* Uma pergunta por vez. Quem abre este link não conhece a FestPag —
+            chegou por um WhatsApp de um amigo — e um formulário com CPF, nome,
+            e-mail, senha e telefone de uma vez é onde essa pessoa desiste. */}
+        {user ? (
+          /* Já logado nesta sessão: só confirma o CPF e aceita. */
+          <div className="space-y-4">
+            <div className="rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-3 flex gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Este ingresso foi reservado para o CPF terminado em <strong className="text-foreground">{info.cpfFinal}</strong>.
+                Só ele consegue aceitar.
+              </p>
             </div>
-          )}
+            <div className="space-y-2">
+              <Label htmlFor="a-cpf">Seu CPF</Label>
+              <Input id="a-cpf" inputMode="numeric" placeholder="000.000.000-00"
+                value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} />
+            </div>
+            <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold"
+              onClick={() => aceitar({ cpf: cpf.replace(/\D/g, '') })} disabled={processando}>
+              {processando
+                ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Confirmando…</>
+                : 'Aceitar ingresso'}
+            </Button>
+          </div>
+        ) : (
+          <AceiteDoIngresso
+            cpfFinal={info.cpfFinal}
+            jaTemConta={!!info.jaTemConta}
+            emailMascarado={info.emailMascarado ?? null}
+            processando={processando}
+            onAceitar={aceitar}
+          />
+        )}
 
-          <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold"
-            onClick={aceitar} disabled={processando}>
-            {processando
-              ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Confirmando…</>
-              : (!user && info.jaTemConta ? 'Entrar e receber o ingresso' : 'Aceitar ingresso')}
-          </Button>
-
-          <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-            Ao aceitar, o ingresso passa para a sua conta e o QR anterior deixa de valer.
-            Este ingresso não pode ser repassado de novo.
-          </p>
-        </div>
+        <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
+          Ao aceitar, o ingresso passa para a sua conta e o QR anterior deixa de valer.
+          Este ingresso não pode ser repassado de novo.
+        </p>
       </div>
     </div>
   );
