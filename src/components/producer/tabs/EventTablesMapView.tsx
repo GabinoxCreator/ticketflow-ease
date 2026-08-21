@@ -168,8 +168,10 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds, p
               ? moeda(daTabela)
               : (!pMin ? null : (pMin === pMax ? pMin : `${pMin} a ${pMax}`));
 
-            // Quantas unidades saíram da tabela. É a informação que o produtor
-            // realmente quer no mapa: o piso vale X, e N já foram negociadas.
+            // Quantas unidades saíram da tabela. O preço do piso é FIXO; quando
+            // o produtor fecha por menos, aquilo é DESCONTO naquela unidade, não
+            // um preço novo do piso (palavra dele, 20/08). Por isso o cabeçalho
+            // nunca muda e o que aparece do lado é a contagem de exceções.
             const foraDaTabela = daTabela == null
               ? 0
               : posicionadas.filter(
@@ -193,7 +195,7 @@ export function EventTablesMapView({ seats, onSelect, selectedId, selectedIds, p
                     {preco}
                     {foraDaTabela > 0 && (
                       <tspan fill="#C9A227">
-                        {'  '}· {foraDaTabela} negociad{foraDaTabela > 1 ? 'as' : 'a'}
+                        {'  '}· {foraDaTabela} com desconto
                       </tspan>
                     )}
                   </text>
