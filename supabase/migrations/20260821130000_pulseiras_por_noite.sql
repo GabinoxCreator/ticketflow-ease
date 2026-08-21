@@ -20,7 +20,24 @@
 -- Evento sem noites cadastradas (todos os outros clientes) conta como 1 noite —
 -- o resultado fica idêntico ao de hoje, pulseira = pessoa.
 
-CREATE OR REPLACE FUNCTION public.get_camarote_wristbands(_event_id uuid)
+-- ⚠️ DROP + CREATE, não CREATE OR REPLACE.
+--
+-- `CREATE OR REPLACE` NÃO muda o tipo de retorno de uma função que já existe.
+-- Esta passa de 14 para 16 colunas (ganha `pessoas` e `noites`), e o Postgres
+-- recusa com 42P13: "cannot change return type of existing function". A primeira
+-- versão desta migration usava REPLACE e simplesmente não aplicava — foi barrada
+-- no portão em 21/08.
+--
+-- ⚠️ E DROP LEVA OS PRIVILÉGIOS JUNTO. O CREATE devolve EXECUTE ao PUBLIC, o que
+-- deixaria a função chamável por ANÔNIMO. Foi assim que cinco funções do produtor
+-- ficaram três dias abertas em 17/08. Ela é SECURITY DEFINER e filtra por dono lá
+-- dentro, então o dano seria contido — mas "contido por outra tranca" não é
+-- fechado. Os dois comandos no fim deste arquivo repõem o estado exato de antes,
+-- medido no banco: anon NÃO executa, authenticated executa.
+
+DROP FUNCTION IF EXISTS public.get_camarote_wristbands(uuid);
+
+CREATE FUNCTION public.get_camarote_wristbands(_event_id uuid)
  RETURNS TABLE(
    seat_id uuid, code text, label text, seat_type_name text,
    quantidade integer, pessoas integer, noites integer,
@@ -69,3 +86,9 @@ AS $function$
     )
   ORDER BY s.wristbands_delivered_at NULLS FIRST, s.wristbands_printed_at NULLS FIRST, s.code;
 $function$;
+
+-- Repõe os privilégios que o DROP levou. Sem estas duas linhas a função nasce
+-- aberta ao público — conferido antes com has_function_privilege, e a conferir
+-- de novo depois de aplicar.
+REVOKE EXECUTE ON FUNCTION public.get_camarote_wristbands(uuid) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.get_camarote_wristbands(uuid) TO authenticated;
