@@ -30,6 +30,9 @@ const RECADOS: Record<string, string> = {
   ja_aceita: 'Este ingresso já foi aceito.',
   transferencia_cancelada: 'Quem enviou cancelou esta transferência.',
   cpf_nao_confere: 'O CPF informado não é o mesmo que quem enviou apontou. Confira com a pessoa.',
+  // Acontece quando o dono abre o próprio link estando logado. Sem esta frase,
+  // ele levaria um erro genérico e não entenderia por quê (Gabriel, 21/08).
+  nao_pode_aceitar_para_si: 'Este é o seu próprio link de transferência. Ele precisa ser aberto pela pessoa que vai receber o ingresso, na conta dela.',
   ingresso_ja_utilizado: 'Este ingresso já foi utilizado na entrada — a transferência foi encerrada.',
   ingresso_indisponivel: 'Este ingresso não está mais válido.',
   ingresso_nao_encontrado: 'Ingresso não encontrado.',
