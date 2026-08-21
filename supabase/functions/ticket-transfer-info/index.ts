@@ -12,6 +12,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { maskEmail } from "../_shared/pii.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,10 +71,41 @@ serve(async (req) => {
       loteNome = lot?.name ?? null;
     }
 
+    // Já existe conta com este CPF?
+    //
+    // Sem isto, quem recebe cai numa tela que só sabe CRIAR conta — e se já for
+    // cliente, leva "já existe um e-mail assim" no fim do preenchimento, sem
+    // saída (Gabriel, 21/08). O CPF é a chave certa: é ele que o remetente
+    // apontou e é ele que trava o aceite.
+    //
+    // ⚠️ Não abre consulta de CPF para ninguém: só responde com um token de
+    // transferência VÁLIDO em mãos, e quem tem o token já sabe o CPF, porque
+    // foi o remetente que o digitou. E o e-mail sai mascarado — serve para a
+    // pessoa se reconhecer, não para descobrir o endereço de alguém.
+    let jaTemConta = false;
+    let emailMascarado: string | null = null;
+    try {
+      const cpfLimpo = String(tr.to_cpf ?? '').replace(/\D/g, '');
+      if (cpfLimpo.length === 11) {
+        const { data: perfil } = await admin
+          .from('profiles').select('id').eq('cpf', cpfLimpo).maybeSingle();
+        if (perfil?.id) {
+          jaTemConta = true;
+          const { data: u } = await admin.auth.admin.getUserById(perfil.id);
+          if (u?.user?.email) emailMascarado = maskEmail(u.user.email);
+        }
+      }
+    } catch (e) {
+      // Falhar aqui não pode travar o link: a pessoa segue pelo cadastro normal.
+      console.log(`[TRANSFER-INFO] checagem de conta falhou - ${e instanceof Error ? e.message : String(e)}`);
+    }
+
     return json({
       status: tr.status,
       expiraEm: tr.expires_at,
       deQuem: primeiroNome(tr.from_holder_name),
+      jaTemConta,
+      emailMascarado,
       // Só o final, para a pessoa conferir sem o link expor um CPF inteiro.
       cpfFinal: String(tr.to_cpf ?? '').slice(-3),
       evento: ev ? {

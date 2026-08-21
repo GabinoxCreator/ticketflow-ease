@@ -128,6 +128,10 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return; }
       toast.success('Transferência cancelada. O ingresso continua com você.');
+      // ⚠️ Limpar o link junto. Sem isto, o estado do modal sobrevive ao
+      // cancelamento e a tela volta a mostrar o link recém-cancelado, como se
+      // ele ainda valesse (Gabriel, 21/08).
+      setLink(null); setCpf(''); setTelefone(''); setAberto(false);
       onChange?.();
     } catch (e: any) {
       toast.error(e?.message || 'Não foi possível cancelar.');
@@ -243,24 +247,34 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
               </Button>
             </div>
           ) : (
+            /* O link é MEIO, não resultado. Mostrar o endereço cru fazia a
+               pessoa achar que precisava fazer algo com aquele texto — e um
+               `uuid` de 64 caracteres na tela não passa confiança nenhuma
+               (Gabriel, 21/08). Fica a confirmação de que deu certo e os dois
+               jeitos de mandar. */
             <div className="space-y-4">
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Link</p>
-                <p className="text-xs break-all font-mono leading-relaxed">{link}</p>
+              <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-5 text-center">
+                <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-green-400" />
+                </div>
+                <p className="font-display font-semibold text-base">Link criado</p>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  Só falta mandar para quem vai receber. Enquanto ninguém aceitar,
+                  o ingresso continua seu.
+                </p>
+                <p className="text-xs text-muted-foreground/80 mt-2">
+                  Vale por 24 horas · CPF final <strong className="text-foreground">{cpf.replace(/\D/g, '').slice(-3)}</strong>
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={copiar}>
-                  {copiado ? <><Check className="w-4 h-4 mr-2" /> Copiado</> : <><Copy className="w-4 h-4 mr-2" /> Copiar</>}
+                <Button variant="outline" className="h-12" onClick={copiar}>
+                  {copiado ? <><Check className="w-4 h-4 mr-2" /> Copiado</> : <><Copy className="w-4 h-4 mr-2" /> Copiar link</>}
                 </Button>
-                <Button variant="hero" onClick={abrirWhatsapp}>
+                <Button variant="hero" className="h-12" onClick={abrirWhatsapp}>
                   <ExternalLink className="w-4 h-4 mr-2" /> WhatsApp
                 </Button>
               </div>
-
-              <p className="text-[11px] text-center text-muted-foreground">
-                O link vale por 24 horas. Até alguém aceitar, o ingresso continua com você.
-              </p>
 
               <Button variant="ghost" className="w-full" onClick={fechar}>Fechar</Button>
             </div>

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Download, Smartphone, Ban, Share2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Ticket, Calendar, MapPin, Clock, CheckCircle2, XCircle, QrCode, Download, Smartphone, Ban, Share2, Eye, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
 import { TransferirIngresso } from '@/components/tickets/TransferirIngresso';
-import { formatInSaoPaulo } from '@/lib/eventTime';
+import { formatInSaoPaulo, formatEventDate } from '@/lib/eventTime';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -693,7 +693,7 @@ const EmptyState = ({ title, description }: { title: string; description: string
 );
 
 const MeusIngressos = () => {
-  const { upcomingTickets, pastTickets, cancelledTickets, isLoading, refetch } = useUserTickets();
+  const { upcomingTickets, pastTickets, cancelledTickets, transferidos, isLoading, refetch } = useUserTickets();
 
   return (
     <>
@@ -848,6 +848,45 @@ const MeusIngressos = () => {
               )}
             </TabsContent>
           </Tabs>
+
+          {/* Os que esta pessoa passou para outra. Ficam fora das abas, no fim:
+              não são ingressos dela — são o registro de que saíram. Sem QR, sem
+              PDF, sem botão de usar. Antes o ingresso simplesmente sumia da tela
+              e a pessoa ficava sem saber se tinha ido mesmo (Gabriel, 21/08). */}
+          {transferidos.length > 0 && (
+            <section className="mt-10">
+              <h2 className="font-display font-bold text-lg mb-1">Ingressos que você transferiu</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Estes já estão com outra pessoa. Ficam aqui só como registro — o QR agora é de quem recebeu.
+              </p>
+              <div className="space-y-3">
+                {transferidos.map((t) => (
+                  <div
+                    key={t.ticket_id}
+                    className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/40 p-4 opacity-80"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
+                      <Send className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm truncate">{t.event_title}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {t.seat_label ?? t.lot_name ?? 'Ingresso'}
+                        {t.event_date && ` · ${formatEventDate(t.event_date, { day: '2-digit', month: 'long' })}`}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                        Transferido para o CPF final <strong className="text-foreground">{t.para_cpf_final}</strong>
+                        {t.transferido_em && ` · ${new Date(t.transferido_em).toLocaleDateString('pt-BR')}`}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-border/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Transferido
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </main>
 
