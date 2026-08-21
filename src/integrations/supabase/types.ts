@@ -2708,6 +2708,23 @@ export type Database = {
         Args: { _acao: string; _retirado_por?: string; _seat_ids: string[] }
         Returns: number
       }
+      meus_ingressos_transferidos: {
+        Args: never
+        Returns: {
+          event_city: string
+          event_date: string
+          event_id: string
+          event_image: string
+          event_time: string
+          event_title: string
+          event_venue: string
+          lot_name: string
+          para_cpf_final: string
+          seat_label: string
+          ticket_id: string
+          transferido_em: string
+        }[]
+      }
       opcoes_parcelamento: {
         Args: {
           _absorve?: boolean
