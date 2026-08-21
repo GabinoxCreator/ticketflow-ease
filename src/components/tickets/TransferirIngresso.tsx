@@ -38,10 +38,41 @@ const formatTelefone = (v: string) => {
   return n.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
 };
 
+/**
+ * Tira o motivo de dentro da resposta da edge.
+ *
+ * `functions.invoke` lança sempre a mesma frase — "Edge Function returned a
+ * non-2xx status code" — em qualquer recusa. O motivo de verdade vem no corpo,
+ * e sem isto o dono lia aquela frase na tela quando o ingresso já tinha sido
+ * transferido (Gabriel, 21/08).
+ */
+async function lerMotivo(e: unknown): Promise<string> {
+  const err = e as { context?: { json?: () => Promise<{ error?: string }> }; message?: string };
+  try {
+    const corpo = await err.context?.json?.();
+    if (corpo?.error) return corpo.error;
+  } catch { /* corpo não era JSON; fica a mensagem crua */ }
+  return err?.message ?? '';
+}
+
+/** Motivo do servidor → frase que o dono do ingresso entende. */
+function traduzirErro(motivo: string): string {
+  const m = (motivo || '').toLowerCase();
+  if (m.includes('ja_transferido'))       return 'Este ingresso já foi transferido uma vez. Cada ingresso só pode mudar de dono uma vez.';
+  if (m.includes('em_andamento'))         return 'Já existe um link de transferência aberto para este ingresso. Cancele o atual antes de gerar outro.';
+  if (m.includes('ja_utilizado'))         return 'Este ingresso já foi usado na entrada e não pode mais ser transferido.';
+  if (m.includes('proprio_dono'))         return 'Este CPF já é o dono do ingresso. Informe o CPF de quem vai receber.';
+  if (m.includes('nao_e_seu'))            return 'Este ingresso não está na sua conta.';
+  if (m.includes('indisponivel'))         return 'Este ingresso não está válido para transferência.';
+  if (m.includes('compra_nao_confirmada')) return 'A compra deste ingresso ainda não foi confirmada.';
+  if (m.includes('cpf_invalido'))         return 'CPF inválido. Confira os números.';
+  if (m.includes('non-2xx') || !m)        return 'Não foi possível transferir agora. Tente de novo em instantes.';
+  return motivo;
+}
+
 export function TransferirIngresso({ ticket, onChange }: Props) {
   const [aberto, setAberto] = useState(false);
   const [cpf, setCpf] = useState('');
-  const [email, setEmail] = useState('');
   const [telefone, setTelefone] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [link, setLink] = useState<string | null>(null);
@@ -57,17 +88,31 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
       toast.error('Informe o CPF de quem vai receber.');
       return;
     }
+    const zap = telefone.replace(/\D/g, '');
+    if (zap.length < 10) {
+      toast.error('Informe o WhatsApp de quem vai receber — é por ele que a pessoa recebe o link.');
+      return;
+    }
     setEnviando(true);
     try {
       const { data, error } = await supabase.functions.invoke('ticket-transfer-start', {
-        body: { ticketId: ticket.id, cpf: cpfLimpo, email: email.trim() || null, telefone: telefone.replace(/\D/g, '') || null },
+        body: { ticketId: ticket.id, cpf: cpfLimpo, telefone: zap },
       });
-      if (error) throw error;
-      if (data?.error) { toast.error(data.error); return; }
+      // ⚠️ O corpo vem ANTES do erro genérico. `invoke` lança "Edge Function
+      // returned a non-2xx status code" em qualquer recusa — e era isso que o
+      // dono lia na tela quando o ingresso já tinha sido transferido, em vez do
+      // motivo (Gabriel, 21/08).
+      if (data?.error) { toast.error(traduzirErro(data.error)); return; }
+      if (error) {
+        toast.error(traduzirErro(await lerMotivo(error)));
+        return;
+      }
       setLink(data.link);
-      onChange?.();
+      // ⚠️ `onChange` NÃO aqui. Ele recarrega a lista, o componente se redesenha
+      // no estado "em transferência" e leva o link junto — o dono via o modal
+      // sumir antes de copiar. A lista é avisada quando ele fecha.
     } catch (e: any) {
-      toast.error(e?.message || 'Não foi possível iniciar a transferência.');
+      toast.error(traduzirErro(await lerMotivo(e)));
     } finally {
       setEnviando(false);
     }
@@ -114,9 +159,12 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
 
   const fechar = () => {
     setAberto(false);
+    // Só agora a lista recarrega: enquanto o link estava na tela, recarregar
+    // fazia o componente trocar de estado e o link desaparecer.
+    if (link) onChange?.();
     // Zera o formulário só depois de fechar, para o link não sumir da tela
     // enquanto a pessoa ainda está copiando.
-    setTimeout(() => { setLink(null); setCpf(''); setEmail(''); setTelefone(''); }, 300);
+    setTimeout(() => { setLink(null); setCpf(''); setTelefone(''); }, 300);
   };
 
   // ── Ingresso já em transferência: o dono só vê o aviso e o botão de cancelar
@@ -168,17 +216,18 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
                   Só quem tiver este CPF consegue aceitar — é o que protege o link.
                 </p>
               </div>
+              {/* ⚠️ SÓ CPF E WHATSAPP, os dois obrigatórios (Gabriel, 21/08).
+                  Três campos, dois deles marcados "(opcional)", faziam a pessoa
+                  parar para decidir o que preencher no meio de uma ação simples.
+                  O WhatsApp é por onde o link chega — sem ele, o dono fica com
+                  um endereço na mão e ninguém para mandar. O e-mail saiu: não é
+                  usado para nada neste caminho. */}
               <div className="space-y-2">
-                <Label htmlFor="t-email">E-mail <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-                <Input id="t-email" type="email" placeholder="email@exemplo.com"
-                  value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="t-tel">WhatsApp <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Label htmlFor="t-tel">WhatsApp de quem vai receber</Label>
                 <Input id="t-tel" inputMode="numeric" placeholder="(17) 99999-9999"
                   value={telefone} onChange={(e) => setTelefone(formatTelefone(e.target.value))} />
                 <p className="text-[11px] text-muted-foreground">
-                  Se preencher, abrimos a conversa já com a mensagem pronta.
+                  É por aqui que a pessoa recebe o link — abrimos a conversa com a mensagem pronta.
                 </p>
               </div>
 
