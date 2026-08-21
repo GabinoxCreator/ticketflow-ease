@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Minus, Plus, Trash2, Ticket } from 'lucide-react';
 import type { SummaryItem } from './EventOrderSummary';
+import { AvisoUmPorNoite } from './AvisoUmPorNoite';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,8 @@ interface Props {
   onDecrement: (lotId: string) => void;
   onRemove: (lotId: string) => void;
   isBeneficent?: boolean;
+  /** Mostra a regra de 1 ingresso por noite (evento com noites cadastradas). */
+  avisoUmPorNoite?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -33,6 +36,7 @@ export function EventCartSheet({
   onCheckout,
   onIncrement,
   onDecrement,
+  avisoUmPorNoite = false,
   onRemove,
   isBeneficent,
 }: Props) {
@@ -47,6 +51,12 @@ export function EventCartSheet({
             </span>
           </DrawerTitle>
         </DrawerHeader>
+
+        {avisoUmPorNoite && (
+          <div className="px-4 pb-1">
+            <AvisoUmPorNoite />
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           <ul className="space-y-3">

@@ -22,6 +22,8 @@ export interface LinhaCarrinho {
   quantity: number;
   price: number;
   modoTaxa: string;
+  /** Teto de parcelas do lote (`event_lots.max_parcelas`). Nulo = sem teto próprio. */
+  maxParcelas?: number | null;
 }
 
 export interface PrecoResolvido {
@@ -81,7 +83,7 @@ export async function resolverPreco(
   const lotIds = items.map((i) => i.lotId);
   const { data: lots, error } = await client
     .from('event_lots')
-    .select('id, name, price, is_active, modo_taxa, covers_all_days')
+    .select('id, name, price, is_active, modo_taxa, covers_all_days, max_parcelas')
     .in('id', lotIds)
     .eq('event_id', eventId);
 
@@ -123,6 +125,7 @@ export async function resolverPreco(
       quantity: qty,
       price: Number(lot.price),
       modoTaxa: lot.modo_taxa ?? 'cliente_paga',
+      maxParcelas: lot.max_parcelas ?? null,
       cobreTodosOsDias: lot.covers_all_days === true,
     });
   }
@@ -173,6 +176,24 @@ export async function resolverPreco(
 /** Todo o carrinho é de lote que o produtor absorve? Decide se o custo do
  *  crédito vai para o comprador ou sai do repasse (regra dos dois lotes
  *  promocionais do rodeio). */
+/**
+ * Teto de parcelas do carrinho: o MENOR entre o limite global e o de cada lote.
+ *
+ * O promocional do rodeio vai até 3x sem juros — é o que foi vendido no material
+ * e o que a tabela de repasse suporta (§6, Regra A). Sem este teto, a tela
+ * ofereceria 10x num lote em que o produtor absorve o custo, e cada parcela
+ * extra sairia do bolso dele sem que ninguém tivesse combinado isso.
+ *
+ * ⚠️ Lote sem `max_parcelas` não restringe nada — é o caso de todos os outros
+ * eventos, que seguem no teto global.
+ */
+export function tetoDeParcelas(linhas: LinhaCarrinho[], tetoGlobal: number): number {
+  const tetos = linhas
+    .map((l) => l.maxParcelas)
+    .filter((n): n is number => typeof n === 'number' && n > 0);
+  return tetos.length ? Math.min(tetoGlobal, ...tetos) : tetoGlobal;
+}
+
 export function produtorAbsorve(linhas: LinhaCarrinho[]): boolean {
   return linhas.length > 0 && linhas.every((l) => l.modoTaxa === 'absorve');
 }

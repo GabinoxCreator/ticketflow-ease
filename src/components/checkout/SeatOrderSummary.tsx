@@ -1,3 +1,5 @@
+import { vocabularioAssento } from '@/lib/vocabularioAssento';
+
 interface SeatSummary {
   id: string;
   label: string | null;
@@ -13,6 +15,8 @@ interface Props {
   event: { title: string; venue: string; city: string; state: string };
   seats: SeatSummary[];
   addons: Record<string, number>;
+  /** `events.seat_noun`. Só entra quando a unidade não tem nome próprio. */
+  seatNoun?: string | null;
   subtotal: number;
   serviceFee: number;
   totalAmount: number;
@@ -21,7 +25,8 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function SeatOrderSummary({ event, seats, addons, subtotal, serviceFee, totalAmount }: Props) {
+export function SeatOrderSummary({ event, seats, addons, subtotal, serviceFee, totalAmount, seatNoun }: Props) {
+  const v = vocabularioAssento(seatNoun);
   return (
     <div className="space-y-4">
       <div>
@@ -34,12 +39,12 @@ export function SeatOrderSummary({ event, seats, addons, subtotal, serviceFee, t
             const addonQty = addons[s.id] ?? 0;
             const people = baseCap + addonQty;
             const lineTotal = base + extra * addonQty;
-            const label = s.label || s.code || 'Mesa';
+            const label = s.label || s.code || v.Singular;
             return (
               <li key={s.id} className="text-sm">
                 <div className="flex justify-between gap-3">
                   <span className="min-w-0">
-                    <span className="font-medium">Mesa {label}</span>
+                    <span className="font-medium">{label}</span>
                     <span className="text-muted-foreground"> · {people} pessoa{people !== 1 ? 's' : ''}</span>
                   </span>
                   <span className="tabular-nums shrink-0">{fmt(lineTotal)}</span>

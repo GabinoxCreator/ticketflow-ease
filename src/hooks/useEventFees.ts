@@ -67,3 +67,25 @@ export function computeFee(subtotal: number, percent: number, fixed: number) {
   const fee = (subtotal * percent) / 100 + fixed;
   return Math.max(0, Math.round(fee * 100) / 100);
 }
+
+/**
+ * Quanto do carrinho entra na conta da taxa de conveniência.
+ *
+ * Lote com `modo_taxa = 'absorve'` fica de fora: nele o cliente paga o valor de
+ * face redondo e a taxa sai de DENTRO desse valor — é como o passe promocional
+ * do rodeio chega a R$ 300 na mão do comprador, com o produtor recebendo R$ 270.
+ *
+ * ⚠️ Esta é a mesma conta que o servidor faz em `_shared/carrinhoMarcel.ts`.
+ * Ela existia só lá, e a tela somava 10% em cima de tudo: o passe de R$ 300
+ * aparecia como R$ 330 e seria cobrado R$ 300. A tela mentia contra a própria
+ * venda — o comprador podia desistir por causa de uma taxa que não existe
+ * (achado do Gabriel, 20/08). Se as duas divergirem de novo, a do servidor manda.
+ */
+export function baseDaTaxa(
+  itens: Array<{ price: number; quantity: number; modoTaxa?: string | null }>,
+): number {
+  return itens.reduce(
+    (soma, i) => (i.modoTaxa === 'absorve' ? soma : soma + i.price * i.quantity),
+    0,
+  );
+}

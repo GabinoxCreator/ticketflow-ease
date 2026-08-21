@@ -15,6 +15,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { validarNomePessoa, normalizarNomePessoa } from "../_shared/nomePessoa.ts";
 import {
   corsMesa, jsonMesa, adminClient, exigirUsuario, exigirCpfValido, eventoPublicado,
   abrirPedidoDeMesa, desfazerPedidoDeMesa, vencimentoDaReserva, MesaInvalida,
@@ -51,11 +52,19 @@ serve(async (req) => {
     // silêncio, e a venda morre num "CPF inválido" que ninguém entende.
     const cleanCPF = exigirCpfValido(body.customerCPF ?? body.customerCpf);
 
+    // Nome de gente, não CPF digitado no campo errado (caso real de 19/08).
+    // ⚠️ Estas duas edges de camarote ficaram de fora quando a trava subiu em
+    // 20/08 — eu protegi as equivalentes do Mercado Pago por engano, e são
+    // ESTAS que o rodeio usa.
+    const erroNome = validarNomePessoa(customerName);
+    if (erroNome) return jsonMesa({ error: 'invalid_name', message: erroNome }, 400);
+    const nomeLimpo = normalizarNomePessoa(customerName);
+
     const event = await eventoPublicado(admin, eventId);
 
     const pedido = await abrirPedidoDeMesa(admin, {
       eventId, userId, holdToken, seats,
-      customerName, customerEmail, customerCpf: cleanCPF, customerPhone,
+      customerName: nomeLimpo, customerEmail, customerCpf: cleanCPF, customerPhone,
       metodo: 'pix', janela: JANELA_PIX,
     });
     orderId = pedido.orderId;
@@ -68,7 +77,7 @@ serve(async (req) => {
       // a rede cair no meio — sem isso, mesa em dúvida fica em dúvida para sempre.
       purchaseId: pedido.orderId,
       customer: {
-        name: customerName, cpf: cleanCPF, email: customerEmail,
+        name: nomeLimpo, cpf: cleanCPF, email: customerEmail,
         // Sem o código do país: com 13 dígitos a API RECUSA a cobrança.
         phone: telefoneParaMarcel(customerPhone),
       },

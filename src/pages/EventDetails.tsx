@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useParams, Link } from 'react-router-dom';
@@ -49,6 +49,8 @@ import { DonationModal } from '@/components/event/DonationModal';
 import { getDonationCampaign, isDonationCampaignReady, isBeneficentEvent } from '@/data/donationCampaigns';
 import { trackDonationClick } from '@/lib/donationTelemetry';
 import { useDonationProgress } from '@/hooks/useDonationProgress';
+import { podeSomarMaisUm, regraValeNesteEvento } from '@/lib/umIngressoPorNoite';
+import { AvisoUmPorNoite } from '@/components/event/AvisoUmPorNoite';
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -276,7 +278,34 @@ const EventDetails = () => {
   const formatPrice = (price: number) =>
     price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  /** `{ [event_day_id]: "Sábado 10/10" }` — deixa a mensagem citar a noite.
+   *
+   * ⚠️ SEM `useMemo` de propósito. Isto é calculado a partir de `activeLots`,
+   * que só existe DEPOIS dos returns antecipados de "carregando" e "evento não
+   * encontrado" — e hook depois de `return` roda em uns renders e não em
+   * outros, derrubando a página inteira ("Rendered more hooks than during the
+   * previous render"). Já quebrou a produção em 19/08 e quase de novo em 20/08.
+   * São duas listas de dezenas de itens: memorizar não paga o risco. */
+  const rotulosDeNoite: Record<string, string> = {};
+  for (const d of eventDays ?? []) rotulosDeNoite[d.id] = d.label;
+
+  const regraDeNoiteAtiva = regraValeNesteEvento(activeLots as any);
+
   const handleQuantityChange = (lotId: string, delta: number) => {
+    const lote = activeLots.find((l) => l.id === lotId);
+
+    // Somar: a regra "1 por pessoa em cada noite" é checada AQUI, no botão. O
+    // servidor também recusa (é ele que manda), mas descobrir só no fim do
+    // checkout — depois de montar o carrinho e digitar o CPF — é a pior hora
+    // de contar. Em 20/08 dava para somar 3 da quarta e 4 da quinta sem aviso.
+    if (delta > 0 && lote) {
+      const bloqueio = podeSomarMaisUm(lote as any, selectedLots, activeLots as any, rotulosDeNoite);
+      if (bloqueio) {
+        toast.error(bloqueio.mensagem, { duration: 6000 });
+        return;
+      }
+    }
+
     setSelectedLots((prev) => {
       const current = prev[lotId] || 0;
       const newValue = Math.max(0, Math.min(maxPerLot, current + delta));
@@ -353,6 +382,9 @@ const EventDetails = () => {
       lotName: lot?.name || '',
       quantity,
       price: lot?.price || 0,
+      // Vai junto até o pagamento: é o que diz se a taxa entra por cima do
+      // preço ou sai de dentro dele.
+      modoTaxa: (lot as any)?.modo_taxa ?? null,
     };
   });
 
@@ -605,6 +637,9 @@ const EventDetails = () => {
                         1 Convite por CPF
                       </span>
                     )}
+                    {/* A regra precisa aparecer ANTES de a pessoa montar o
+                        carrinho, não na recusa do pagamento. */}
+                    {regraDeNoiteAtiva && <AvisoUmPorNoite variante="chip" />}
                   </div>
                   {lotGroups.map(([sectorName, sectorLots, ehPasse]) => (
                     <div
@@ -645,10 +680,14 @@ const EventDetails = () => {
                           <LotCard
                             key={lot.id}
                             lot={{ ...lot, name: semRepetirOGrupo(lot.name, sectorName) }}
+                            nomeCompleto={lot.name}
                             quantity={selectedLots[lot.id] || 0}
                             onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
                             formatPrice={formatPrice}
                             maxQuantity={maxPerLot}
+                            bloqueioDeSoma={
+                              podeSomarMaisUm(lot as any, selectedLots, activeLots as any, rotulosDeNoite)?.motivo ?? null
+                            }
                           />
                         ))}
                       </div>
@@ -729,6 +768,7 @@ const EventDetails = () => {
             totalAmount={totalAmount}
             totalCount={totalTickets}
             onCheckout={handleCheckout}
+            avisoUmPorNoite={regraDeNoiteAtiva}
             onIncrement={(lotId) => handleQuantityChange(lotId, 1)}
             onDecrement={(lotId) => handleQuantityChange(lotId, -1)}
             onRemove={handleRemoveLot}

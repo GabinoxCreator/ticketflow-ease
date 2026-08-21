@@ -19,7 +19,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { validateCPF, unformatCPF } from '@/utils/cpfValidator';
-import { useEventFees, computeFee } from '@/hooks/useEventFees';
+import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import { savePendingCheckout, readPendingCheckout, clearPendingCheckout } from '@/lib/pendingCheckout';
 
 type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
@@ -29,6 +29,8 @@ interface CartItem {
   lotName: string;
   quantity: number;
   price: number;
+  /** `event_lots.modo_taxa`. 'absorve' = a taxa sai de dentro do preço de face. */
+  modoTaxa?: string | null;
 }
 
 export interface AppliedCoupon {
@@ -88,7 +90,7 @@ export function CheckoutModal({
   const { fees } = useEventFees(eventId);
   const activePercent = selectedMethod === 'pix' ? fees.pixPercent : fees.cardPercent;
   const activeFixed = selectedMethod === 'pix' ? fees.pixFixed : fees.cardFixed;
-  const serviceFee = computeFee(totalAmount, activePercent, activeFixed);
+  const serviceFee = computeFee(baseDaTaxa(items), activePercent, activeFixed);
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
   const pixDisplayAmount = pixData?.amount ?? finalAmount;
 

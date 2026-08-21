@@ -17,6 +17,8 @@ interface Props {
   markProceeding: () => void;
   /** `events.seat_noun` — vazio vira "mesa", que é o padrão dos outros eventos. */
   seatNoun?: string | null;
+  /** Unidades que vieram no link de pacote, quando é uma venda já combinada. */
+  unidadesDoPacote?: EventSeatRow[];
 }
 
 const formatPrice = (price: number) =>
@@ -31,11 +33,52 @@ export function SelectionPanel({
   setSeatAddon,
   markProceeding,
   seatNoun,
+  unidadesDoPacote = [],
 }: Props) {
   const navigate = useNavigate();
   const v = vocabularioAssento(seatNoun);
 
   if (!hold) {
+    // Link de venda combinada: quem abriu não está escolhendo, está conferindo.
+    // Mandar "clique num camarote disponível" aqui contradiz a barra do topo,
+    // que já mostra o pacote fechado (Gabriel, 20/08).
+    if (unidadesDoPacote.length > 0) {
+      const totalPacote = unidadesDoPacote.reduce((soma, s) => soma + Number(s.base_price ?? 0), 0);
+      return (
+        <div className="bg-card rounded-2xl border border-primary/40 p-5 sticky top-4">
+          <h3 className="font-display font-semibold text-lg mb-1">
+            {unidadesDoPacote.length === 1 ? `${v.Singular} reservado${v.genero === 'a' ? 'a' : ''}` : `${unidadesDoPacote.length} ${v.plural} para você`}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            Combinado com o produtor. Confira e finalize.
+          </p>
+          <ul className="space-y-1.5 mb-4">
+            {unidadesDoPacote.map((s) => (
+              <li key={s.id} className="flex justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate">
+                  {s.label ?? s.code}
+                  {s.seat_type_name && (
+                    <span className="text-muted-foreground"> · {s.seat_type_name}</span>
+                  )}
+                </span>
+                <span className="tabular-nums shrink-0 text-muted-foreground">
+                  {formatPrice(Number(s.base_price ?? 0))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-between items-baseline pt-3 border-t border-border">
+            <span className="text-sm font-medium">Total</span>
+            <span className="font-display font-bold text-xl gradient-text tabular-nums">
+              {formatPrice(totalPacote)}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+            Use o botão <strong className="text-foreground">Reservar e pagar</strong> no topo da página.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="bg-card rounded-2xl border border-border p-5 sticky top-4">
         <h3 className="font-display font-semibold text-lg mb-3">Sua seleção</h3>

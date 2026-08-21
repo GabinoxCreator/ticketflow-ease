@@ -1,4 +1,4 @@
-import { AlertCircle, Minus, Plus } from 'lucide-react';
+import { AlertCircle, Minus, Plus, BadgeCheck, CreditCard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,10 @@ export interface LotCardLot {
   fake_scarcity_enabled?: boolean | null;
   fake_scarcity_percentage?: number | null;
   manually_sold_out?: boolean;
+  /** 'absorve' = o preço já inclui tudo; nada é somado no checkout. */
+  modo_taxa?: string | null;
+  /** Teto de parcelas deste lote. */
+  max_parcelas?: number | null;
 }
 
 interface LotCardProps {
@@ -23,9 +27,18 @@ interface LotCardProps {
   onQuantityChange: (delta: number) => void;
   formatPrice: (price: number) => string;
   maxQuantity?: number;
+  /** Motivo pelo qual não dá para somar mais um (regra de 1 por noite).
+   *  Null = liberado. O botão fica cinza, mas continua CLICÁVEL: é o clique
+   *  que explica o porquê — botão morto não ensina nada. */
+  bloqueioDeSoma?: string | null;
+  /** Nome completo do lote, para leitor de tela. O `lot.name` chega encurtado
+   *  na vitrine (o cabeçalho do dia já diz a data) e, sem isto, cinco botões
+   *  diferentes anunciariam "1º Lote" — indistinguíveis para quem não vê. */
+  nomeCompleto?: string;
 }
 
-export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuantity = 10 }: LotCardProps) => {
+export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuantity = 10, bloqueioDeSoma = null, nomeCompleto }: LotCardProps) => {
+  const nomeParaLeitor = nomeCompleto || lot.name;
   const available = lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0);
   const isSoldOut = available === 0 || lot.manually_sold_out === true;
 
@@ -67,6 +80,25 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
             )}
           </div>
 
+          {/* Vantagens do lote, lidas do próprio lote — nada fixo por evento.
+              Quando o produtor absorve, o preço da vitrine é o preço final: não
+              existe taxa somada no checkout, e dizer isso aqui vale mais do que
+              o comprador descobrir sozinho no fim. */}
+          {(lot.modo_taxa === 'absorve' || (lot.max_parcelas ?? 0) > 1) && !isSoldOut && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {lot.modo_taxa === 'absorve' && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-green-500/40 bg-green-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-green-400">
+                  <BadgeCheck className="w-3 h-3" /> Sem taxa
+                </span>
+              )}
+              {(lot.max_parcelas ?? 0) > 1 && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                  <CreditCard className="w-3 h-3" /> Até {lot.max_parcelas}x sem juros
+                </span>
+              )}
+            </div>
+          )}
+
           {lot.description && (
             <p className="text-xs text-muted-foreground mb-2">{lot.description}</p>
           )}
@@ -102,7 +134,7 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
           >
             <button
               onClick={() => onQuantityChange(-1)}
-              aria-label={`Remover um ingresso de ${lot.name}`}
+              aria-label={`Remover um ingresso de ${nomeParaLeitor}`}
               disabled={quantity === 0}
               className={cn(
                 'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
@@ -123,13 +155,17 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
             </span>
             <button
               onClick={() => onQuantityChange(1)}
-              aria-label={`Adicionar um ingresso de ${lot.name}`}
+              aria-label={`Adicionar um ingresso de ${nomeParaLeitor}`}
+              /* ⚠️ `bloqueioDeSoma` NÃO entra no `disabled`. Botão desabilitado
+                 não dispara clique — a pessoa toca e não acontece nada, sem
+                 saber por quê. Cinza para avisar, clicável para explicar. */
               disabled={quantity >= maxQuantity || quantity >= available}
               className={cn(
                 'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
-                quantity >= maxQuantity || quantity >= available
-                  ? 'border-border/40 text-muted-foreground/50 cursor-not-allowed'
+                quantity >= maxQuantity || quantity >= available || bloqueioDeSoma
+                  ? 'border-border/40 text-muted-foreground/50'
                   : 'border-border/60 bg-background/60 text-foreground hover:bg-primary/20 hover:border-primary/50',
+                (quantity >= maxQuantity || quantity >= available) && 'cursor-not-allowed',
               )}
             >
               <Plus className="w-4 h-4" />

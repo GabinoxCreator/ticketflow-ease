@@ -47,10 +47,12 @@ interface Props {
   eventId: string;
   eventTitle: string;
   v: VocabularioAssento;
+  /** Noites do evento. É o que vira o total de pulseiras a imprimir. */
+  noites?: number;
   onSaved: () => void;
 }
 
-export function FecharVendaEmLote({ open, onOpenChange, seats, eventId, eventTitle, v, onSaved }: Props) {
+export function FecharVendaEmLote({ open, onOpenChange, seats, eventId, eventTitle, v, noites = 0, onSaved }: Props) {
   const [qtd, setQtd] = useState<number>(10);
   /** Vazio = cada unidade mantém o próprio preço. */
   const [igualarTxt, setIgualarTxt] = useState<string>('');
@@ -169,6 +171,21 @@ export function FecharVendaEmLote({ open, onOpenChange, seats, eventId, eventTit
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+            {/* A conta por extenso. O campo é POR NOITE e POR UNIDADE — sem ver
+                o total, é fácil digitar aqui o número que se tem em mente para o
+                pacote inteiro. Aconteceu na primeira venda (20/08): 40 no campo
+                viraram 40 em cada um dos 4, não 10 em cada. */}
+            {qtd > 0 && seats.length > 0 && (
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {seats.length} {seats.length === 1 ? v.singular : v.plural} × <strong className="text-foreground">{qtd}</strong> por noite
+                {noites > 0 && <> × {noites} noites</>}
+                {' = '}
+                <strong className="text-foreground">
+                  {qtd * seats.length * (noites > 0 ? noites : 1)} pulseiras
+                </strong> a imprimir
+                {noites > 0 && <> ({qtd * noites} por {v.singular})</>}.
+              </p>
+            )}
           </div>
 
           {/* Preço de cada unidade — no rodeio ele muda por piso, e ver a lista
@@ -228,21 +245,29 @@ export function FecharVendaEmLote({ open, onOpenChange, seats, eventId, eventTit
             </Button>
           ) : (
             <div className="space-y-3">
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Link do pacote</p>
-                <p className="text-xs break-all font-mono leading-relaxed">{link}</p>
+              {/* Confirmação, não um endereço cru na cara do produtor. O link é
+                  meio, não resultado: ele quer saber que a venda foi montada e
+                  mandar para o cliente (Gabriel, 20/08). */}
+              <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-center">
+                <div className="mx-auto mb-2 w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Check className="w-5 h-5 text-green-400" />
+                </div>
+                <p className="font-display font-semibold text-base">Venda montada</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {seats.length} {seats.length === 1 ? v.singular : v.plural} · {brl(totalPacote)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                  Agora é só mandar o link para o cliente. {seats.length === 1 ? `${v.artigoMaiusculo} ${v.singular} fica` : `${v.Plural} ficam`} reservad{v.genero}{seats.length === 1 ? '' : 's'} enquanto ele estiver pagando.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={copiar}>
-                  {copiado ? <><Check className="w-4 h-4 mr-2" /> Copiado</> : <><Copy className="w-4 h-4 mr-2" /> Copiar</>}
+                  {copiado ? <><Check className="w-4 h-4 mr-2" /> Copiado</> : <><Copy className="w-4 h-4 mr-2" /> Copiar link</>}
                 </Button>
                 <Button variant="hero" onClick={() => window.open(whats, '_blank', 'noopener')}>
                   <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
                 </Button>
               </div>
-              <p className="text-[11px] text-center text-muted-foreground">
-                {seats.length === 1 ? `${v.artigoMaiusculo} ${v.singular} fica` : `${v.Plural} ficam`} reservad{v.genero}{seats.length === 1 ? '' : 's'} enquanto o comprador estiver no checkout.
-              </p>
               <Button variant="ghost" className="w-full" onClick={() => onOpenChange(false)}>Fechar</Button>
             </div>
           )}
