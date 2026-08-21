@@ -15,8 +15,8 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { validarNomePessoa, normalizarNomePessoa } from "../_shared/nomePessoa.ts";
 import {
-import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
   corsMesa, jsonMesa, adminClient, exigirUsuario, exigirCpfValido, eventoPublicado,
   abrirPedidoDeMesa, desfazerPedidoDeMesa, vencimentoDaReserva, MesaInvalida,
   type AssentoPedido,

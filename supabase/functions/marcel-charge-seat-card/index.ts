@@ -21,9 +21,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { validarNomePessoa, normalizarNomePessoa } from "../_shared/nomePessoa.ts";
+import { bandeiraDoCartao } from "../_shared/bandeiraCartao.ts";
 import {
-import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
-import { bandeiraDoCartao } from '../_shared/bandeiraCartao.ts';
   corsMesa, jsonMesa, adminClient, exigirUsuario, exigirCpfValido, eventoPublicado,
   abrirPedidoDeMesa, desfazerPedidoDeMesa, cotarMesa, MesaInvalida,
   type AssentoPedido,

@@ -187,7 +187,7 @@ export async function resolverPreco(
  * ⚠️ Lote sem `max_parcelas` não restringe nada — é o caso de todos os outros
  * eventos, que seguem no teto global.
  */
-export function tetoDeParcelas(linhas: LinhaDoCarrinho[], tetoGlobal: number): number {
+export function tetoDeParcelas(linhas: LinhaCarrinho[], tetoGlobal: number): number {
   const tetos = linhas
     .map((l) => l.maxParcelas)
     .filter((n): n is number => typeof n === 'number' && n > 0);
