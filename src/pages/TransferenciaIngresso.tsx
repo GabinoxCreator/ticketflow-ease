@@ -30,6 +30,10 @@ interface Info {
   expiraEm: string;
   deQuem: string;
   cpfFinal: string;
+  /** Já existe conta com o CPF de destino. Muda a tela de "criar" para "entrar". */
+  jaTemConta?: boolean;
+  /** E-mail mascarado dessa conta, para a pessoa se reconhecer. */
+  emailMascarado?: string | null;
   evento: { titulo: string; data: string; hora: string; local: string; cidade: string; estado: string; imagem: string | null } | null;
   ingresso: { lote: string | null; assento: string | null };
 }
@@ -79,26 +83,44 @@ export default function TransferenciaIngresso() {
 
     setProcessando(true);
     try {
-      // Sem conta ainda: cria agora. A confirmação de e-mail está desligada no
-      // projeto, então o cadastro já entra logado e o aceite segue na sequência.
       if (!user) {
-        if (!nome.trim() || !email.trim() || senha.length < 6) {
-          toast.error('Preencha nome, e-mail e uma senha de pelo menos 6 caracteres.');
-          setProcessando(false);
-          return;
-        }
-        const { error: signErr } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: senha,
-          options: { data: { nome_completo: nome.trim() } },
-        });
-        if (signErr) {
-          // Já tem conta com esse e-mail: tenta entrar com a senha informada.
-          const { error: loginErr } = await supabase.auth.signInWithPassword({ email: email.trim(), password: senha });
-          if (loginErr) {
-            toast.error('Já existe uma conta com esse e-mail. Entre com a sua senha para aceitar.');
+        // Quem JÁ tem conta neste CPF entra; quem não tem, cria. A tela já
+        // sabe qual é o caso antes de a pessoa digitar (Gabriel, 21/08) — antes
+        // ela só sabia criar, e quem já era cliente levava "já existe um e-mail
+        // assim" no fim do preenchimento, sem saída.
+        if (info?.jaTemConta) {
+          if (!email.trim() || !senha) {
+            toast.error('Informe o e-mail e a senha da sua conta para entrar.');
             setProcessando(false);
             return;
+          }
+          const { error: loginErr } = await supabase.auth.signInWithPassword({
+            email: email.trim(), password: senha,
+          });
+          if (loginErr) {
+            toast.error('E-mail ou senha não conferem. Se esqueceu a senha, use "Esqueci minha senha" e volte a este link.');
+            setProcessando(false);
+            return;
+          }
+        } else {
+          if (!nome.trim() || !email.trim() || senha.length < 6) {
+            toast.error('Preencha nome, e-mail e uma senha de pelo menos 6 caracteres.');
+            setProcessando(false);
+            return;
+          }
+          const { error: signErr } = await supabase.auth.signUp({
+            email: email.trim(),
+            password: senha,
+            options: { data: { nome_completo: nome.trim() } },
+          });
+          if (signErr) {
+            // O CPF não tinha conta, mas o e-mail digitado já é de alguém.
+            const { error: loginErr } = await supabase.auth.signInWithPassword({ email: email.trim(), password: senha });
+            if (loginErr) {
+              toast.error('Já existe uma conta com esse e-mail. Entre com a senha dela, ou use outro e-mail.');
+              setProcessando(false);
+              return;
+            }
           }
         }
       }
@@ -225,7 +247,38 @@ export default function TransferenciaIngresso() {
         </div>
 
         <div className="space-y-4">
-          {!user && (
+          {!user && info.jaTemConta && (
+            /* Já é cliente. Não faz sentido pedir para criar conta de novo —
+               e era exatamente onde a pessoa travava antes. */
+            <>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-3">
+                <p className="text-sm font-medium">Você já tem conta na FestPag</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {info.emailMascarado
+                    ? <>Encontramos uma conta neste CPF, com o e-mail <strong className="text-foreground">{info.emailMascarado}</strong>. Entre nela para receber o ingresso.</>
+                    : <>Encontramos uma conta neste CPF. Entre nela para receber o ingresso.</>}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="a-email">Seu e-mail</Label>
+                <Input id="a-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="a-senha">Sua senha</Label>
+                <Input id="a-senha" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="A senha da sua conta" />
+                <p className="text-[11px] text-muted-foreground">
+                  Esqueceu?{' '}
+                  <button type="button" className="text-primary hover:underline"
+                    onClick={() => navigate('/auth?mode=reset')}>
+                    Recupere a senha
+                  </button>
+                  {' '}e volte a este link — ele vale 24 horas.
+                </p>
+              </div>
+            </>
+          )}
+
+          {!user && !info.jaTemConta && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="a-nome">Seu nome completo</Label>
@@ -263,7 +316,7 @@ export default function TransferenciaIngresso() {
             onClick={aceitar} disabled={processando}>
             {processando
               ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Confirmando…</>
-              : 'Aceitar ingresso'}
+              : (!user && info.jaTemConta ? 'Entrar e receber o ingresso' : 'Aceitar ingresso')}
           </Button>
 
           <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
