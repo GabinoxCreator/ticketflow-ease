@@ -20,7 +20,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
-import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
@@ -79,7 +79,7 @@ serve(async (req) => {
     const { data: opcoes, error: opcErr } = await admin.rpc('opcoes_parcelamento', {
       _face_cents: Math.round(preco.subtotal * 100),
       _absorve: absorve,
-      _max_parcelas: MAX_PARCELAS,
+      _max_parcelas: tetoDeParcelas(preco.linhas, MAX_PARCELAS),
     });
     if (opcErr) {
       log('Falha ao montar parcelas', { opcErr });

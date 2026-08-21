@@ -2,12 +2,13 @@ import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, QrCode, Loader2, Tag, X, CheckCircle2, ArrowRight, Calendar, MapPin, Sparkles, Ticket, Info, AlertCircle } from 'lucide-react';
 import { PassePermanenteDialog } from './PassePermanenteDialog';
+import { AvisoUmPorNoite } from '@/components/event/AvisoUmPorNoite';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useEventFees, computeFee } from '@/hooks/useEventFees';
+import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import type { AppliedCoupon } from './CheckoutModal';
 
 interface CartItem {
@@ -79,7 +80,7 @@ export function CheckoutStepPayment({
     (fees.pixPercent <= fees.cardPercent ? 'pix' : 'card');
   const feePercent = previewMethod === 'pix' ? fees.pixPercent : fees.cardPercent;
   const feeFixed = previewMethod === 'pix' ? fees.pixFixed : fees.cardFixed;
-  const serviceFee = computeFee(totalAmount, feePercent, feeFixed);
+  const serviceFee = computeFee(baseDaTaxa(items), feePercent, feeFixed);
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
   const handleApplyCoupon = async () => {
@@ -314,6 +315,11 @@ export function CheckoutStepPayment({
           />
         </>
       )}
+
+      {/* A regra aparece pela terceira vez aqui. Repetição de propósito: é o
+          último instante antes de pagar, e é onde a recusa do servidor doeria
+          mais. */}
+      {temPassePermanente && <AvisoUmPorNoite className="mb-1" />}
 
       {/* Forma de pagamento */}
       <div className="space-y-3">
