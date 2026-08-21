@@ -22,9 +22,13 @@ import type { VocabularioAssento } from '@/lib/vocabularioAssento';
  * depois que o lote foi impresso nasce em "a imprimir" e volta sozinho para a
  * fila.
  *
- * A quantidade de pulseiras é o número de ingressos EMITIDOS para o camarote,
- * não a capacidade cadastrada: o comprador pode ter fechado com menos gente do
- * que o espaço comporta.
+ * A pulseira é FÍSICA e vale UMA NOITE. O ingresso do camarote vale as cinco,
+ * então um camarote de 10 pessoas precisa de 10 pulseiras por noite — 50 no
+ * total. Contar só os ingressos faria a gráfica imprimir um quinto do
+ * necessário (era o que a tela mostrava até 21/08).
+ *
+ * Quantas pessoas: os ingressos EMITIDOS, não a capacidade cadastrada — o
+ * comprador pode ter fechado com menos gente do que o espaço comporta.
  */
 
 interface Linha {
@@ -32,7 +36,12 @@ interface Linha {
   code: string | null;
   label: string | null;
   seat_type_name: string | null;
+  /** Total de pulseiras: pessoas × noites. */
   quantidade: number;
+  /** Quantas pessoas o camarote leva (ingressos emitidos). */
+  pessoas: number;
+  /** Noites do evento. 1 em evento sem noites cadastradas. */
+  noites: number;
   order_id: string;
   comprador: string | null;
   comprador_email: string | null;
@@ -190,6 +199,13 @@ export function CamarotePulseiras({ eventId, eventTitle, v }: Props) {
                   <div className="text-right shrink-0">
                     <p className="text-4xl font-black leading-none">{l.quantidade}</p>
                     <p className="text-[10px] uppercase tracking-wide">pulseiras</p>
+                    {/* A conta aberta. Quem separa o material precisa saber
+                        quantas são de cada noite, não só o total. */}
+                    {l.noites > 1 && (
+                      <p className="text-[11px] mt-0.5 whitespace-nowrap">
+                        {l.pessoas} por noite × {l.noites} noites
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-black/30 text-sm space-y-0.5">
@@ -265,6 +281,11 @@ export function CamarotePulseiras({ eventId, eventTitle, v }: Props) {
                     )}
                     <Badge variant="outline" className="text-[10px]">
                       {l.quantidade} {l.quantidade === 1 ? 'pulseira' : 'pulseiras'}
+                      {l.noites > 1 && (
+                        <span className="text-muted-foreground/70">
+                          {' '}({l.pessoas}/noite)
+                        </span>
+                      )}
                     </Badge>
                     {estado === 'entregue' && (
                       <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">
