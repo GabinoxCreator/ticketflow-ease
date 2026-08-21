@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, QrCode, Loader2, Tag, X, CheckCircle2, ArrowRight, Calendar, MapPin, Sparkles, Ticket } from 'lucide-react';
+import { CreditCard, QrCode, Loader2, Tag, X, CheckCircle2, ArrowRight, Calendar, MapPin, Sparkles, Ticket, Info, AlertCircle } from 'lucide-react';
+import { PassePermanenteDialog } from './PassePermanenteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -113,8 +114,26 @@ export function CheckoutStepPayment({
     }
   };
 
+  const caixaAceiteRef = useRef<HTMLLabelElement>(null);
+  /** Pisca a caixa do aceite quando o comprador tenta pagar sem marcar. */
+  const [cobrandoAceite, setCobrandoAceite] = useState(false);
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false);
+
   const handleSelect = (method: 'pix' | 'card') => {
     if (isProcessing || selecting) return;
+
+    // ⚠️ Antes, os botões de pagamento ficavam DESABILITADOS sem o aceite — e
+    // botão desabilitado não responde a clique: a pessoa tocava e não acontecia
+    // nada, sem nenhuma explicação (Gabriel, 20/08). Agora o clique acontece,
+    // leva a caixa para a tela e a acende.
+    if (temPassePermanente && !passeAceito) {
+      caixaAceiteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setCobrandoAceite(true);
+      toast.error('Confirme que você leu as regras do passe permanente para continuar.');
+      window.setTimeout(() => setCobrandoAceite(false), 2200);
+      return;
+    }
+
     setSelecting(method);
     onSelectPayment(method);
   };
@@ -247,31 +266,53 @@ export function CheckoutStepPayment({
           para ninguém. Quem compra para a família precisa saber disso ANTES,
           não na portaria. */}
       {temPassePermanente && (
-        <label
-          htmlFor="aceite-passe"
-          className={cn(
-            'flex gap-3 items-start rounded-2xl border-2 px-4 py-3.5 cursor-pointer transition-all',
-            passeAceito
-              ? 'border-primary/60 bg-primary/5'
-              : 'border-amber-500/50 bg-amber-500/10',
-          )}
-        >
-          <input
-            id="aceite-passe"
-            type="checkbox"
-            checked={passeAceito}
-            onChange={(e) => onPasseAceitoChange?.(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-primary cursor-pointer"
+        <>
+          <label
+            ref={caixaAceiteRef}
+            htmlFor="aceite-passe"
+            className={cn(
+              'flex gap-3 items-center rounded-2xl border-2 px-4 py-3.5 cursor-pointer transition-all duration-300',
+              passeAceito
+                ? 'border-primary/60 bg-primary/5'
+                : 'border-amber-500/50 bg-amber-500/10',
+              // O destaque de quem tentou pagar sem marcar: some sozinho.
+              cobrandoAceite && !passeAceito &&
+                'border-amber-400 bg-amber-500/25 ring-4 ring-amber-400/30 scale-[1.02]',
+            )}
+          >
+            <input
+              id="aceite-passe"
+              type="checkbox"
+              checked={passeAceito}
+              onChange={(e) => onPasseAceitoChange?.(e.target.checked)}
+              className="h-4 w-4 shrink-0 accent-primary cursor-pointer"
+            />
+            <span className="flex-1 min-w-0 text-xs leading-relaxed">
+              <strong className="text-foreground">
+                Ingresso Permanente válido para as 5 noites
+              </strong>
+              {cobrandoAceite && !passeAceito && (
+                <span className="flex items-center gap-1 text-amber-300 font-semibold mt-0.5">
+                  <AlertCircle className="w-3 h-3" /> Marque aqui para continuar
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setDetalhesAbertos(true); }}
+              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+            >
+              <Info className="w-3.5 h-3.5" /> Ver detalhes
+            </button>
+          </label>
+
+          <PassePermanenteDialog
+            open={detalhesAbertos}
+            onOpenChange={setDetalhesAbertos}
+            aceito={passeAceito}
+            onAceitar={() => { onPasseAceitoChange?.(true); setDetalhesAbertos(false); }}
           />
-          <span className="text-xs leading-relaxed text-muted-foreground">
-            <strong className="text-foreground block mb-1">
-              Este passe vale as 5 noites — e trava no CPF de quem usar.
-            </strong>
-            Você pode passá-lo para outra pessoa <strong className="text-foreground">enquanto ninguém entrou</strong> com ele.
-            Na primeira entrada, o passe fica preso ao CPF de quem entrou e não pode mais ser transferido.
-            Faltar uma noite não invalida as outras.
-          </span>
-        </label>
+        </>
       )}
 
       {/* Forma de pagamento */}
@@ -284,7 +325,7 @@ export function CheckoutStepPayment({
 
         <button
           onClick={() => handleSelect('pix')}
-          disabled={isProcessing || (temPassePermanente && !passeAceito)}
+          disabled={isProcessing}
           className={cn(
             'group relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 text-left overflow-hidden',
             'border-border/60 bg-card/60 backdrop-blur',
@@ -314,7 +355,7 @@ export function CheckoutStepPayment({
 
         <button
           onClick={() => handleSelect('card')}
-          disabled={isProcessing || (temPassePermanente && !passeAceito)}
+          disabled={isProcessing}
           className={cn(
             'group relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 text-left',
             'border-border/60 bg-card/60 backdrop-blur',
