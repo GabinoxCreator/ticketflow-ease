@@ -29,7 +29,7 @@ const LP3_CSS = `.lp3 *,.lp3 *::before,.lp3 *::after{box-sizing:border-box;margi
  background-size:88px 88px;mask-image:radial-gradient(ellipse 90% 70% at 50% 45%,#000 30%,transparent 78%)}.lp3 .noise{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.5;
  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E")}.lp3 .top{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;justify-content:space-between;
  padding:20px clamp(20px,4vw,56px);backdrop-filter:blur(14px);background:linear-gradient(180deg,rgba(10,7,16,.86),rgba(10,7,16,0));
- transition:background .4s}.lp3 .top img{height:30px;width:auto}.lp3 .top-r{display:flex;align-items:center;gap:14px}.lp3 .prog{position:fixed;top:0;left:0;height:2px;z-index:70;background:var(--grad);width:0;transition:width .18s linear}.lp3 .btn{font-family:var(--head);font-weight:600;font-size:15px;border:0;cursor:pointer;border-radius:var(--r);
+ transition:background .4s,transform .4s var(--ease)}.lp3 .top img{height:30px;width:auto}.lp3 .top-r{display:flex;align-items:center;gap:14px}.lp3 .prog{position:fixed;top:0;left:0;height:2px;z-index:70;background:var(--grad);width:0;transition:width .18s linear}.lp3 .btn{font-family:var(--head);font-weight:600;font-size:15px;border:0;cursor:pointer;border-radius:var(--r);
  padding:13px 22px;transition:transform .25s var(--ease),box-shadow .25s var(--ease),background .25s;position:relative;overflow:hidden}.lp3 .btn-p{background:var(--grad);color:#fff;box-shadow:0 10px 30px -12px rgba(95,110,249,.9)}.lp3 .btn-p:hover{transform:translateY(-2px);box-shadow:0 16px 40px -12px rgba(184,106,217,.95)}.lp3 .btn-s{background:rgba(242,239,249,.06);color:var(--nevoa);border:1px solid var(--line)}.lp3 .btn-s:hover{background:rgba(242,239,249,.12);transform:translateY(-2px)}.lp3 .btn-lg{font-size:17px;padding:17px 30px}.lp3 .btn:focus-visible,.lp3 a:focus-visible,.lp3 input:focus-visible,.lp3 select:focus-visible{outline:2px solid var(--azulc);outline-offset:3px}.lp3 .rail{position:fixed;right:clamp(14px,2.4vw,34px);top:50%;transform:translateY(-50%);z-index:60;display:flex;flex-direction:column;gap:16px;align-items:flex-end}.lp3 .rdot{display:flex;align-items:center;gap:10px;background:none;border:0;cursor:pointer;padding:2px}.lp3 .rdot span{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);opacity:0;transform:translateX(6px);
  transition:opacity .3s,transform .3s;white-space:nowrap;font-family:var(--head)}.lp3 .rdot i{width:7px;height:7px;border-radius:50%;background:rgba(242,239,249,.26);transition:all .4s var(--ease);flex:none}.lp3 .rdot:hover span{opacity:1;transform:none}.lp3 .rdot.on i{background:var(--grad);width:9px;height:9px;box-shadow:0 0 0 4px rgba(95,110,249,.18)}.lp3 .rdot.on span{opacity:1;transform:none;color:var(--nevoa)}.lp3 .rsub{display:flex;flex-direction:column;gap:7px;align-items:flex-end;margin:-6px 1px 0 0;max-height:0;overflow:hidden;transition:max-height .5s var(--ease)}.lp3 .rsub.open{max-height:120px}.lp3 .rsub-b{background:none;border:0;padding:3px;cursor:pointer;line-height:0;display:block}.lp3 .rsub-b i{display:block;width:4px;height:4px;border-radius:50%;background:rgba(242,239,249,.22);transition:all .35s}.lp3 .rsub-b:hover i{background:rgba(242,239,249,.6)}.lp3 .rsub-b.on i{background:var(--azulc);transform:scale(1.6)}.lp3 .scroller{height:100vh;height:100svh;overflow-y:scroll;scroll-snap-type:y mandatory;position:relative;z-index:10;scrollbar-width:none}.lp3 .scroller::-webkit-scrollbar{display:none}.lp3 .sec{min-height:100vh;min-height:100svh;scroll-snap-align:start;scroll-snap-stop:always;display:flex;align-items:center;
  position:relative;padding:96px 0 72px}.lp3 .wrap{width:min(1180px,calc(100vw - 200px));margin:0 auto;position:relative;z-index:2}.lp3 [data-anim]{opacity:0;transform:translateY(30px);transition:opacity .78s var(--ease),transform .78s var(--ease);
@@ -63,29 +63,41 @@ const LP3_CSS = `.lp3 *,.lp3 *::before,.lp3 *::after{box-sizing:border-box;margi
  transition:background .25s,border-color .25s;position:relative}.lp3 .consent input:checked{background:var(--grad);border-color:transparent}.lp3 .consent input:checked::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
  border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg)}.lp3 .consent a{color:var(--azulc);text-decoration:underline;text-underline-offset:2px}.lp3 .consent a:hover{color:var(--nevoa)}.lp3 .err-msg{margin-top:13px;font-size:13.5px;color:#FFB4C8;background:rgba(247,102,198,.1);
  border:1px solid rgba(247,102,198,.3);border-radius:11px;padding:11px 14px;line-height:1.45}.lp3 .ok-msg{font-family:var(--head);font-size:24px;font-weight:600;letter-spacing:-.02em;text-align:center;padding:34px 8px}.lp3 .ok-sub{font-family:var(--body);font-size:15px;font-weight:400;color:var(--soft);margin-top:12px;letter-spacing:0}.lp3 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}.lp3 .contact-alt{display:flex;flex-direction:column;gap:12px;margin-top:30px}.lp3 .calt{display:flex;align-items:center;gap:13px;font-size:15px;color:var(--soft)}.lp3 .calt b{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(95,110,249,.12);
- border:1px solid rgba(95,110,249,.28);flex:none}.lp3 .endfoot{position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:12.5px;color:var(--mute);letter-spacing:.04em}@media (max-width:1080px){.lp3 .hero-grid,.lp3 .fp,.lp3 .form-grid{grid-template-columns:1fr;gap:34px}.lp3 .hero-art{height:44vh;order:-1}.lp3 .nums{grid-template-columns:repeat(2,1fr);gap:16px}.lp3 .probs{grid-template-columns:1fr}.lp3 .track-h{grid-template-columns:repeat(2,1fr);gap:26px 20px;padding-top:0}.lp3 .track-h::before,.lp3 .track-h::after{display:none}.lp3 .hstep::before{position:static;display:block;margin-bottom:10px}.lp3 .ecards{grid-template-columns:repeat(2,1fr)}.lp3 .fp-3{grid-template-columns:1fr}.lp3 .stage-in{right:auto;left:0;top:0;transform:none;width:100%;height:42svh;padding:62px 0 0}.lp3 .sdev,.lp3 .sdev.tall,.lp3 .sdev.wide{height:auto;width:auto;max-height:100%;max-width:84vw}.lp3 .stage-ring{display:none}.lp3 .mod-sec{align-items:flex-end;padding-bottom:84px}.lp3 .mod-sec .mod-wrap{padding-top:40svh}.lp3 .rail span{display:none}.lp3 .wrap,.lp3 .mod-wrap{width:90vw}.lp3 .sec{padding:92px 0 64px}.lp3 .mod{max-width:none}}@media (max-width:680px){.lp3 .nums{grid-template-columns:1fr 1fr;gap:12px}.lp3 .ncard{padding:22px 18px}.lp3 .card{padding:24px}.lp3 .hero-art{height:36vh}}@media (prefers-reduced-motion:reduce){.lp3 *{animation:none!important;transition-duration:.01ms!important}.lp3 [data-anim]{opacity:1!important;transform:none!important;clip-path:none!important}.lp3 .sdev{opacity:1}.lp3 html{scroll-behavior:auto}}`;
+ border:1px solid rgba(95,110,249,.28);flex:none}.lp3 .endfoot{position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:12.5px;color:var(--mute);letter-spacing:.04em}@media (max-width:1080px){.lp3 .hero-grid,.lp3 .fp,.lp3 .form-grid{grid-template-columns:1fr;gap:34px}
+.lp3 .top{padding:14px 18px;backdrop-filter:blur(8px);background:linear-gradient(180deg,rgba(10,7,16,.72),rgba(10,7,16,0) 76%)}
+.lp3 .top.top-hide{transform:translateY(-100%)}
+.lp3 .hero-art{height:52vh;order:-1;perspective:none}
+.lp3 .hero-art img{animation:lp3-float 9s ease-in-out infinite}
+.lp3 .hp-mac,.lp3 .hp-pos{display:none}
+.lp3 .hp-totem{height:92%;left:50%;top:2%;transform:translateX(-56%);z-index:2}
+.lp3 .hp-ip{height:46%;left:auto;right:4%;bottom:0;top:auto;z-index:3}
+.lp3 .nums{grid-template-columns:repeat(2,1fr);gap:16px}.lp3 .probs{grid-template-columns:1fr}.lp3 .track-h{grid-template-columns:repeat(2,1fr);gap:26px 20px;padding-top:0}.lp3 .track-h::before,.lp3 .track-h::after{display:none}.lp3 .hstep::before{position:static;display:block;margin-bottom:10px}.lp3 .ecards{grid-template-columns:repeat(2,1fr)}.lp3 .fp-3{grid-template-columns:1fr}
+.lp3 .stage-in{right:auto;left:0;top:0;transform:none;width:100%;height:48svh;padding:88px 0 16px}
+.lp3 .sdev,.lp3 .sdev.tall,.lp3 .sdev.wide{height:auto;width:auto;max-height:100%;max-width:76vw}
+.lp3 .stage-ring{display:none}.lp3 .mod-sec{align-items:flex-end;padding-bottom:84px}.lp3 .mod-sec .mod-wrap{padding-top:52svh}.lp3 .rail span{display:none}.lp3 .wrap,.lp3 .mod-wrap{width:90vw}.lp3 .sec{padding:92px 0 64px}.lp3 .mod{max-width:none}}@media (max-width:680px){.lp3 .nums{grid-template-columns:1fr 1fr;gap:12px}.lp3 .ncard{padding:22px 18px}.lp3 .card{padding:24px}
+.lp3 .hero-art{height:44vh}.lp3 .hp-totem{height:88%}.lp3 .hp-ip{height:40%}}@media (prefers-reduced-motion:reduce){.lp3 *{animation:none!important;transition-duration:.01ms!important}.lp3 [data-anim]{opacity:1!important;transform:none!important;clip-path:none!important}.lp3 .sdev{opacity:1}.lp3 html{scroll-behavior:auto}}`;
 
 type Mod = {
   id: string; n: string; kicker: string; head: JSX.Element; desc: string; tags: string[];
 };
 
 const MODULES: Mod[] = [
-  { id: 'm1', n: '01', kicker: 'TICKETARIA',
+  { id: 'm1', n: '01', kicker: 'TICKETEIRA',
     head: <>A receita começa <span className="g">antes do portão abrir</span></>,
-    desc: 'Venda online com lotes, Pix e cartão. O ingresso sai com QR Code na hora e a portaria valida em tempo real, sem importar planilha de terceiro.',
-    tags: ['Lotes e cupons', 'Cortesias', 'Comissários', 'Mapa de mesas', 'Check-in na portaria'] },
+    desc: 'Venda online com lotes, Pix e cartão. O ingresso sai com QR Code vinculado à biometria facial: a portaria valida o check-in em 2 segundos, sem fila e sem precisar de celular.',
+    tags: ['Lotes e cupons', 'Cortesias', 'Comissários', 'Check-in facial em 2s', 'Portaria em tempo real'] },
   { id: 'm2', n: '02', kicker: 'TOTEM DE AUTOATENDIMENTO',
     head: <>O público se atende sozinho. <span className="g">A fila desaparece.</span></>,
-    desc: 'O cliente pede e paga sozinho, com o cardápio e a identidade visual do seu evento. O pedido sai impresso na hora, com senha para chamar no balcão.',
-    tags: ['Cardápio personalizado', 'Impressão na hora', 'Senha sequencial', 'Pix, cartão e aproximação'] },
+    desc: 'O cliente pede e paga sozinho, com o cardápio e a identidade visual do seu evento, e sai com a ficha impressa na hora.',
+    tags: ['Cardápio personalizado', 'Impressão na hora', 'Pix, cartão e aproximação'] },
   { id: 'm3', n: '03', kicker: 'SMART POS',
     head: <>Um caixa completo <span className="g">em cada ponto de venda</span></>,
     desc: 'Maquininha própria para vender em qualquer lugar: balcão, camarote, pista ou food truck. Venda por catálogo, sem digitar valor e sem errar.',
     tags: ['Venda móvel', 'Controle por operador', 'Comprovante impresso', 'Reforço de contingência'] },
-  { id: 'm4', n: '04', kicker: 'FACEPAG',
-    head: <>Seu rosto é <span className="g">o ingresso e a carteira</span></>,
-    desc: 'Pagamento e entrada por reconhecimento facial. Tecnologia exclusiva FestPag: o participante se cadastra uma vez e passa a ser reconhecido em qualquer ponto do evento.',
-    tags: ['Cadastro único', 'Check-in por rosto', 'Sem cartão nem celular'] },
+  { id: 'm4', n: '04', kicker: 'FESTCASH',
+    head: <>Seu rosto <span className="g">é a carteira do evento</span></>,
+    desc: 'Carteira cashless vinculada ao CPF: o cliente recarrega o saldo na própria facial, no totem, e paga com o rosto no balcão. Sem pulseira descartável, sem cartão caro para comprar e ficar recarregando.',
+    tags: ['Cadastro único por CPF', 'Sem pulseira nem cartão', 'Recarga no totem'] },
   { id: 'm5', n: '05', kicker: 'GESTÃO E REPASSE',
     head: <>Você enxerga o evento <span className="g">enquanto ele acontece</span></>,
     desc: 'Acompanhe a venda durante o evento e receba o fechamento detalhado, com receita, taxas e custos abertos linha a linha. Repasse por Pix, sem surpresa.',
@@ -100,13 +112,6 @@ const DEVICES = [
   { id: 'm5', src: devMacbook, alt: 'Painel do produtor no notebook', cls: 'wide' },
 ];
 
-const NUMEROS = [
-  { v: 9620, pre: '', suf: '', lab: 'vendas no autoatendimento' },
-  { v: 16, pre: '', suf: ' mil', lab: 'ingressos e fichas emitidos' },
-  { v: 470, pre: 'R$ ', suf: ' mil', lab: 'transacionados no ecossistema' },
-  { v: 87, pre: '', suf: '', lab: 'totens em campo' },
-];
-
 const PROBLEMAS = [
   { t: 'Filas longas', d: 'Enquanto o público espera, ninguém consome. Fila é receita parada.',
     p: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> },
@@ -119,10 +124,10 @@ const PROBLEMAS = [
 ];
 
 const ECARDS = [
-  { n: '01', t: 'Ticketaria', d: 'Venda online, lotes, cupons e QR Code no celular.' },
+  { n: '01', t: 'Ticketeira', d: 'Venda online, lotes, cupons e QR Code vinculado à facial.' },
   { n: '02', t: 'Totem', d: 'O público pede e paga sozinho, com impressão na hora.' },
   { n: '03', t: 'Smart POS', d: 'Maquininha própria com catálogo em cada ponto de venda.' },
-  { n: '04', t: 'FacePag', d: 'Pagamento e entrada por reconhecimento facial.' },
+  { n: '04', t: 'FestCash', d: 'Carteira cashless: o rosto recarrega e paga, sem pulseira nem cartão.' },
   { n: '05', t: 'Gestão', d: 'Venda ao vivo, fechamento aberto e repasse por Pix.' },
 ];
 
@@ -136,9 +141,9 @@ const ETAPAS = [
 ];
 
 const FP_PASSOS = [
-  { n: '01', t: 'Cadastro único', d: 'Uma vez só, com autorização explícita de quem se cadastra.' },
-  { n: '02', t: 'Reconhecimento em segundos', d: 'Olhou para a câmera, pagou. Sem procurar cartão no bolso.' },
-  { n: '03', t: 'Vale na entrada também', d: 'O mesmo rosto faz o check-in do ingresso na portaria.' },
+  { n: '01', t: 'Cadastro único por CPF', d: 'Uma vez só, com autorização explícita de quem se cadastra.' },
+  { n: '02', t: 'Recarga no próprio totem', d: 'O cliente carrega o saldo na facial, sem comprar cartão nem pulseira.' },
+  { n: '03', t: 'Pagamento em segundos', d: 'Olhou para a câmera, pagou. Sem procurar cartão no bolso.' },
 ];
 
 const PUBLICO = ['Shows', 'Festivais', 'Rodeios', 'Arenas', 'Feiras', 'Festas temáticas', 'Camarotes',
@@ -150,18 +155,17 @@ const TIPOS = ['Show', 'Festival', 'Rodeio', 'Arena', 'Feira', 'Festa temática'
 /* Grupos do trilho lateral: os cinco módulos ficam sob "Ecossistema". */
 const GRUPOS = [
   { label: 'Início', first: 'inicio', subs: [] as string[] },
-  { label: 'Números', first: 'numeros', subs: [] },
   { label: 'O problema', first: 'problema', subs: [] },
   { label: 'Ecossistema', first: 'eco', subs: ['m1', 'm2', 'm3', 'm4', 'm5'] },
-  { label: 'FacePag', first: 'facepag', subs: [] },
+  { label: 'FestCash', first: 'facepag', subs: [] },
   { label: 'Como funciona', first: 'operacao', subs: [] },
   { label: 'Para quem é', first: 'publico', subs: [] },
   { label: 'Contato', first: 'contato', subs: [] },
 ];
 const LABEL_DE: Record<string, string> = {
-  inicio: 'Início', numeros: 'Números', problema: 'O problema', eco: 'Ecossistema',
+  inicio: 'Início', problema: 'O problema', eco: 'Ecossistema',
   m1: 'Ecossistema', m2: 'Ecossistema', m3: 'Ecossistema', m4: 'Ecossistema', m5: 'Ecossistema',
-  facepag: 'FacePag', operacao: 'Como funciona', publico: 'Para quem é', contato: 'Contato',
+  facepag: 'FestCash', operacao: 'Como funciona', publico: 'Para quem é', contato: 'Contato',
 };
 
 function maskPhone(raw: string): string {
@@ -260,10 +264,14 @@ export default function LandingLp() {
     secs.forEach((s) => io.observe(s));
 
     let ultimo = 0;
+    const topEl = document.querySelector<HTMLElement>('.lp3 .top');
     const onScroll = () => {
       const dir = sc.scrollTop > ultimo ? 'down' : 'up';
       ultimo = sc.scrollTop;
       secs.forEach((s) => { s.dataset.dir = dir; });
+      /* Some a barra fixa do topo ao rolar para baixo (só tem efeito visual no
+         mobile — a regra .top-hide só existe dentro do @media(max-width:1080px)). */
+      if (topEl) topEl.classList.toggle('top-hide', dir === 'down' && sc.scrollTop > 80);
     };
     sc.addEventListener('scroll', onScroll, { passive: true });
 
@@ -349,7 +357,7 @@ export default function LandingLp() {
         <title>FestPag.digital — O banco oficial dos eventos</title>
         <meta
           name="description"
-          content="Ticketaria, totem de autoatendimento, Smart POS e pagamento por reconhecimento facial em uma operação só. Do ingresso ao último pedido, com dados em tempo real e repasse transparente."
+          content="Ticketeira, totem de autoatendimento, Smart POS e FestCash (carteira cashless por reconhecimento facial) em uma operação só. Do ingresso ao último pedido, com dados em tempo real e repasse transparente."
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -423,11 +431,11 @@ export default function LandingLp() {
                 <div className="eyebrow" data-anim style={d(0)}><i />O banco oficial dos eventos</div>
                 <h1 data-anim style={d(1)}>Do ingresso ao último pedido, <span className="g">uma operação só</span></h1>
                 <p className="lead" data-anim style={d(2)}>
-                  Ticketaria, autoatendimento, maquininha e pagamento por reconhecimento facial
-                  integrados. Dados em tempo real durante o evento e repasse transparente no fim.
+                  Ticketeira, autoatendimento, maquininha e FestCash, a carteira cashless por
+                  reconhecimento facial. Dados em tempo real durante o evento e repasse transparente no fim.
                 </p>
                 <div className="hero-chips" data-anim style={d(3)}>
-                  {['Ticketaria', 'Totem de autoatendimento', 'Smart POS', 'FacePag', 'Gestão e repasse']
+                  {['Ticketeira', 'Totem de autoatendimento', 'Smart POS', 'FestCash', 'Gestão e repasse']
                     .map((c) => <span className="chip" key={c}>{c}</span>)}
                 </div>
                 <div className="hero-ctas" data-anim style={d(4)}>
@@ -443,22 +451,6 @@ export default function LandingLp() {
               </div>
             </div>
             <div className="scrollhint" aria-hidden="true"><b />Role</div>
-          </section>
-
-          <section className="sec" id="numeros">
-            <div className="wrap">
-              <div className="eyebrow" data-anim style={d(0)}><i />Operação real</div>
-              <h2 data-anim style={d(1)}>Não é protótipo. <em>Está rodando.</em></h2>
-              <div className="nums">
-                {NUMEROS.map((n, i) => (
-                  <div className="ncard" data-anim style={d(2 + i)} key={n.lab}>
-                    <div className="nval" data-count={n.v} data-pre={n.pre} data-suf={n.suf}>0</div>
-                    <div className="nlab">{n.lab}</div>
-                  </div>
-                ))}
-              </div>
-              <p className="foot-note" data-anim style={d(6)}>Números da operação FestPag até agosto de 2026.</p>
-            </div>
           </section>
 
           <section className="sec" id="problema">
@@ -517,11 +509,11 @@ export default function LandingLp() {
           <section className="sec" id="facepag">
             <div className="wrap">
               <div style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto' }}>
-                <div className="eyebrow" data-anim style={d(0)}><i />FacePag · tecnologia exclusiva</div>
-                <h2 data-anim style={d(1)}>Pague com o rosto. <em>Sem cartão, sem celular, sem fila.</em></h2>
+                <div className="eyebrow" data-anim style={d(0)}><i />FestCash · a carteira cashless da FestPag</div>
+                <h2 data-anim style={d(1)}>O saldo mora no rosto. <em>Nada de pulseira, nada de cartão.</em></h2>
                 <p className="lead" data-anim style={d(2)}>
-                  O participante se cadastra uma vez, no celular ou no próprio totem, com autorização
-                  explícita. Depois é só olhar para a câmera.
+                  Vinculado ao CPF do cliente, sem pulseira descartável e sem cartão caro para comprar
+                  e ficar recarregando. Ele carrega o saldo na própria facial, no totem, e paga com o rosto.
                 </p>
               </div>
               <div className="scan" data-anim="scale" style={d(3)} aria-hidden="true">
