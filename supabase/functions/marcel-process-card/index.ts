@@ -341,12 +341,23 @@ serve(async (req) => {
     // Sem isto, cada venda passava com a bandeira vazia, e o framework marca
     // esse dado como irrecuperável depois do fato.
     const bandeira = card ? bandeiraDoCartao((card as { number?: string }).number) : null;
+
+    // ⚠️ O modo gravado é o DESTA venda, não o do lote.
+    //
+    // Com faixa mista, "absorve" só vale até a parcela combinada: o passe sai a
+    // R$ 300 em até 3x (produtor absorve) e a R$ 351,17 em 10x (o comprador
+    // paga). Copiar o `modo_taxa` do lote gravaria 'absorve' na venda de 10x, e
+    // o motor de repasse descontaria do produtor um custo que o cliente já
+    // pagou — erro que só apareceria no fechamento, com a venda feita.
+    const clientePagouOJuro = semJuros > 0 && n > semJuros;
     await captureSaleTerms(admin, order.id,
       preco.linhas.map((i) => ({
         lotId: i.lotId, lotName: i.lotName, unitFace: i.price,
-        quantity: i.quantity, modoTaxa: i.modoTaxa,
+        quantity: i.quantity,
+        modoTaxa: clientePagouOJuro ? 'cliente_paga' : i.modoTaxa,
       })),
-      { installments: n, brandRaw: bandeira, provider: 'marcel', method: 'card' });
+      { installments: n, brandRaw: bandeira, provider: 'marcel', method: 'card',
+        parcelasSemJuros: semJuros });
 
     const resultado = await applyOrderApproved(admin, {
       orderId: order.id,

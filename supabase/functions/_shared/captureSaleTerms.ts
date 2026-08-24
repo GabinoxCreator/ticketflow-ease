@@ -20,11 +20,30 @@ export interface FaceLine {
   lotName: string;
   unitFace: number;
   quantity: number;
+  /**
+   * Quem pagou o custo do cartão NESTA VENDA — não o que o lote diz em geral.
+   *
+   * ⚠️ A diferença não é acadêmica. Desde 23/08 um lote pode ser sem juros até
+   * N parcelas e com juros acima disso: o passe promocional do rodeio sai a
+   * R$ 300 em até 3x (produtor absorve) e a R$ 351,17 em 10x (o comprador
+   * paga). Gravar aqui o `modo_taxa` do LOTE colocaria 'absorve' na venda de
+   * 10x — e o motor de repasse, em outubro, descontaria do produtor um custo
+   * que o cliente já tinha pago.
+   *
+   * Quem chama decide, comparando as parcelas escolhidas com a faixa sem juros.
+   */
   modoTaxa: string;
 }
 
 export interface CreditTerms {
   installments?: number | null;
+  /**
+   * Até quantas parcelas o produtor absorveu neste pedido. Guardado junto para
+   * o motor de repasse poder CONFERIR a decisão que foi tomada na hora da
+   * venda, em vez de recalculá-la meses depois com um lote que já mudou de
+   * configuração. 0 = não havia faixa sem juros.
+   */
+  parcelasSemJuros?: number | null;
   brandRaw?: string | null;
   provider: string;             // 'mercadopago' | 'marcel' | 'pos' | 'manual' | 'courtesy'
   method: string;               // 'card' | 'pix' | 'cash' | 'courtesy'
@@ -84,6 +103,8 @@ export async function captureSaleTerms(
     const { error: e2 } = await client.from('order_credit_terms').upsert({
       order_id: orderId,
       installments: Number.isFinite(n) && n >= 1 && n <= 12 ? n : 1,
+      parcelas_sem_juros: Number.isFinite(Number(terms.parcelasSemJuros))
+        ? Math.max(0, Math.trunc(Number(terms.parcelasSemJuros))) : 0,
       brand_raw: terms.brandRaw ? String(terms.brandRaw).slice(0, 40) : null,
       brand_group: groupBrand(terms.brandRaw),
       provider: String(terms.provider ?? 'desconhecido').slice(0, 30),

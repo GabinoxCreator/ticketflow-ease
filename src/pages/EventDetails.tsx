@@ -637,7 +637,13 @@ const EventDetails = () => {
                   className="space-y-4"
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="font-display font-bold text-xl">{isBeneficent ? 'Convites' : 'Ingressos'}</h2>
+                    {/* No rodeio a arena é gratuita e todo ingresso é da boate;
+                        chamar de "Ingressos" faria o comprador achar que paga
+                        para entrar no evento. Vem da planta curada do evento —
+                        quem não tem planta continua lendo "Ingressos". */}
+                    <h2 className="font-display font-bold text-xl">
+                      {isBeneficent ? 'Convites' : (mapaDaArena?.tituloDosIngressos ?? 'Ingressos')}
+                    </h2>
                     {isBeneficent && (
                       <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                         1 Convite por CPF
