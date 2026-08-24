@@ -20,7 +20,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
-import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoCarrinho } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
@@ -72,20 +72,39 @@ serve(async (req) => {
 
     const preco = await resolverPreco(admin, eventId, items, 'card', couponId);
     const absorve = produtorAbsorve(preco.linhas);
+    const teto = tetoDeParcelas(preco.linhas, MAX_PARCELAS);
+    const semJuros = parcelasSemJurosDoCarrinho(preco.linhas);
+    const faceCents = Math.round(preco.subtotal * 100);
 
-    // Opções vindas da tabela versionada. `absorve` decide quem paga o custo:
-    // no lote promocional do rodeio o comprador paga a face redonda e o custo
-    // sai do repasse.
-    const { data: opcoes, error: opcErr } = await admin.rpc('opcoes_parcelamento', {
-      _face_cents: Math.round(preco.subtotal * 100),
-      _absorve: absorve,
-      _max_parcelas: tetoDeParcelas(preco.linhas, MAX_PARCELAS),
-    });
-    if (opcErr) {
+    /** Uma faixa da tabela versionada. `absorve` decide quem paga o custo. */
+    const faixa = async (absorveEsta: boolean, ate: number): Promise<OpcaoParcela[]> => {
+      const { data, error } = await admin.rpc('opcoes_parcelamento', {
+        _face_cents: faceCents, _absorve: absorveEsta, _max_parcelas: ate,
+      });
+      if (error) throw error;
+      return (data ?? []) as OpcaoParcela[];
+    };
+
+    // A lista pode ter DUAS faixas no mesmo pedido: o passe promocional do
+    // rodeio sai a R$ 300 redondos em até 3x, e de 4x a 10x continua parcelando
+    // com o juro por conta de quem parcela (Gabriel, 23/08).
+    //
+    // Antes só existiam os extremos, e a saída tinha sido travar o lote em 3x —
+    // o que matava a venda de quem queria pagar em seis. Agora as duas faixas
+    // vêm da MESMA tabela versionada, cada uma com o seu `absorve`.
+    let lista: OpcaoParcela[];
+    try {
+      if (semJuros > 0 && semJuros < teto) {
+        const semJuro = (await faixa(true, semJuros));
+        const comJuro = (await faixa(false, teto)).filter((o) => o.parcelas > semJuros);
+        lista = [...semJuro, ...comJuro].sort((a, b) => a.parcelas - b.parcelas);
+      } else {
+        lista = await faixa(absorve, teto);
+      }
+    } catch (opcErr) {
       log('Falha ao montar parcelas', { opcErr });
       return json({ error: 'Não foi possível calcular o parcelamento.' }, 500);
     }
-    const lista = (opcoes ?? []) as OpcaoParcela[];
 
     // ---- Modo cotação: nada é criado ----------------------------------------
     if (quote) {
@@ -95,6 +114,8 @@ serve(async (req) => {
         taxaAdministrativa: preco.taxaAdministrativa,
         desconto: preco.desconto,
         produtorAbsorve: absorve,
+        // Até onde não há juro para o comprador. A tela marca essas opções.
+        parcelasSemJuros: semJuros,
         // `options` no formato que a tela de cartão já consome hoje (installments
         // / total / perInstallment). Mantido em inglês de propósito: mudar o nome
         // exigiria mexer no componente do checkout, e o que não pode acontecer é
