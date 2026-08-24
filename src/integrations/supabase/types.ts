@@ -643,6 +643,7 @@ export type Database = {
           modo_taxa: string
           name: string
           original_price: number | null
+          parcelas_sem_juros: number | null
           price: number
           reserved_quantity: number
           sales_start_type: string
@@ -670,6 +671,7 @@ export type Database = {
           modo_taxa?: string
           name: string
           original_price?: number | null
+          parcelas_sem_juros?: number | null
           price: number
           reserved_quantity?: number
           sales_start_type?: string
@@ -697,6 +699,7 @@ export type Database = {
           modo_taxa?: string
           name?: string
           original_price?: number | null
+          parcelas_sem_juros?: number | null
           price?: number
           reserved_quantity?: number
           sales_start_type?: string
