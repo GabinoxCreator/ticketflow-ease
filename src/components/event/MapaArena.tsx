@@ -30,33 +30,58 @@ interface Props {
 }
 
 /**
- * Fileira do camarote. A de baixo (colada na arena) é a mais forte.
+ * Uma fileira do camarote — uma coluna de unidades numeradas.
  *
- * ⚠️ A altura vem de `flex`, não de pixel fixo. A primeira versão calculava
- * `26 - indice * 3.2` px, e na vista de cima o setor inteiro sumia da tela
- * (Gabriel, 21/08): alturas fixas dentro de um container flexível não enchem o
- * espaço, e sem a inclinação para dar volume não sobrava nada visível.
- * Dividindo o espaço, as cinco fileiras aparecem sempre — com ou sem
- * perspectiva.
+ * O croqui aprovado desenha o setor como cinco colunas (D1 a D5), cada uma com
+ * as suas 20 unidades, e é assim que o produtor e o comprador entendem o lugar:
+ * "camarote 47" vira uma posição, não um número solto. A primeira versão aqui
+ * mostrava cinco barras lisas — dava para ver que havia fileiras, mas não onde
+ * cada camarote fica (Gabriel, 23/08).
  *
- * O relevo (`translateZ`) só entra quando o mapa está inclinado: em cima de uma
- * planta reta ele não acrescenta nada e ainda arrisca sumir com o elemento.
+ * A numeração corre POR COLUNA, começando pela colada na arena: D1 leva 1 a 20,
+ * D2 leva 21 a 40, e assim por diante. É a mesma ordem do mapa de venda.
  */
-function Degrau({ indice, total, aceso, comRelevo }: {
-  indice: number; total: number; aceso: boolean; comRelevo: boolean;
+function ColunaDeCamarotes({ indice, total, porDegrau, aceso, comRelevo, compacto }: {
+  indice: number; total: number; porDegrau: number;
+  aceso: boolean; comRelevo: boolean; compacto: boolean;
 }) {
-  const forca = 1 - (indice / Math.max(total, 1)) * 0.55;
+  // D1 encosta na arena e é a mais forte; as seguintes recuam e clareiam.
+  const forca = 1 - (indice / Math.max(total, 1)) * 0.5;
+  const primeiro = indice * porDegrau + 1;
 
   return (
     <div
-      className="relative flex-1 min-h-[9px] rounded-[2px] transition-all duration-500"
+      className="flex flex-col gap-[2px] flex-1 min-w-0 transition-all duration-500"
       style={{
-        background: '#1E9BF0',
-        opacity: aceso ? forca : forca * 0.62,
+        opacity: aceso ? 1 : 0.5,
         transform: comRelevo ? `translateZ(${(total - indice) * 7}px)` : undefined,
-        boxShadow: aceso ? `0 0 18px rgba(30,155,240,${0.28 * forca})` : 'none',
       }}
-    />
+    >
+      <span className="font-mono text-[9px] font-bold tracking-wider text-center text-white/45 leading-none pb-0.5">
+        D{indice + 1}
+      </span>
+      {Array.from({ length: porDegrau }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-[1.5px] flex items-center justify-center"
+          style={{
+            background: '#1E9BF0',
+            opacity: forca,
+            /* Altura fixa e pequena: 20 unidades por coluna precisam caber sem
+               esticar o bloco todo. */
+            height: compacto ? '5px' : '11px',
+          }}
+        >
+          {/* No celular os números viram borrão — some com eles e fica a forma,
+              que é o que se entende de relance numa tela pequena. */}
+          {!compacto && (
+            <span className="font-mono text-[7px] leading-none text-[#06243B] font-semibold">
+              {primeiro + i}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -66,6 +91,9 @@ export function MapaArena({ mapa, className }: Props) {
   // "o que fica onde". A perspectiva fica a um toque, para quem quiser ver o
   // volume das fileiras do camarote.
   const [girado, setGirado] = useState(false);
+  // Tela estreita: 20 números por coluna viram borrão. Fica a forma, que é o
+  // que se lê de relance no celular.
+  const compacto = typeof window !== 'undefined' && window.innerWidth < 640;
 
   const setorAberto: SetorDaArena | undefined =
     mapa.setores.find((s) => s.id === aberto);
@@ -168,15 +196,15 @@ export function MapaArena({ mapa, className }: Props) {
 
             <div className="flex gap-1.5 items-stretch">
               {/* Boate à esquerda, com a porta embaixo. */}
-              <div className="w-[22%] flex flex-col gap-1" style={{ transform: 'translateZ(16px)' }}>
-                <Setor setor={boate} cls="flex-1 min-h-[150px]" />
+              <div className="w-[18%] flex flex-col gap-1" style={{ transform: 'translateZ(16px)' }}>
+                <Setor setor={boate} cls="flex-1 min-h-[190px]" />
                 <Porta />
               </div>
 
               {/* Arena no centro: o chão, sem altura nenhuma. */}
               <Setor
                 setor={arena}
-                cls="flex-1 min-h-[150px] border border-white/10"
+                cls="flex-1 min-h-[190px] border border-white/10"
               >
                 <span className="font-mono text-[10px] sm:text-xs font-bold tracking-[0.14em] uppercase text-white/45">
                   {arena.nome}
@@ -184,23 +212,27 @@ export function MapaArena({ mapa, className }: Props) {
                 <span className="font-mono text-[9px] text-white/30 mt-0.5">entrada gratuita</span>
               </Setor>
 
-              {/* Camarote à direita: as cinco fileiras, subindo. */}
-              <div className="w-[30%] flex flex-col gap-1">
+              {/* Camarote à direita: as cinco fileiras, cada uma com as suas
+                  unidades numeradas. Ocupa mais largura que a boate porque são
+                  100 espaços — apertá-lo faz virar um borrão azul. */}
+              <div className="w-[38%] flex flex-col gap-1">
                 <button
                   type="button"
                   onClick={() => alternar(camarote.id)}
                   aria-pressed={aberto === camarote.id}
-                  aria-label={`${camarote.nome}: ${camarote.descricao}`}
-                  className="flex-1 min-h-[150px] flex flex-col justify-stretch gap-[3px] rounded-sm p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  aria-label={`${camarote.nome}: ${camarote.descricao}. ${mapa.camarote.degraus} fileiras de ${mapa.camarote.porDegrau}, numeradas de 1 a ${mapa.camarote.degraus * mapa.camarote.porDegrau}.`}
+                  className="flex-1 flex gap-[3px] rounded-sm p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   style={{ transformStyle: girado ? 'preserve-3d' : undefined }}
                 >
                   {Array.from({ length: mapa.camarote.degraus }).map((_, i) => (
-                    <Degrau
+                    <ColunaDeCamarotes
                       key={i}
-                      indice={mapa.camarote.degraus - 1 - i}
+                      indice={i}
                       total={mapa.camarote.degraus}
+                      porDegrau={mapa.camarote.porDegrau}
                       aceso={aberto === null || aberto === camarote.id}
                       comRelevo={girado}
+                      compacto={compacto}
                     />
                   ))}
                 </button>

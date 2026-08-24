@@ -41,6 +41,17 @@ export interface MapaDeArena {
   };
   /** Onde ficam as portas. Confirmado com o produtor em 20/08. */
   entradas: string;
+  /**
+   * Como chamar a lista de ingressos nesta arena.
+   *
+   * No rodeio a arena é de graça: TODO ingresso vendido é para entrar na boate.
+   * Chamar a lista de "Ingressos" faz o comprador achar que está pagando para
+   * entrar no evento — e ele pode desistir por isso, sem saber que o que está
+   * comprando é o acesso ao setor fechado (Gabriel, 23/08).
+   *
+   * Nulo = "Ingressos", como em todos os outros eventos.
+   */
+  tituloDosIngressos?: string;
 }
 
 export const MAPAS_DE_ARENA: Record<string, MapaDeArena> = {
@@ -84,6 +95,7 @@ export const MAPAS_DE_ARENA: Record<string, MapaDeArena> = {
       notaDeOrdem: 'A primeira fileira é a colada na grade da arena — a mais perto do show.',
     },
     entradas: 'As portas de camarote e boate ficam na parte de baixo de cada setor.',
+    tituloDosIngressos: 'Ingressos Boate',
   },
 };
 
