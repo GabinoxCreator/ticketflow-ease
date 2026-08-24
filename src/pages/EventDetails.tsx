@@ -53,6 +53,8 @@ import { podeSomarMaisUm, regraValeNesteEvento } from '@/lib/umIngressoPorNoite'
 import { AvisoUmPorNoite } from '@/components/event/AvisoUmPorNoite';
 import { MapaArena } from '@/components/event/MapaArena';
 import { getMapaDaArena } from '@/data/mapasDeArena';
+import { InstrucoesDoEventoDialog, BotaoComoFunciona } from '@/components/event/InstrucoesDoEventoDialog';
+import { getInstrucoesDoEvento } from '@/data/instrucoesDoEvento';
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -99,6 +101,7 @@ const EventDetails = () => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [instrucoesAbertas, setInstrucoesAbertas] = useState(false);
   const [isDonationOpen, setIsDonationOpen] = useState(false);
   const prevTotalRef = useRef(0);
   const [liked, setLiked] = useState(false);
@@ -296,6 +299,10 @@ const EventDetails = () => {
   // Planta do local. Dado curado por evento (mesmo padrão de limite de ingresso
   // e campanha de doação); evento sem planta não mostra nada.
   const mapaDaArena = getMapaDaArena(eventId);
+
+  // "Como funciona": só em evento com instruções curadas. Ver o porquê no
+  // próprio componente — pop-up ao abrir é caro e aqui se paga.
+  const instrucoes = getInstrucoesDoEvento(eventId);
 
   const handleQuantityChange = (lotId: string, delta: number) => {
     const lote = activeLots.find((l) => l.id === lotId);
@@ -652,6 +659,8 @@ const EventDetails = () => {
                     {/* A regra precisa aparecer ANTES de a pessoa montar o
                         carrinho, não na recusa do pagamento. */}
                     {regraDeNoiteAtiva && <AvisoUmPorNoite variante="chip" />}
+                    {/* Caminho de volta para quem fechou o pop-up sem ler. */}
+                    {instrucoes && <BotaoComoFunciona onClick={() => setInstrucoesAbertas(true)} />}
                   </div>
                   {lotGroups.map(([sectorName, sectorLots, ehPasse]) => (
                     <div
@@ -793,6 +802,27 @@ const EventDetails = () => {
             isBeneficent={isBeneficent}
           />
         )}
+
+        {/* "Como funciona" — abre sozinho na primeira visita e some para sempre
+
+            depois de lido. Só existe em evento com instruções curadas. */}
+
+        {instrucoes && (
+
+          <InstrucoesDoEventoDialog
+
+            eventId={eventId!}
+
+            instrucoes={instrucoes}
+
+            abertoPorFora={instrucoesAbertas}
+
+            onFecharPorFora={() => setInstrucoesAbertas(false)}
+
+          />
+
+        )}
+
 
         <AuthModal
           isOpen={isAuthModalOpen}
