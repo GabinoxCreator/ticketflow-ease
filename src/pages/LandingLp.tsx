@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import logoFestpag from '@/assets/brand/logo-gradiente.png';
 import devTotemCardapio from '@/assets/lp3/totem-cardapio.webp';
-import devTotemCheckin from '@/assets/lp3/totem-checkin.webp';
+import devTotemFestcash from '@/assets/lp3/totem-festcash.webp';
 import devPosCatalogo from '@/assets/lp3/pos-catalogo.webp';
 import devPosPagamento from '@/assets/lp3/pos-pagamento.webp';
 import devMacbook from '@/assets/lp3/macbook-dashboard.webp';
@@ -108,7 +108,7 @@ const DEVICES = [
   { id: 'm1', src: devIphone, alt: 'Página do evento no celular', cls: 'tall' },
   { id: 'm2', src: devTotemCardapio, alt: 'Totem com o cardápio do evento', cls: 'tall' },
   { id: 'm3', src: devPosCatalogo, alt: 'Maquininha com o catálogo de produtos', cls: 'tall' },
-  { id: 'm4', src: devTotemCheckin, alt: 'Totem com check-in por reconhecimento facial', cls: 'tall' },
+  { id: 'm4', src: devTotemFestcash, alt: 'Totem lendo o rosto para recarregar e pagar com a carteira FestCash', cls: 'tall' },
   { id: 'm5', src: devMacbook, alt: 'Painel do produtor no notebook', cls: 'wide' },
 ];
 
