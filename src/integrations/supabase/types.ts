@@ -1299,6 +1299,7 @@ export type Database = {
           installments: number
           method: string
           order_id: string
+          parcelas_sem_juros: number
           provider: string
         }
         Insert: {
@@ -1308,6 +1309,7 @@ export type Database = {
           installments?: number
           method: string
           order_id: string
+          parcelas_sem_juros?: number
           provider: string
         }
         Update: {
@@ -1317,6 +1319,7 @@ export type Database = {
           installments?: number
           method?: string
           order_id?: string
+          parcelas_sem_juros?: number
           provider?: string
         }
         Relationships: [
