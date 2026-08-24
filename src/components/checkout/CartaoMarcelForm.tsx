@@ -35,6 +35,8 @@ export interface OpcaoParcelaTela {
 
 export interface CotacaoMarcel {
   options: OpcaoParcelaTela[];
+  /** Até quantas parcelas não têm juro para o comprador. 0 = todas têm. */
+  parcelasSemJuros?: number;
   /** Valor de face (ingressos ou mesas), antes das taxas. */
   totalFace?: number;
   /** Taxa administrativa do evento. */
@@ -77,6 +79,9 @@ export function CartaoMarcelForm({
   // resumo e outro para pagar, com a diferença SEM explicação nenhuma — e
   // diferença inexplicada no meio do pagamento faz gente desistir.
   const [composicao, setComposicao] = useState<{ face: number; taxaAdm: number } | null>(null);
+  // Até onde o produtor absorve o custo. Vem do servidor: a tela não decide
+  // isso, só mostra — refazer a conta aqui abriria divergência com o cobrado.
+  const [semJuros, setSemJuros] = useState(0);
   // A cotação falhou. Precisa aparecer na tela: sem isto o seletor de parcelas
   // simplesmente sumia, o cliente achava que o evento não parcela, e o total
   // mostrado era o de antes do custo do cartão — menor do que ele pagaria.
@@ -98,6 +103,7 @@ export function CartaoMarcelForm({
         if (typeof r.totalFace === 'number' && typeof r.taxaAdministrativa === 'number') {
           setComposicao({ face: r.totalFace, taxaAdm: r.taxaAdministrativa });
         }
+        if (typeof r.parcelasSemJuros === 'number') setSemJuros(r.parcelasSemJuros);
       } catch (err) {
         // ⚠️ NÃO seguir em silêncio. Isto já custou caro (20/08): a cotação
         // recusava o pedido, o seletor de parcelas sumia sem explicação e o
@@ -231,7 +237,13 @@ export function CartaoMarcelForm({
             <SelectContent>
               {options.map((opt) => (
                 <SelectItem key={opt.installments} value={String(opt.installments)}>
-                  {opt.installments} {opt.installments === 1 ? 'parcela' : 'parcelas'} de {formatPrice(opt.perInstallment)} ({formatPrice(opt.total)})
+                  {opt.installments} {opt.installments === 1 ? 'parcela' : 'parcelas'} de {formatPrice(opt.perInstallment)}
+                  {/* "sem juros" é a informação que decide a compra — sem ela, o
+                      comprador vê só dois totais diferentes e não entende por
+                      que o de 4x é maior. */}
+                  {semJuros > 0 && opt.installments <= semJuros
+                    ? <span className="text-green-500 font-semibold"> · sem juros</span>
+                    : <span className="text-muted-foreground"> ({formatPrice(opt.total)})</span>}
                 </SelectItem>
               ))}
             </SelectContent>

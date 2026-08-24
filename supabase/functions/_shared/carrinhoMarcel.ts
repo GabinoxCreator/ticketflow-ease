@@ -24,6 +24,8 @@ export interface LinhaCarrinho {
   modoTaxa: string;
   /** Teto de parcelas do lote (`event_lots.max_parcelas`). Nulo = sem teto próprio. */
   maxParcelas?: number | null;
+  /** Quantas parcelas o produtor absorve. Acima disso o juro vai para o comprador. */
+  parcelasSemJuros?: number | null;
 }
 
 export interface PrecoResolvido {
@@ -83,7 +85,7 @@ export async function resolverPreco(
   const lotIds = items.map((i) => i.lotId);
   const { data: lots, error } = await client
     .from('event_lots')
-    .select('id, name, price, is_active, modo_taxa, covers_all_days, max_parcelas')
+    .select('id, name, price, is_active, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros')
     .in('id', lotIds)
     .eq('event_id', eventId);
 
@@ -126,6 +128,7 @@ export async function resolverPreco(
       price: Number(lot.price),
       modoTaxa: lot.modo_taxa ?? 'cliente_paga',
       maxParcelas: lot.max_parcelas ?? null,
+      parcelasSemJuros: lot.parcelas_sem_juros ?? null,
       cobreTodosOsDias: lot.covers_all_days === true,
     });
   }
@@ -192,6 +195,30 @@ export function tetoDeParcelas(linhas: LinhaCarrinho[], tetoGlobal: number): num
     .map((l) => l.maxParcelas)
     .filter((n): n is number => typeof n === 'number' && n > 0);
   return tetos.length ? Math.min(tetoGlobal, ...tetos) : tetoGlobal;
+}
+
+/**
+ * Até quantas parcelas o produtor absorve o custo do cartão.
+ *
+ * O passe promocional do rodeio sai a R$ 300 redondos em **até 3x**; de 4x a 10x
+ * continua parcelando, com o juro por conta de quem parcela. Antes só existiam
+ * os extremos — "absorve tudo" ou "cliente paga tudo" —, e a saída era travar o
+ * lote em 3x, o que matava a venda de quem queria pagar em seis.
+ *
+ * Carrinho misto pega o MENOR: se um item só é sem juros até 2x, a faixa sem
+ * juros do pedido inteiro é 2. É o conservador — o produtor nunca absorve mais
+ * do que combinou em nenhum dos lotes.
+ *
+ * @returns 0 quando nenhum lote tem faixa sem juros (comportamento de hoje).
+ */
+export function parcelasSemJurosDoCarrinho(linhas: LinhaCarrinho[]): number {
+  const faixas = linhas
+    .map((l) => l.parcelasSemJuros)
+    .filter((n): n is number => typeof n === 'number' && n > 0);
+  // Só vale se TODAS as linhas tiverem faixa: um item sem faixa nenhuma
+  // significa que aquele lote não tem parcela sem juros, e o pedido segue ele.
+  if (faixas.length === 0 || faixas.length !== linhas.length) return 0;
+  return Math.min(...faixas);
 }
 
 export function produtorAbsorve(linhas: LinhaCarrinho[]): boolean {
