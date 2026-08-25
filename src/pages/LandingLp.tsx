@@ -85,9 +85,9 @@ const MODULES: Mod[] = [
   { id: 'm1', n: '01', kicker: 'TICKETEIRA',
     head: <>A receita começa <span className="g">antes do portão abrir</span></>,
     desc: 'Venda online com lotes, Pix e cartão. O ingresso sai com QR Code vinculado à biometria facial: a portaria valida o check-in em 2 segundos, sem fila e sem precisar de celular.',
-    tags: ['Lotes e cupons', 'Cortesias', 'Comissários', 'Check-in facial em 2s', 'Portaria em tempo real'] },
+    tags: ['Lotes e cupons', 'Cortesias', 'Comissários', 'Check-in facial em 2 segundos', 'Portaria em tempo real'] },
   { id: 'm2', n: '02', kicker: 'TOTEM DE AUTOATENDIMENTO',
-    head: <>O público se atende sozinho. <span className="g">A fila desaparece.</span></>,
+    head: <>Autoatendimento de verdade. <span className="g">A fila desaparece.</span></>,
     desc: 'O cliente pede e paga sozinho, com o cardápio e a identidade visual do seu evento, e sai com a ficha impressa na hora.',
     tags: ['Cardápio personalizado', 'Impressão na hora', 'Pix, cartão e aproximação'] },
   { id: 'm3', n: '03', kicker: 'SMART POS',
@@ -96,11 +96,11 @@ const MODULES: Mod[] = [
     tags: ['Venda móvel', 'Controle por operador', 'Comprovante impresso', 'Reforço de contingência'] },
   { id: 'm4', n: '04', kicker: 'FESTCASH',
     head: <>Seu rosto <span className="g">é a carteira do evento</span></>,
-    desc: 'Carteira cashless vinculada ao CPF: o cliente recarrega o saldo na própria facial, no totem, e paga com o rosto no balcão. Sem pulseira descartável, sem cartão caro para comprar e ficar recarregando.',
+    desc: 'Carteira cashless vinculada ao CPF: o cliente recarrega o saldo pelo próprio rosto, no totem, e paga do mesmo jeito no balcão. Sem pulseira descartável para comprar. Sem cartão caro para ficar recarregando.',
     tags: ['Cadastro único por CPF', 'Sem pulseira nem cartão', 'Recarga no totem'] },
   { id: 'm5', n: '05', kicker: 'GESTÃO E REPASSE',
     head: <>Você enxerga o evento <span className="g">enquanto ele acontece</span></>,
-    desc: 'Acompanhe a venda durante o evento e receba o fechamento detalhado, com receita, taxas e custos abertos linha a linha. Repasse por Pix, sem surpresa.',
+    desc: 'Você acompanha a venda durante o evento e recebe o fechamento detalhado, com receita, taxas e custos abertos linha a linha. O repasse sai por Pix, sem surpresa.',
     tags: ['Dados em tempo real', 'Fechamento linha a linha', 'Repasse por Pix'] },
 ];
 
@@ -115,11 +115,11 @@ const DEVICES = [
 const PROBLEMAS = [
   { t: 'Filas longas', d: 'Enquanto o público espera, ninguém consome. Fila é receita parada.',
     p: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> },
-  { t: 'Check-in lento', d: 'Entrada travada, ingresso duplicado e nenhuma leitura de quem já entrou.',
+  { t: 'Check-in lento', d: 'Entrada travada, ingresso duplicado e nenhum controle de quem já entrou.',
     p: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M8 15h3" /></> },
   { t: 'Venda no caderno', d: 'Dinheiro solto, erro de troco e nenhum rastro do que saiu de cada ponto.',
     p: <><path d="M5 4h14v16l-7-3-7 3z" /><path d="M9 9h6" /></> },
-  { t: 'Fechamento no escuro', d: 'O acerto vem dias depois, sem detalhe e sem como conferir.',
+  { t: 'Fechamento no escuro', d: 'O acerto vem dias depois, sem detalhes e sem como conferir.',
     p: <><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /></> },
 ];
 
@@ -142,7 +142,7 @@ const ETAPAS = [
 
 const FP_PASSOS = [
   { n: '01', t: 'Cadastro único por CPF', d: 'Uma vez só, com autorização explícita de quem se cadastra.' },
-  { n: '02', t: 'Recarga no próprio totem', d: 'O cliente carrega o saldo na facial, sem comprar cartão nem pulseira.' },
+  { n: '02', t: 'Recarga no próprio totem', d: 'O cliente carrega o saldo pelo próprio rosto, sem comprar cartão nem pulseira.' },
   { n: '03', t: 'Pagamento em segundos', d: 'Olhou para a câmera, pagou. Sem procurar cartão no bolso.' },
 ];
 
@@ -512,8 +512,8 @@ export default function LandingLp() {
                 <div className="eyebrow" data-anim style={d(0)}><i />FestCash · a carteira cashless da FestPag</div>
                 <h2 data-anim style={d(1)}>O saldo mora no rosto. <em>Nada de pulseira, nada de cartão.</em></h2>
                 <p className="lead" data-anim style={d(2)}>
-                  Vinculado ao CPF do cliente, sem pulseira descartável e sem cartão caro para comprar
-                  e ficar recarregando. Ele carrega o saldo na própria facial, no totem, e paga com o rosto.
+                  Vinculado ao CPF do cliente: sem pulseira descartável para comprar, sem cartão caro
+                  para ficar recarregando. Ele carrega o saldo pelo próprio rosto, no totem, e paga do mesmo jeito.
                 </p>
               </div>
               <div className="scan" data-anim="scale" style={d(3)} aria-hidden="true">
