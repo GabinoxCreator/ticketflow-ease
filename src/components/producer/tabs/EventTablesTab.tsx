@@ -27,6 +27,7 @@ import { EventTablesMapView } from './EventTablesMapView';
 import { FecharVendaEmLote } from './FecharVendaEmLote';
 import { CamarotePulseiras } from './CamarotePulseiras';
 import { CamaroteTermosForm } from './CamaroteTermosForm';
+import { VisibilidadeDoMapa } from './VisibilidadeDoMapa';
 
 async function parseInvokeError(error: unknown): Promise<string> {
   const e = error as { context?: { json?: () => Promise<{ error?: string }> }; message?: string };
@@ -284,6 +285,10 @@ export function EventTablesTab({ eventId, eventTitle }: Props) {
         <CamarotePulseiras eventId={eventId} eventTitle={eventTitle ?? 'Evento'} v={v} />
       ) : (
       <>
+      {/* O interruptor vem ANTES dos números: é o que responde "isto está à
+          venda no site agora?", que é a primeira pergunta de quem abre a aba. */}
+      <VisibilidadeDoMapa eventId={eventId} v={v} />
+
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} icon={Armchair} />
         <StatCard label={`Vendid${v.genero}s`} value={stats.sold} icon={CheckCircle2} accent="emerald" />
