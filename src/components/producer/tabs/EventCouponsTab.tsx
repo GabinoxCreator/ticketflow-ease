@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEventCoupons, type EventCoupon } from '@/hooks/useEventCoupons';
 import { CouponDialog } from '@/components/producer/CouponDialog';
+import { AvisoCupomLoteSubsidiado } from './AvisoCupomLoteSubsidiado';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -34,6 +35,10 @@ export function EventCouponsTab({ eventId }: Props) {
           <Plus className="w-4 h-4 mr-2" /> Novo cupom
         </Button>
       </div>
+
+      {/* Antes da lista e do botão: o aviso precisa ser lido ANTES de criar, não
+          depois. Só aparece se o evento tiver lote subsidiado ainda vendendo. */}
+      <AvisoCupomLoteSubsidiado eventId={eventId} />
 
       {coupons.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border p-10 text-center">
