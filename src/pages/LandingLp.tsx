@@ -95,8 +95,8 @@ const MODULES: Mod[] = [
     desc: 'Maquininha própria para vender em qualquer lugar: balcão, camarote, pista ou food truck. Venda por catálogo, sem digitar valor e sem errar.',
     tags: ['Venda móvel', 'Controle por operador', 'Comprovante impresso', 'Reforço de contingência'] },
   { id: 'm4', n: '04', kicker: 'FESTCASH',
-    head: <>Seu rosto <span className="g">é a carteira do evento</span></>,
-    desc: 'Carteira cashless vinculada ao CPF: o cliente recarrega o saldo pelo próprio rosto, no totem, e paga do mesmo jeito no balcão. Sem pulseira descartável para comprar. Sem cartão caro para ficar recarregando.',
+    head: <>Sua facial <span className="g">é a carteira do evento</span></>,
+    desc: 'Carteira cashless vinculada ao CPF: o cliente recarrega o saldo pela própria facial, no totem, e paga do mesmo jeito no balcão. Sem pulseira descartável para comprar. Sem cartão caro para ficar recarregando.',
     tags: ['Cadastro único por CPF', 'Sem pulseira nem cartão', 'Recarga no totem'] },
   { id: 'm5', n: '05', kicker: 'GESTÃO E REPASSE',
     head: <>Você enxerga o evento <span className="g">enquanto ele acontece</span></>,
@@ -127,7 +127,7 @@ const ECARDS = [
   { n: '01', t: 'Ticketeira', d: 'Venda online, lotes, cupons e QR Code vinculado à facial.' },
   { n: '02', t: 'Totem', d: 'O público pede e paga sozinho, com impressão na hora.' },
   { n: '03', t: 'Smart POS', d: 'Maquininha própria com catálogo em cada ponto de venda.' },
-  { n: '04', t: 'FestCash', d: 'Carteira cashless: o rosto recarrega e paga, sem pulseira nem cartão.' },
+  { n: '04', t: 'FestCash', d: 'Carteira cashless: a facial recarrega e paga, sem pulseira nem cartão.' },
   { n: '05', t: 'Gestão', d: 'Venda ao vivo, fechamento aberto e repasse por Pix.' },
 ];
 
@@ -142,7 +142,7 @@ const ETAPAS = [
 
 const FP_PASSOS = [
   { n: '01', t: 'Cadastro único por CPF', d: 'Uma vez só, com autorização explícita de quem se cadastra.' },
-  { n: '02', t: 'Recarga no próprio totem', d: 'O cliente carrega o saldo pelo próprio rosto, sem comprar cartão nem pulseira.' },
+  { n: '02', t: 'Recarga no próprio totem', d: 'O cliente carrega o saldo pela própria facial, sem comprar cartão nem pulseira.' },
   { n: '03', t: 'Pagamento em segundos', d: 'Olhou para a câmera, pagou. Sem procurar cartão no bolso.' },
 ];
 
@@ -510,10 +510,10 @@ export default function LandingLp() {
             <div className="wrap">
               <div style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto' }}>
                 <div className="eyebrow" data-anim style={d(0)}><i />FestCash · a carteira cashless da FestPag</div>
-                <h2 data-anim style={d(1)}>O saldo mora no rosto. <em>Nada de pulseira, nada de cartão.</em></h2>
+                <h2 data-anim style={d(1)}>O saldo mora na facial. <em>Nada de pulseira, nada de cartão.</em></h2>
                 <p className="lead" data-anim style={d(2)}>
                   Vinculado ao CPF do cliente: sem pulseira descartável para comprar, sem cartão caro
-                  para ficar recarregando. Ele carrega o saldo pelo próprio rosto, no totem, e paga do mesmo jeito.
+                  para ficar recarregando. Ele carrega o saldo pela própria facial, no totem, e paga do mesmo jeito.
                 </p>
               </div>
               <div className="scan" data-anim="scale" style={d(3)} aria-hidden="true">
