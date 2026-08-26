@@ -48,10 +48,13 @@ const EventMapPage = () => {
 
   if (!event) return <Navigate to="/" replace />;
 
+  // Mesma regra da página do evento — inclusive o interruptor do mapa. Quem
+  // guardou este link não pode entrar por uma porta que a outra tela fechou.
   const hasMap =
     event.status === 'published' &&
     (event.event_type === 'mesa' || event.event_type === 'hibrido') &&
-    !!event.table_map_id;
+    !!event.table_map_id &&
+    (event as any).seat_map_public !== false;
 
   if (!hasMap) return <Navigate to={`/evento/${slugOrId}`} replace />;
 

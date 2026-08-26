@@ -109,11 +109,14 @@ const EventDetails = () => {
   const [isLikeInviteOpen, setIsLikeInviteOpen] = useState(false);
   const { user } = useAuth();
 
+  // O mapa tem interruptor PRÓPRIO, separado do status do evento: dá para estar
+  // publicado vendendo ingresso com o camarote ainda fora do ar (Rodeo, 26/08).
   const hasMap =
     !!event &&
     event.status === 'published' &&
     (event.event_type === 'mesa' || event.event_type === 'hibrido') &&
-    !!event.table_map_id;
+    !!event.table_map_id &&
+    (event as any).seat_map_public !== false;
 
   const { data: seatSectors } = useEventSeatAvailability(hasMap ? eventId : undefined);
 
