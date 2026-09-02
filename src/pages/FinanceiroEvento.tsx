@@ -96,6 +96,11 @@ export default function FinanceiroEvento() {
                   <div className="text-4xl font-bold mt-1 text-secondary break-words">
                     {formatBRL(event.available)}
                   </div>
+                  {event.cash > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Não entram aqui {formatBRL(event.cash)} recebidos em dinheiro — já ficaram com quem vendeu.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">

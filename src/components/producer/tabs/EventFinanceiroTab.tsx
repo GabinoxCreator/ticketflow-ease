@@ -151,6 +151,8 @@ export function EventFinanceiroTab({ eventId }: Props) {
 
     return {
       online: finance.online, fisica: finance.fisica, manual: finance.manual, total: finance.total,
+      // Dinheiro: dentro das vendas, fora do repasse (decisão do Gabriel, 02/09/2026)
+      dinheiro: finance.dinheiro, dinheiroCount: finance.dinheiroCount, repasse: finance.repasse,
       pixOnline, cardOnline,
       fisicaCount: finance.fisicaCount,
       manualCount: finance.manualCount,
@@ -184,6 +186,12 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <div className="flex justify-between gap-2"><span>Online</span><span className="tabular-nums">{formatBRL(stats.online)}</span></div>
               <div className="flex justify-between gap-2"><span>Venda Física (Totem/SmartPOS)</span><span className="tabular-nums">{formatBRL(stats.fisica)}</span></div>
               <div className="flex justify-between gap-2"><span>Manual</span><span className="tabular-nums">{formatBRL(stats.manual)}</span></div>
+              {stats.dinheiro > 0 && (
+                <div className="flex justify-between gap-2 pt-1 border-t border-border/40">
+                  <span>Em dinheiro <span className="opacity-70">(já com você)</span></span>
+                  <span className="tabular-nums">{formatBRL(stats.dinheiro)}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -192,8 +200,16 @@ export function EventFinanceiroTab({ eventId }: Props) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
               <Banknote className="w-4 h-4" /> Repasse ao Produtor
             </div>
-            <div className="text-3xl font-bold mt-2 break-words text-blue-600">{formatBRL(stats.total)}</div>
-            <p className="text-xs text-muted-foreground mt-1">Igual às vendas — a taxa de conveniência é paga pelo comprador</p>
+            <div className="text-3xl font-bold mt-2 break-words text-blue-600">{formatBRL(stats.repasse)}</div>
+            {stats.dinheiro > 0 ? (
+              <p className="text-xs text-muted-foreground mt-1">
+                Vendas {formatBRL(stats.total)} menos {formatBRL(stats.dinheiro)} recebidos em dinheiro
+                {stats.dinheiroCount > 0 ? ` (${stats.dinheiroCount} ${stats.dinheiroCount === 1 ? 'venda' : 'vendas'})` : ''}
+                {' '}— esse dinheiro já ficou com quem vendeu e não entra no repasse. A taxa de conveniência é paga pelo comprador.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">Igual às vendas — a taxa de conveniência é paga pelo comprador</p>
+            )}
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">

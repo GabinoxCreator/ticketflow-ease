@@ -176,6 +176,12 @@ export default function Financeiro() {
                     <div className="text-3xl font-bold mt-2 break-words text-secondary">
                       {financeLoading ? '—' : formatBRL(finance?.totals.available || 0)}
                     </div>
+                    {!financeLoading && (finance?.totals.cash || 0) > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Fora daqui: {formatBRL(finance!.totals.cash)} recebidos em dinheiro — esse valor
+                        já ficou com quem vendeu e não entra no saque.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </div>
