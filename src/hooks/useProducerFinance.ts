@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { orderTicketNet } from '@/lib/producerFinance';
+import { orderTicketNet, isCashOrder } from '@/lib/producerFinance';
 
 export interface EventFinance {
   id: string;
@@ -20,6 +20,8 @@ export interface EventFinance {
   grossManual: number;
   feeManual: number;
   netManual: number;
+  /** Recebido em espécie: contado nas vendas, FORA do repasse (decisão 02/09/2026). */
+  cash: number;
 }
 
 export interface PayoutRow {
@@ -57,6 +59,7 @@ interface FinanceData {
     netOnline: number;
     grossManual: number;
     netManual: number;
+    cash: number;
   };
 }
 
@@ -112,10 +115,11 @@ export function useProducerFinance() {
       // 4. Paid orders per event, partitioned by sale_origin
       const onlineByEvent = new Map<string, Bucket>();
       const manualByEvent = new Map<string, Bucket>();
+      const cashByEvent = new Map<string, number>();
       if (eventIds.length > 0) {
         const { data: orders } = await supabase
           .from('orders')
-          .select('event_id, total_amount, service_fee_amount, status, sale_origin')
+          .select('event_id, total_amount, service_fee_amount, status, sale_origin, payment_method, manual_payment_method')
           .in('event_id', eventIds)
           .in('status', ['paid', 'completed']);
         (orders || []).forEach((o: any) => {
@@ -128,6 +132,11 @@ export function useProducerFinance() {
           // net = valor do ingresso sem taxa — mesma fórmula do resto do painel
           cur.net += orderTicketNet(o);
           map.set(o.event_id, cur);
+          // Dinheiro fica DENTRO das vendas e FORA do repasse: é abatido do net
+          // logo abaixo, do mesmo jeito que a função request_payout faz no banco.
+          if (isCashOrder(o)) {
+            cashByEvent.set(o.event_id, (cashByEvent.get(o.event_id) || 0) + orderTicketNet(o));
+          }
         });
       }
 
@@ -158,7 +167,10 @@ export function useProducerFinance() {
         const man = manualByEvent.get(e.id) || { gross: 0, fee: 0, net: 0 };
         const gross = on.gross + man.gross;
         const fee = on.fee + man.fee;
-        const net = Math.max(0, on.net + man.net);
+        const cash = cashByEvent.get(e.id) || 0;
+        // O que a FestPag tem a repassar: o valor dos ingressos MENOS o que foi
+        // recebido em espécie (esse dinheiro nunca passou pela FestPag).
+        const net = Math.max(0, on.net + man.net - cash);
         const paidOut = paidByEvent.get(e.id) || 0;
         return {
           id: e.id,
@@ -176,6 +188,7 @@ export function useProducerFinance() {
           grossManual: man.gross,
           feeManual: man.fee,
           netManual: Math.max(0, man.net),
+          cash,
         };
       });
 
@@ -190,6 +203,7 @@ export function useProducerFinance() {
           acc.netOnline += e.netOnline;
           acc.grossManual += e.grossManual;
           acc.netManual += e.netManual;
+          acc.cash += e.cash;
           return acc;
         },
         {
@@ -202,6 +216,7 @@ export function useProducerFinance() {
           netOnline: 0,
           grossManual: 0,
           netManual: 0,
+          cash: 0,
         }
       );
 
