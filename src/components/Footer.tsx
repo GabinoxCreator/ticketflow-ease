@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { openCookiePreferences } from '@/lib/cookieConsent';
+import { razaoSocialComCnpj } from '@/lib/identidade-festpag';
 import { Mail, Phone } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 
@@ -98,7 +99,7 @@ const Footer = () => {
         <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-muted-foreground text-sm text-center md:text-left">
             <p>© {currentYear} FestPag. Todos os direitos reservados.</p>
-            <p className="mt-1">ST Intermediação de Negócios LTDA — CNPJ: 43.941.698/0001-52</p>
+            <p className="mt-1">{razaoSocialComCnpj()}</p>
           </div>
           <div className="flex gap-6">
             {footerLinks.legal.map((link) => (
