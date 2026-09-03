@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { IDENTIDADE_FESTPAG, razaoSocialComCnpj } from '@/lib/identidade-festpag';
 
 export default function TermosDeUso() {
   return (
@@ -33,8 +34,8 @@ export default function TermosDeUso() {
               {/* 1 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">1. Sobre a FestPag</h2>
-                <p>A ST Intermediação de Negócios LTDA é a responsável pela operação da plataforma FestPag.</p>
-                <p>ST Intermediação de Negócios LTDA — CNPJ: 43.941.698/0001-52.</p>
+                <p>A {IDENTIDADE_FESTPAG.razaoSocial} é a responsável pela operação da plataforma FestPag.</p>
+                <p>{razaoSocialComCnpj()}.</p>
                 <p>A FestPag atua como plataforma de tecnologia para intermediação de venda de ingressos, gestão de eventos, controle de acesso, operação de listas e suporte operacional aos produtores parceiros.</p>
                 <p>A FestPag não é a organizadora direta dos eventos, salvo quando isso estiver expressamente indicado. A responsabilidade pela criação, produção, organização, realização, alteração, cancelamento e execução do evento é do respectivo produtor/organizador.</p>
               </section>
@@ -296,7 +297,7 @@ export default function TermosDeUso() {
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">18. Contato</h2>
                 <p>Em caso de dúvidas sobre estes Termos de Uso, entre em contato com a FestPag:</p>
                 <p className="mt-4">
-                  <strong>ST Intermediação de Negócios LTDA</strong><br />
+                  <strong>{IDENTIDADE_FESTPAG.razaoSocial}</strong><br />
                   E-mail:{' '}
                   <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
                 </p>

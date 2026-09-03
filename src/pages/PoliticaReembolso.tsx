@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { razaoSocialComCnpj } from '@/lib/identidade-festpag';
 
 export default function PoliticaReembolso() {
   return (
@@ -46,7 +47,7 @@ export default function PoliticaReembolso() {
                   ingressos e gestão de eventos. A FestPag não é a organizadora direta dos eventos,
                   salvo quando isso estiver expressamente indicado.
                 </p>
-                <p>ST Intermediação de Negócios LTDA — CNPJ: 43.941.698/0001-52.</p>
+                <p>{razaoSocialComCnpj()}.</p>
                 <p>
                   A responsabilidade pela realização, alteração, cancelamento e execução do evento
                   é do respectivo produtor/organizador. As regras abaixo se aplicam de forma

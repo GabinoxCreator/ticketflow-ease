@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { IDENTIDADE_FESTPAG } from '@/lib/identidade-festpag';
 
 export default function PoliticaPrivacidade() {
   return (
@@ -21,7 +22,7 @@ export default function PoliticaPrivacidade() {
 
             <div className="prose prose-sm md:prose-base max-w-none space-y-8 text-foreground/90">
               <p>
-                A sua privacidade é importante para nós. Esta Política de Privacidade explica como a ST Intermediação de Negócios LTDA, por meio da plataforma FestPag, coleta, usa, armazena, compartilha e protege os dados pessoais tratados.
+                A sua privacidade é importante para nós. Esta Política de Privacidade explica como a {IDENTIDADE_FESTPAG.razaoSocial}, por meio da plataforma FestPag, coleta, usa, armazena, compartilha e protege os dados pessoais tratados.
               </p>
               <p>
                 Ao utilizar a FestPag, você declara que leu esta Política e está ciente de como seus dados são tratados.
@@ -34,7 +35,7 @@ export default function PoliticaPrivacidade() {
               {/* 1 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">1. Quem somos</h2>
-                <p>A plataforma FestPag é operada pela <strong>ST Intermediação de Negócios LTDA</strong>, inscrita no CNPJ nº 43.941.698/0001-52, que atua como controladora de dados pessoais nas situações em que define como e por que os dados serão tratados. "FestPag" é a marca sob a qual o serviço é oferecido.</p>
+                <p>A plataforma FestPag é operada pela <strong>{IDENTIDADE_FESTPAG.razaoSocial}</strong>, inscrita no CNPJ nº {IDENTIDADE_FESTPAG.cnpj}, que atua como controladora de dados pessoais nas situações em que define como e por que os dados serão tratados. "FestPag" é a marca sob a qual o serviço é oferecido.</p>
                 <p>A FestPag é sediada no Brasil. Alguns fornecedores de tecnologia que utilizamos processam dados em servidores localizados no exterior — nesses casos há transferência internacional de dados, tratada na seção 6 desta Política.</p>
               </section>
 
@@ -214,7 +215,7 @@ export default function PoliticaPrivacidade() {
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">14. Canal de atendimento ao titular</h2>
                 <p>Para exercer seus direitos ou tratar de qualquer assunto relacionado à privacidade e proteção de dados, utilize o nosso canal de atendimento ao titular:</p>
                 <p className="font-medium">
-                  ST Intermediação de Negócios LTDA — CNPJ 43.941.698/0001-52<br />
+                  {IDENTIDADE_FESTPAG.razaoSocial} — CNPJ {IDENTIDADE_FESTPAG.cnpj}<br />
                   Plataforma FestPag<br />
                   E-mail:{' '}
                   <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
