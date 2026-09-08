@@ -46,7 +46,13 @@ import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
 import { EventDonationBanner } from '@/components/event/EventDonationBanner';
 import { EventBeneficiaryBanner } from '@/components/event/EventBeneficiaryBanner';
 import { DonationModal } from '@/components/event/DonationModal';
-import { getDonationCampaign, isDonationCampaignReady, isBeneficentEvent } from '@/data/donationCampaigns';
+import {
+  getDonationCampaign,
+  isDonationCampaignReady,
+  isBeneficentEvent,
+  getBeneficentEvent,
+  getBeneficentPolicy,
+} from '@/data/donationCampaigns';
 import { trackDonationClick } from '@/lib/donationTelemetry';
 import { useDonationProgress } from '@/hooks/useDonationProgress';
 import { podeSomarMaisUm, regraValeNesteEvento } from '@/lib/umIngressoPorNoite';
@@ -473,7 +479,10 @@ const EventDetails = () => {
   const donationCampaign = getDonationCampaign({ slug: event.slug, id: event.id });
   const showDonation = isDonationCampaignReady(donationCampaign);
   // Override de vocabulário SÓ neste evento beneficente (ver roadmap.md). Outros = inalterado.
-  const isBeneficent = isBeneficentEvent(event);
+  const beneficentInfo = getBeneficentEvent(event);
+  const isBeneficent = !!beneficentInfo;
+  // Parecer jurídico com a entidade DESTE evento (o texto é o mesmo para todos).
+  const beneficentPolicy = beneficentInfo ? getBeneficentPolicy(beneficentInfo) : undefined;
   // Bloco informativo da instituição beneficiada — só por slug, independente de
   // showDonation/isBeneficent (é outro evento e não envolve doação).
   const showBeneficiary = event.slug === MATTEO_EVENT_SLUG;
@@ -579,6 +588,7 @@ const EventDetails = () => {
 
                   {showDonation && (
                     <EventDonationBanner
+                      title={donationCampaign.bannerTitle}
                       onDonate={() => {
                         // Telemetria só no evento beneficente (fire-and-forget, não bloqueia).
                         if (isBeneficent) trackDonationClick(event.slug, 'doar');
@@ -772,7 +782,7 @@ const EventDetails = () => {
                 );
               })()}
 
-              <EventPolicies isBeneficent={isBeneficent} />
+              <EventPolicies beneficentPolicy={beneficentPolicy} />
             </div>
 
           </div>

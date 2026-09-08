@@ -4,6 +4,8 @@ import type { DonationProgress } from '@/hooks/useDonationProgress';
 
 interface EventDonationBannerProps {
   onDonate: () => void;
+  /** Chamada da campanha (`DonationCampaign.bannerTitle`) — muda por evento. */
+  title: string;
   /** Só no evento beneficente: progresso curado da arrecadação. Ausente = sem barra. */
   progress?: DonationProgress | null;
   /** true enquanto a barra carrega (mostra skeleton discreto). */
@@ -15,6 +17,7 @@ const brl = (cents: number) =>
 
 export function EventDonationBanner({
   onDonate,
+  title,
   progress,
   progressLoading,
 }: EventDonationBannerProps) {
@@ -33,7 +36,7 @@ export function EventDonationBanner({
           <HeartHandshake className="h-6 w-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-pink-900">Apoie a nossa Glória</p>
+          <p className="font-semibold text-pink-900">{title}</p>
           <p className="text-sm text-pink-700">Faça uma doação via PIX</p>
         </div>
         <Button

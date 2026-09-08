@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Ticket, UserCheck, CalendarDays, Armchair, PartyPopper, HelpCircle } from 'lucide-react';
+import { Ticket, UserCheck, CalendarDays, Armchair, PartyPopper, HeartHandshake, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { chaveDeLeitura, type InstrucoesDoEvento } from '@/data/instrucoesDoEvento';
 
@@ -25,7 +25,7 @@ import { chaveDeLeitura, type InstrucoesDoEvento } from '@/data/instrucoesDoEven
  * ⚠️ Só existe em evento com instruções curadas. Os outros não mostram nada.
  */
 
-const ICONES = { Ticket, UserCheck, CalendarDays, Armchair, PartyPopper } as const;
+const ICONES = { Ticket, UserCheck, CalendarDays, Armchair, PartyPopper, HeartHandshake } as const;
 
 interface Props {
   eventId: string;

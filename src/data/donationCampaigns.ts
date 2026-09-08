@@ -12,6 +12,8 @@ export interface DonationCampaign {
   title: string;
   /** subtítulo exibido logo abaixo do título */
   subtitle: string;
+  /** chamada do botão de doação na página do evento (fica FORA do modal) */
+  bannerTitle: string;
   /** string PIX copia-e-cola — usada tanto no QR quanto no botão copiar */
   pixCopyPaste: string;
   /** chave PIX legível exibida ao usuário */
@@ -34,6 +36,7 @@ export const DONATION_CAMPAIGNS: DonationCampaign[] = [
     eventId: 'e86df07b-e06f-471e-abf0-a5ec94a11b93',
     title: 'Doação voluntária',
     subtitle: 'CONFRA DO BEM',
+    bannerTitle: 'Apoie a nossa Glória',
     pixCopyPaste:
       '00020126360014br.gov.bcb.pix0114+55179976581085204000053039865802BR5912INSTITUTO ST6009SAO PAULO62070503***630492D0',
     pixKey: '17997658108',
@@ -43,6 +46,22 @@ export const DONATION_CAMPAIGNS: DonationCampaign[] = [
     recipientBank: 'PagBank',
     footer:
       'Doação voluntária e independente da compra do ingresso. O valor vai direto para a conta do recebedor.',
+  },
+  {
+    slug: '3-porcada-do-amor',
+    eventId: '4d0cfbee-7207-4dd4-b3be-c7bc9151bd1f',
+    title: 'Doação voluntária',
+    subtitle: '3ª PORCADA DO AMOR DE MIRASSOL',
+    bannerTitle: 'Apoie o Hospital de Amor de Barretos',
+    pixCopyPaste:
+      '00020126360014br.gov.bcb.pix0114540807520001395204000053039865802BR5920ASSOCIACAO DONALDSON6008MIRASSOL62070503***6304C283',
+    pixKey: '54.080.752/0001-39',
+    pixKeyLabel: 'Chave PIX (CNPJ)',
+    recipientName: 'Associação Donaldson Jesus Botos',
+    recipientDocument: '54.080.752/0001-39',
+    recipientBank: 'Sicredi',
+    footer:
+      'Doação voluntária e independente da compra do convite. O valor vai direto para a conta da associação, em prol do Hospital de Amor de Barretos.',
   },
 ];
 
@@ -66,27 +85,77 @@ export function getDonationCampaign({
 }
 
 /**
- * Slug do evento beneficente que recebe o override TEMPORÁRIO de vocabulário na
- * página de detalhe (ingresso→convite, "A partir de"→"Doação", meia-entrada escondida).
- * Único ponto de verdade da string mágica — ver dívida técnica no roadmap.md.
+ * Eventos beneficentes — os que recebem o override TEMPORÁRIO de vocabulário na
+ * página de detalhe (ingresso→convite, "A partir de"→"Doação", meia-entrada
+ * escondida) e o parecer jurídico no topo das políticas.
+ * Único ponto de verdade das strings mágicas — ver dívida técnica no roadmap.md.
  */
-export const BENEFICENT_EVENT_SLUG = '5-confra-do-bem';
+export interface BeneficentEvent {
+  /** slug do evento */
+  slug: string;
+  /** entidade que emite os convites e recebe os valores */
+  institutionName: string;
+  /** CNPJ da entidade, formatado */
+  institutionDocument: string;
+  /**
+   * Causa final, quando o dinheiro NÃO fica na própria entidade (o caso da
+   * Porcada: uma associação arrecada em prol de um hospital). Sem isto, a
+   * entidade é a própria causa e o parecer sai exatamente como sempre saiu.
+   */
+  causeName?: string;
+}
 
-/** Override por slug, só na página do evento. Qualquer outro evento → false (inalterado). */
+export const BENEFICENT_EVENTS: BeneficentEvent[] = [
+  {
+    slug: '5-confra-do-bem',
+    institutionName: 'Instituto St',
+    institutionDocument: '61.277.431/0001-94',
+  },
+  {
+    slug: '3-porcada-do-amor',
+    institutionName: 'Associação Donaldson Jesus Botos',
+    institutionDocument: '54.080.752/0001-39',
+    causeName: 'Hospital de Amor de Barretos',
+  },
+];
+
+/** Override por slug, só na página do evento. Qualquer outro evento → undefined (inalterado). */
+export function getBeneficentEvent(
+  event?: { slug?: string | null } | null,
+): BeneficentEvent | undefined {
+  if (!event?.slug) return undefined;
+  return BENEFICENT_EVENTS.find((b) => b.slug === event.slug);
+}
+
 export function isBeneficentEvent(
   event?: { slug?: string | null } | null,
 ): boolean {
-  return event?.slug === BENEFICENT_EVENT_SLUG;
+  return !!getBeneficentEvent(event);
 }
 
 /**
  * Parecer jurídico exibido como PRIMEIRO item do accordion "Políticas do Evento"
- * SOMENTE no evento beneficente (guard isBeneficentEvent). Único ponto de verdade
- * do texto. `body` é texto puro com `\n` — renderizar com whitespace-pre-line,
- * NÃO reformatar. Instituição/CNPJ preenchidos com os dados do recebedor (Instituto St).
- * Dívida técnica: hardcoded sob o slug; generalizar no futuro modo "evento beneficente".
+ * SOMENTE nos eventos beneficentes (guard isBeneficentEvent). Único ponto de
+ * verdade do texto. `body` é texto puro com `\n` — renderizar com
+ * whitespace-pre-line, NÃO reformatar.
+ *
+ * O texto é o mesmo para todos; só a entidade e o CNPJ da cláusula-modelo mudam,
+ * porque é ela que vai ao ar na página de compra (item 5 do parecer). Sem
+ * `causeName`, a frase sai palavra por palavra como saía quando só existia a
+ * Confra do Bem.
+ * Dívida técnica: continua preso ao slug; generalizar no futuro modo "evento beneficente".
  */
-export const BENEFICENT_POLICY: { title: string; body: string } = {
+export function getBeneficentPolicy(
+  info: BeneficentEvent,
+): { title: string; body: string } {
+  const entidade = info.causeName
+    ? `realizado pela ${info.institutionName}, inscrita no CNPJ sob o nº ${info.institutionDocument}, em prol do ${info.causeName}`
+    : `realizado em prol da ${info.institutionName}, inscrita no CNPJ sob o nº ${info.institutionDocument}`;
+  const destino = info.causeName
+    ? 'Toda a receita líquida obtida será integralmente revertida para a instituição beneficiada.'
+    : 'Toda a receita líquida obtida será integralmente revertida para a manutenção das atividades socioassistenciais da referida entidade.';
+
+  return {
   title: 'Eventos Beneficentes',
   body: `PARECER TÉCNICO-JURÍDICO ORIENTATIVO
 Análise de não obrigatoriedade de cota de meia-entradas em eventos de natureza estritamente beneficente
@@ -120,11 +189,12 @@ Ao configurar as vendas na plataforma Fest Pag, recomenda-se adotar os seguintes
 
 5. MODELO DE CLÁUSULA DE ISENÇÃO PARA INSERÇÃO DIGITAL
 Abaixo, o modelo textual formal a ser disponibilizado de maneira pública e visível na página de compras da Fest Pag:
-"TERMO DE CONTRIBUIÇÃO SOLIDÁRIA. Este evento possui natureza 100% beneficente e filantrópica, realizado em prol da Instituto St, inscrita no CNPJ sob o nº 61.277.431/0001-94. Toda a receita líquida obtida será integralmente revertida para a manutenção das atividades socioassistenciais da referida entidade. Diante de sua destinação social exclusiva e ausência de finalidade comercial ou lucrativa, os valores cobrados configuram atos de doação/contribuição institucional, não sendo aplicáveis as disposições da Lei Federal nº 12.933/2013 (Lei da Meia-Entrada), conforme entendimento jurisprudencial consolidado."
+"TERMO DE CONTRIBUIÇÃO SOLIDÁRIA. Este evento possui natureza 100% beneficente e filantrópica, ${entidade}. ${destino} Diante de sua destinação social exclusiva e ausência de finalidade comercial ou lucrativa, os valores cobrados configuram atos de doação/contribuição institucional, não sendo aplicáveis as disposições da Lei Federal nº 12.933/2013 (Lei da Meia-Entrada), conforme entendimento jurisprudencial consolidado."
 
 6. CONCLUSÃO
 Conclui-se que a venda de convites solidários sem a oferta de meia-entrada encontra pleno respaldo jurídico e legal no ecossistema da Fest Pag, desde que cumpridos os preceitos de transparência, publicidade e destinação integral dos fundos à causa beneficente, mitigando-se riscos de sanções administrativas ou cíveis.`,
-};
+  };
+}
 
 /**
  * Indica se a campanha está pronta para ser exibida (todos os campos

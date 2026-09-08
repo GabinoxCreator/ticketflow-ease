@@ -20,7 +20,7 @@
 
 export interface PassoDaInstrucao {
   /** Nome do ícone do lucide-react. */
-  icone: 'Ticket' | 'UserCheck' | 'CalendarDays' | 'Armchair' | 'PartyPopper';
+  icone: 'Ticket' | 'UserCheck' | 'CalendarDays' | 'Armchair' | 'PartyPopper' | 'HeartHandshake';
   titulo: string;
   texto: string;
   /** Destaca o passo — para a regra que mais surpreende. */
@@ -40,6 +40,39 @@ export interface InstrucoesDoEvento {
 }
 
 export const INSTRUCOES_POR_EVENTO: Record<string, InstrucoesDoEvento> = {
+  // 3ª Porcada do Amor de Mirassol — almoço beneficente (Hospital de Amor de Barretos).
+  // A regra que surpreende aqui é a mesma da Confra do Bem: 1 convite por CPF. Quem
+  // ia comprar quatro para a família trava no carrinho sem entender, e descobrir isso
+  // na hora de pagar é atrito. Contar antes custa dez segundos.
+  '4d0cfbee-7207-4dd4-b3be-c7bc9151bd1f': {
+    titulo: 'Como funciona a Porcada do Amor',
+    subtitulo: 'Trinta segundos de leitura antes de garantir o seu convite.',
+    versao: 1,
+    passos: [
+      {
+        icone: 'UserCheck',
+        titulo: '1 convite por CPF',
+        texto: 'Cada CPF leva um convite. Para levar mais alguém, a compra tem que sair no CPF dessa pessoa — é assim que a organização mantém o controle da lotação do salão.',
+        atencao: true,
+      },
+      {
+        icone: 'Ticket',
+        titulo: 'O convite já inclui o almoço',
+        texto: 'Open food do porco no rolete das 11h30 às 19h30, em salão climatizado. Não é ficha: o almoço está dentro do convite.',
+      },
+      {
+        icone: 'PartyPopper',
+        titulo: 'O dia inteiro tem atração',
+        texto: 'Super show ao vivo, bingo, sorteios, leilões de prendas e área kids para a criançada.',
+      },
+      {
+        icone: 'HeartHandshake',
+        titulo: 'Quer ajudar além do convite?',
+        texto: 'Tem um botão de doação nesta página, com o PIX da associação. A doação é voluntária e independente da compra — o valor vai direto para a conta da associação, em prol do Hospital de Amor de Barretos.',
+      },
+    ],
+  },
+
   // Novo Horizonte Rodeo 2026
   '53a35128-4902-46b0-99cf-11c7769c52b7': {
     titulo: 'Como funciona o Rodeo',
