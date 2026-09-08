@@ -2785,6 +2785,14 @@ export type Database = {
         Returns: Json
       }
       release_seats_for_order: { Args: { _order_id: string }; Returns: number }
+      producer_order_values: {
+        Args: { p_order_ids: string[] }
+        Returns: {
+          order_id: string
+          producer_value: number | null
+          face_amount: number | null
+        }[]
+      }
       request_payout: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: Json

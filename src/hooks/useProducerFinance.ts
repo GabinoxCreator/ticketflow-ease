@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { orderTicketNet, isCashOrder } from '@/lib/producerFinance';
+import { attachProducerValues } from '@/lib/orderProducerValues';
 
 export interface EventFinance {
   id: string;
@@ -22,6 +23,18 @@ export interface EventFinance {
   netManual: number;
   /** Recebido em espécie: contado nas vendas, FORA do repasse (decisão 02/09/2026). */
   cash: number;
+  /**
+   * Juro de parcelamento que o comprador pagou (está em `gross`, não é de
+   * ninguém aqui: nem do produtor, nem taxa da plataforma). Só existe no cartão
+   * parcelado da rota do Marcel.
+   */
+  interest: number;
+  /**
+   * Tudo que o produtor recebeu direto, sem passar pela FestPag: a venda
+   * manual inteira (18/08) + o dinheiro das outras origens (02/09). Está em
+   * `gross` e FORA de `net`.
+   */
+  receivedDirectly: number;
 }
 
 export interface PayoutRow {
@@ -60,6 +73,8 @@ interface FinanceData {
     grossManual: number;
     netManual: number;
     cash: number;
+    interest: number;
+    receivedDirectly: number;
   };
 }
 
@@ -116,13 +131,18 @@ export function useProducerFinance() {
       const onlineByEvent = new Map<string, Bucket>();
       const manualByEvent = new Map<string, Bucket>();
       const cashByEvent = new Map<string, number>();
+      const cashOnlineByEvent = new Map<string, number>();
       if (eventIds.length > 0) {
-        const { data: orders } = await supabase
+        const { data: rawOrders, error: ordersError } = await supabase
           .from('orders')
-          .select('event_id, total_amount, service_fee_amount, status, sale_origin, payment_method, manual_payment_method')
+          .select('id, event_id, total_amount, service_fee_amount, status, sale_origin, payment_method, manual_payment_method')
           .in('event_id', eventIds)
           .in('status', ['paid', 'completed']);
-        (orders || []).forEach((o: any) => {
+        if (ordersError) throw ordersError;
+        // Valor do ingresso para o produtor vem do banco (face, sem taxa e sem
+        // juro de parcela) — a mesma conta que request_payout usa para pagar.
+        const orders = await attachProducerValues(rawOrders || []);
+        orders.forEach((o: any) => {
           if (o.sale_origin === 'courtesy') return; // cortesias não entram em receita
           const isManual = o.sale_origin === 'manual';
           const map = isManual ? manualByEvent : onlineByEvent;
@@ -136,6 +156,11 @@ export function useProducerFinance() {
           // logo abaixo, do mesmo jeito que a função request_payout faz no banco.
           if (isCashOrder(o)) {
             cashByEvent.set(o.event_id, (cashByEvent.get(o.event_id) || 0) + orderTicketNet(o));
+            // A venda manual já sai inteira do repasse; só o dinheiro das
+            // OUTRAS origens ainda precisa ser abatido do online.
+            if (!isManual) {
+              cashOnlineByEvent.set(o.event_id, (cashOnlineByEvent.get(o.event_id) || 0) + orderTicketNet(o));
+            }
           }
         });
       }
@@ -168,9 +193,17 @@ export function useProducerFinance() {
         const gross = on.gross + man.gross;
         const fee = on.fee + man.fee;
         const cash = cashByEvent.get(e.id) || 0;
-        // O que a FestPag tem a repassar: o valor dos ingressos MENOS o que foi
-        // recebido em espécie (esse dinheiro nunca passou pela FestPag).
-        const net = Math.max(0, on.net + man.net - cash);
+        // O que a FestPag tem a repassar: só o que passou pelo NOSSO caixa.
+        // A venda manual inteira o produtor recebeu direto (regra de 18/08), e o
+        // dinheiro das outras origens também (02/09). Mesma conta da função
+        // request_payout, que é quem gera o valor a pagar.
+        const cashOnline = cashOnlineByEvent.get(e.id) || 0;
+        const net = Math.max(0, on.net - cashOnline);
+        // O que sobra entre "bruto − taxa" e o valor de face é o juro de
+        // parcela que o comprador pagou — precisa aparecer como linha para a
+        // conta fechar na régua, senão o produtor pergunta "cadê o resto?".
+        const interest = Math.max(0, gross - fee - (on.net + man.net));
+        const receivedDirectly = man.net + cashOnline;
         const paidOut = paidByEvent.get(e.id) || 0;
         return {
           id: e.id,
@@ -189,6 +222,8 @@ export function useProducerFinance() {
           feeManual: man.fee,
           netManual: Math.max(0, man.net),
           cash,
+          interest,
+          receivedDirectly,
         };
       });
 
@@ -204,6 +239,8 @@ export function useProducerFinance() {
           acc.grossManual += e.grossManual;
           acc.netManual += e.netManual;
           acc.cash += e.cash;
+          acc.interest += e.interest;
+          acc.receivedDirectly += e.receivedDirectly;
           return acc;
         },
         {
@@ -217,6 +254,8 @@ export function useProducerFinance() {
           grossManual: 0,
           netManual: 0,
           cash: 0,
+          interest: 0,
+          receivedDirectly: 0,
         }
       );
 

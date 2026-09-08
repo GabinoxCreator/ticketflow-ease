@@ -96,9 +96,9 @@ export default function FinanceiroEvento() {
                   <div className="text-4xl font-bold mt-1 text-secondary break-words">
                     {formatBRL(event.available)}
                   </div>
-                  {event.cash > 0 && (
+                  {event.receivedDirectly > 0 && (
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      Não entram aqui {formatBRL(event.cash)} recebidos em dinheiro — já ficaram com quem vendeu.
+                      Não entram aqui {formatBRL(event.receivedDirectly)} que você já recebeu direto (venda manual e dinheiro).
                     </p>
                   )}
                 </div>
@@ -120,11 +120,25 @@ export default function FinanceiroEvento() {
                     </>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Taxa Plataforma</span>
+                    <span className="text-muted-foreground">Taxa de conveniência <span className="text-xs">· paga pelo comprador</span></span>
                     <span className="font-medium text-destructive">- {formatBRL(event.fee)}</span>
                   </div>
+                  {/* As linhas abaixo existem para a conta fechar na régua: bruto − taxa
+                      − juro − recebido direto = líquido. Número sem linha vira pergunta. */}
+                  {event.interest > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Juro de parcelamento <span className="text-xs">· pago pelo comprador</span></span>
+                      <span className="font-medium text-destructive">- {formatBRL(event.interest)}</span>
+                    </div>
+                  )}
+                  {event.receivedDirectly > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Recebido direto por você <span className="text-xs">· manual e dinheiro</span></span>
+                      <span className="font-medium text-destructive">- {formatBRL(event.receivedDirectly)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between border-t border-border pt-3">
-                    <span className="font-semibold">Receita Líquida</span>
+                    <span className="font-semibold">Repasse (valor dos ingressos)</span>
                     <span className="font-semibold">{formatBRL(event.net)}</span>
                   </div>
                   {event.paidOut > 0 && (

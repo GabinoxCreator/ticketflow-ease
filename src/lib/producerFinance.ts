@@ -8,19 +8,32 @@
  * Definições canônicas — iguais em TODAS as telas:
  *  - Só pedidos PAGOS entram (status 'paid' | 'completed').
  *  - CORTESIA (sale_origin='courtesy') NUNCA entra em receita.
- *  - "Valor do ingresso (sem taxa)" de um pedido = total_amount − service_fee_amount.
- *      · o desconto de cupom já está abatido em total_amount;
- *      · a taxa de conveniência pertence à PLATAFORMA, não ao produtor — por isso sai.
+ *  - "Valor do ingresso" de um pedido = o VALOR DE FACE que o produtor vendeu,
+ *    sem a taxa de conveniência e sem juro de parcela. Quem calcula é o BANCO
+ *    (função `order_producer_value`, servida ao painel pela RPC
+ *    `producer_order_values` — ver src/lib/orderProducerValues.ts):
+ *      · com face gravada no ato da venda (`order_line_face`): face − cupom;
+ *      · sem face gravada (venda antiga, Mercado Pago, manual): total − taxa,
+ *        que nessas rotas é a própria face.
+ *    ⚠️ POR QUE NÃO É MAIS `total_amount − service_fee_amount` (08/09/2026): na
+ *    rota do Marcel o cartão parcelado grava o JURO dentro de `total_amount`,
+ *    e a conta antiga dava o juro inteiro ao produtor. Na Oktoberfest o repasse
+ *    apareceu como R$ 23.129,53 num evento que só vende ingresso de R$ 200.
+ *    `orderTicketNet` ainda aceita pedido sem `producer_value` (conta antiga)
+ *    para os poucos lugares que não passam pela RPC.
  *  - Três baldes de origem, todos com a mesma regra de valor:
  *      · online = sale_origin 'online' (ou null tratado como online) — venda pela internet;
  *      · fisica = sale_origin 'smartpos' — venda no totem físico / SmartPOS;
  *      · manual = sale_origin 'manual' — registro manual do produtor.
  *  - Total = online + fisica + manual (é tudo que o evento vendeu).
- *  - DINHEIRO NÃO ENTRA NO REPASSE (decisão do Gabriel, 02/09/2026). Venda em
- *    espécie nunca passou pela FestPag: o dinheiro ficou na mão de quem vendeu.
- *    Ele continua CONTADO nas vendas (o produtor precisa enxergar o que vendeu),
- *    mas sai do que a FestPag tem a pagar:
- *        repasse = total − dinheiro
+ *  - REPASSE SÓ SOBRE O QUE PASSOU PELO NOSSO CAIXA (decisões do Gabriel de
+ *    18/08 e 02/09/2026). Duas coisas o produtor já recebeu direto, na mão:
+ *      · a VENDA MANUAL inteira (PIX dele, maquininha dele, dinheiro);
+ *      · o DINHEIRO em espécie de qualquer origem (totem/SmartPOS grava
+ *        payment_method='cash').
+ *    Elas continuam CONTADAS nas vendas (o produtor precisa enxergar o que
+ *    vendeu), mas saem do que a FestPag tem a pagar:
+ *        repasse = total − recebidoDireto
  *    A mesma regra vale na função `request_payout` do banco, que é quem gera o
  *    valor a pagar de verdade — mudar só aqui deixaria a tela e o pagamento
  *    contando histórias diferentes.
@@ -39,6 +52,12 @@ export interface FinanceOrder {
   payment_method?: string | null;
   /** Na venda manual é aqui que mora a forma ('dinheiro', 'pix', 'cartao'…). */
   manual_payment_method?: string | null;
+  /**
+   * Valor do ingresso para o produtor, calculado pelo banco (RPC
+   * `producer_order_values`). Quando presente, é ELE que vale — a conta
+   * `total − taxa` só entra como reserva para pedido que não passou pela RPC.
+   */
+  producer_value?: number | string | null;
 }
 
 export const isPaidStatus = (status: string): boolean =>
@@ -63,9 +82,22 @@ export function saleOrigin(o: FinanceOrder): 'online' | 'fisica' | 'manual' | 'c
   return 'online';
 }
 
-/** Valor do ingresso do pedido, sem a taxa de conveniência (= repasse ao produtor). */
+/**
+ * Valor do ingresso do pedido para o produtor: face, sem taxa e sem juro.
+ * Prefere o valor vindo do banco (`producer_value`); sem ele, cai na conta
+ * antiga `total − taxa` — correta para tudo que não é cartão parcelado do Marcel.
+ */
 export function orderTicketNet(o: FinanceOrder): number {
+  if (o.producer_value != null && o.producer_value !== '') {
+    const v = Number(o.producer_value);
+    if (Number.isFinite(v)) return v;
+  }
   return Number(o.total_amount || 0) - Number(o.service_fee_amount || 0);
+}
+
+/** Venda que o produtor recebeu DIRETO (fora do caixa da FestPag): manual ou dinheiro. */
+export function isReceivedDirectly(o: FinanceOrder): boolean {
+  return saleOrigin(o) === 'manual' || isCashOrder(o);
 }
 
 export interface ProducerFinanceSummary {
@@ -77,14 +109,20 @@ export interface ProducerFinanceSummary {
   manual: number;
   /** online + fisica + manual — tudo que o evento vendeu. */
   total: number;
-  /** Parte do total recebida em espécie. Está DENTRO do total e FORA do repasse. */
+  /** Parte do total recebida em espécie (qualquer origem). Está DENTRO do total e FORA do repasse. */
   dinheiro: number;
-  /** O que a FestPag tem a repassar: total − dinheiro. */
+  /**
+   * Tudo que o produtor recebeu direto, sem passar pela FestPag: a venda manual
+   * inteira + o dinheiro das outras origens. Está DENTRO do total e FORA do repasse.
+   */
+  recebidoDireto: number;
+  /** O que a FestPag tem a repassar: total − recebidoDireto. */
   repasse: number;
   onlineCount: number;
   fisicaCount: number;
   manualCount: number;
   dinheiroCount: number;
+  recebidoDiretoCount: number;
   paidCount: number;
 }
 
@@ -92,8 +130,9 @@ export function computeProducerFinance(
   orders: FinanceOrder[] | null | undefined,
 ): ProducerFinanceSummary {
   const s: ProducerFinanceSummary = {
-    online: 0, fisica: 0, manual: 0, total: 0, dinheiro: 0, repasse: 0,
-    onlineCount: 0, fisicaCount: 0, manualCount: 0, dinheiroCount: 0, paidCount: 0,
+    online: 0, fisica: 0, manual: 0, total: 0, dinheiro: 0, recebidoDireto: 0, repasse: 0,
+    onlineCount: 0, fisicaCount: 0, manualCount: 0, dinheiroCount: 0, recebidoDiretoCount: 0,
+    paidCount: 0,
   };
   for (const o of orders || []) {
     if (!isPaidStatus(o.status)) continue;
@@ -107,9 +146,11 @@ export function computeProducerFinance(
     // Dinheiro atravessa as três origens: é uma parcela do total, não um balde
     // à parte. Por isso soma aqui e é descontado só do repasse.
     if (isCashOrder(o)) { s.dinheiro += net; s.dinheiroCount += 1; }
+    // O que ficou na mão do produtor (manual inteira + dinheiro das outras).
+    if (isReceivedDirectly(o)) { s.recebidoDireto += net; s.recebidoDiretoCount += 1; }
   }
   s.total = s.online + s.fisica + s.manual;
-  s.repasse = Math.max(0, s.total - s.dinheiro);
+  s.repasse = Math.max(0, s.total - s.recebidoDireto);
   return s;
 }
 

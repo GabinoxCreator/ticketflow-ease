@@ -6,6 +6,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
 import { computeProducerFinance, isPaidStatus, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
+import { attachProducerValues } from '@/lib/orderProducerValues';
 
 // Formata em BRL. NUNCA colocar troca de valor especifico aqui: um formatador so formata.
 // Havia quatro substituicoes cravadas neste ponto (ex.: 50.585,00 aparecia como 50.085,00)
@@ -39,6 +40,8 @@ interface OrderRow {
   status: string;
   sale_origin: string | null;
   manual_payment_method: string | null;
+  /** Valor de face para o produtor, vindo do banco (sem taxa, sem juro). */
+  producer_value?: number | null;
 }
 
 interface DoorSaleRow {
@@ -52,7 +55,7 @@ interface DoorSaleRow {
 export function EventFinanceiroTab({ eventId }: Props) {
   const { lots } = useEventLots(eventId);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['event-financeiro', eventId],
     queryFn: async () => {
       const [ordersRes, doorRes] = await Promise.all([
@@ -66,8 +69,12 @@ export function EventFinanceiroTab({ eventId }: Props) {
           .select('id, quantity, total_amount, payment_method, operator_id, created_at')
           .eq('event_id', eventId),
       ]);
+      if (ordersRes.error) throw ordersRes.error;
+      // O valor do ingresso para o produtor vem do banco (face, sem taxa e sem
+      // juro de parcela) — a conta local "total − taxa" dava o juro ao produtor.
+      const orders = await attachProducerValues((ordersRes.data || []) as OrderRow[]);
       return {
-        orders: (ordersRes.data || []) as OrderRow[],
+        orders,
         doorSales: (doorRes.data || []) as DoorSaleRow[],
       };
     },
@@ -151,8 +158,11 @@ export function EventFinanceiroTab({ eventId }: Props) {
 
     return {
       online: finance.online, fisica: finance.fisica, manual: finance.manual, total: finance.total,
-      // Dinheiro: dentro das vendas, fora do repasse (decisão do Gabriel, 02/09/2026)
-      dinheiro: finance.dinheiro, dinheiroCount: finance.dinheiroCount, repasse: finance.repasse,
+      // Recebido direto pelo produtor (venda manual + dinheiro): dentro das
+      // vendas, fora do repasse (decisões do Gabriel, 18/08 e 02/09/2026)
+      dinheiro: finance.dinheiro, dinheiroCount: finance.dinheiroCount,
+      recebidoDireto: finance.recebidoDireto, recebidoDiretoCount: finance.recebidoDiretoCount,
+      repasse: finance.repasse,
       pixOnline, cardOnline,
       fisicaCount: finance.fisicaCount,
       manualCount: finance.manualCount,
@@ -172,6 +182,20 @@ export function EventFinanceiroTab({ eventId }: Props) {
     );
   }
 
+  // Sem o valor certo, não mostramos valor nenhum: número errado com cara de
+  // certo é pior que tela sem número quando o assunto é dinheiro.
+  if (error) {
+    return (
+      <Card className="border-destructive/40">
+        <CardContent className="p-5 text-sm">
+          <p className="font-semibold">Não foi possível calcular o financeiro deste evento agora.</p>
+          <p className="text-muted-foreground mt-1">Tente recarregar a página. Se continuar, fale com a FestPag.</p>
+          <p className="text-xs text-muted-foreground mt-2 break-words">{(error as Error).message}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top KPIs */}
@@ -186,10 +210,10 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <div className="flex justify-between gap-2"><span>Online</span><span className="tabular-nums">{formatBRL(stats.online)}</span></div>
               <div className="flex justify-between gap-2"><span>Venda Física (Totem/SmartPOS)</span><span className="tabular-nums">{formatBRL(stats.fisica)}</span></div>
               <div className="flex justify-between gap-2"><span>Manual</span><span className="tabular-nums">{formatBRL(stats.manual)}</span></div>
-              {stats.dinheiro > 0 && (
+              {stats.recebidoDireto > 0 && (
                 <div className="flex justify-between gap-2 pt-1 border-t border-border/40">
-                  <span>Em dinheiro <span className="opacity-70">(já com você)</span></span>
-                  <span className="tabular-nums">{formatBRL(stats.dinheiro)}</span>
+                  <span>Recebido direto por você <span className="opacity-70">(manual e dinheiro)</span></span>
+                  <span className="tabular-nums">{formatBRL(stats.recebidoDireto)}</span>
                 </div>
               )}
             </div>
@@ -201,14 +225,14 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <Banknote className="w-4 h-4" /> Repasse ao Produtor
             </div>
             <div className="text-3xl font-bold mt-2 break-words text-blue-600">{formatBRL(stats.repasse)}</div>
-            {stats.dinheiro > 0 ? (
+            {stats.recebidoDireto > 0 ? (
               <p className="text-xs text-muted-foreground mt-1">
-                Vendas {formatBRL(stats.total)} menos {formatBRL(stats.dinheiro)} recebidos em dinheiro
-                {stats.dinheiroCount > 0 ? ` (${stats.dinheiroCount} ${stats.dinheiroCount === 1 ? 'venda' : 'vendas'})` : ''}
-                {' '}— esse dinheiro já ficou com quem vendeu e não entra no repasse. A taxa de conveniência é paga pelo comprador.
+                Vendas {formatBRL(stats.total)} menos {formatBRL(stats.recebidoDireto)} que você já recebeu direto
+                {stats.recebidoDiretoCount > 0 ? ` (${stats.recebidoDiretoCount} ${stats.recebidoDiretoCount === 1 ? 'venda' : 'vendas'}: manual e dinheiro)` : ''}
+                {' '}— esse valor não passou pela FestPag, por isso não entra no repasse. A taxa de conveniência e o juro de parcelamento são pagos pelo comprador.
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground mt-1">Igual às vendas — a taxa de conveniência é paga pelo comprador</p>
+              <p className="text-xs text-muted-foreground mt-1">Igual às vendas — a taxa de conveniência e o juro de parcelamento são pagos pelo comprador</p>
             )}
           </CardContent>
         </Card>
@@ -270,14 +294,14 @@ export function EventFinanceiroTab({ eventId }: Props) {
                 </HoverCardTrigger>
                 <HoverCardContent className="w-80 text-xs">
                   Vendas registradas manualmente pelo produtor. O FestPag não processa
-                  esses pagamentos — apenas registra para emitir ingressos e somar na
-                  receita. Diferencia das vendas online (com transação no MP) e de
-                  vendas na portaria (não entram na receita).
+                  esses pagamentos — apenas registra para emitir ingressos e somar nas
+                  vendas. Como o valor foi recebido direto por você, ele conta nas
+                  vendas mas não entra no repasse.
                 </HoverCardContent>
               </HoverCard>
             </h3>
             <span className="text-[10px] uppercase tracking-wide bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-bold">
-              Entra na receita
+              Conta nas vendas · fora do repasse
             </span>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -286,7 +310,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
               <p className="text-2xl font-bold tabular-nums">{stats.manualCount}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Valor Manual (sem taxa)</p>
+              <p className="text-xs text-muted-foreground">Valor Manual (já recebido por você)</p>
               <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.manual)}</p>
             </div>
           </div>
