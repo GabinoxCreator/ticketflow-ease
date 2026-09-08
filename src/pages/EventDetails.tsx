@@ -664,7 +664,12 @@ const EventDetails = () => {
                     <h2 className="font-display font-bold text-xl">
                       {isBeneficent ? 'Convites' : (mapaDaArena?.tituloDosIngressos ?? 'Ingressos')}
                     </h2>
-                    {isBeneficent && (
+                    {/* O selo espelha a trava DE VERDADE (o mapa de limites), não o
+                        fato de o evento ser beneficente. Estava preso a
+                        `isBeneficent`, e quando a Porcada do Amor perdeu o limite
+                        (decisão da organização, 08/09) a página continuaria
+                        prometendo uma regra que o servidor não aplica mais. */}
+                    {ticketLimit === 1 && (
                       <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                         1 Convite por CPF
                       </span>

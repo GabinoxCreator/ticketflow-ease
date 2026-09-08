@@ -41,20 +41,15 @@ export interface InstrucoesDoEvento {
 
 export const INSTRUCOES_POR_EVENTO: Record<string, InstrucoesDoEvento> = {
   // 3ª Porcada do Amor de Mirassol — almoço beneficente (Hospital de Amor de Barretos).
-  // A regra que surpreende aqui é a mesma da Confra do Bem: 1 convite por CPF. Quem
-  // ia comprar quatro para a família trava no carrinho sem entender, e descobrir isso
-  // na hora de pagar é atrito. Contar antes custa dez segundos.
+  // ⚠️ Nasceu com "1 convite por CPF", como a Confra do Bem. A organização DESFEZ a
+  // regra em 08/09 e o passo saiu daqui junto com a trava do servidor — texto que
+  // promete regra que não existe mais é pior do que texto nenhum. A `versao` subiu
+  // para 2 de propósito: quem já tinha lido a v1 vê o pop-up de novo, agora certo.
   '4d0cfbee-7207-4dd4-b3be-c7bc9151bd1f': {
     titulo: 'Como funciona a Porcada do Amor',
     subtitulo: 'Trinta segundos de leitura antes de garantir o seu convite.',
-    versao: 1,
+    versao: 2,
     passos: [
-      {
-        icone: 'UserCheck',
-        titulo: '1 convite por CPF',
-        texto: 'Cada CPF leva um convite. Para levar mais alguém, a compra tem que sair no CPF dessa pessoa — é assim que a organização mantém o controle da lotação do salão.',
-        atencao: true,
-      },
       {
         icone: 'Ticket',
         titulo: 'O convite já inclui o almoço',
