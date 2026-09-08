@@ -5,7 +5,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { BENEFICENT_POLICY } from '@/data/donationCampaigns';
 
 const policies = [
   {
@@ -34,16 +33,22 @@ const policies = [
   },
 ];
 
-export const EventPolicies = ({ isBeneficent = false }: { isBeneficent?: boolean }) => {
+export const EventPolicies = ({
+  beneficentPolicy,
+}: {
+  /** Parecer do evento beneficente (`getBeneficentPolicy`). Ausente = evento comum. */
+  beneficentPolicy?: { title: string; body: string };
+}) => {
+  const isBeneficent = !!beneficentPolicy;
   // No evento beneficente, meia-entrada não se aplica (são convites) — esconde só esse item.
   const visiblePolicies = policies.filter((p) => !(isBeneficent && p.id === 'meia'));
   // Só no evento beneficente: parecer jurídico como PRIMEIRO item (corpo pré-formatado).
-  const items = isBeneficent
+  const items = beneficentPolicy
     ? [
         {
           id: 'beneficent',
-          title: BENEFICENT_POLICY.title,
-          body: BENEFICENT_POLICY.body,
+          title: beneficentPolicy.title,
+          body: beneficentPolicy.body,
           preLine: true,
         },
         ...visiblePolicies.map((p) => ({ ...p, preLine: false })),

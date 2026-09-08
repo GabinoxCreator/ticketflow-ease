@@ -229,11 +229,16 @@ export function useEvent(idOrSlug: string | undefined) {
           .eq(isUuid ? 'id' : 'slug', idOrSlug)
           .maybeSingle();
 
-        if (!data && !error) {
+        // A segunda tentativa só faz sentido quando o valor É um UUID (procurar
+        // pelo slug de um UUID é inofensivo). O contrário — procurar `id = <slug>`
+        // — devolve 400 (22P02, uuid inválido), e esse erro derrubava a página
+        // inteira ANTES da releitura autenticada lá embaixo: o dono de um evento
+        // em RASCUNHO levava "Evento não encontrado" ao abrir o link público dele.
+        if (!data && !error && isUuid) {
           const fallback = await client
             .from('events')
             .select(select)
-            .eq(isUuid ? 'slug' : 'id', idOrSlug)
+            .eq('slug', idOrSlug)
             .maybeSingle();
           data = fallback.data;
           error = fallback.error;
