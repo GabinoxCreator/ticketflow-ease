@@ -80,7 +80,7 @@ export function CheckoutModal({
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [pixData, setPixData] = useState<{ code: string; expiresAt: Date; amount?: number } | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<'pix' | 'card' | null>(null);
-  const [paymentProvider, setPaymentProvider] = useState<string>('mercadopago');
+  const [paymentProvider, setPaymentProvider] = useState<string>('marcel');
   // Passe permanente no carrinho (lote que vale todas as noites) e o aceite do
   // comprador. Quem define o que é passe é o banco, pela coluna
   // `covers_all_days` — a tela só mostra o aviso quando ele existe.
@@ -146,7 +146,7 @@ export function CheckoutModal({
         console.warn('Failed to read event payment_provider:', error);
         return;
       }
-      setPaymentProvider(data?.payment_provider || 'mercadopago');
+      setPaymentProvider(data?.payment_provider || 'marcel');
 
       // Algum lote do carrinho vale todas as noites? É isso que liga o aviso do
       // passe permanente. Falhar aqui não bloqueia a compra — o servidor confere

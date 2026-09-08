@@ -47,9 +47,9 @@ export default function PedidoStatus() {
 
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [eventTitle, setEventTitle] = useState<string>('');
-  // Qual provedor confere este pagamento. Default 'mercadopago' porque é o que
-  // vale para todo evento que ainda não migrou — nunca chutar 'marcel'.
-  const [paymentProvider, setPaymentProvider] = useState<string>('mercadopago');
+  // Qual provedor confere este pagamento. Default 'marcel' desde 08/09/2026:
+  // é o padrão da coluna e a rota de todo evento futuro.
+  const [paymentProvider, setPaymentProvider] = useState<string>('marcel');
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 

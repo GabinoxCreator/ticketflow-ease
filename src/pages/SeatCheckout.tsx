@@ -110,9 +110,10 @@ export default function SeatCheckout() {
   const [step, setStep] = useState<Step | null>(null);
 
   const [event, setEvent] = useState<EventSummary | null>(null);
-  // Default 'mercadopago' porque é o que vale para todo evento que ainda não
-  // migrou — nunca chutar 'marcel'.
-  const isMarcel = (event?.payment_provider ?? 'mercadopago') === 'marcel';
+  // Default 'marcel' desde 08/09/2026: todo evento nasce na rota do Marcel
+  // (default da coluna) e os eventos futuros foram virados. Só evento passado
+  // ainda diz 'mercadopago', e esse não vende mais.
+  const isMarcel = (event?.payment_provider ?? 'marcel') === 'marcel';
   const CardStep = isMarcel ? SeatCheckoutCardMarcel : SeatCheckoutCard;
   // Prometer 12 e entregar 10 quebra a confiança na tela do pagamento — e a
   // API do Marcel recusa a venda inteira acima do teto dela.
