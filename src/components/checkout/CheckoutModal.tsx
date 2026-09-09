@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { ehEmailInterno } from '@/lib/authV2';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ShieldCheck } from 'lucide-react';
@@ -94,6 +95,12 @@ export function CheckoutModal({
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
   const pixDisplayAmount = pixData?.amount ?? finalAmount;
 
+  // Quem só tem WhatsApp (plano 09/09/2026) tem e-mail INTERNO no Supabase: para
+  // o checkout ele não existe. E o e-mail deixa de ser obrigatório quando o
+  // WhatsApp foi confirmado por código — o ingresso vai chegar por lá.
+  const emailReal = (e?: string | null) => (e && !ehEmailInterno(e) ? e : '');
+  const whatsappConfirmado = !!(profile as { whatsapp_confirmado_em?: string | null } | null)?.whatsapp_confirmado_em;
+
 
   // ATENÇÃO — este efeito causou o incidente de 13/08. Ele resetava `step` para
   // 'payment' sempre que `user`/`profile` mudassem de referência. Quando o cliente
@@ -108,7 +115,7 @@ export function CheckoutModal({
     setCustomerData((prev) => ({
       cpf: prev.cpf || profileCpfDigits,
       name: prev.name || profile?.nome_completo || user?.user_metadata?.nome_completo || '',
-      email: prev.email || user?.email || '',
+      email: prev.email || emailReal(user?.email),
       phone: prev.phone || profile?.whatsapp || '',
     }));
   }, [user, isOpen, profile]);
@@ -121,7 +128,7 @@ export function CheckoutModal({
       setCustomerData({
         cpf: unformatCPF(profile?.cpf || ''),
         name: profile?.nome_completo || user?.user_metadata?.nome_completo || '',
-        email: user?.email || '',
+        email: emailReal(user?.email),
         phone: profile?.whatsapp || '',
       });
     }
@@ -418,7 +425,7 @@ export function CheckoutModal({
                 initialName={customerData.name}
                 initialEmail={customerData.email}
                 requireName={!customerData.name || customerData.name.trim().length < 3}
-                requireEmail={!customerData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.email)}
+                requireEmail={!whatsappConfirmado && (!customerData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerData.email))}
                 onContinue={handleCpfContinue}
               />
             )}

@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
+import { CanaisDeContato } from '@/components/conta/CanaisDeContato';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -267,7 +268,7 @@ const MinhaConta = () => {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground/80 leading-relaxed">
-                        O email não pode ser alterado. Entre em contato com o suporte se precisar.
+                        Para trocar ou adicionar um e-mail, use a seção "Como falamos com você", logo abaixo.
                       </p>
                     </div>
 
@@ -356,6 +357,16 @@ const MinhaConta = () => {
                   </form>
                 </CardContent>
               </Card>
+            </motion.div>
+
+            {/* Canais: WhatsApp e e-mail com código (plano de 09/09/2026) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="lg:col-span-2"
+            >
+              <CanaisDeContato />
             </motion.div>
 
             {/* Security Section */}

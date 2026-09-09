@@ -25,6 +25,7 @@ import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 import { bandeiraDoCartao } from '../_shared/bandeiraCartao.ts';
+import { semEmailInterno } from '../_shared/emailInterno.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -66,7 +67,9 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { eventId, items, quote, installments, card, cartaoId, couponId,
-            customerName, customerEmail, customerPhone } = body;
+            customerName, customerPhone } = body;
+    // Quem só tem WhatsApp tem e-mail interno no Supabase: nunca gravar nem mandar ao gateway.
+    const customerEmail = semEmailInterno(body.customerEmail);
 
     if (!eventId) return json({ error: 'Evento obrigatório' }, 400);
 
@@ -265,7 +268,7 @@ serve(async (req) => {
         // pedido em dúvida fica em dúvida para sempre.
         purchaseId: order.id,
         card, cartaoId,
-        customer: { name: nomeLimpo, cpf: cleanCPF, email: customerEmail },
+        customer: { name: nomeLimpo, cpf: cleanCPF, email: customerEmail || undefined },
       });
     } catch (err) {
       // ⚠️ Timeout ou 500 NÃO é recusa: a cobrança PODE ter passado. Refazer às

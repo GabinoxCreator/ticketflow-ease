@@ -26,6 +26,7 @@ import { useEventLots } from '@/hooks/useEventLots';
 import { useEventSeatAvailability } from '@/hooks/useEventSeatAvailability';
 import { CheckoutModal } from '@/components/checkout/CheckoutModal';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
@@ -842,11 +843,21 @@ const EventDetails = () => {
         )}
 
 
+        {/* Conta por CPF com senha + código (plano de 09/09/2026): só nos eventos
+            marcados auth_flow='v2'. Os demais seguem no modal de hoje. */}
+        {(event as { auth_flow?: string } | null)?.auth_flow === 'v2' ? (
+          <AuthModalV2
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+            onAuthenticated={handleAuthenticated}
+          />
+        ) : (
         <AuthModal
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           onAuthenticated={handleAuthenticated}
         />
+        )}
 
         <LikeSignupInviteDialog
           open={isLikeInviteOpen}

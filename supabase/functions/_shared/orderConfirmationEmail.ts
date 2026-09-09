@@ -214,7 +214,9 @@ export async function sendOrderConfirmationEmailSafe(
       return { ok: false, skipped: true, reason: "order_not_paid" };
     }
 
-    if (!order.customer_email) {
+    // E-mail interno de quem só tem WhatsApp (<cpf>@sem-email.festpag.digital) não
+    // é destinatário: o ingresso dessa pessoa vai pelo WhatsApp (entregas_whatsapp).
+    if (!order.customer_email || /@sem-email\.festpag\.digital$/i.test(order.customer_email)) {
       await supabase
         .from("order_email_notifications")
         .update({ status: "failed", error_code: "no_recipient", error_message: "missing customer_email" })

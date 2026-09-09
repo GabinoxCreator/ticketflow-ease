@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, ShieldCheck, Mail, KeyRound, User, ArrowLeft, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, KeyRound, User, ArrowLeft, CheckCircle2, RotateCcw, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { validarNomePessoa, normalizarNomePessoa } from '@/lib/nomePessoa';
+import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 
 /*
  * Receber um ingresso transferido — uma pergunta por vez.
@@ -67,6 +68,8 @@ export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceit
   const [telefone, setTelefone] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [reenviando, setReenviando] = useState(false);
+  // Conta só com WhatsApp (plano 09/09/2026): abre o caminho novo, sem e-mail.
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
 
   const cpfLimpo = cpf.replace(/\D/g, '');
 
@@ -251,6 +254,9 @@ export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceit
               <Button variant="hero" size="lg" className="w-full h-13" onClick={() => enviarCodigo()} disabled={trabalhando}>
                 {trabalhando ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Enviando…</> : 'Enviar código'}
               </Button>
+              <Button type="button" variant="outline" size="lg" className="w-full h-13 gap-2" onClick={() => setWhatsappOpen(true)} disabled={trabalhando}>
+                <MessageCircle className="w-5 h-5 text-emerald-500" /> Não tenho e-mail: usar o WhatsApp
+              </Button>
             </>
           )}
 
@@ -341,6 +347,15 @@ export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceit
           <ArrowLeft className="w-3 h-3" /> Voltar
         </button>
       )}
+
+      <AuthModalV2
+        isOpen={whatsappOpen}
+        onClose={() => setWhatsappOpen(false)}
+        onAuthenticated={async () => {
+          setWhatsappOpen(false);
+          await onAceitar({ cpf: cpfLimpo, nome: nome.trim() ? normalizarNomePessoa(nome) : undefined });
+        }}
+      />
     </div>
   );
 }

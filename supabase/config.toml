@@ -254,3 +254,25 @@ verify_jwt = false
 # A trava contra link vazado é o CPF, conferido dentro da RPC.
 [functions.ticket-transfer-accept]
 verify_jwt = true
+
+# Conta de cliente por CPF com senha + código no WhatsApp/e-mail (plano de
+# 09/09/2026, _docs/plano-login-cpf-whatsapp.md). As duas são PÚBLICAS porque quem
+# chama ainda não tem sessão: uma identifica (CPF/celular/e-mail → conta existe?
+# canais mascarados; CPF novo → primeiro nome), a outra manda e confere o código
+# e devolve a sessão. Travas: rate limit fail-closed por IP/destino/conta, senha
+# conferida ANTES de mandar código no login, código de 10 min com 5 tentativas.
+[functions.auth-identificar]
+verify_jwt = false
+
+[functions.auth-codigo]
+verify_jwt = false
+
+# Ingresso pelo WhatsApp (Bloco 3): consumidor da fila `entregas_whatsapp`, chamado
+# pelo cron a cada minuto com X-Cron-Secret (conferido no Vault). Sem o segredo, 401.
+[functions.entregar-ingressos-whatsapp]
+verify_jwt = false
+
+# "Minha conta": confirmar/trocar WhatsApp e e-mail e trocar a senha, com código
+# (Bloco 2). Exige sessão; quem é vem do token, nunca do body.
+[functions.auth-canal]
+verify_jwt = true

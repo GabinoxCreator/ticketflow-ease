@@ -13,13 +13,14 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, Loader2, UserPlus, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Loader2, UserPlus, Sparkles, KeyRound } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import AuroraBackground from '@/components/auth/AuroraBackground';
 import SignupWizard from '@/components/auth/SignupWizard';
 import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
+import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -48,6 +49,8 @@ const Auth: React.FC = () => {
   // Esqueci a senha
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  // Entrar com CPF + senha + código (plano de 09/09/2026). Aditivo: a senha continua.
+  const [codigoOpen, setCodigoOpen] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/';
   const mode = searchParams.get('mode');
@@ -274,6 +277,18 @@ const Auth: React.FC = () => {
                         </p>
                       </div>
 
+                      {/* Conta por CPF com senha + código no WhatsApp/e-mail (plano de 09/09/2026).
+                          É por aqui que entra quem só tem WhatsApp (sem e-mail). */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-12 gap-2"
+                        onClick={() => setCodigoOpen(true)}
+                      >
+                        <KeyRound className="h-4 w-4 text-primary" />
+                        <span className="font-semibold">Entrar com CPF e código</span>
+                      </Button>
+
                       {/* CTA Cadastrar destacado */}
                       <div className="relative pt-4 mt-2">
                         <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-primary/30 to-[hsl(330,85%,60%)]/30 blur-md opacity-50" />
@@ -309,6 +324,12 @@ const Auth: React.FC = () => {
           </div>
         </motion.div>
       </main>
+
+      <AuthModalV2
+        isOpen={codigoOpen}
+        onClose={() => setCodigoOpen(false)}
+        onAuthenticated={() => setCodigoOpen(false)}
+      />
 
       {/* Dialog: Esqueci a senha (OTP via Resend) */}
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
