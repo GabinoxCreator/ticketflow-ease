@@ -21,6 +21,7 @@ import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/mar
 import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
+import { semEmailInterno } from '../_shared/emailInterno.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,7 +53,9 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { eventId, items, customerName, customerEmail, customerPhone } = body;
+    const { eventId, items, customerName, customerPhone } = body;
+    // Quem só tem WhatsApp tem e-mail interno no Supabase: nunca gravar nem mandar ao gateway.
+    const customerEmail = semEmailInterno(body.customerEmail);
 
     if (!eventId || !Array.isArray(items) || items.length === 0) {
       return json({ error: 'Dados incompletos' }, 400);
@@ -191,7 +194,7 @@ serve(async (req) => {
       purchaseId: order.id,
       customer: {
         name: nomeLimpo, cpf: cleanCPF,
-        email: customerEmail,
+        email: customerEmail || undefined,
         // Sem o código do país: com 13 dígitos a API RECUSA a cobrança.
         phone: telefoneParaMarcel(customerPhone),
       },

@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
+import { semEmailInterno } from '../_shared/emailInterno.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -86,7 +87,11 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { eventId, items, customerName, customerEmail, customerCPF, customerPhone, couponId, deviceId } = await req.json() as PixRequest;
+    const reqBody = await req.json() as PixRequest;
+    const { eventId, items, customerName, customerCPF, customerPhone, couponId, deviceId } = reqBody;
+    // Quem só tem WhatsApp tem e-mail interno no Supabase: nunca gravar. O Mercado Pago
+    // exige um e-mail no pagador, então ELE recebe o interno — só ele.
+    const customerEmail = semEmailInterno(reqBody.customerEmail);
 
     const clientIp =
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -308,7 +313,7 @@ serve(async (req) => {
       notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`,
       external_reference: order.id,
       payer: {
-        email: customerEmail,
+        email: customerEmail || `${cleanCPF}@sem-email.festpag.digital`,
         first_name: firstName,
         last_name: lastName,
         identification: { type: 'CPF', number: cleanCPF },

@@ -252,6 +252,19 @@ serve(async (req) => {
         } else {
           log("buyer_link_cpf_mismatch", { profile_id: prof.id });
         }
+      } else if (cpfDigits.length === 11) {
+        // Sem conta com esse e-mail: quem só tem WhatsApp (plano 09/09/2026) não tem
+        // e-mail para bater. Vincula pelo CPF, mas só se houver UMA conta com ele —
+        // CPF repetido em duas contas é ambíguo e fica órfão (a adoção resolve depois).
+        const { data: porCpf } = await admin
+          .from("profiles")
+          .select("id")
+          .eq("cpf", cpfDigits)
+          .limit(2);
+        if (porCpf && porCpf.length === 1) {
+          buyerUserId = porCpf[0].id as string;
+          log("buyer_link_by_cpf", { profile_id: buyerUserId });
+        }
       }
     } catch (e) {
       log("buyer_link_lookup_failed", { error: String(e) });

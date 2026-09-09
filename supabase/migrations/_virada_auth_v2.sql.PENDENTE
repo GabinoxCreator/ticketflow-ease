@@ -1,0 +1,32 @@
+-- ============================================================================
+-- ⛔ NÃO É UMA MIGRATION AINDA — é o Bloco 5, a VIRADA (plano de 09/09/2026).
+--
+-- Fica com este nome (sem .sql, marcado PENDENTE) de propósito: nenhuma
+-- ferramenta aplica por engano. Quando o Gabriel disser "vira", renomear para
+-- `2026MMDDHHMMSS_virada_auth_v2.sql`, aplicar numa MANHÃ SEM EVENTO e subir
+-- com o maestro o pacote de código descrito abaixo.
+--
+-- O QUE A VIRADA FAZ
+--   1. Todo evento passa a usar a conta por CPF com senha + código (`auth_flow = 'v2'`),
+--      inclusive os que estão vendendo (Oktoberfest). Quem já tem conta continua
+--      entrando com o e-mail + senha de sempre — só ganha o código a mais.
+--   2. Evento novo já nasce em `v2`.
+--
+-- O QUE SAI DO CÓDIGO NO MESMO PACOTE (galho da virada, depois da Porcada validar)
+--   · `src/components/auth/AuthModal.tsx` e `SignupWizard.tsx` (o caminho antigo),
+--     e o `EventDetails` passa a abrir só o `AuthModalV2`;
+--   · na página `/login`, a aba de senha vira "produtor"; cliente entra pelo modal;
+--   · edges `send-verification-code`, `verify-email-code`, `send-password-reset-code`,
+--     `verify-password-reset-code` e as tabelas `email_verification_codes` e
+--     `password_reset_codes` — o motor novo (`auth_codigos`) cobre tudo.
+--     ⚠️ O checkout (`CheckoutStepProgressiveForm`) e o aceite de transferência
+--     ainda chamam as duas primeiras: trocar antes de apagar.
+--
+-- COMO VOLTAR ATRÁS (no dia)
+--   UPDATE public.events SET auth_flow = 'v1';
+--   ALTER TABLE public.events ALTER COLUMN auth_flow SET DEFAULT 'v1';
+--   (e republicar o pacote anterior)
+-- ============================================================================
+
+ALTER TABLE public.events ALTER COLUMN auth_flow SET DEFAULT 'v2';
+UPDATE public.events SET auth_flow = 'v2' WHERE auth_flow <> 'v2';
