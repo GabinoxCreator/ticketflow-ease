@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { computeProducerFinance } from '@/lib/producerFinance';
+import { attachProducerValues } from '@/lib/orderProducerValues';
 
 export interface OrderReviewReason {
   expected?: number;
@@ -23,6 +24,8 @@ export interface Order {
   customer_cpf?: string | null;
   total_amount: number;
   service_fee_amount?: number;
+  /** Valor de face para o produtor (sem taxa, sem juro), calculado pelo banco. */
+  producer_value?: number | null;
   status: 'pending' | 'paid' | 'completed' | 'cancelled' | 'refunded' | 'failed' | 'expired' | 'charged_back';
   payment_method: string | null;
   created_at: string;
@@ -57,7 +60,9 @@ export function useEventOrders(eventId: string | undefined) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Order[];
+      // Valor do ingresso para o produtor (face, sem taxa e sem juro) vem do
+      // banco — é o que alimenta o total do cabeçalho e a receita por lote.
+      return (await attachProducerValues((data || []) as Order[])) as Order[];
     },
     enabled: !!eventId,
   });

@@ -176,10 +176,10 @@ export default function Financeiro() {
                     <div className="text-3xl font-bold mt-2 break-words text-secondary">
                       {financeLoading ? '—' : formatBRL(finance?.totals.available || 0)}
                     </div>
-                    {!financeLoading && (finance?.totals.cash || 0) > 0 && (
+                    {!financeLoading && (finance?.totals.receivedDirectly || 0) > 0 && (
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Fora daqui: {formatBRL(finance!.totals.cash)} recebidos em dinheiro — esse valor
-                        já ficou com quem vendeu e não entra no saque.
+                        Fora daqui: {formatBRL(finance!.totals.receivedDirectly)} que você já recebeu direto
+                        (venda manual e dinheiro) — esse valor não passou pela FestPag e não entra no saque.
                       </p>
                     )}
                   </CardContent>
@@ -196,7 +196,7 @@ export default function Financeiro() {
                         {formatBRL(finance.totals.netOnline)}
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Bruto {formatBRL(finance.totals.grossOnline)} · transações via Mercado Pago
+                        Bruto {formatBRL(finance.totals.grossOnline)} · pagamentos pelo site (valor dos ingressos, sem taxa e sem juro)
                       </p>
                     </CardContent>
                   </Card>
@@ -207,7 +207,7 @@ export default function Financeiro() {
                         {formatBRL(finance.totals.netManual)}
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Bruto {formatBRL(finance.totals.grossManual)} · vendas registradas pelo produtor
+                        Bruto {formatBRL(finance.totals.grossManual)} · vendas registradas por você — já recebidas direto, fora do repasse
                       </p>
                     </CardContent>
                   </Card>
