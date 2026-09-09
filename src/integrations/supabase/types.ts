@@ -65,6 +65,51 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_codigos: {
+        Row: {
+          canal: string
+          codigo_hash: string
+          cpf: string | null
+          criado_em: string
+          destino: string
+          expira_em: string
+          id: string
+          ip: string | null
+          proposito: string
+          tentativas: number
+          usado_em: string | null
+          user_id: string | null
+        }
+        Insert: {
+          canal: string
+          codigo_hash: string
+          cpf?: string | null
+          criado_em?: string
+          destino: string
+          expira_em: string
+          id?: string
+          ip?: string | null
+          proposito: string
+          tentativas?: number
+          usado_em?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          canal?: string
+          codigo_hash?: string
+          cpf?: string | null
+          criado_em?: string
+          destino?: string
+          expira_em?: string
+          id?: string
+          ip?: string | null
+          proposito?: string
+          tentativas?: number
+          usado_em?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       auth_rate_limits: {
         Row: {
           attempts: number
@@ -461,6 +506,59 @@ export type Database = {
           verified?: boolean | null
         }
         Relationships: []
+      }
+      entregas_whatsapp: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          destino: string
+          enviado_em: string | null
+          id: string
+          mensagens_enviadas: number
+          order_id: string
+          proximo_em: string
+          status: string
+          tentativas: number
+          ultimo_erro: string | null
+          user_id: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          destino: string
+          enviado_em?: string | null
+          id?: string
+          mensagens_enviadas?: number
+          order_id: string
+          proximo_em?: string
+          status?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          destino?: string
+          enviado_em?: string | null
+          id?: string
+          mensagens_enviadas?: number
+          order_id?: string
+          proximo_em?: string
+          status?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_whatsapp_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_coupons: {
         Row: {
@@ -927,6 +1025,7 @@ export type Database = {
         Row: {
           abada_enabled: boolean
           address: string | null
+          auth_flow: string
           category: string | null
           city: string
           created_at: string
@@ -962,6 +1061,7 @@ export type Database = {
         Insert: {
           abada_enabled?: boolean
           address?: string | null
+          auth_flow?: string
           category?: string | null
           city: string
           created_at?: string
@@ -997,6 +1097,7 @@ export type Database = {
         Update: {
           abada_enabled?: boolean
           address?: string | null
+          auth_flow?: string
           category?: string | null
           city?: string
           created_at?: string
@@ -1929,39 +2030,48 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          canal_preferido: string | null
           cpf: string | null
           created_at: string | null
           email: string
+          email_confirmado_em: string | null
           facial_consent_at: string | null
           facial_photo_path: string | null
           facial_synced_at: string | null
           id: string
           nome_completo: string
           whatsapp: string
+          whatsapp_confirmado_em: string | null
         }
         Insert: {
           avatar_url?: string | null
+          canal_preferido?: string | null
           cpf?: string | null
           created_at?: string | null
           email: string
+          email_confirmado_em?: string | null
           facial_consent_at?: string | null
           facial_photo_path?: string | null
           facial_synced_at?: string | null
           id: string
           nome_completo: string
           whatsapp: string
+          whatsapp_confirmado_em?: string | null
         }
         Update: {
           avatar_url?: string | null
+          canal_preferido?: string | null
           cpf?: string | null
           created_at?: string | null
           email?: string
+          email_confirmado_em?: string | null
           facial_consent_at?: string | null
           facial_photo_path?: string | null
           facial_synced_at?: string | null
           id?: string
           nome_completo?: string
           whatsapp?: string
+          whatsapp_confirmado_em?: string | null
         }
         Relationships: []
       }
@@ -2469,6 +2579,17 @@ export type Database = {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
       }
+      buscar_contas_por_identificador: {
+        Args: { _tipo: string; _valor: string }
+        Returns: {
+          criado_em: string
+          email: string
+          nome_completo: string
+          papeis: string
+          user_id: string
+          whatsapp: string
+        }[]
+      }
       calcular_repasse: {
         Args: {
           _brand_group?: string
@@ -2555,6 +2676,29 @@ export type Database = {
         Returns: {
           event_day_id: string
         }[]
+      }
+      entregas_whatsapp_reivindicar: {
+        Args: { _limite?: number }
+        Returns: {
+          atualizado_em: string
+          criado_em: string
+          destino: string
+          enviado_em: string | null
+          id: string
+          mensagens_enviadas: number
+          order_id: string
+          proximo_em: string
+          status: string
+          tentativas: number
+          ultimo_erro: string | null
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "entregas_whatsapp"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       expirar_transferencias_vencidas: {
         Args: { _ticket_id?: string }
@@ -2703,6 +2847,7 @@ export type Database = {
         Args: { _producer_profile_id: string; _user_id: string }
         Returns: boolean
       }
+      ler_segredo: { Args: { _nome: string }; Returns: string }
       lgpd_retention_sweep: { Args: never; Returns: undefined }
       lookup_customer_by_cpf: {
         Args: { _cpf: string; _event_id: string }
@@ -2734,6 +2879,7 @@ export type Database = {
           transferido_em: string
         }[]
       }
+      normalizar_whatsapp: { Args: { _raw: string }; Returns: string }
       opcoes_parcelamento: {
         Args: {
           _absorve?: boolean
@@ -2748,7 +2894,19 @@ export type Database = {
           total_cents: number
         }[]
       }
+      order_producer_value: {
+        Args: { o: Database["public"]["Tables"]["orders"]["Row"] }
+        Returns: number
+      }
       prepare_event_seats: { Args: { _event_id: string }; Returns: Json }
+      producer_order_values: {
+        Args: { p_order_ids: string[] }
+        Returns: {
+          face_amount: number
+          order_id: string
+          producer_value: number
+        }[]
+      }
       publish_event_with_snapshot: {
         Args: { _event_id: string }
         Returns: Json
@@ -2785,14 +2943,6 @@ export type Database = {
         Returns: Json
       }
       release_seats_for_order: { Args: { _order_id: string }; Returns: number }
-      producer_order_values: {
-        Args: { p_order_ids: string[] }
-        Returns: {
-          order_id: string
-          producer_value: number | null
-          face_amount: number | null
-        }[]
-      }
       request_payout: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: Json
