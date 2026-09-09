@@ -1,7 +1,7 @@
 /*
  * O motor do código de acesso: gera, guarda (só o hash), entrega pelo canal e
- * confere. Serve ao cadastro, ao login (senha + código) e à confirmação de um
- * canal novo. Plano de 09/09/2026 — `_docs/plano-login-cpf-whatsapp.md`.
+ * confere. Serve ao cadastro, ao login (senha + código), à confirmação de um
+ * canal novo e à recuperação de senha. Plano de 09/09/2026 — `_docs/plano-login-cpf-whatsapp.md`.
  *
  * Regras que não se negociam:
  *   · O código nunca é gravado nem logado — só `sha256(id:código)`.
@@ -21,7 +21,7 @@ import { maskEmail } from './pii.ts';
 export const VALIDADE_MIN = 10;
 export const MAX_TENTATIVAS = 5;
 
-export type Proposito = 'cadastro' | 'login' | 'canal';
+export type Proposito = 'cadastro' | 'login' | 'canal' | 'reset';
 export type Canal = 'whatsapp' | 'email';
 
 export type PedidoDeCodigo = {
@@ -172,11 +172,6 @@ export async function conferirCodigo(admin: any, desafioId: string, codigo: stri
   };
 }
 
-/** E-mail interno de quem só tem WhatsApp. Nunca recebe mensagem: o perfil fica com e-mail vazio. */
-export function emailInternoSemEmail(cpf: string): string {
-  return `${cpf.replace(/\D/g, '')}@sem-email.festpag.digital`;
-}
-
-export function ehEmailInterno(email: string | null | undefined): boolean {
-  return /@sem-email\.festpag\.digital$/i.test(String(email ?? ''));
-}
+// O e-mail interno de quem só tem WhatsApp mora em ./emailInterno.ts (arquivo
+// pequeno, para as edges de pagamento importarem sem carregar o motor).
+export { emailInternoSemEmail, ehEmailInterno } from './emailInterno.ts';

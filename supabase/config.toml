@@ -270,3 +270,7 @@ verify_jwt = false
 [functions.entregar-ingressos-whatsapp]
 verify_jwt = false
 
+# "Minha conta": confirmar/trocar WhatsApp e e-mail e trocar a senha, com código
+# (Bloco 2). Exige sessão; quem é vem do token, nunca do body.
+[functions.auth-canal]
+verify_jwt = true
