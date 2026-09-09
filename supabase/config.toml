@@ -265,3 +265,8 @@ verify_jwt = false
 [functions.auth-codigo]
 verify_jwt = false
 
+# Ingresso pelo WhatsApp (Bloco 3): consumidor da fila `entregas_whatsapp`, chamado
+# pelo cron a cada minuto com X-Cron-Secret (conferido no Vault). Sem o segredo, 401.
+[functions.entregar-ingressos-whatsapp]
+verify_jwt = false
+
