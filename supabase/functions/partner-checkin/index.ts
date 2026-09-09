@@ -33,13 +33,16 @@ serve(async (req) => {
 
   try {
     // ---------- 2. Auth: x-api-key vs secret em env (fail-closed) ----------
-    const secret = Deno.env.get("PARTNER_CHECKIN_SECRET");
-    if (!secret) {
-      // Secret não configurado no ambiente → fail-closed, não é erro do parceiro.
+    // Duas chaves aceitas (09/09/2026): a do parceiro, de sempre, e a do NOSSO
+    // totem de check-in (TOTEM_CHECKIN_KEY, opcional — a mesma que a
+    // facial-checkin aceita). Sem nenhuma configurada → fail-closed.
+    const chaves = [Deno.env.get("PARTNER_CHECKIN_SECRET"), Deno.env.get("TOTEM_CHECKIN_KEY")]
+      .filter((k): k is string => Boolean(k));
+    if (chaves.length === 0) {
       return json({ error: "service_unavailable" }, 503);
     }
     const apiKey = req.headers.get("x-api-key");
-    if (!apiKey || apiKey !== secret) {
+    if (!apiKey || !chaves.includes(apiKey)) {
       return json({ error: "unauthorized" }, 401);
     }
 
@@ -52,6 +55,11 @@ serve(async (req) => {
     }
     const ticket_code = body?.ticket_code;
     const dry_run = body?.dry_run === true;
+    // Origem para o checkin_logs: 'partner_api' (padrão) ou o que o nosso
+    // totem mandar ('festpag_totem_qr'). Só letras e sublinhado.
+    const source = typeof body?.source === "string" && /^[a-z_]{1,32}$/.test(body.source)
+      ? body.source
+      : "partner_api";
 
     if (typeof ticket_code !== "string" || ticket_code.trim().length === 0) {
       return json({ error: "invalid_request", message: "ticket_code é obrigatório" }, 400);
@@ -156,7 +164,7 @@ serve(async (req) => {
         ticket_id: ticket.id,
         event_id: ticketEventId,
         action: "checkin_blocked_window",
-        source: "partner_api",
+        source,
       });
       const message = win.reason === "before_window"
         ? "Check-in ainda não liberado para este evento."
@@ -279,7 +287,7 @@ serve(async (req) => {
       operator_id: null,
       collaborator_id: null,
       action: "checkin",
-      source: "partner_api",
+      source,
     });
 
     return json({

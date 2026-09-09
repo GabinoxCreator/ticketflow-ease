@@ -150,8 +150,10 @@ verify_jwt = true
 
 # Check-in facial na portaria: quem chama é o servidor do Marcel, sem sessão
 # Supabase (verify_jwt=false — com true o gateway barraria antes do código). A
-# autenticação é por header x-api-key comparado ao secret MARCEL_CHECKIN_KEY;
-# sem o secret no ambiente a função recusa tudo, nunca fica aberta.
+# autenticação é por header x-api-key comparado ao secret MARCEL_CHECKIN_KEY —
+# ou, desde 09/09/2026, ao TOTEM_CHECKIN_KEY (o NOSSO totem de check-in chama
+# a mesma porta, com chave própria); sem nenhum dos dois no ambiente a função
+# recusa tudo, nunca fica aberta.
 [functions.facial-checkin]
 verify_jwt = false
 

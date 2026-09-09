@@ -51,24 +51,36 @@ serve(async (req) => {
 
   try {
     // ---------- 1. Auth: x-api-key vs secret em env (fail-closed) ----------
-    const secret = Deno.env.get("MARCEL_CHECKIN_KEY");
-    if (!secret) {
-      // Secret não configurado: recusa TUDO. Nunca degradar pra endpoint aberto.
-      console.error("[FACIAL-CHECKIN] MARCEL_CHECKIN_KEY ausente — recusando");
+    // Duas chaves aceitas (09/09/2026): a do Marcel, de sempre, e a do NOSSO
+    // totem de check-in (TOTEM_CHECKIN_KEY, opcional). Chaves separadas para
+    // uma poder ser trocada ou revogada sem derrubar a outra. Sem NENHUMA
+    // configurada: recusa TUDO. Nunca degradar pra endpoint aberto.
+    const chaves = [Deno.env.get("MARCEL_CHECKIN_KEY"), Deno.env.get("TOTEM_CHECKIN_KEY")]
+      .filter((k): k is string => Boolean(k));
+    if (chaves.length === 0) {
+      console.error("[FACIAL-CHECKIN] nenhuma chave de check-in configurada — recusando");
       return json({ error: "service_unavailable" }, 500);
     }
     const apiKey = req.headers.get("x-api-key");
-    if (!apiKey || apiKey !== secret) {
+    if (!apiKey || !chaves.includes(apiKey)) {
       return json({ error: "unauthorized" }, 401);
     }
 
     // ---------- 2. Input ----------
-    let body: { cpf?: unknown; event_id?: unknown };
+    let body: { cpf?: unknown; event_id?: unknown; source?: unknown };
     try {
       body = await req.json();
     } catch {
       return json({ error: "invalid_body" }, 400);
     }
+
+    // De onde veio o check-in, para o checkin_logs contar a história certa:
+    // 'facial' (o padrão de sempre, o terminal do Marcel) ou o que o nosso
+    // totem mandar ('festpag_totem_facial', 'festpag_totem_cpf'). Só letras e
+    // sublinhado — quem chama tem a chave, mas log não é lugar de texto livre.
+    const source = typeof body?.source === "string" && /^[a-z_]{1,32}$/.test(body.source)
+      ? body.source
+      : "facial";
 
     const cpfDigits = unformatCPF(typeof body?.cpf === "string" ? body.cpf : "");
     if (!validateCPF(cpfDigits)) {
@@ -145,7 +157,7 @@ serve(async (req) => {
         ticket_id: blocked.id,
         event_id: blocked.event_id,
         action: "checkin_blocked_window",
-        source: "facial",
+        source,
       });
       return semIngresso("fora_da_janela");
     }
@@ -192,7 +204,7 @@ serve(async (req) => {
       ticket_id: ticket.id,
       event_id: ticket.event_id,
       action: "checkin",
-      source: "facial",
+      source,
     });
     if (logErr) console.error("[FACIAL-CHECKIN] checkin_logs falhou (ignorado)", logErr);
 
