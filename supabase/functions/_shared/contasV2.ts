@@ -91,6 +91,21 @@ export function canaisDaConta(c: Conta): CanalDaConta[] {
 }
 
 /** Resumo seguro de uma conta para a resposta pública. */
+/*
+ * O que a identificação pode contar sobre uma conta ANTES da senha: quase nada.
+ *
+ * Até 10/09/2026 isto devolvia `primeiroNome`. A tela usava para dizer "Olá,
+ * Maria!" antes de pedir a senha — simpático, e um vazamento: CPF é número
+ * curto, com dígito verificador, que se enumera. Qualquer um varria CPFs e
+ * recebia o primeiro nome de cada cliente nosso. (Achado pelo maestro,
+ * clisitef-libs-4a, chamando a porta em produção depois do item 88 — que fechou
+ * a consulta à Receita mas não tocou aqui.)
+ *
+ * Fica o `indice` (a tela precisa dele para dizer de qual conta está falando) e
+ * os canais MASCARADOS. Nome não sai daqui em hipótese nenhuma: o único lugar
+ * onde nome pode sair é junto com a sessão, depois da senha e do código —
+ * aí é a pessoa recebendo o próprio nome.
+ */
 export function resumoDaConta(c: Conta, indice: number) {
-  return { indice, primeiroNome: c.primeiroNome, canais: canaisDaConta(c) };
+  return { indice, canais: canaisDaConta(c) };
 }

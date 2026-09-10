@@ -10,7 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type Canal = 'whatsapp' | 'email';
 export type CanalDaConta = { canal: Canal; mascarado: string };
-export type ContaResumo = { indice: number; primeiroNome: string; canais: CanalDaConta[] };
+/* Sem `primeiroNome`: a identificação não conta nome nenhum antes da senha.
+ * Ver o comentário do `resumoDaConta` em supabase/functions/_shared/contasV2.ts. */
+export type ContaResumo = { indice: number; canais: CanalDaConta[] };
 
 export type RespostaIdentificar =
   | { ok: true; existe: true; tipo: 'cpf' | 'whatsapp' | 'email'; contas: ContaResumo[] }
