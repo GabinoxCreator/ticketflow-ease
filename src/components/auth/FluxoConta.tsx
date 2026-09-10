@@ -103,6 +103,111 @@ const formatPhone = (value: string) => {
 const CAMPO = 'pl-12 h-14 text-base bg-background/50';
 const ICONE = 'absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors';
 
+
+/*
+ * ⚠️ Estes três pedaços de tela moram AQUI FORA, e isso não é organização: é
+ * correção de um bug que o Gabriel achou usando o site em 10/09/2026, uma hora
+ * depois de o cadastro entrar no ar. Ele criou a conta, mas travou na senha —
+ * *"fica voltando uma senha preenchida, não consigo preencher, está travado"*.
+ *
+ * A causa era eu ter declarado estes componentes DENTRO do `FluxoConta`. Um
+ * componente declarado dentro de outro vira um tipo NOVO a cada render, e o
+ * React não o reconhece como o mesmo: desmonta o campo e monta outro no lugar.
+ * A cada tecla. O campo perde o foco, o valor do "digite de novo" some, e o
+ * gerenciador de senhas do Mac reenche tudo — o que ele viu na tela.
+ *
+ * Fora do componente, o tipo é estável e o campo vive. Se um dia alguém for
+ * "arrumar" trazendo isto para dentro de novo, o travamento volta inteiro.
+ */
+
+const BotaoPrincipal = ({ onClick, label, ocupado, disabled = false }: {
+  onClick: () => void; label: string; ocupado: boolean; disabled?: boolean;
+}) => (
+  <Button type="submit" onClick={onClick} disabled={ocupado || disabled} variant="hero" size="lg" className="w-full h-14 text-base gap-2">
+    {ocupado ? <><Loader2 className="h-5 w-5 animate-spin" />Um instante...</> : <>{label} <ArrowRight className="h-5 w-5" /></>}
+  </Button>
+);
+
+const CampoSenha = ({ valor, mudou, dica, autoComplete, mostrar, alternarMostrar, autoFocus = false }: {
+  valor: string; mudou: (v: string) => void; dica: string; autoComplete: string;
+  mostrar: boolean; alternarMostrar: () => void; autoFocus?: boolean;
+}) => (
+  <div className="relative group">
+    <Lock className={ICONE} />
+    <Input
+      autoFocus={autoFocus}
+      type={mostrar ? 'text' : 'password'}
+      autoComplete={autoComplete}
+      placeholder={dica}
+      value={valor}
+      onChange={(e) => mudou(e.target.value)}
+      className={cn(CAMPO, 'pr-12')}
+    />
+    <button type="button" onClick={alternarMostrar} aria-label={mostrar ? 'Esconder senha' : 'Mostrar senha'}
+      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+      {mostrar ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+    </button>
+  </div>
+);
+
+
+/* Mesma regra do `CampoSenha`: fora do componente, senão o campo do código
+ * remonta a cada dígito e o `autocomplete="one-time-code"` do celular não pega. */
+const TelaDoCodigo = ({
+  aoConfirmar, rotulo, ehWhats, desafio, codigo, setCodigo, ocupado, cooldown,
+  reenviar, podeTrocarParaEmail, trocarParaEmail,
+}: {
+  aoConfirmar: () => void; rotulo: string; ehWhats: boolean;
+  desafio: RespostaEnvio | null; codigo: string; setCodigo: (v: string) => void;
+  ocupado: boolean; cooldown: number; reenviar: () => void;
+  podeTrocarParaEmail: boolean; trocarParaEmail: () => void;
+}) => (
+  <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); aoConfirmar(); }}>
+    <div className={cn('mx-auto flex h-14 w-14 items-center justify-center rounded-2xl',
+      ehWhats ? 'bg-emerald-500/15 text-emerald-400' : 'bg-primary/15 text-primary')}>
+      {ehWhats ? <MessageCircle className="h-7 w-7" /> : <Mail className="h-7 w-7" />}
+    </div>
+    <p className="text-center text-base text-muted-foreground">
+      Mandamos 6 números para <span className="font-semibold text-foreground">{desafio?.destinoMascarado}</span>
+    </p>
+
+    <div className="flex justify-center">
+      <InputOTP
+        maxLength={6}
+        value={codigo}
+        onChange={setCodigo}
+        disabled={ocupado}
+        autoFocus
+        // Deixa o iPhone/Android oferecerem o código da mensagem sem a pessoa
+        // sair da tela para copiar.
+        autoComplete="one-time-code"
+        inputMode="numeric"
+      >
+        <InputOTPGroup>
+          {[0, 1, 2, 3, 4, 5].map((i) => <InputOTPSlot key={i} index={i} className="h-14 w-11 text-2xl tabular-nums" />)}
+        </InputOTPGroup>
+      </InputOTP>
+    </div>
+
+    <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+      <Clock className="h-4 w-4" /> O código vale por 10 minutos.
+    </p>
+
+    <BotaoPrincipal onClick={aoConfirmar} label={rotulo} ocupado={ocupado} disabled={codigo.length !== 6} />
+
+    <div className="space-y-1">
+      <Button type="button" variant="ghost" onClick={reenviar} disabled={cooldown > 0 || ocupado} className="w-full h-11 text-sm">
+        {cooldown > 0 ? `Não chegou? Reenviar em ${cooldown}s` : 'Não chegou? Mandar de novo'}
+      </Button>
+      {podeTrocarParaEmail && (
+        <Button type="button" variant="ghost" disabled={ocupado} className="w-full h-11 text-sm gap-2 text-primary" onClick={trocarParaEmail}>
+          <Mail className="h-4 w-4" /> Receber pelo e-mail
+        </Button>
+      )}
+    </div>
+  </form>
+);
+
 export function FluxoConta({
   ativo = true, onFechar, onAuthenticated, embutido = false, abaInicial = 'entrar',
 }: FluxoContaProps) {
@@ -434,85 +539,8 @@ export function FluxoConta({
   const passo = ETAPAS_CADASTRO[etapa];
   const ehWhats = canal === 'whatsapp';
 
-  // ── Pedaços de tela ───────────────────────────────────────────────────────
-  const Principal = ({ onClick, label, disabled = false }: { onClick: () => void; label: string; disabled?: boolean }) => (
-    <Button type="submit" onClick={onClick} disabled={ocupado || disabled} variant="hero" size="lg" className="w-full h-14 text-base gap-2">
-      {ocupado ? <><Loader2 className="h-5 w-5 animate-spin" />Um instante...</> : <>{label} <ArrowRight className="h-5 w-5" /></>}
-    </Button>
-  );
-
-  const CampoSenha = ({ valor, mudou, dica, autoComplete, autoFocus = false }: {
-    valor: string; mudou: (v: string) => void; dica: string; autoComplete: string; autoFocus?: boolean;
-  }) => (
-    <div className="relative group">
-      <Lock className={ICONE} />
-      <Input
-        autoFocus={autoFocus}
-        type={mostrarSenha ? 'text' : 'password'}
-        autoComplete={autoComplete}
-        placeholder={dica}
-        value={valor}
-        onChange={(e) => mudou(e.target.value)}
-        className={cn(CAMPO, 'pr-12')}
-      />
-      <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} aria-label={mostrarSenha ? 'Esconder senha' : 'Mostrar senha'}
-        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-        {mostrarSenha ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-      </button>
-    </div>
-  );
-
-  const TelaDoCodigo = ({ aoConfirmar, rotulo }: { aoConfirmar: () => void; rotulo: string }) => (
-    <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); aoConfirmar(); }}>
-      <div className={cn('mx-auto flex h-14 w-14 items-center justify-center rounded-2xl',
-        ehWhats ? 'bg-emerald-500/15 text-emerald-400' : 'bg-primary/15 text-primary')}>
-        {ehWhats ? <MessageCircle className="h-7 w-7" /> : <Mail className="h-7 w-7" />}
-      </div>
-      <p className="text-center text-base text-muted-foreground">
-        Mandamos 6 números para <span className="font-semibold text-foreground">{desafio?.destinoMascarado}</span>
-      </p>
-
-      <div className="flex justify-center">
-        <InputOTP
-          maxLength={6}
-          value={codigo}
-          onChange={setCodigo}
-          disabled={ocupado}
-          autoFocus
-          // Deixa o iPhone/Android oferecerem o código da mensagem sem a pessoa
-          // sair da tela para copiar.
-          autoComplete="one-time-code"
-          inputMode="numeric"
-        >
-          <InputOTPGroup>
-            {[0, 1, 2, 3, 4, 5].map((i) => <InputOTPSlot key={i} index={i} className="h-14 w-11 text-2xl tabular-nums" />)}
-          </InputOTPGroup>
-        </InputOTP>
-      </div>
-
-      <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Clock className="h-4 w-4" /> O código vale por 10 minutos.
-      </p>
-
-      <Principal onClick={aoConfirmar} label={rotulo} disabled={codigo.length !== 6} />
-
-      <div className="space-y-1">
-        <Button type="button" variant="ghost" onClick={reenviar} disabled={cooldown > 0 || ocupado} className="w-full h-11 text-sm">
-          {cooldown > 0 ? `Não chegou? Reenviar em ${cooldown}s` : 'Não chegou? Mandar de novo'}
-        </Button>
-        {ehWhats && (desafio?.podeTentarEmail || (aba === 'cadastro' && !!email.trim())) && (
-          <Button type="button" variant="ghost" disabled={ocupado} className="w-full h-11 text-sm gap-2 text-primary"
-            onClick={() => {
-              if (aba === 'cadastro') { setCanal('email'); setEtapa('contato'); return; }
-              const porEmail = opcoes.find((o) => o.canal === 'email');
-              if (porEmail) void mandarCodigoDeLogin(identificador.trim(), porEmail.conta.indice, 'email');
-            }}>
-            <Mail className="h-4 w-4" /> Receber pelo e-mail
-          </Button>
-        )}
-      </div>
-    </form>
-  );
+  // Os pedaços de tela moram FORA deste componente, de propósito — ver o
+  // comentário de `CampoSenha` lá em cima. Aqui ficam só os atalhos de props.
 
   // A facial em tela cheia sai do cartão — é a câmera ocupando o aparelho inteiro.
   if (etapa === 'facial-camera') {
@@ -581,7 +609,7 @@ export function FluxoConta({
 
                 <div className="space-y-2">
                   <Label className="text-sm">Senha</Label>
-                  <CampoSenha valor={senha} mudou={setSenha} dica="Sua senha" autoComplete="current-password" />
+                  <CampoSenha valor={senha} mudou={setSenha} dica="Sua senha" autoComplete="current-password" mostrar={mostrarSenha} alternarMostrar={() => setMostrarSenha(!mostrarSenha)} />
                 </div>
 
                 <button type="button" onClick={esqueciASenha} disabled={ocupado}
@@ -589,7 +617,7 @@ export function FluxoConta({
                   Esqueci minha senha
                 </button>
 
-                <Principal onClick={entrar} label="Entrar" disabled={!identificador.trim() || senha.length < 6} />
+                <BotaoPrincipal onClick={entrar} label="Entrar" ocupado={ocupado} disabled={!identificador.trim() || senha.length < 6} />
 
                 <p className="text-center text-sm text-muted-foreground">
                   Por segurança, vamos mandar um código de 6 números para confirmar que é você.
@@ -598,7 +626,17 @@ export function FluxoConta({
             )}
 
             {etapa === 'entrar-codigo' && (
-              <TelaDoCodigo aoConfirmar={confirmarEntrada} rotulo={resetando ? 'Continuar' : 'Entrar na minha conta'} />
+              <TelaDoCodigo
+                aoConfirmar={confirmarEntrada}
+                rotulo={resetando ? 'Continuar' : 'Entrar na minha conta'}
+                ehWhats={ehWhats} desafio={desafio} codigo={codigo} setCodigo={setCodigo}
+                ocupado={ocupado} cooldown={cooldown} reenviar={reenviar}
+                podeTrocarParaEmail={ehWhats && !!desafio?.podeTentarEmail}
+                trocarParaEmail={() => {
+                  const porEmail = opcoes.find((o) => o.canal === 'email');
+                  if (porEmail) void mandarCodigoDeLogin(identificador.trim(), porEmail.conta.indice, 'email');
+                }}
+              />
             )}
 
             {etapa === 'entrar-senha-nova' && (
@@ -609,14 +647,14 @@ export function FluxoConta({
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Senha nova</Label>
-                  <CampoSenha autoFocus valor={senha} mudou={setSenha} dica="Pelo menos 6 caracteres" autoComplete="new-password" />
+                  <CampoSenha autoFocus valor={senha} mudou={setSenha} dica="Pelo menos 6 caracteres" autoComplete="new-password" mostrar={mostrarSenha} alternarMostrar={() => setMostrarSenha(!mostrarSenha)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Digite de novo</Label>
-                  <CampoSenha valor={confirmaSenha} mudou={setConfirmaSenha} dica="A mesma senha" autoComplete="new-password" />
+                  <CampoSenha valor={confirmaSenha} mudou={setConfirmaSenha} dica="A mesma senha" autoComplete="new-password" mostrar={mostrarSenha} alternarMostrar={() => setMostrarSenha(!mostrarSenha)} />
                   {confirmaSenha && senha !== confirmaSenha && <p className="text-sm text-destructive">As duas senhas não são iguais.</p>}
                 </div>
-                <Principal onClick={salvarSenhaNova} label="Salvar senha nova" disabled={senha.length < 6 || senha !== confirmaSenha} />
+                <BotaoPrincipal onClick={salvarSenhaNova} label="Salvar senha nova" ocupado={ocupado} disabled={senha.length < 6 || senha !== confirmaSenha} />
               </form>
             )}
 
@@ -639,7 +677,7 @@ export function FluxoConta({
                     <p className="text-sm text-destructive">Esse CPF não parece certo. Confira os números.</p>
                   )}
                 </div>
-                <Principal onClick={seguirDoCpf} label="Continuar" disabled={cpf.length !== 11} />
+                <BotaoPrincipal onClick={seguirDoCpf} label="Continuar" ocupado={ocupado} disabled={cpf.length !== 11} />
 
                 {/*
                   * Na COMPRA o caminho de quem já tem conta ganha um cartão próprio,
@@ -751,7 +789,7 @@ export function FluxoConta({
                   </div>
                 )}
 
-                <Principal onClick={mandarCodigoDeCadastro} label="Mandar o código"
+                <BotaoPrincipal onClick={mandarCodigoDeCadastro} label="Mandar o código" ocupado={ocupado}
                   disabled={ehWhats ? whatsapp.replace(/\D/g, '').length < 10 : !email.trim()} />
 
                 <Button type="button" variant="ghost" onClick={() => setEtapa('canal')} className="w-full h-11 text-sm">
@@ -760,7 +798,19 @@ export function FluxoConta({
               </form>
             )}
 
-            {etapa === 'cad-codigo' && <TelaDoCodigo aoConfirmar={provarOCanal} rotulo="Confirmar" />}
+            {etapa === 'cad-codigo' && (
+              <TelaDoCodigo
+                aoConfirmar={provarOCanal}
+                rotulo="Confirmar"
+                ehWhats={ehWhats} desafio={desafio} codigo={codigo} setCodigo={setCodigo}
+                ocupado={ocupado} cooldown={cooldown} reenviar={reenviar}
+                /* No cadastro a pessoa escolheu UM canal. Se o código não chegou pelo
+                 * WhatsApp, o caminho é voltar e escolher o e-mail — não há e-mail
+                 * cadastrado ainda para onde reenviar. */
+                podeTrocarParaEmail={ehWhats}
+                trocarParaEmail={() => { setCanal('email'); setCodigo(''); setDesafio(null); setEtapa('contato'); }}
+              />
+            )}
 
             {etapa === 'cad-senha' && (
               <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); criarAConta(); }}>
@@ -776,14 +826,14 @@ export function FluxoConta({
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Senha</Label>
-                  <CampoSenha autoFocus valor={senha} mudou={setSenha} dica="Pelo menos 6 caracteres" autoComplete="new-password" />
+                  <CampoSenha autoFocus valor={senha} mudou={setSenha} dica="Pelo menos 6 caracteres" autoComplete="new-password" mostrar={mostrarSenha} alternarMostrar={() => setMostrarSenha(!mostrarSenha)} />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">Digite de novo</Label>
-                  <CampoSenha valor={confirmaSenha} mudou={setConfirmaSenha} dica="A mesma senha" autoComplete="new-password" />
+                  <CampoSenha valor={confirmaSenha} mudou={setConfirmaSenha} dica="A mesma senha" autoComplete="new-password" mostrar={mostrarSenha} alternarMostrar={() => setMostrarSenha(!mostrarSenha)} />
                   {confirmaSenha && senha !== confirmaSenha && <p className="text-sm text-destructive">As duas senhas não são iguais.</p>}
                 </div>
-                <Principal onClick={criarAConta} label="Criar minha conta" disabled={senha.length < 6 || senha !== confirmaSenha} />
+                <BotaoPrincipal onClick={criarAConta} label="Criar minha conta" ocupado={ocupado} disabled={senha.length < 6 || senha !== confirmaSenha} />
               </form>
             )}
 
