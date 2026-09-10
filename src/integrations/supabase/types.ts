@@ -75,7 +75,9 @@ export type Database = {
           expira_em: string
           id: string
           ip: string | null
+          nome: string | null
           proposito: string
+          provado_em: string | null
           tentativas: number
           usado_em: string | null
           user_id: string | null
@@ -89,7 +91,9 @@ export type Database = {
           expira_em: string
           id?: string
           ip?: string | null
+          nome?: string | null
           proposito: string
+          provado_em?: string | null
           tentativas?: number
           usado_em?: string | null
           user_id?: string | null
@@ -103,7 +107,9 @@ export type Database = {
           expira_em?: string
           id?: string
           ip?: string | null
+          nome?: string | null
           proposito?: string
+          provado_em?: string | null
           tentativas?: number
           usado_em?: string | null
           user_id?: string | null
