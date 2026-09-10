@@ -80,7 +80,6 @@ export function FluxoConta({ ativo = true, onFechar, onAuthenticated, embutido =
 
   // cadastro
   const [cpf, setCpf] = useState('');
-  const [primeiroNome, setPrimeiroNome] = useState<string | null>(null);
   const [nome, setNome] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
@@ -108,7 +107,7 @@ export function FluxoConta({ ativo = true, onFechar, onAuthenticated, embutido =
     if (!ativo) {
       setEtapa('identificar'); setModo('login'); setOcupado(false); setCooldown(0);
       setIdentificador(''); setContas([]); setSenha(''); setMostrarSenha(false); setContaIndice(0);
-      setCpf(''); setPrimeiroNome(null); setNome(''); setWhatsapp(''); setEmail(''); setConfirmaSenha('');
+      setCpf(''); setNome(''); setWhatsapp(''); setEmail(''); setConfirmaSenha('');
       setCanal('whatsapp'); setDesafio(null); setCodigo(''); setResetando(false);
     }
   }, [ativo]);
@@ -139,13 +138,8 @@ export function FluxoConta({ ativo = true, onFechar, onAuthenticated, embutido =
         return;
       }
       if (r.existe === false && r.tipo === 'cpf') {
-        if (r.consulta === 'nao_encontrado') {
-          toast.error('Não encontrei esse CPF. Confira os números.');
-          return;
-        }
         setModo('cadastro');
         setCpf(valor.replace(/\D/g, ''));
-        setPrimeiroNome(r.primeiroNome);
         setEtapa('nome');
         return;
       }
@@ -349,7 +343,7 @@ export function FluxoConta({ ativo = true, onFechar, onAuthenticated, embutido =
     identificar: ['Entrar ou criar conta', 'Digite o seu CPF para começar'],
     senha: ['Digite a sua senha', contas[0]?.primeiroNome ? `Olá, ${contas[0].primeiroNome}!` : 'Já achei a sua conta'],
     escolher: ['Onde você quer receber o código?', 'Vamos mandar um código de 6 números'],
-    nome: ['Vamos criar a sua conta', primeiroNome ? `É você, ${primeiroNome}?` : 'Confira o seu nome'],
+    nome: ['Vamos criar a sua conta', 'Digite o seu nome completo'],
     contato: ['Como falamos com você?', 'Pode ser só o WhatsApp'],
     'senha-nova': resetando ? ['Crie uma senha nova', 'Você vai usar ela para entrar'] : ['Crie uma senha', 'Você vai usar ela para entrar'],
     canal: ['Onde você quer receber o código?', 'Vamos mandar um código de 6 números'],
@@ -479,9 +473,6 @@ export function FluxoConta({ ativo = true, onFechar, onAuthenticated, embutido =
                         <Input autoFocus autoComplete="name" placeholder="Como está no documento"
                           value={nome} onChange={(e) => setNome(e.target.value)} className={CAMPO} />
                       </div>
-                      {primeiroNome && nome.trim() && !nome.trim().toLowerCase().startsWith(primeiroNome.toLowerCase()) && (
-                        <p className="text-sm text-amber-600">O CPF {formatCPF(cpf)} está no nome de <strong>{primeiroNome}</strong>. Confira se digitou o CPF certo.</p>
-                      )}
                     </div>
                     <Continuar onClick={handleNome} disabled={nome.trim().length < 3} />
                   </form>

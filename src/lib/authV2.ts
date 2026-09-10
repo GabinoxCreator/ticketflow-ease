@@ -14,7 +14,9 @@ export type ContaResumo = { indice: number; primeiroNome: string; canais: CanalD
 
 export type RespostaIdentificar =
   | { ok: true; existe: true; tipo: 'cpf' | 'whatsapp' | 'email'; contas: ContaResumo[] }
-  | { ok: true; existe: false; tipo: 'cpf'; consulta: 'ok' | 'nao_encontrado' | 'indisponivel'; primeiroNome: string | null }
+  // CPF sem conta: a edge NÃO devolve mais o nome do dono nem se o documento
+  // existe na base da Receita. Era um vazamento (10/09/2026).
+  | { ok: true; existe: false; tipo: 'cpf' }
   | { ok: true; existe: false; tipo: 'whatsapp' | 'email' };
 
 export type RespostaEnvio = {
