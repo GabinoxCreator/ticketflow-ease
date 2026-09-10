@@ -18,7 +18,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import PasswordResetOTPFlow from '@/components/auth/PasswordResetOTPFlow';
 import { CanaisDeContato } from '@/components/conta/CanaisDeContato';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +39,6 @@ const MinhaConta = () => {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showResetDialog, setShowResetDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -136,7 +134,6 @@ const MinhaConta = () => {
     }
   };
 
-  // Fluxo legacy substituído pelo OTP via email (PasswordResetOTPFlow)
 
   return (
     <>
@@ -391,32 +388,17 @@ const MinhaConta = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-5">
-                    <div className="rounded-xl bg-secondary/30 border border-border/50 p-4 space-y-3">
+                    <div className="rounded-xl bg-secondary/30 border border-border/50 p-4 space-y-2">
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-primary" />
                         <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
-                          Redefinição por Código
+                          Senha com código
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        Enviaremos um código de 6 dígitos para o email abaixo. Use-o para criar uma nova senha em poucos segundos.
+                        Para trocar a senha, use o botão <strong>Trocar a senha</strong> na seção "Como falamos com você", logo acima: mandamos um código de 6 números para o seu WhatsApp ou e-mail e você cria a senha nova na hora.
                       </p>
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-background/60 border border-border/50">
-                        <Mail className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-sm font-medium text-foreground break-all">
-                          {profile?.email}
-                        </span>
-                      </div>
                     </div>
-
-                    <Button
-                      variant="gradient"
-                      className="w-full"
-                      onClick={() => setShowResetDialog(true)}
-                    >
-                      <Mail className="w-4 h-4 mr-2" />
-                      Redefinir Senha por Código
-                    </Button>
 
                     <div className="pt-2 border-t border-border/30">
                       <p className="text-xs text-muted-foreground/70 leading-relaxed">
@@ -475,21 +457,6 @@ const MinhaConta = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Redefinir senha</DialogTitle>
-          </DialogHeader>
-          <PasswordResetOTPFlow
-            initialEmail={profile?.email || ''}
-            onBack={() => setShowResetDialog(false)}
-            onSuccess={() => {
-              setShowResetDialog(false);
-              toast.success('Senha redefinida! Use a nova senha no próximo acesso.');
-            }}
-          />
-        </DialogContent>
-      </Dialog>
 
       <Footer />
     </>

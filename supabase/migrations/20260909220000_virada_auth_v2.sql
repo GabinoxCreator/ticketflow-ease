@@ -1,10 +1,12 @@
 -- ============================================================================
--- ⛔ NÃO É UMA MIGRATION AINDA — é o Bloco 5, a VIRADA (plano de 09/09/2026).
+-- A VIRADA — Bloco 5 (plano de 09/09/2026). Ordem do Gabriel em 09/09 à noite:
+-- "não quero um novo tipo de login; quero que seja tudo uma coisa só".
 --
--- Fica com este nome (sem .sql, marcado PENDENTE) de propósito: nenhuma
--- ferramenta aplica por engano. Quando o Gabriel disser "vira", renomear para
--- `2026MMDDHHMMSS_virada_auth_v2.sql`, aplicar numa MANHÃ SEM EVENTO e subir
--- com o maestro o pacote de código descrito abaixo.
+-- ⚠️ APLICAR JUNTO COM O PUBLISH deste pacote (mesma manhã), não antes: o site
+-- que está no ar hoje ainda escolhe o modal pelo `auth_flow` — virar os eventos
+-- antes do publish trocaria a compra sem trocar a página de login. Depois do
+-- publish o front ignora a coluna (é sempre o caminho novo); ela fica só como
+-- registro.
 --
 -- O QUE A VIRADA FAZ
 --   1. Todo evento passa a usar a conta por CPF com senha + código (`auth_flow = 'v2'`),

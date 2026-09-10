@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AuthModal } from '@/components/auth/AuthModal';
+import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventSeats, type EventSeatRow } from '@/hooks/useEventSeats';
 import { useSeatHold } from '@/hooks/useSeatHold';
@@ -310,7 +310,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
         onConfirm={handleConfirmReserve}
       />
 
-      <AuthModal
+      <AuthModalV2
         isOpen={authOpen}
         onClose={() => setAuthOpen(false)}
         onAuthenticated={() => setAuthOpen(false)}
