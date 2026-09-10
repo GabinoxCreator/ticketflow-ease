@@ -14,8 +14,8 @@ export type ContaResumo = { indice: number; primeiroNome: string; canais: CanalD
 
 export type RespostaIdentificar =
   | { ok: true; existe: true; tipo: 'cpf' | 'whatsapp' | 'email'; contas: ContaResumo[] }
-  // CPF sem conta: a edge NÃO devolve mais o nome do dono nem se o documento
-  // existe na base da Receita. Era um vazamento (10/09/2026).
+  // CPF sem conta: a edge NÃO devolve mais o nome do dono nem se o documento existe
+  // na base da Receita. Era um vazamento (ver supabase/functions/_shared/docCpf.ts).
   | { ok: true; existe: false; tipo: 'cpf' }
   | { ok: true; existe: false; tipo: 'whatsapp' | 'email' };
 
@@ -60,14 +60,28 @@ export function identificar(identificador: string) {
   return chamar<RespostaIdentificar>('auth-identificar', { identificador });
 }
 
-export type DadosCadastro = { cpf: string; nome: string; whatsapp?: string | null; email?: string | null };
+/*
+ * `nome` é opcional de propósito: por padrão ele vem do CPF, no servidor, e a
+ * tela nunca o pede nem o mostra (decisão do Gabriel, 10/09/2026). Só quando a
+ * consulta do registro não responde é que a tela pergunta e manda aqui.
+ */
+export type DadosCadastro = { cpf: string; nome?: string | null; whatsapp?: string | null; email?: string | null };
 
 export function pedirCodigoCadastro(dados: DadosCadastro, canal: Canal) {
   return chamar<RespostaEnvio>('auth-codigo', { acao: 'pedir_cadastro', ...dados, canal });
 }
 
-export function confirmarCadastro(dados: DadosCadastro, canal: Canal, desafioId: string, codigo: string, senha: string) {
-  return chamar<RespostaSessao>('auth-codigo', { acao: 'confirmar_cadastro', ...dados, canal, desafioId, codigo, senha });
+/** Confere o código do cadastro e guarda a prova, sem criar a conta ainda. */
+export function provarCadastro(dados: DadosCadastro, canal: Canal, desafioId: string, codigo: string) {
+  return chamar<{ ok: true; provado: true }>('auth-codigo', { acao: 'provar_cadastro', ...dados, canal, desafioId, codigo });
+}
+
+/**
+ * Cria a conta. Não manda código: o canal já foi provado em `provarCadastro`.
+ * O nome também não vai daqui — ele esperou no desafio desde o pedido do código.
+ */
+export function confirmarCadastro(dados: DadosCadastro, canal: Canal, desafioId: string, senha: string) {
+  return chamar<RespostaSessao>('auth-codigo', { acao: 'confirmar_cadastro', ...dados, canal, desafioId, senha });
 }
 
 export function pedirCodigoLogin(identificador: string, contaIndice: number, canal: Canal, senha: string) {
@@ -123,6 +137,7 @@ export function mensagemDoErro(e: unknown): string {
     identificador_invalido: 'Não reconheci esse dado. Digite seu CPF, seu celular com DDD ou seu e-mail.',
     cpf_invalido: 'Esse CPF não é válido. Confira os números.',
     nome_invalido: 'Digite seu nome completo, como está no documento.',
+    nome_necessario: 'Não consegui buscar o seu nome pelo CPF. Digite ele como está no documento.',
     whatsapp_invalido: 'Esse número de celular não parece certo. Use o DDD e o número.',
     email_invalido: 'Esse e-mail não parece certo.',
     sem_contato: 'Informe pelo menos um WhatsApp ou um e-mail.',
@@ -139,6 +154,7 @@ export function mensagemDoErro(e: unknown): string {
     queimado: 'Esse código não vale mais. Peça um novo.',
     nao_encontrado: 'Não achei esse código. Peça um novo.',
     desafio_nao_confere: 'Os dados mudaram no meio do caminho. Peça um novo código.',
+    nao_provado: 'Confirme o código antes de criar a senha.',
     senha_invalida: 'A senha precisa ter pelo menos 6 caracteres.',
     senha_incorreta: 'Senha incorreta.',
     conta_nao_encontrada: 'Não achei essa conta.',

@@ -35,7 +35,8 @@ import { checkRateLimit, getClientIp, rateLimitResponse } from '../_shared/rateL
 import { validateCPF, unformatCPF } from '../_shared/cpf.ts';
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 import { carregarConfigWhatsApp, normalizarNumeroBr, numeroTemWhatsApp, mascararNumeroParaTela } from '../_shared/whatsapp.ts';
-import { criarEEnviarCodigo, conferirCodigo, emailInternoSemEmail, ehEmailInterno, type Canal } from '../_shared/codigoAcesso.ts';
+import { criarEEnviarCodigo, conferirCodigo, provarCodigo, consumirProva, emailInternoSemEmail, ehEmailInterno, type Canal } from '../_shared/codigoAcesso.ts';
+import { buscarNomePeloCpf } from '../_shared/docCpf.ts';
 import { classificarIdentificador, resolverContas, buscarContas, canaisDaConta, type Conta } from '../_shared/contasV2.ts';
 import { maskEmail } from '../_shared/pii.ts';
 
@@ -75,9 +76,18 @@ function respostaDeEnvio(r: Awaited<ReturnType<typeof criarEEnviarCodigo>>, extr
 function lerDadosDeCadastro(body: any) {
   const cpf = unformatCPF(body?.cpf);
   if (!validateCPF(cpf)) return { erro: json({ ok: false, erro: 'cpf_invalido' }, 400) };
-  const nome = normalizarNomePessoa(body?.nome);
-  const erroNome = validarNomePessoa(nome);
-  if (erroNome) return { erro: json({ ok: false, erro: 'nome_invalido', mensagem: erroNome }, 400) };
+  /*
+   * O nome NÃO vem mais do navegador por padrão: vem do registro, pelo CPF
+   * (decisão do Gabriel, 10/09). O corpo só traz `nome` no caso raro em que a
+   * consulta não respondeu e a tela precisou perguntar. Por isso é opcional
+   * aqui — mas continua passando pela mesma validação quando vem.
+   */
+  const nomeDigitado = body?.nome ? normalizarNomePessoa(body.nome) : '';
+  if (nomeDigitado) {
+    const erroNome = validarNomePessoa(nomeDigitado);
+    if (erroNome) return { erro: json({ ok: false, erro: 'nome_invalido', mensagem: erroNome }, 400) };
+  }
+  const nome = nomeDigitado || null;
   const whatsapp = body?.whatsapp ? normalizarNumeroBr(body.whatsapp) : null;
   if (body?.whatsapp && !whatsapp) return { erro: json({ ok: false, erro: 'whatsapp_invalido' }, 400) };
   const email = body?.email ? String(body.email).trim().toLowerCase() : null;
@@ -154,6 +164,21 @@ serve(async (req) => {
       if ((await buscarContas(admin, 'cpf', cpf)).length > 0) return json({ ok: false, erro: 'cpf_ja_cadastrado' }, 409);
       if (email && (await buscarContas(admin, 'email', email)).length > 0) return json({ ok: false, erro: 'email_ja_cadastrado' }, 409);
 
+      /*
+       * O nome vem do CPF. A pessoa não digita e a tela nunca o mostra — ele
+       * sai do registro e vai direto para a conta (ver _shared/docCpf.ts).
+       *
+       * Se o registro não respondeu, aí sim perguntamos: a tela mostra o campo
+       * e repete a chamada com `nome` preenchido. Nunca barramos por causa
+       * disso — conta sem nome é ingresso em branco na portaria, mas cadastro
+       * barrado é venda perdida, e a segunda dói mais.
+       */
+      const busca = await buscarNomePeloCpf(cpf);
+      const nomeDoTitular = busca.situacao === 'ok' ? busca.nome : nome;
+      if (!nomeDoTitular) {
+        return json({ ok: false, erro: 'nome_necessario', motivo: busca.situacao }, 400);
+      }
+
       let destino = canal === 'whatsapp' ? whatsapp! : email!;
       if (canal === 'whatsapp') {
         await carregarConfigWhatsApp(admin);
@@ -162,12 +187,42 @@ serve(async (req) => {
         if (tem?.numero) destino = tem.numero; // formato que a Evolution reconhece
       }
 
-      const r = await criarEEnviarCodigo(admin, { proposito: 'cadastro', canal, destino, cpf, nome, ip });
+      const r = await criarEEnviarCodigo(admin, { proposito: 'cadastro', canal, destino, cpf, nome: nomeDoTitular, ip });
       return respostaDeEnvio(r, {
         canal,
         destinoMascarado: canal === 'whatsapp' ? mascararNumeroParaTela(destino) : maskEmail(destino),
         podeTentarEmail: canal === 'whatsapp' && !!email,
       });
+    }
+
+    /*
+     * Cadastro novo (10/09/2026): a pessoa confirma o canal AQUI, antes de
+     * escolher a senha. Guarda a prova e NÃO queima o desafio — quem queima é o
+     * `confirmar_cadastro` logo adiante. Se ela desistir na tela da senha, nada
+     * fica para trás: a conta só nasce no passo seguinte.
+     */
+    if (acao === 'provar_cadastro') {
+      const lido = lerDadosDeCadastro(body);
+      if (lido.erro) return lido.erro;
+      const { cpf, whatsapp, email, canal } = lido.dados!;
+
+      const c = await provarCodigo(admin, String(body?.desafioId ?? ''), String(body?.codigo ?? ''));
+      if (!c.ok) return json({ ok: false, erro: c.erro, tentativasRestantes: c.tentativasRestantes }, 400);
+      const d = c.desafio;
+
+      // O desafio tem de ser deste CPF, deste canal e deste destino. O
+      // `confirmar_cadastro` confere de novo — de propósito, é a mesma trava
+      // nos dois portões.
+      const destinoEsperado = canal === 'whatsapp' ? whatsapp : email;
+      const destinoBate = d.canal === 'whatsapp'
+        ? normalizarNumeroBr(d.destino)?.slice(-8) === normalizarNumeroBr(destinoEsperado)?.slice(-8)
+        : d.destino === destinoEsperado;
+      if (d.proposito !== 'cadastro' || d.cpf !== cpf || d.canal !== canal || !destinoBate) {
+        return json({ ok: false, erro: 'desafio_nao_confere' }, 400);
+      }
+
+      console.log('[AUTH-CODIGO] canal provado por', canal);
+      return json({ ok: true, provado: true });
     }
 
     if (acao === 'confirmar_cadastro') {
@@ -177,7 +232,15 @@ serve(async (req) => {
       const senha = String(body?.senha ?? '');
       if (senha.length < SENHA_MIN || senha.length > SENHA_MAX) return json({ ok: false, erro: 'senha_invalida' }, 400);
 
-      const c = await conferirCodigo(admin, String(body?.desafioId ?? ''), String(body?.codigo ?? ''));
+      /*
+       * Duas portas para o mesmo lugar. O cadastro novo já provou o canal na
+       * tela anterior e manda só o `desafioId`; o caminho antigo mandava código
+       * e senha juntos. Nos dois casos o desafio é queimado aqui.
+       */
+      const codigoDigitado = String(body?.codigo ?? '').trim();
+      const c = codigoDigitado
+        ? await conferirCodigo(admin, String(body?.desafioId ?? ''), codigoDigitado)
+        : await consumirProva(admin, String(body?.desafioId ?? ''));
       if (!c.ok) return json({ ok: false, erro: c.erro, tentativasRestantes: c.tentativasRestantes }, 400);
       const d = c.desafio;
       // O código tem de ser deste CPF, deste canal e deste destino — nada de trocar
@@ -193,6 +256,15 @@ serve(async (req) => {
       // Corrida: alguém pode ter cadastrado este CPF entre o pedido e a confirmação.
       if ((await buscarContas(admin, 'cpf', cpf)).length > 0) return json({ ok: false, erro: 'cpf_ja_cadastrado' }, 409);
 
+      /*
+       * O nome sai do DESAFIO, não do corpo do pedido. Foi buscado no registro
+       * quando o código foi pedido e esperou no banco desde então. Assim não
+       * dá para mandar um nome no pedido e outro na confirmação — e o
+       * navegador não participa disso em momento nenhum.
+       */
+      const nomeDaConta = d.nome ?? nome;
+      if (!nomeDaConta) return json({ ok: false, erro: 'nome_necessario' }, 400);
+
       const emailAuth = email ?? emailInternoSemEmail(cpf);
       const whatsappFinal = canal === 'whatsapp' ? d.destino : whatsapp;
       const { data: criado, error: erroCriar } = await admin.auth.admin.createUser({
@@ -200,7 +272,7 @@ serve(async (req) => {
         password: senha,
         email_confirm: true,
         user_metadata: {
-          nome_completo: nome,
+          nome_completo: nomeDaConta,
           cpf,
           whatsapp: whatsappFinal ?? '',
           tipo_conta: 'cliente',
@@ -220,7 +292,7 @@ serve(async (req) => {
       const sessao = await sessaoPorSenha(emailAuth, senha);
       if (!sessao) return json({ ok: false, erro: 'conta_criada_sem_sessao' }, 500);
       console.log('[AUTH-CODIGO] conta criada por', canal);
-      return json({ ok: true, sessao, primeiroNome: nome.split(' ')[0] });
+      return json({ ok: true, sessao, primeiroNome: nomeDaConta.split(' ')[0] });
     }
 
     // --------------------------------------------------------------------- login

@@ -19,6 +19,13 @@ import { generateOtpCode } from './otp.ts';
 import { maskEmail } from './pii.ts';
 
 export const VALIDADE_MIN = 10;
+/*
+ * Depois de a pessoa provar o canal, o cadastro ainda pede senha (e oferece a
+ * facial). Se o prazo continuasse valendo os 10 minutos do envio, dava para
+ * confirmar o WhatsApp no minuto 9 e perder a conta no minuto 11, escolhendo
+ * senha. A prova reabre o relógio.
+ */
+export const JANELA_PROVA_MIN = 15;
 export const MAX_TENTATIVAS = 5;
 
 export type Proposito = 'cadastro' | 'login' | 'canal' | 'reset';
@@ -47,11 +54,14 @@ export type Desafio = {
   destino: string;
   cpf: string | null;
   user_id: string | null;
+  /* Nome do titular vindo do registro pelo CPF (só no cadastro). Espera aqui
+   * entre o pedido do código e a criação da conta — o navegador não participa. */
+  nome: string | null;
 };
 
 export type ResultadoConferencia =
   | { ok: true; desafio: Desafio }
-  | { ok: false; erro: 'nao_encontrado' | 'expirado' | 'queimado' | 'codigo_invalido'; tentativasRestantes?: number };
+  | { ok: false; erro: 'nao_encontrado' | 'expirado' | 'queimado' | 'codigo_invalido' | 'nao_provado'; tentativasRestantes?: number };
 
 async function sha256Hex(texto: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
@@ -116,6 +126,7 @@ export async function criarEEnviarCodigo(admin: any, pedido: PedidoDeCodigo): Pr
     destino,
     cpf: pedido.cpf ?? null,
     user_id: pedido.userId ?? null,
+    nome: pedido.nome ?? null,
     codigo_hash: await sha256Hex(`${id}:${codigo}`),
     expira_em: expiraEm,
     ip: pedido.ip,
@@ -137,12 +148,25 @@ export async function criarEEnviarCodigo(admin: any, pedido: PedidoDeCodigo): Pr
   return { ok: true, desafioId: id, expiraEm };
 }
 
-/** Confere o código de um desafio. Sucesso marca `usado_em`; cinco erros queimam. */
-export async function conferirCodigo(admin: any, desafioId: string, codigo: string): Promise<ResultadoConferencia> {
+const COLUNAS = 'id, proposito, canal, destino, cpf, user_id, nome, codigo_hash, tentativas, expira_em, usado_em, provado_em';
+
+const desafioDaLinha = (row: any): Desafio => ({
+  id: row.id, proposito: row.proposito, canal: row.canal,
+  destino: row.destino, cpf: row.cpf ?? null, user_id: row.user_id ?? null,
+  nome: row.nome ?? null,
+});
+
+/*
+ * Confere o código e devolve a linha, SEM fechar nada — quem chama decide se
+ * queima (`conferirCodigo`) ou se guarda a prova (`provarCodigo`). A contagem
+ * de tentativas mora aqui, numa cópia só: é a trava contra força bruta e não
+ * pode divergir entre os dois caminhos.
+ */
+async function bateOCodigo(admin: any, desafioId: string, codigo: string):
+  Promise<{ ok: true; row: any } | { ok: false; erro: 'nao_encontrado' | 'expirado' | 'queimado' | 'codigo_invalido'; tentativasRestantes?: number }> {
   const digitos = String(codigo ?? '').replace(/\D/g, '');
   const { data: row, error } = await admin.from('auth_codigos')
-    .select('id, proposito, canal, destino, cpf, user_id, codigo_hash, tentativas, expira_em, usado_em')
-    .eq('id', desafioId).maybeSingle();
+    .select(COLUNAS).eq('id', desafioId).maybeSingle();
   if (error || !row) return { ok: false, erro: 'nao_encontrado' };
   if (row.usado_em) return { ok: false, erro: 'queimado' };
   if (new Date(row.expira_em).getTime() < Date.now()) return { ok: false, erro: 'expirado' };
@@ -158,18 +182,59 @@ export async function conferirCodigo(admin: any, desafioId: string, codigo: stri
       ? { ok: false, erro: 'queimado' }
       : { ok: false, erro: 'codigo_invalido', tentativasRestantes: MAX_TENTATIVAS - tentativas };
   }
+  return { ok: true, row };
+}
 
-  // Sucesso: marca usado, só se ainda estava aberto (duas abas conferindo ao mesmo tempo → uma ganha).
-  const { data: fechado } = await admin.from('auth_codigos')
+/** Fecha o desafio, mas só se ainda estava aberto (duas abas ao mesmo tempo → uma ganha). */
+async function queimar(admin: any, id: string): Promise<boolean> {
+  const { data } = await admin.from('auth_codigos')
     .update({ usado_em: new Date().toISOString() })
-    .eq('id', row.id).is('usado_em', null)
+    .eq('id', id).is('usado_em', null)
     .select('id').maybeSingle();
-  if (!fechado) return { ok: false, erro: 'queimado' };
+  return !!data;
+}
 
-  return {
-    ok: true,
-    desafio: { id: row.id, proposito: row.proposito, canal: row.canal, destino: row.destino, cpf: row.cpf ?? null, user_id: row.user_id ?? null },
-  };
+/** Confere o código e queima na mesma hora. É o caminho do login, do reset e do canal. */
+export async function conferirCodigo(admin: any, desafioId: string, codigo: string): Promise<ResultadoConferencia> {
+  const r = await bateOCodigo(admin, desafioId, codigo);
+  if (!r.ok) return r;
+  if (!(await queimar(admin, r.row.id))) return { ok: false, erro: 'queimado' };
+  return { ok: true, desafio: desafioDaLinha(r.row) };
+}
+
+/*
+ * Confere o código e guarda a PROVA sem queimar — cadastro novo, onde o código
+ * vem antes da senha. Estica o prazo (ver JANELA_PROVA_MIN) para a pessoa ter
+ * tempo de escolher a senha sem perder o que já provou.
+ */
+export async function provarCodigo(admin: any, desafioId: string, codigo: string): Promise<ResultadoConferencia> {
+  const r = await bateOCodigo(admin, desafioId, codigo);
+  if (!r.ok) return r;
+  const { data } = await admin.from('auth_codigos')
+    .update({
+      provado_em: new Date().toISOString(),
+      expira_em: new Date(Date.now() + JANELA_PROVA_MIN * 60 * 1000).toISOString(),
+    })
+    .eq('id', r.row.id).is('usado_em', null)
+    .select('id').maybeSingle();
+  if (!data) return { ok: false, erro: 'queimado' };
+  return { ok: true, desafio: desafioDaLinha(r.row) };
+}
+
+/*
+ * Resgata uma prova já dada e queima o desafio. Não recebe código nenhum: o
+ * código já foi conferido em `provarCodigo`. Um desafio sem `provado_em` é
+ * recusado — não dá para pular a prova chamando direto.
+ */
+export async function consumirProva(admin: any, desafioId: string): Promise<ResultadoConferencia> {
+  const { data: row, error } = await admin.from('auth_codigos')
+    .select(COLUNAS).eq('id', desafioId).maybeSingle();
+  if (error || !row) return { ok: false, erro: 'nao_encontrado' };
+  if (row.usado_em) return { ok: false, erro: 'queimado' };
+  if (!row.provado_em) return { ok: false, erro: 'nao_provado' };
+  if (new Date(row.expira_em).getTime() < Date.now()) return { ok: false, erro: 'expirado' };
+  if (!(await queimar(admin, row.id))) return { ok: false, erro: 'queimado' };
+  return { ok: true, desafio: desafioDaLinha(row) };
 }
 
 // O e-mail interno de quem só tem WhatsApp mora em ./emailInterno.ts (arquivo

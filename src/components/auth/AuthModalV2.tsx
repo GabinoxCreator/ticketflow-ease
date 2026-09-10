@@ -1,9 +1,12 @@
 /*
- * AuthModalV2 — o FluxoConta dentro de um modal, aberto pela compra no EventDetails.
- * Desde a virada de 09/09 é o ÚNICO modal de conta do site (o AuthModal antigo saiu).
- * Cheio na tela do celular; cartão com brilho no desktop.
+ * AuthModalV2 — o FluxoConta dentro de um modal, aberto pela compra do ingresso.
+ *
+ * Abre na aba CRIAR CONTA de propósito (10/09/2026, ordem do Gabriel): quem
+ * travou no "ir para pagamento" quase sempre ainda não tem conta. Quem já tem
+ * acha o caminho no cartão destacado embaixo do primeiro passo.
  */
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { FluxoConta } from '@/components/auth/FluxoConta';
@@ -16,21 +19,29 @@ interface AuthModalV2Props {
 
 export function AuthModalV2({ isOpen, onClose, onAuthenticated }: AuthModalV2Props) {
   const isMobile = useIsMobile();
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(aberto) => { if (!aberto) onClose(); }}>
       <DialogContent
         className={cn(
-          'p-0 gap-0 overflow-hidden border-border/50',
-          isMobile
-            ? 'w-screen h-screen max-w-none rounded-none top-0 left-0 translate-x-0 translate-y-0 bg-card'
-            : 'sm:max-w-md rounded-3xl backdrop-blur-2xl bg-card/70 shadow-2xl',
+          'p-0 gap-0 overflow-hidden border-border/60',
+          isMobile ? 'max-w-full h-screen rounded-none' : 'sm:max-w-[468px] rounded-3xl',
         )}
       >
-        {!isMobile && (
-          <div aria-hidden className="pointer-events-none absolute -inset-1 rounded-[inherit] -z-10 opacity-60 blur-2xl"
-            style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(330 85% 60% / 0.3))' }} />
-        )}
-        <FluxoConta ativo={isOpen} onFechar={onClose} onAuthenticated={onAuthenticated} />
+        {/*
+          * Título para leitor de tela. Sem ele o Radix avisa no console
+          * ("DialogContent requires a DialogTitle") — foi o que apareceu na
+          * conferência de produção de 10/09.
+          */}
+        <VisuallyHidden>
+          <DialogTitle>Entrar ou criar a sua conta FestPag</DialogTitle>
+        </VisuallyHidden>
+        <FluxoConta
+          ativo={isOpen}
+          abaInicial="cadastro"
+          onFechar={onClose}
+          onAuthenticated={onAuthenticated}
+        />
       </DialogContent>
     </Dialog>
   );
