@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -588,18 +587,6 @@ export default function EditarEvento() {
 
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                      <div>
-                        <Label htmlFor="is_hot" className="font-medium">Destacar 🔥</Label>
-                        <p className="text-sm text-muted-foreground">Aparecer em destaque</p>
-                      </div>
-                      <Switch
-                        id="is_hot"
-                        checked={watchedValues.is_hot}
-                        onCheckedChange={(checked) => setValue('is_hot', checked, { shouldDirty: true })}
-                      />
-                    </div>
-
                     <div className="space-y-2">
                       <Label>Status</Label>
                       <Controller

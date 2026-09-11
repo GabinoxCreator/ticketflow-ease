@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Clock, Flame, CalendarDays } from 'lucide-react';
+import { MapPin, Clock, CalendarDays } from 'lucide-react';
 import { EventData, categoryLabels } from '@/data/mockEvents';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { formatEventDate } from '@/lib/eventTime';
+import { formatEventDate, horaCurta } from '@/lib/eventTime';
 
 
 interface EventCardProps {
@@ -68,15 +68,6 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
               {categoryLabels[event.category]}
             </Badge>
 
-            {/* Hot Badge */}
-            {event.isHot && (
-              <Badge
-                className="absolute top-3 right-3 bg-destructive text-destructive-foreground border-0 gap-1"
-              >
-                <Flame className="w-3 h-3" />
-                Hot
-              </Badge>
-            )}
 
             {/* Date Overlay */}
             <div className="absolute bottom-3 left-3 bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
@@ -103,7 +94,7 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 flex-shrink-0" />
-                <span>{event.time}</span>
+                <span>{horaCurta(event.time)}</span>
               </div>
             </div>
 

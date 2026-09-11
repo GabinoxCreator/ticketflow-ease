@@ -233,7 +233,6 @@ export default function CriarEvento() {
           address,
           category: 'Outros',
           image_url: imageUrl,
-          is_hot: true,
           status: 'draft',
           event_type: eventType,
           table_map_id: tableMapId,

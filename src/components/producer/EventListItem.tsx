@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Layers,
   Clock,
-  Flame,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -115,14 +114,6 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
           >
             {status.label}
           </Badge>
-
-          {/* Hot badge */}
-          {event.is_hot && (
-            <Badge className="absolute top-3 right-3 bg-gradient-to-r from-orange-500 to-rose-500 text-white border-orange-400/40 shadow-lg shadow-orange-500/30 backdrop-blur-md gap-1">
-              <Flame className="w-3 h-3" />
-              Em Alta
-            </Badge>
-          )}
         </div>
 
         {/* Content */}

@@ -137,11 +137,6 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
           <div className="flex-1 p-5 md:p-6 min-w-0">
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               {getStatusBadge()}
-              {event.is_hot && (
-                <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30">
-                  🔥 Em Alta
-                </Badge>
-              )}
             </div>
 
             <h1 className="text-2xl md:text-3xl font-bold mb-3 break-words">{event.title}</h1>

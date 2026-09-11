@@ -12,6 +12,17 @@ import { fromZonedTime } from 'date-fns-tz';
 
 export const APP_TZ = 'America/Sao_Paulo';
 
+/**
+ * Hora de evento como gente escreve: "14:00", nunca "14:00:00".
+ * A coluna `time` do Postgres volta com segundos, e a tela mostrava isso cru
+ * em dois lugares (card da home e página do evento) — pedido do Gabriel em
+ * 11/09/2026: segundos não aparecem em lugar nenhum.
+ */
+export function horaCurta(t?: string | null): string {
+  if (!t) return '';
+  return t.slice(0, 5);
+}
+
 export interface EventTimeFields {
   date: string; // YYYY-MM-DD
   time?: string | null; // HH:mm[:ss]
