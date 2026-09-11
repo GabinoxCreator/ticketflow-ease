@@ -200,6 +200,9 @@ Deno.serve(async (req) => {
         customer_email: (typeof customer_email === 'string' && customer_email.trim()) ? customer_email.trim() : BALCAO_CUSTOMER_EMAIL,
         customer_cpf: normCpf || null,
         customer_phone: normPhone,
+        // QUEM vendeu (11/09/2026). Vem da sessão já validada acima, nunca do corpo —
+        // senão um aparelho poderia carimbar a venda no nome de outro.
+        collaborator_id,
         expires_at: expiresAtIso,
       })
       .select('id')
