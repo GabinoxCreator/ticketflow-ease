@@ -25,7 +25,9 @@ Deno.serve(async (req) => {
   try {
     // cpf/customer_name/customer_email são ADITIVOS e opcionais (não quebram consumidores
     // antigos). O totem de ingresso sempre manda; sem eles, mantém o comportamento de balcão.
-    const { collaborator_id, session_token, event_id, items, cpf, customer_name, customer_email, payment_method } = await req.json();
+    // customer_phone (11/09/2026) também é ADITIVO: a maquininha na versão de hoje NÃO manda,
+    // e continua funcionando igual — só fica sem o envio do ingresso por WhatsApp.
+    const { collaborator_id, session_token, event_id, items, cpf, customer_name, customer_email, customer_phone, payment_method } = await req.json();
 
     if (!collaborator_id || !event_id || !Array.isArray(items) || items.length === 0) {
       return new Response(JSON.stringify({ error: 'Parâmetros obrigatórios ausentes' }),
@@ -90,6 +92,19 @@ Deno.serve(async (req) => {
     // `supabase` é service-role (acima) — obrigatório p/ countTicketsForCpf ignorar RLS.
     // CPF normalizado (só dígitos), reutilizado no insert do pedido.
     const normCpf = unformatCPF(cpf);
+
+    // WhatsApp do comprador (11/09/2026): guardamos só os dígitos. Quem decide se o número
+    // presta — e quem prefixa o 55 — é `normalizar_whatsapp` no banco, a MESMA função que o
+    // caminho de quem tem conta já usa. Número torto vira NULL lá e simplesmente não há envio;
+    // a venda nunca é recusada por causa do telefone. Aceita 10 ou 11 dígitos (fixo e celular);
+    // recusa repetição do mesmo dígito e DDD começando com 0, que são erro de digitação, não número.
+    const phoneDigits = String(customer_phone ?? '').replace(/\D/g, '');
+    const normPhone =
+      (phoneDigits.length === 10 || phoneDigits.length === 11) &&
+      !/^(\d)\1+$/.test(phoneDigits) &&
+      phoneDigits[0] !== '0'
+        ? phoneDigits
+        : null;
     const ticketLimit = getTicketLimitForEvent(event_id);
     if (ticketLimit !== null) {
       // Evento COM limite exige CPF — sem ele a venda anônima furaria a trava.
@@ -184,6 +199,7 @@ Deno.serve(async (req) => {
         customer_name: (typeof customer_name === 'string' && customer_name.trim()) ? customer_name.trim() : BALCAO_CUSTOMER_NAME,
         customer_email: (typeof customer_email === 'string' && customer_email.trim()) ? customer_email.trim() : BALCAO_CUSTOMER_EMAIL,
         customer_cpf: normCpf || null,
+        customer_phone: normPhone,
         expires_at: expiresAtIso,
       })
       .select('id')
