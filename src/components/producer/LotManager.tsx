@@ -35,6 +35,42 @@ const isoToLocalInput = (iso?: string | null): string => {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+// Situação de venda do lote, lida do que já está no banco. Existe porque a tela
+// mostrava os 5 lotes iguais e só um estava vendendo: quem olhava concluía que
+// estava tudo no ar (achado do Gabriel em 11/09/2026, montando o Carlos Caetano).
+// A ordem importa — desativado e esgotado mandam mais que a agenda.
+type SituacaoLote =
+  | { chave: 'inativo' | 'esgotado' | 'encerrado' | 'vendendo'; rotulo: string }
+  | { chave: 'agendado'; rotulo: string };
+
+const diaMes = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+export const situacaoDoLote = (lot: EventLot, agora: Date = new Date()): SituacaoLote => {
+  if (!lot.is_active) return { chave: 'inativo', rotulo: 'Desativado' };
+  if (lot.manually_sold_out) return { chave: 'esgotado', rotulo: 'Esgotado' };
+
+  if (lot.sales_start_type === 'after_lot' && lot.starts_after_lot_id) {
+    return { chave: 'agendado', rotulo: 'Abre após o lote anterior' };
+  }
+  if (lot.start_date && new Date(lot.start_date) > agora) {
+    return { chave: 'agendado', rotulo: `Agendado · abre ${diaMes(lot.start_date)}` };
+  }
+  if (lot.end_date && new Date(lot.end_date) < agora) {
+    return { chave: 'encerrado', rotulo: `Encerrado em ${diaMes(lot.end_date)}` };
+  }
+  return { chave: 'vendendo', rotulo: 'Vendendo' };
+};
+
+// Cada situação tem cor própria: verde é o único que significa "está no ar".
+const CORES_SITUACAO: Record<SituacaoLote['chave'], string> = {
+  vendendo: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  agendado: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
+  encerrado: 'bg-muted text-muted-foreground border-border',
+  esgotado: 'bg-destructive/15 text-destructive border-destructive/30',
+  inativo: 'bg-muted text-muted-foreground border-border',
+};
+
 const localInputToIso = (local?: string | null): string | null => {
   if (!local) return null;
   const d = new Date(local); // datetime-local é interpretado no fuso do navegador
@@ -242,10 +278,19 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2 flex-wrap">
                             <CardTitle className="text-base">{lot.name}</CardTitle>
-                            {lot.manually_sold_out && (
-                              <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30">Esgotado</span>
-                            )}
-                            {!lot.is_active && !lot.manually_sold_out && <span className="text-xs text-muted-foreground">Inativo</span>}
+                            {(() => {
+                              const situacao = situacaoDoLote(lot);
+                              return (
+                                <span
+                                  className={cn(
+                                    'text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border whitespace-nowrap',
+                                    CORES_SITUACAO[situacao.chave],
+                                  )}
+                                >
+                                  {situacao.rotulo}
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="flex gap-1">
                             <Button
@@ -280,6 +325,17 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                           <div className="w-full bg-muted rounded-full h-2">
                             <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((lot.sold_quantity / lot.total_quantity) * 100, 100)}%` }} />
                           </div>
+                          {(lot.start_date || lot.end_date) && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="w-3 h-3 flex-shrink-0" />
+                              <span>
+                                {lot.start_date ? diaMes(lot.start_date) : 'já aberto'}
+                                {' até '}
+                                {lot.end_date ? diaMes(lot.end_date) : 'o fim das vendas'}
+                              </span>
+                            </div>
+                          )}
+
                           <div className="flex gap-2 flex-wrap">
                             {lot.group_ticket_enabled && (
                               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
