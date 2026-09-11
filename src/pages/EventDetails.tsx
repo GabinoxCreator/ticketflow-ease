@@ -18,7 +18,7 @@ import Footer from '@/components/Footer';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
-import { getEventEndInstant } from '@/lib/eventTime';
+import { getEventEndInstant, horaCurta } from '@/lib/eventTime';
 import { isLotOpenForSale } from '@/lib/lot-availability';
 import { safeRandomUUID } from '@/lib/uuid';
 
@@ -571,7 +571,7 @@ const EventDetails = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 shrink-0" />
-                      <span className="text-sm">{event.time}</span>
+                      <span className="text-sm">{horaCurta(event.time)}</span>
                     </div>
                   </div>
 
