@@ -1543,6 +1543,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          collaborator_id: string | null
           coupon_id: string | null
           created_at: string
           customer_cpf: string | null
@@ -1579,6 +1580,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          collaborator_id?: string | null
           coupon_id?: string | null
           created_at?: string
           customer_cpf?: string | null
@@ -1615,6 +1617,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          collaborator_id?: string | null
           coupon_id?: string | null
           created_at?: string
           customer_cpf?: string | null
@@ -1651,6 +1654,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_collaborator_id_fkey"
+            columns: ["collaborator_id"]
+            isOneToOne: false
+            referencedRelation: "collaborators"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_coupon_id_fkey"
             columns: ["coupon_id"]
