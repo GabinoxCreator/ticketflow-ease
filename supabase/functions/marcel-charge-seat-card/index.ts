@@ -23,6 +23,7 @@ import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from "../_shared/nomePessoa.ts";
 import { bandeiraDoCartao } from "../_shared/bandeiraCartao.ts";
+import { motivoDaFalha } from "../_shared/motivoDaFalha.ts";
 import {
   corsMesa, jsonMesa, adminClient, exigirUsuario, exigirCpfValido, eventoPublicado,
   abrirPedidoDeMesa, desfazerPedidoDeMesa, cotarMesa, MesaInvalida,
@@ -191,6 +192,12 @@ serve(async (req) => {
     // Recusa chega com HTTP 200: a decisão é pelo campo `aprovado`, sempre.
     if (!prov?.aprovado) {
       log('Recusado — soltando a mesa', { orderId: pedido.orderId, msg: prov?.message });
+      // O motivo é gravado ANTES de desfazer, com ou sem transactionId: a recusa
+      // que vem sem transação ficava muda. Aqui e não em `desfazerPedidoDeMesa`
+      // para não mexer no _shared da mesa (obrigaria redeploy de outras edges).
+      await admin.from('orders')
+        .update({ mp_status_detail: motivoDaFalha('recusa', { codigo: prov?.error, mensagem: prov?.message }) })
+        .eq('id', pedido.orderId);
       await desfazerPedidoDeMesa(admin, pedido.orderId, 'recusado');
       return jsonMesa({
         status: 'rejected',

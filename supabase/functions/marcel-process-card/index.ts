@@ -26,6 +26,7 @@ import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 import { bandeiraDoCartao } from '../_shared/bandeiraCartao.ts';
 import { semEmailInterno } from '../_shared/emailInterno.ts';
+import { motivoDaFalha } from '../_shared/motivoDaFalha.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -324,7 +325,15 @@ serve(async (req) => {
       reservado = [];
       await admin.from('tickets').update({ status: 'cancelled' })
         .eq('order_id', order.id).eq('status', 'pending');
-      await admin.from('orders').update({ status: 'failed' }).eq('id', order.id);
+      // O motivo vai JUNTO com o `failed`, com ou sem transactionId. Antes ele só
+      // era gravado no bloco de cima, e a recusa que vem sem transação (dado do
+      // cartão, antifraude) ficava muda — 10 assim na semana de 16/09.
+      await admin.from('orders')
+        .update({
+          status: 'failed',
+          mp_status_detail: motivoDaFalha('recusa', { codigo: prov?.error, mensagem: prov?.message }),
+        })
+        .eq('id', order.id);
       return json({
         aprovado: false,
         status: 'rejected',
@@ -395,11 +404,19 @@ serve(async (req) => {
 
     if (e instanceof CarrinhoInvalido) return json({ error: e.message }, e.status);
     if (e instanceof MarcelIndisponivel) {
-      if (orderId) await admin.from('orders').update({ status: 'failed' }).eq('id', orderId);
+      if (orderId) {
+        await admin.from('orders')
+          .update({ status: 'failed', mp_status_detail: motivoDaFalha('indisponivel', { mensagem: e.message }) })
+          .eq('id', orderId);
+      }
       return json({ error: 'Pagamento indisponível no momento.' }, 503);
     }
     log('Erro', { msg: e instanceof Error ? e.message : String(e) });
-    if (orderId) await admin.from('orders').update({ status: 'failed' }).eq('id', orderId);
+    if (orderId) {
+      await admin.from('orders')
+        .update({ status: 'failed', mp_status_detail: motivoDaFalha('erro', { mensagem: e instanceof Error ? e.message : String(e) }) })
+        .eq('id', orderId);
+    }
     return json({ error: e instanceof Error ? e.message : 'Erro ao processar' }, 500);
   }
 });
