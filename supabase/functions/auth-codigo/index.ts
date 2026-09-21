@@ -289,6 +289,27 @@ serve(async (req) => {
 
       await carimbarCanal(admin, criado.user.id, canal, canal === 'whatsapp' ? d.destino : null);
 
+      /*
+       * Aceite dos documentos legais (21/09/2026). Gravado AQUI e não pelo gatilho
+       * do banco porque só a edge enxerga o IP de quem clicou. Best-effort de
+       * propósito: a conta já existe neste ponto, e perder o registro do aceite
+       * não pode custar a conta nem a compra que vem depois dela.
+       */
+      try {
+        const aceites = body?.aceites;
+        if (aceites && typeof aceites === 'object') {
+          await admin.rpc('registrar_aceite', {
+            _usuario_id: criado.user.id,
+            _versoes: aceites,
+            _contexto: 'cadastro_cliente',
+            _ip: getClientIp(req) ?? null,
+            _navegador: (req.headers.get('user-agent') ?? '').slice(0, 300) || null,
+          });
+        }
+      } catch (e) {
+        console.error('[AUTH-CODIGO] aceite nao gravado', e instanceof Error ? e.message : e);
+      }
+
       const sessao = await sessaoPorSenha(emailAuth, senha);
       if (!sessao) return json({ ok: false, erro: 'conta_criada_sem_sessao' }, 500);
       console.log('[AUTH-CODIGO] conta criada por', canal);

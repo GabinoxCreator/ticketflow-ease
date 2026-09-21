@@ -25,6 +25,10 @@ interface SignUpData {
   // saber se `cpf` carrega um CPF ou um CNPJ e gravar razão social no lugar certo.
   // Ausente no cadastro de cliente comum — lá o campo simplesmente não existe.
   tipo_pessoa?: 'pf' | 'pj';
+  /* Versões dos documentos aceitos no cadastro, ex.: {"termos":"2026-04-14"}.
+   * Vai nos metadados porque quem GRAVA o aceite é o gatilho handle_new_user, no
+   * banco — o navegador nunca escreve na tabela de aceites (seria forjável). */
+  aceites?: Record<string, string>;
 }
 
 interface AuthContextType {
@@ -174,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             whatsapp: data.whatsapp,
             tipo_conta: data.tipo_conta,
             tipo_pessoa: data.tipo_pessoa,
+            aceites: data.aceites,
           },
         },
       });

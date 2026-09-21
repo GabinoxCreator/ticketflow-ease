@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { IDENTIDADE_FESTPAG } from '@/lib/identidade-festpag';
+import { dataPorExtenso } from '@/lib/documentos-legais';
 
 export default function PoliticaPrivacidade() {
   return (
@@ -18,7 +19,7 @@ export default function PoliticaPrivacidade() {
             <h1 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-2">
               Política de Privacidade
             </h1>
-            <p className="text-muted-foreground text-sm mb-10">Última atualização: 5 de julho de 2026</p>
+            <p className="text-muted-foreground text-sm mb-10">Última atualização: {dataPorExtenso('privacidade')}</p>
 
             <div className="prose prose-sm md:prose-base max-w-none space-y-8 text-foreground/90">
               <p>
@@ -106,7 +107,7 @@ export default function PoliticaPrivacidade() {
               {/* 4 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">4. Pagamentos</h2>
-                <p>Os pagamentos realizados na plataforma são processados por parceiro especializado, atualmente o Mercado Pago, de acordo com as integrações adotadas pela FestPag. Nessas operações, dados financeiros e transacionais podem ser tratados por esse parceiro para viabilizar o pagamento com segurança.</p>
+                <p>Os pagamentos realizados na plataforma são processados por parceiros especializados, de acordo com as integrações adotadas pela FestPag. Atualmente utilizamos a <strong>Safe2Pay</strong>; eventos criados antes da migração podem continuar sendo processados pelo <strong>Mercado Pago</strong>. Nessas operações, dados financeiros e transacionais podem ser tratados por esses parceiros para viabilizar o pagamento com segurança.</p>
                 <p>A FestPag não utiliza esta política para substituir as políticas do parceiro de pagamento. O tratamento realizado pelo processador de pagamento também está sujeito às regras e políticas próprias dele.</p>
               </section>
 
@@ -116,9 +117,10 @@ export default function PoliticaPrivacidade() {
                 <p>A FestPag não vende dados pessoais.</p>
                 <p>Podemos compartilhar dados pessoais nas seguintes situações:</p>
                 <ul className="list-disc pl-6 space-y-1">
-                  <li><strong>Com produtores de eventos:</strong> quando um cliente compra um ingresso, o produtor pode receber dados necessários à operação do evento, atualmente nome, e-mail e telefone, conforme informado para esta política.</li>
-                  <li><strong>Com parceiros de pagamento:</strong> atualmente o <strong>Mercado Pago</strong>, para processar cobranças, confirmações, repasses e rotinas financeiras.</li>
+                  <li><strong>Com produtores de eventos:</strong> quando um cliente compra um ingresso, o produtor daquele evento pode receber os dados necessários à operação e ao controle de acesso — atualmente <strong>nome, CPF, e-mail e telefone</strong>, além dos dados do pedido e do ingresso. O produtor só enxerga os pedidos dos próprios eventos.</li>
+                  <li><strong>Com parceiros de pagamento:</strong> atualmente a <strong>Safe2Pay</strong> e, em eventos anteriores à migração, o <strong>Mercado Pago</strong> — para processar cobranças, confirmações, estornos, repasses e rotinas financeiras.</li>
                   <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend), a <strong>Meta/Facebook</strong> e o <strong>Google</strong> (Tag Manager) — estes dois últimos apenas quando você autoriza cookies de marketing (ver seção 6) — para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
+                  <li><strong>Com fornecedores de comunicação:</strong> serviços de envio de e-mail e de mensagens por WhatsApp, usados para mandar o seu ingresso, o código de acesso à conta e avisos sobre a sua compra.</li>
                   <li><strong>Para cumprimento de obrigação legal, regulatória ou ordem de autoridade competente:</strong> quando necessário para atender à legislação aplicável ou proteger direitos da FestPag, dos usuários e de terceiros.</li>
                 </ul>
               </section>
@@ -139,9 +141,16 @@ export default function PoliticaPrivacidade() {
 
               {/* 7 */}
               <section>
-                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">7. Câmera e leitura de QR Code</h2>
-                <p>A plataforma pode solicitar acesso à câmera do dispositivo exclusivamente para funcionalidades de leitura de QR Code durante processos de validação e check-in de ingressos.</p>
-                <p>No cenário atual informado para esta política, a câmera é utilizada apenas para leitura operacional e não para upload de imagens.</p>
+                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">7. Câmera, QR Code e reconhecimento facial</h2>
+                <p>A plataforma pode solicitar acesso à câmera do dispositivo para ler o QR Code do ingresso durante a validação e o check-in.</p>
+                <p><strong>Reconhecimento facial (opcional).</strong> A FestPag oferece a entrada por reconhecimento facial como <strong>alternativa</strong> ao QR Code. Ela é <strong>totalmente opcional</strong>: quem não quiser usar entra normalmente com o ingresso.</p>
+                <ul className="list-disc pl-6 space-y-1">
+                  <li><strong>É dado pessoal sensível</strong> (art. 11 da LGPD) e só é tratado mediante <strong>consentimento específico e destacado</strong>, pedido na hora do cadastro do rosto.</li>
+                  <li><strong>Finalidade única:</strong> confirmar que quem chega na portaria é a pessoa do ingresso. Não usamos o rosto para publicidade, perfilamento, vigilância nem qualquer outra finalidade.</li>
+                  <li><strong>Não guardamos a sua foto.</strong> A imagem é usada para gerar uma representação matemática do rosto e não é armazenada como fotografia pela plataforma.</li>
+                  <li>O processamento é feito por fornecedor especializado de reconhecimento facial, que pode tratar os dados <strong>fora do Brasil</strong> (ver transferência internacional na seção 6).</li>
+                  <li><strong>Você pode revogar</strong> o consentimento a qualquer momento pelo canal da seção 14, e pedir a exclusão do seu cadastro facial.</li>
+                </ul>
               </section>
 
               {/* 8 */}
@@ -192,7 +201,7 @@ export default function PoliticaPrivacidade() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Execução de contrato:</strong> cadastro, compra, emissão e entrega de ingressos, check-in e suporte.</li>
                   <li><strong>Cumprimento de obrigação legal:</strong> guarda de registros fiscais e financeiros das transações.</li>
-                  <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta, Google Tag Manager) e eventuais comunicações promocionais — revogável a qualquer momento.</li>
+                  <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta, Google Tag Manager), eventuais comunicações promocionais e o <strong>reconhecimento facial</strong> — que, por ser dado sensível, tem consentimento específico e destacado (art. 11). Todos revogáveis a qualquer momento.</li>
                   <li><strong>Legítimo interesse:</strong> segurança da plataforma, prevenção a fraudes e melhoria do serviço, sempre respeitando seus direitos e expectativas.</li>
                 </ul>
               </section>

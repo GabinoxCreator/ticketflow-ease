@@ -49,6 +49,7 @@ import { validarNomePessoa } from '@/lib/nomePessoa';
 import BarraDeEtapas from '@/components/auth/BarraDeEtapas';
 import FacialInviteModal from '@/components/auth/FacialInviteModal';
 import FacialCaptureFullscreen from '@/components/auth/FacialCaptureFullscreen';
+import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 import {
   identificar, pedirCodigoCadastro, provarCadastro, confirmarCadastro,
   pedirCodigoLogin, confirmarLogin, pedirCodigoReset, confirmarReset,
@@ -834,6 +835,11 @@ export function FluxoConta({
                   {confirmaSenha && senha !== confirmaSenha && <p className="text-sm text-destructive">As duas senhas não são iguais.</p>}
                 </div>
                 <BotaoPrincipal onClick={criarAConta} label="Criar minha conta" ocupado={ocupado} disabled={senha.length < 6 || senha !== confirmaSenha} />
+                {/* O aceite dos termos voltou aqui em 21/09/2026: ele existia no
+                  * cadastro antigo e se perdeu na virada do login de 09-10/09.
+                  * Sem caixa para marcar (decisão do Gabriel) — o clique no botão
+                  * é o aceite, e quem grava é o servidor. */}
+                <AvisoDeAceite acao="Ao criar a conta" documentos={['termos', 'privacidade']} />
               </form>
             )}
 

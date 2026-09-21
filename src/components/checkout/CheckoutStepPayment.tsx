@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import type { AppliedCoupon } from './CheckoutModal';
+import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 
 interface CartItem {
   lotId: string;
@@ -383,6 +384,12 @@ export function CheckoutStepPayment({
           <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
         </button>
       </div>
+
+      {/* A escolha do meio de pagamento é o último passo antes de cobrar, então é
+        * aqui que o aviso vale. A Política de Reembolso entra junto porque é ela
+        * que fixa prazo e regra de devolução — o que a pessoa mais vai procurar
+        * depois. (21/09/2026) */}
+      <AvisoDeAceite acao="Ao concluir a compra" documentos={['termos', 'reembolso']} className="mt-5" />
     </motion.div>
   );
 }

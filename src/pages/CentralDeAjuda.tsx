@@ -36,7 +36,7 @@ const clientesFaq: FAQ[] = [
   },
   {
     q: 'Posso transferir meu ingresso para outra pessoa?',
-    a: 'Hoje a plataforma não oferece transferência nominal. Quem apresentar o QR Code válido na entrada faz o check-in.',
+    a: 'Sim. Em Meus Ingressos, abra o ingresso e use "Transferir": a pessoa recebe um link, aceita e o ingresso passa a ser dela. O QR antigo deixa de valer, então o ingresso não entra duas vezes.',
   },
   {
     q: 'Como pedir reembolso?',
@@ -95,7 +95,7 @@ const produtoresFaq: FAQ[] = [
   },
   {
     q: 'Como recebo o dinheiro das vendas?',
-    a: 'Após o evento, descontada a taxa da plataforma (10%), o valor é transferido para a conta bancária cadastrada nas suas configurações.',
+    a: 'Após o evento, descontada a taxa da plataforma, o valor é transferido para a conta bancária cadastrada nas suas configurações. A taxa padrão é de 10%, e pode ser diferente se houver condição combinada para a sua conta ou para o evento — o valor que vale para você é o do seu contrato ou proposta.',
   },
   {
     q: 'Onde cadastro minha conta bancária para repasse?',

@@ -7,6 +7,7 @@
  * cujo `context` é a Response — o corpo JSON com `{ erro }` está lá dentro.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { VERSOES_CADASTRO } from '@/lib/documentos-legais';
 
 export type Canal = 'whatsapp' | 'email';
 export type CanalDaConta = { canal: Canal; mascarado: string };
@@ -83,7 +84,13 @@ export function provarCadastro(dados: DadosCadastro, canal: Canal, desafioId: st
  * O nome também não vai daqui — ele esperou no desafio desde o pedido do código.
  */
 export function confirmarCadastro(dados: DadosCadastro, canal: Canal, desafioId: string, senha: string) {
-  return chamar<RespostaSessao>('auth-codigo', { acao: 'confirmar_cadastro', ...dados, canal, desafioId, senha });
+  return chamar<RespostaSessao>('auth-codigo', {
+    acao: 'confirmar_cadastro', ...dados, canal, desafioId, senha,
+    /* As versões que a TELA mostrou — é isso que a pessoa viu ao clicar, e é isso
+     * que o registro tem de refletir. A edge valida o formato e grava com o IP;
+     * o navegador nunca escreve na tabela de aceites. */
+    aceites: VERSOES_CADASTRO,
+  });
 }
 
 export function pedirCodigoLogin(identificador: string, contaIndice: number, canal: Canal, senha: string) {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { VERSOES_CADASTRO } from '@/lib/documentos-legais';
 import StepIndicator from './StepIndicator';
 import StepAccountType, { ProducerAccountType } from './producer-signup-steps/StepAccountType';
 import StepDocument from './producer-signup-steps/StepDocument';
@@ -43,6 +44,10 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
       // social da PJ não teria onde ser gravada (era o furo: CNPJ e razão social
       // sumiam, e o produtor ficava invisível na busca do painel de admin).
       tipo_pessoa: accountType ?? undefined,
+      // A caixa "Li e concordo" do último passo já travava o botão, mas o aceite
+      // morria na tela. Agora a versão de cada documento vai junto e o gatilho do
+      // banco grava em `aceites_legais` (21/09/2026).
+      aceites: VERSOES_CADASTRO,
     });
     setSubmitting(false);
 

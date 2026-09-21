@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { IDENTIDADE_FESTPAG, razaoSocialComCnpj } from '@/lib/identidade-festpag';
+import { dataPorExtenso } from '@/lib/documentos-legais';
 
 export default function TermosDeUso() {
   return (
@@ -18,7 +19,7 @@ export default function TermosDeUso() {
             <h1 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-2">
               Termos de Uso
             </h1>
-            <p className="text-muted-foreground text-sm mb-10">Última atualização: 14 de abril de 2026</p>
+            <p className="text-muted-foreground text-sm mb-10">Última atualização: {dataPorExtenso('termos')}</p>
 
             <div className="prose prose-sm md:prose-base max-w-none space-y-8 text-foreground/90">
               <p>Bem-vindo à FestPag.</p>

@@ -32,6 +32,7 @@ import { SeatCheckoutCardMarcel } from '@/components/checkout/SeatCheckoutCardMa
 import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
+import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 
 
 type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
@@ -606,6 +607,10 @@ export default function SeatCheckout() {
                   <ShieldCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" />
                   <span>Pagamento 100% seguro e criptografado</span>
                 </div>
+
+                {/* Mesmo aviso do checkout de ingresso (21/09/2026) — mesa e
+                  * camarote passam pelas mesmas regras. */}
+                <AvisoDeAceite acao="Ao concluir a compra" documentos={['termos', 'reembolso']} className="pt-1" />
               </motion.div>
             )}
 
