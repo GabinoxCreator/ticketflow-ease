@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      aceites_legais: {
+        Row: {
+          aceito_em: string
+          contexto: string
+          documento: string
+          id: string
+          ip: unknown
+          navegador: string | null
+          pedido_id: string | null
+          usuario_id: string
+          versao: string
+        }
+        Insert: {
+          aceito_em?: string
+          contexto: string
+          documento: string
+          id?: string
+          ip?: unknown
+          navegador?: string | null
+          pedido_id?: string | null
+          usuario_id: string
+          versao: string
+        }
+        Update: {
+          aceito_em?: string
+          contexto?: string
+          documento?: string
+          id?: string
+          ip?: unknown
+          navegador?: string | null
+          pedido_id?: string | null
+          usuario_id?: string
+          versao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aceites_legais_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_section_permissions: {
         Row: {
           created_at: string
@@ -2945,6 +2989,17 @@ export type Database = {
           observacao: string
           valor: string
         }[]
+      }
+      registrar_aceite: {
+        Args: {
+          _contexto: string
+          _ip?: unknown
+          _navegador?: string
+          _pedido_id?: string
+          _usuario_id: string
+          _versoes: Json
+        }
+        Returns: number
       }
       release_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
