@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import type { AppliedCoupon } from './CheckoutModal';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
+import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
 interface CartItem {
   lotId: string;
@@ -135,6 +136,12 @@ export function CheckoutStepPayment({
       window.setTimeout(() => setCobrandoAceite(false), 2200);
       return;
     }
+
+    // O aviso de aceite está logo abaixo destes botões; escolher como pagar é o
+    // ato que ele descreve. Gravado aqui, e não dentro das edges de pagamento,
+    // porque são sete portas diferentes (ver src/lib/registrar-aceite.ts).
+    // Não esperamos a resposta: o aceite nunca pode atrasar nem barrar a compra.
+    void registrarAceiteDaCompra('checkout');
 
     setSelecting(method);
     onSelectPayment(method);

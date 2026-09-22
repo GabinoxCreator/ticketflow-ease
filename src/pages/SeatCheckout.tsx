@@ -33,6 +33,7 @@ import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
+import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
 
 type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
@@ -274,6 +275,8 @@ export default function SeatCheckout() {
   const handleStartPix = useCallback(async () => {
     if (!hold || !eventId || !customer) return;
     if (pixRequestInFlightRef.current) return;
+    // Aceite: mesmo motivo do checkout de ingresso (ver src/lib/registrar-aceite.ts).
+    void registrarAceiteDaCompra('checkout_mesa');
     pixRequestInFlightRef.current = true;
     setIsStartingPix(true);
     try {
@@ -587,7 +590,7 @@ export default function SeatCheckout() {
 
                 <button
                   type="button"
-                  onClick={() => setStep('card')}
+                  onClick={() => { void registrarAceiteDaCompra('checkout_mesa'); setStep('card'); }}
                   aria-label={`Pagar com cartão de crédito em até ${maxParcelas} parcelas`}
                   className="group w-full rounded-2xl p-5 text-left bg-card border border-border/70 transition-all duration-300 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 active:scale-[0.99]"
                 >
