@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import EventCard from '@/components/EventCard';
@@ -8,6 +8,7 @@ import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
 import HomeHeroBanner from '@/components/home/HomeHeroBanner';
+import { BarraDeCategorias } from '@/components/home/BarraDeCategorias';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
@@ -59,6 +60,14 @@ const Index = () => {
     });
   }, [dbEvents]);
 
+  // Filtro da barra de categorias (23/09/2026). Fica só na tela: os eventos já
+  // estão na memória, então trocar de categoria não vai ao servidor.
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | null>(null);
+  const eventosNaTela = useMemo(
+    () => (categoriaSelecionada ? events.filter((e) => e.category === categoriaSelecionada) : events),
+    [events, categoriaSelecionada],
+  );
+
   return (
     <>
       <Helmet>
@@ -81,6 +90,12 @@ const Index = () => {
           {/* Hero Banner */}
           <HomeHeroBanner />
 
+          <BarraDeCategorias
+            categoriasDosEventos={events.map((e) => e.category)}
+            selecionada={categoriaSelecionada}
+            aoSelecionar={setCategoriaSelecionada}
+          />
+
           <section id="eventos" className="scroll-mt-24 py-12">
             <div className="container px-4">
               <div className="text-center mb-10">
@@ -96,7 +111,7 @@ const Index = () => {
                 <div className="flex justify-center items-center py-16">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
-              ) : events.length === 0 ? (
+              ) : eventosNaTela.length === 0 ? (
                 <div className="text-center py-16 rounded-3xl border border-border/40 bg-card/30 backdrop-blur-sm">
                   <p className="text-muted-foreground text-base md:text-lg">
                     ​
@@ -107,7 +122,7 @@ const Index = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {events.map((event, index) => (
+                  {eventosNaTela.map((event, index) => (
                     <EventCard key={event.id} event={event} index={index} />
                   ))}
                 </div>
