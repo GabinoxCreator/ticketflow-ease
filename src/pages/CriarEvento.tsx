@@ -34,6 +34,7 @@ import { useProducerTableMaps } from '@/hooks/useProducerTableMaps';
 import { usePublishEvent } from '@/hooks/useEventPublishing';
 import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { cn } from '@/lib/utils';
+import { CATEGORIAS_ESCOLHIVEIS, CATEGORIA_PADRAO } from '@/lib/categorias-de-evento';
 
 const states = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -140,6 +141,8 @@ export default function CriarEvento() {
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [eventType, setEventType] = useState<EventType>('ingresso');
+  // Opcional por decisão do Gabriel (23/09/2026): quem não escolher entra em 'outros'.
+  const [category, setCategory] = useState<string>(CATEGORIA_PADRAO);
 
   // Step 2
   const [startDate, setStartDate] = useState<Date | undefined>();
@@ -231,7 +234,7 @@ export default function CriarEvento() {
           city,
           state,
           address,
-          category: 'Outros',
+          category,
           image_url: imageUrl,
           status: 'draft',
           event_type: eventType,
@@ -412,6 +415,26 @@ export default function CriarEvento() {
                       {description.length} caracteres
                     </span>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Categoria <span className="text-muted-foreground font-normal">(opcional)</span>
+                  </Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="rounded-xl bg-background/50 border-border/60">
+                      <SelectValue placeholder="Escolha uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIAS_ESCOLHIVEIS.map((c) => (
+                        <SelectItem key={c.slug} value={c.slug}>{c.nome}</SelectItem>
+                      ))}
+                      <SelectItem value={CATEGORIA_PADRAO}>Não quero escolher agora</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    É por ela que o seu evento aparece na barra de categorias da página inicial.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

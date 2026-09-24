@@ -14,6 +14,7 @@ const Footer = () => {
     ],
     suporte: [
       { label: 'Central de Ajuda', href: '/ajuda' },
+      { label: 'Entenda a taxa', href: '/taxa' },
       { label: 'Termos de Uso', href: '/termos' },
     ],
     legal: [

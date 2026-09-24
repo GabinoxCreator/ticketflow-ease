@@ -27,6 +27,10 @@ const clientesFaq: FAQ[] = [
     a: 'Basta apresentar o QR Code do ingresso (no celular ou impresso) na entrada do evento. A equipe do produtor faz a leitura e libera sua entrada.',
   },
   {
+    q: 'O que é a taxa de serviço que aparece na compra?',
+    a: 'É o que a FestPag cobra para colocar e manter o evento à venda: publicação, venda pela internet, processamento do pagamento, envio do ingresso, suporte e controle de acesso. Ela é paga por quem compra, aparece somada e separada antes de você confirmar, e o produtor recebe o valor cheio do ingresso. A explicação completa está na página Entenda a taxa (/taxa).',
+  },
+  {
     q: 'Paguei via PIX, em quanto tempo o ingresso fica liberado?',
     a: 'Assim que a confirmação do pagamento chega (geralmente em poucos segundos), o ingresso é gerado automaticamente e aparece em Meus Ingressos.',
   },

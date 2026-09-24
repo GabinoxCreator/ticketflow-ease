@@ -33,6 +33,7 @@ import ColaboradorEventos from "./pages/colaborador/ColaboradorEventos";
 import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import EntendaATaxa from "./pages/EntendaATaxa";
 import TermosDeUso from "./pages/TermosDeUso";
 import PoliticaReembolso from "./pages/PoliticaReembolso";
 import CentralDeAjuda from "./pages/CentralDeAjuda";
@@ -92,7 +93,8 @@ const App = () => (
                 <Route path="/login" element={<Auth />} />
                 <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
-                <Route path="/termos" element={<TermosDeUso />} />
+                <Route path="/taxa" element={<EntendaATaxa />} />
+          <Route path="/termos" element={<TermosDeUso />} />
                 <Route path="/reembolso" element={<PoliticaReembolso />} />
                 <Route path="/ajuda" element={<CentralDeAjuda />} />
 
