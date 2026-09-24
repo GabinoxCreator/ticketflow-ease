@@ -6,41 +6,47 @@
  * `events.category` estava CRAVADO em 'Outros' no código do criar-evento, então
  * 26 dos 38 eventos nasceram sem categoria nenhuma.
  *
- * Duas regras que fazem a barra funcionar num catálogo pequeno:
- *   1. a barra só mostra categoria que TEM evento publicado no futuro — nunca
- *      leva ninguém para uma tela vazia;
- *   2. 'outros' existe mas nunca aparece na barra: é onde caem os testes, as
- *      demonstrações e o evento cujo produtor não escolheu nada.
+ * A vitrine mostra TODAS as categorias (decisão do Gabriel em 24/09/2026), com
+ * a contagem de eventos em cada uma. Clicar numa categoria sem evento leva a uma
+ * tela que diz que ainda não há nada ali — e não a um vazio sem explicação.
  *
- * Para acrescentar uma categoria: uma linha aqui. Ela fica invisível até o
- * primeiro evento dela ser publicado.
+ * 'outros' existe mas nunca aparece: é onde caem os testes, as demonstrações e o
+ * evento cujo produtor não escolheu nada.
+ *
+ * Para acrescentar uma categoria: uma linha aqui, com o ícone.
  */
 
 export interface CategoriaDeEvento {
   /** Valor gravado em `events.category`. Nunca muda depois de publicado. */
   slug: string;
-  /** O que aparece na barra e no seletor do produtor. */
+  /** O que aparece nos cards e no seletor do produtor. */
   nome: string;
-  /** Aparece na barra da home? 'outros' não aparece. */
+  /** Aparece na vitrine da home? 'outros' não aparece. */
   naBarra: boolean;
+  /** Nome do ícone do lucide-react, desenhado no card. */
+  icone: IconeDeCategoria;
 }
 
+/** Só os ícones usados aqui — a lista fechada evita importar a biblioteca inteira. */
+export type IconeDeCategoria =
+  | 'Music' | 'PartyPopper' | 'FerrisWheel' | 'UtensilsCrossed' | 'Trophy'
+  | 'HeartHandshake' | 'Drama' | 'Laugh' | 'Presentation' | 'Palette'
+  | 'Baby' | 'Shapes';
+
 export const CATEGORIAS: CategoriaDeEvento[] = [
-  { slug: 'shows-e-musica', nome: 'Shows e Música', naBarra: true },
-  { slug: 'festas', nome: 'Festas', naBarra: true },
-  { slug: 'festivais-e-rodeios', nome: 'Festivais e Rodeios', naBarra: true },
-  { slug: 'gastronomia', nome: 'Gastronomia', naBarra: true },
-  { slug: 'esportes', nome: 'Esportes', naBarra: true },
-  { slug: 'beneficente', nome: 'Beneficente', naBarra: true },
-  // Cadastradas e ainda sem evento — entram na barra sozinhas no dia em que
-  // o primeiro for publicado. Não há nada a fazer no código quando isso acontecer.
-  { slug: 'espetaculos-e-teatro', nome: 'Espetáculos e Teatro', naBarra: true },
-  { slug: 'comedia', nome: 'Comédia', naBarra: true },
-  { slug: 'palestras-e-congressos', nome: 'Palestras e Congressos', naBarra: true },
-  { slug: 'cultura-e-lazer', nome: 'Cultura e Lazer', naBarra: true },
-  { slug: 'infantil', nome: 'Infantil e Família', naBarra: true },
-  // Onde caem teste, demonstração e quem não escolheu. Nunca na barra.
-  { slug: 'outros', nome: 'Outros', naBarra: false },
+  { slug: 'shows-e-musica', nome: 'Shows e Música', naBarra: true, icone: 'Music' },
+  { slug: 'festas', nome: 'Festas', naBarra: true, icone: 'PartyPopper' },
+  { slug: 'festivais-e-rodeios', nome: 'Festivais e Rodeios', naBarra: true, icone: 'FerrisWheel' },
+  { slug: 'gastronomia', nome: 'Gastronomia', naBarra: true, icone: 'UtensilsCrossed' },
+  { slug: 'esportes', nome: 'Esportes', naBarra: true, icone: 'Trophy' },
+  { slug: 'beneficente', nome: 'Beneficente', naBarra: true, icone: 'HeartHandshake' },
+  { slug: 'espetaculos-e-teatro', nome: 'Espetáculos e Teatro', naBarra: true, icone: 'Drama' },
+  { slug: 'comedia', nome: 'Comédia', naBarra: true, icone: 'Laugh' },
+  { slug: 'palestras-e-congressos', nome: 'Palestras e Congressos', naBarra: true, icone: 'Presentation' },
+  { slug: 'cultura-e-lazer', nome: 'Cultura e Lazer', naBarra: true, icone: 'Palette' },
+  { slug: 'infantil', nome: 'Infantil e Família', naBarra: true, icone: 'Baby' },
+  // Onde caem teste, demonstração e quem não escolheu. Nunca na vitrine.
+  { slug: 'outros', nome: 'Outros', naBarra: false, icone: 'Shapes' },
 ];
 
 export const CATEGORIA_PADRAO = 'outros';
@@ -56,10 +62,23 @@ export function nomeDaCategoria(slug: string | null | undefined): string {
 }
 
 /**
- * A barra da home: só as categorias que têm evento na lista recebida, na ordem
- * em que estão declaradas acima. Catálogo pequeno não vira tela vazia.
+ * A vitrine da home mostra TODAS as categorias (decisão do Gabriel, 24/09/2026:
+ * "coloca todas; se o cara clicar numa que não tem evento, não aparece evento
+ * nenhum, beleza"). Antes só apareciam as que tinham evento — ele preferiu a
+ * vitrine cheia, que é o que a Sympla faz.
+ *
+ * 'outros' continua de fora: é onde caem teste e demonstração.
  */
-export function categoriasComEvento(categoriasDosEventos: Array<string | null | undefined>): CategoriaDeEvento[] {
-  const presentes = new Set(categoriasDosEventos.filter(Boolean) as string[]);
-  return CATEGORIAS.filter((c) => c.naBarra && presentes.has(c.slug));
+export function categoriasDaVitrine(): CategoriaDeEvento[] {
+  return CATEGORIAS.filter((c) => c.naBarra);
+}
+
+/** Quantos eventos por categoria — o card mostra e some com a dúvida. */
+export function contarPorCategoria(categoriasDosEventos: Array<string | null | undefined>): Map<string, number> {
+  const conta = new Map<string, number>();
+  for (const c of categoriasDosEventos) {
+    if (!c) continue;
+    conta.set(c, (conta.get(c) ?? 0) + 1);
+  }
+  return conta;
 }

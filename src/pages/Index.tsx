@@ -8,7 +8,8 @@ import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
 import HomeHeroBanner from '@/components/home/HomeHeroBanner';
-import { BarraDeCategorias } from '@/components/home/BarraDeCategorias';
+import { VitrineDeCategorias } from '@/components/home/VitrineDeCategorias';
+import { nomeDaCategoria } from '@/lib/categorias-de-evento';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
@@ -90,7 +91,7 @@ const Index = () => {
           {/* Hero Banner */}
           <HomeHeroBanner />
 
-          <BarraDeCategorias
+          <VitrineDeCategorias
             categoriasDosEventos={events.map((e) => e.category)}
             selecionada={categoriaSelecionada}
             aoSelecionar={setCategoriaSelecionada}
@@ -113,12 +114,27 @@ const Index = () => {
                 </div>
               ) : eventosNaTela.length === 0 ? (
                 <div className="text-center py-16 rounded-3xl border border-border/40 bg-card/30 backdrop-blur-sm">
-                  <p className="text-muted-foreground text-base md:text-lg">
-                    ​
-                  </p>
-                  <p className="text-muted-foreground/70 text-sm mt-2">
-                    ​
-                  </p>
+                  {/* Com categoria escolhida, a tela EXPLICA o vazio. Sem filtro,
+                    * fica como sempre foi — não é este o trabalho de mudar isso. */}
+                  {categoriaSelecionada ? (
+                    <>
+                      <p className="text-muted-foreground text-base md:text-lg">
+                        Ainda não temos evento em {nomeDaCategoria(categoriaSelecionada)}.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setCategoriaSelecionada(null)}
+                        className="text-primary hover:underline text-sm mt-3 font-medium"
+                      >
+                        Ver todos os eventos
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-muted-foreground text-base md:text-lg">​</p>
+                      <p className="text-muted-foreground/70 text-sm mt-2">​</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
