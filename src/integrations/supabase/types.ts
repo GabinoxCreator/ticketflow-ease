@@ -3001,6 +3001,10 @@ export type Database = {
         }
         Returns: number
       }
+      registrar_meu_aceite: {
+        Args: { _contexto: string; _pedido_id?: string; _versoes: Json }
+        Returns: number
+      }
       release_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
