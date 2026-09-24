@@ -64,6 +64,8 @@ const eventSchema = z.object({
   address: z.string().optional(),
   is_hot: z.boolean().default(false),
   status: z.enum(['draft', 'published', 'cancelled', 'finished']).default('draft'),
+  // Público = aparece na home. Privado = só quem tem o link. Independe do status.
+  is_public: z.boolean().default(true),
   event_type: z.enum(['ingresso', 'mesa', 'hibrido']).default('ingresso'),
   table_map_id: z.string().nullable().optional(),
 });
@@ -96,6 +98,7 @@ const FIELD_LABELS: Record<string, string> = {
   address: 'Endereço',
   is_hot: 'Destaque',
   status: 'Status',
+  is_public: 'Visibilidade',
 };
 
 export default function EditarEvento() {
@@ -162,6 +165,8 @@ export default function EditarEvento() {
       address: event.address ?? '',
       is_hot: !!event.is_hot,
       status,
+      // Evento antigo (criado antes da coluna) vem sem o campo: é público, como sempre foi.
+      is_public: (event as any).is_public !== false,
       event_type: eventType,
       table_map_id: event.table_map_id ?? null,
     } as EventFormData;
@@ -180,6 +185,7 @@ export default function EditarEvento() {
       address: '',
       is_hot: false,
       status: 'draft',
+      is_public: true,
       event_type: 'ingresso',
       table_map_id: null,
     },
@@ -274,6 +280,8 @@ export default function EditarEvento() {
       address: data.address,
       image_url: imageUrl,
       is_hot: data.is_hot,
+      // Visibilidade é UPDATE direto e independe do status: não passa por publish/unpublish.
+      is_public: data.is_public,
       event_type: data.event_type,
       // Only send table_map_id when not published (server is the source of truth)
       ...(isPublished ? {} : { table_map_id: data.table_map_id ?? null }),
@@ -606,6 +614,33 @@ export default function EditarEvento() {
                         )}
                       />
                       {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Visibilidade</Label>
+                      <Controller
+                        control={control}
+                        name="is_public"
+                        render={({ field }) => (
+                          <Select
+                            value={field.value === false ? 'privado' : 'publico'}
+                            onValueChange={(v) => field.onChange(v === 'publico')}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="publico">Público</SelectItem>
+                              <SelectItem value="privado">Privado — só por link</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {watchedValues.is_public === false
+                          ? 'Não aparece na página inicial. Só quem tem o link abre e compra.'
+                          : 'Aparece na página inicial da FestPag.'}
+                      </p>
                     </div>
                   </div>
                 </CardContent>

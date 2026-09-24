@@ -4,7 +4,8 @@ import { format, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   CalendarIcon, ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2, Edit2, Flame,
-  Users, Clock, MapPin, ImageIcon, Sparkles, CalendarDays, Ticket, Eye, Send, FileText
+  Users, Clock, MapPin, ImageIcon, Sparkles, CalendarDays, Ticket, Eye, Send, FileText,
+  Globe, Lock
 } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { ImageUpload } from '@/components/producer/ImageUpload';
@@ -155,6 +156,9 @@ export default function CriarEvento() {
   const [address, setAddress] = useState('');
   const [tableMapId, setTableMapId] = useState<string | null>(null);
 
+  // Step 4 — visibilidade. Público = aparece na home; privado = só quem tem o link.
+  const [isPublic, setIsPublic] = useState(true);
+
   // Step 3
   const [lots, setLots] = useState<InlineLot[]>([createEmptyLot(0)]);
   const [editingSectorId, setEditingSectorId] = useState<string | null>(null);
@@ -237,6 +241,7 @@ export default function CriarEvento() {
           category,
           image_url: imageUrl,
           status: 'draft',
+          is_public: isPublic,
           event_type: eventType,
           table_map_id: tableMapId,
         },
@@ -892,9 +897,19 @@ export default function CriarEvento() {
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
 
                 {/* Status chip */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 backdrop-blur-md">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-emerald-300">Pronto para publicar</span>
+                <div className={`absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border ${
+                  isPublic
+                    ? 'bg-emerald-500/15 border-emerald-500/30'
+                    : 'bg-amber-500/15 border-amber-500/30'
+                }`}>
+                  {isPublic ? (
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  ) : (
+                    <Lock className="w-3 h-3 text-amber-300" />
+                  )}
+                  <span className={`text-xs font-semibold ${isPublic ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    {isPublic ? 'Pronto para publicar' : 'Privado — só por link'}
+                  </span>
                 </div>
 
                 {startDate && (
@@ -959,6 +974,68 @@ export default function CriarEvento() {
                 )}
               </div>
             </article>
+
+            {/* Quem vai ver o evento */}
+            <GlassCard>
+              <div className="p-6 md:p-8 space-y-4">
+                <div>
+                  <h3 className="font-semibold text-foreground">Quem vai ver este evento</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Você pode mudar isso depois, em Editar evento.
+                  </p>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsPublic(true)}
+                    aria-pressed={isPublic}
+                    className={`text-left rounded-xl border p-4 transition ${
+                      isPublic
+                        ? 'border-primary/60 bg-primary/10 shadow-[0_0_24px_-10px_hsl(var(--primary))]'
+                        : 'border-border/50 bg-card/40 hover:border-border'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-primary" />
+                      <span className="font-semibold text-sm text-foreground">Público</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                      Aparece na página inicial da FestPag e qualquer pessoa pode encontrar.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPublic(false)}
+                    aria-pressed={!isPublic}
+                    className={`text-left rounded-xl border p-4 transition ${
+                      !isPublic
+                        ? 'border-primary/60 bg-primary/10 shadow-[0_0_24px_-10px_hsl(var(--primary))]'
+                        : 'border-border/50 bg-card/40 hover:border-border'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-primary" />
+                      <span className="font-semibold text-sm text-foreground">Privado</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                      Não aparece na página inicial. Só quem receber o link consegue abrir e comprar.
+                    </p>
+                  </button>
+                </div>
+
+                {!isPublic && (
+                  <div className="flex gap-3 items-start p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                    <Lock className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-200/90 leading-relaxed">
+                      O evento vende normalmente — ele só não aparece na vitrine do site.
+                      Depois de publicar, o link para divulgar fica em <strong>Meus Eventos</strong>.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </GlassCard>
           </div>
         )}
 

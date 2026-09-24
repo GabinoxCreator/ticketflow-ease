@@ -34,6 +34,8 @@ export interface Event {
   table_map_id: string | null;
   /** Se o mapa de assentos/camarotes aparece no site. Falso = só venda pelo painel. */
   seat_map_public: boolean;
+  /** Falso = evento PRIVADO: some da home e das listagens, abre só por link direto. Continua vendendo. */
+  is_public: boolean;
   map_snapshot_at: string | null;
   created_at: string;
   updated_at: string;
@@ -68,6 +70,8 @@ export interface EventFormData {
   fake_scarcity_enabled?: boolean;
   fake_scarcity_percentage?: number;
   table_map_id?: string | null;
+  /** Falso = evento privado (não listado). Ausente = público, como sempre foi. */
+  is_public?: boolean;
 }
 
 export function useEvents() {
@@ -86,7 +90,7 @@ export function useEvents() {
           id, producer_id, producer_profile_id, slug, title, description, short_description,
           date, time, end_date, end_time, venue, city, state, address, category, image_url,
           is_hot, status, event_type, fake_scarcity_enabled, fake_scarcity_percentage,
-          table_map_id, seat_map_public, map_snapshot_at, created_at, updated_at,
+          table_map_id, seat_map_public, is_public, map_snapshot_at, created_at, updated_at,
           event_lots ( id, price, total_quantity, sold_quantity, reserved_quantity, is_active )
         `)
         .eq('producer_id', user.id)
@@ -278,13 +282,14 @@ export function usePublicEvents() {
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
       // Leitura pública (home): client sem sessão, não espera o refresh de token.
-      const { data, error } = await supabasePublic
-        .from('events')
+      // cast `as any`: types.ts é auto-gerado e ainda não conhece `seat_map_public`
+      // nem `is_public` — sem ele o TS estoura em "type instantiation excessively deep".
+      const { data, error } = await (supabasePublic.from('events') as any)
         .select(`
           id, slug, title, description, short_description,
           date, time, end_date, end_time, venue, city, state, address, category, image_url,
           is_hot, status, event_type, fake_scarcity_enabled, fake_scarcity_percentage,
-          table_map_id, seat_map_public, map_snapshot_at, created_at, updated_at,
+          table_map_id, seat_map_public, is_public, map_snapshot_at, created_at, updated_at,
           event_lots (
             id,
             name,
@@ -296,6 +301,8 @@ export function usePublicEvents() {
           )
         `)
         .eq('status', 'published')
+        // Evento privado (is_public = false) não entra na vitrine: abre só por link direto.
+        .eq('is_public', true)
         .gte('date', today)
         .order('date', { ascending: true });
 

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { formatEventDate } from '@/lib/eventTime';
 
 import {
@@ -12,6 +14,9 @@ import {
   TrendingUp,
   Layers,
   Clock,
+  Lock,
+  Check,
+  Link2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,6 +71,23 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   const navigate = useNavigate();
   const status = statusStyles[event.status];
 
+  // Evento privado: não aparece na home, e o link é o único caminho de venda —
+  // por isso ele ganha o botão de copiar aqui.
+  const isPrivado = event.is_public === false;
+  const [linkCopiado, setLinkCopiado] = useState(false);
+
+  const copiarLink = async () => {
+    const link = `${window.location.origin}/evento/${event.slug ?? event.id}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopiado(true);
+      toast.success('Link copiado', { description: link });
+      setTimeout(() => setLinkCopiado(false), 2000);
+    } catch {
+      toast.error('Não foi possível copiar o link', { description: link });
+    }
+  };
+
   const formattedDate = formatEventDate(event.date, { day: '2-digit', month: 'short', year: 'numeric' });
 
 
@@ -114,6 +136,14 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
           >
             {status.label}
           </Badge>
+
+          {/* Selo de evento privado */}
+          {isPrivado && (
+            <Badge className="absolute top-12 left-3 border backdrop-blur-md shadow-lg font-medium bg-slate-900/85 text-slate-100 border-slate-400/40">
+              <Lock className="w-3 h-3 mr-1" />
+              Privado
+            </Badge>
+          )}
         </div>
 
         {/* Content */}
@@ -219,6 +249,22 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
             </span>
 
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {isPrivado && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={copiarLink}
+                  title="Copiar o link de venda para divulgar"
+                  className="h-8 text-xs hover:bg-primary/10"
+                >
+                  {linkCopiado ? (
+                    <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                  ) : (
+                    <Link2 className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {linkCopiado ? 'Copiado' : 'Copiar link'}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
