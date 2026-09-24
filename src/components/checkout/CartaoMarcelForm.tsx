@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { abreviarNomeDoCartao, LIMITE_NOME_CARTAO } from '@/lib/nome-do-cartao';
 
 /*
  * Formulário de cartão da rota do Marcel — a TELA, sem saber o que está sendo
@@ -68,7 +69,9 @@ export function CartaoMarcelForm({
   totalAmount, nomeSugerido, rotuloFace = 'Ingressos', cotar, cobrar,
 }: Props) {
   const [cardNumber, setCardNumber] = useState('');
-  const [cardHolder, setCardHolder] = useState(nomeSugerido);
+  // Pré-preenchido JÁ ABREVIADO: a Safe2Pay recusa nome com mais de 25 letras, e
+  // era o nome completo que ia daqui (27 recusas entre 18/08 e 21/09/2026).
+  const [cardHolder, setCardHolder] = useState(() => abreviarNomeDoCartao(nomeSugerido));
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -265,8 +268,17 @@ export function CartaoMarcelForm({
         <div className="relative">
           <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input id="m-cardHolder" placeholder="Como está no cartão" className="pl-10"
-            value={cardHolder} onChange={(e) => setCardHolder(e.target.value.toUpperCase())} />
+            maxLength={LIMITE_NOME_CARTAO}
+            value={cardHolder} onChange={(e) => setCardHolder(e.target.value.toUpperCase().slice(0, LIMITE_NOME_CARTAO))} />
         </div>
+        {/* Só aparece quando o nome precisou encolher — quem tem nome curto não
+          * vê aviso nenhum. Sem esta linha, a pessoa vê um nome diferente do que
+          * digitou no cadastro e não entende o motivo. */}
+        {nomeSugerido.trim().length > LIMITE_NOME_CARTAO && (
+          <p className="text-xs text-muted-foreground">
+            Abreviamos para caber no limite do cartão. Se estiver diferente do seu plástico, é só corrigir.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
