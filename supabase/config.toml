@@ -276,3 +276,8 @@ verify_jwt = false
 # (Bloco 2). Exige sessão; quem é vem do token, nunca do body.
 [functions.auth-canal]
 verify_jwt = true
+
+# Chamada pelo gatilho da tabela payouts e pelo cron de repesca (segredo no header),
+# ou por admin logado para reenviar um aviso na mão. Nunca pelo navegador do público.
+[functions.aviso-repasse]
+verify_jwt = false
