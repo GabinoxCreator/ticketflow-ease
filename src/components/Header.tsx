@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, User, LogOut, LayoutDashboard, Calendar, ChevronDown, ChevronRight, Ticket, ArrowUpRight, Sparkles, Wallet, Loader2 } from 'lucide-react';
+import { Search, User, LogOut, LayoutDashboard, Calendar, ChevronDown, ChevronRight, Ticket, ArrowUpRight, Sparkles, Wallet, Loader2, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import logoFestpag from '@/assets/logo-festpag.png';
 
 const Header = () => {
+  /*
+   * Na ÁREA DO PRODUTOR o cabeçalho troca de lado. Motivo (Gabriel, 24/09/2026):
+   * quem entrava em /area-do-produtor querendo virar produtor clicava no
+   * "Entrar / Cadastrar" do topo — que leva ao cadastro de CLIENTE — e saía com
+   * a conta errada. O botão continua existindo, mas apontando para o fluxo
+   * certo de quem está ali.
+   */
+  const naAreaDoProdutor = useLocation().pathname.startsWith('/area-do-produtor');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [openingWallet, setOpeningWallet] = useState(false);
@@ -267,24 +275,47 @@ const Header = () => {
                   </>
                 ) : (
                   <>
-                    {/* Sou Produtor */}
-                    <button
-                      onClick={() => navigate('/area-do-produtor')}
-                      className="hidden md:flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Sou Produtor
-                      <ArrowUpRight className="w-4 h-4" />
-                    </button>
+                    {naAreaDoProdutor ? (
+                      /* Na área do produtor: os dois botões levam ao fluxo de
+                       * PRODUTOR. Antes, o "Entrar / Cadastrar" daqui criava
+                       * conta de cliente e a pessoa nem percebia. */
+                      <>
+                        <button
+                          onClick={() => navigate('/area-do-produtor/login')}
+                          className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:flex md:items-center md:gap-1"
+                        >
+                          Já sou produtor
+                        </button>
+                        <Button
+                          className="flex gap-2 bg-gradient-primary text-primary-foreground hover:opacity-95"
+                          onClick={() => navigate('/area-do-produtor/cadastro')}
+                        >
+                          <Store className="w-4 h-4" />
+                          <span>Criar conta de produtor</span>
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {/* Sou Produtor */}
+                        <button
+                          onClick={() => navigate('/area-do-produtor')}
+                          className="hidden md:flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Sou Produtor
+                          <ArrowUpRight className="w-4 h-4" />
+                        </button>
 
-                    {/* Entrar / Cadastrar */}
-                    <Button
-                      variant="outline"
-                      className="flex gap-2"
-                      onClick={() => navigate('/login')}
-                    >
-                      <User className="w-4 h-4" />
-                      <span>Entrar / Cadastrar</span>
-                    </Button>
+                        {/* Entrar / Cadastrar */}
+                        <Button
+                          variant="outline"
+                          className="flex gap-2"
+                          onClick={() => navigate('/login')}
+                        >
+                          <User className="w-4 h-4" />
+                          <span>Entrar / Cadastrar</span>
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
               </>

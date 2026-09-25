@@ -250,9 +250,30 @@ export function FluxoConta({
    */
   const seguraSaida = useRef(false);
 
+  /*
+   * ⚠️ 25/09/2026 — a facial parou de ser oferecida e este efeito era o culpado.
+   *
+   * Sintoma (o Gabriel reproduziu criando conta em produção): a mensagem
+   * "Conta criada! Falta só uma coisa, e é opcional" aparecia, mas a tela ia
+   * direto para o pagamento — o convite da facial nunca chegava a ser visto.
+   * Em 80 contas criadas pelo site desde a virada do login, NENHUMA cadastrou a
+   * face; antes da virada eram 15%.
+   *
+   * A causa: a trava era só o `seguraSaida` (um ref). Entre o `setSession` e o
+   * render da etapa 'facial' existe uma janela em que o `user` chega e este
+   * efeito dispara — e qualquer coisa que zere o ref nessa janela (remontagem
+   * do modal, re-render do pai com função nova) manda a pessoa embora.
+   *
+   * A correção não é mexer no ref: é não depender só dele. Nas etapas do FINAL
+   * DO CADASTRO a saída é SEMPRE explícita (o `terminar()`, chamado pelo "Agora
+   * não" ou pelo fim da captura). Só o caminho de LOGIN sai sozinho quando a
+   * sessão aparece.
+   */
+  const etapaDeCadastroComSessao = etapa === 'cad-senha' || etapa === 'facial' || etapa === 'facial-camera';
+
   useEffect(() => {
-    if (user && ativo && !seguraSaida.current) onAuthenticated();
-  }, [user, ativo, onAuthenticated]);
+    if (user && ativo && !seguraSaida.current && !etapaDeCadastroComSessao) onAuthenticated();
+  }, [user, ativo, onAuthenticated, etapaDeCadastroComSessao]);
 
   useEffect(() => {
     if (cooldown > 0) {

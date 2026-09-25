@@ -96,9 +96,13 @@ const ProducerSolutionsSection = ({ variant = 'home' }: ProducerSolutionsSection
             className={cn(
               'relative overflow-hidden rounded-3xl p-6 md:p-8 lg:p-10',
               'md:col-span-2 lg:col-span-2 lg:row-span-2',
-              'bg-gradient-to-br from-background via-card to-primary/15',
-              'border border-border/60',
-              'shadow-2xl shadow-primary/10',
+              /* Superfície SÓLIDA, igual à dos quatro cards ao lado. Antes este
+               * era opaco e os outros translúcidos: com o fundo colorido atrás,
+               * o grande lia branco e os menores roxos, e a fileira parecia de
+               * dois materiais diferentes (Gabriel, 24/09/2026). */
+              'bg-card',
+              'border border-border',
+              'shadow-xl shadow-primary/5',
               'flex flex-col justify-between min-h-[420px] lg:min-h-[520px]',
             )}
           >
@@ -170,9 +174,10 @@ const ProducerSolutionsSection = ({ variant = 'home' }: ProducerSolutionsSection
               transition={{ duration: 0.4, delay: 0.1 + idx * 0.08 }}
               className={cn(
                 'group relative overflow-hidden rounded-3xl p-6',
-                'bg-card/40 backdrop-blur-sm',
-                'border border-border/50',
-                'hover:border-primary/40 hover:bg-card/70',
+                /* Mesma superfície do card grande — ver o comentário lá. */
+                'bg-card',
+                'border border-border',
+                'shadow-sm hover:shadow-lg hover:shadow-primary/10 hover:border-primary/40',
                 'transition-all duration-300',
                 'flex flex-col gap-3 min-h-[200px]',
               )}

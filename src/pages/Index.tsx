@@ -7,9 +7,9 @@ import ProducerSolutionsSection from '@/components/home/ProducerSolutionsSection
 import { usePublicEvents } from '@/hooks/useEvents';
 import { EventCategory, EventData } from '@/data/mockEvents';
 import { Loader2 } from 'lucide-react';
-import HomeHeroBanner from '@/components/home/HomeHeroBanner';
 import { VitrineDeCategorias } from '@/components/home/VitrineDeCategorias';
 import { nomeDaCategoria } from '@/lib/categorias-de-evento';
+import { CarrosselDeBanners } from '@/components/home/CarrosselDeBanners';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
@@ -85,14 +85,29 @@ const Index = () => {
         <link rel="canonical" href="https://festpag.digital/" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="pt-20">
           {/* Hero Banner */}
-          <HomeHeroBanner />
+            {/* O carrossel vira o primeiro bloco da página (pedido do Gabriel,
+            * 24/09 — referência: a home da Sympla). A frase institucional
+            * continua, agora abaixo e em corpo menor, para não competir com a
+            * arte dos eventos. */}
+          <CarrosselDeBanners
+            eventos={events.slice(0, 6).map((e) => ({
+              id: e.id,
+              slug: e.slug,
+              title: e.title,
+              imageUrl: e.imageUrl,
+            }))}
+          />
+
+          {/* A frase institucional com os dois botões saiu em 24/09, a pedido do
+            * Gabriel ("pode sair agora, não precisa mais ficar isso aqui"). O
+            * componente HomeHeroBanner segue no repositório, sem uso, caso ele
+            * mude de ideia. */}
 
           <VitrineDeCategorias
-            categoriasDosEventos={events.map((e) => e.category)}
             selecionada={categoriaSelecionada}
             aoSelecionar={setCategoriaSelecionada}
           />

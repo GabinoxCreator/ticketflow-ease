@@ -12,7 +12,7 @@ export default function PoliticaPrivacidade() {
         <meta name="description" content="Política de Privacidade da FestPag. Saiba como coletamos, usamos e protegemos seus dados pessoais." />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="pt-24 pb-16">
           <div className="container mx-auto px-4 max-w-3xl">

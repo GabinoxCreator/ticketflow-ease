@@ -168,7 +168,7 @@ export default function TransferenciaIngresso() {
   const ev = info.evento;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Helmet><title>Ingresso transferido para você · FestPag</title></Helmet>
 
       <div className="max-w-md mx-auto px-4 py-10 space-y-6">
