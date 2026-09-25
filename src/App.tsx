@@ -60,6 +60,7 @@ import { AdminLayout } from "./components/admin/AdminLayout";
 import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
 import LandingLp from "./pages/LandingLp";
 import LandingLp2 from "./pages/LandingLp2";
+import { FundoDaPagina } from '@/components/FundoDaPagina';
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
@@ -74,11 +75,20 @@ const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        {/* O fundo da página inteira, atrás de tudo. Um só — ver o comentário
+          * em FundoDaPagina.tsx. (24/09/2026) */}
+        <FundoDaPagina />
         <Toaster />
-        <Sonner position="top-center" theme="dark" />
+        {/* `theme="light"` desde a virada de 24/09: com "dark" o aviso saía
+          * preto no meio de um site claro. */}
+        <Sonner position="top-center" theme="light" />
         <BrowserRouter>
           <AuthProvider>
             <ColaboradorAuthProvider>
+              {/* `relative z-10`: põe o app ACIMA do <FundoDaPagina />, que é
+                * `fixed z-0`. Ver o comentário lá — sem isto, ou o fundo cobre a
+                * página, ou ele some atrás dela. */}
+              <div className="relative z-10">
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
@@ -168,6 +178,7 @@ const App = () => (
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </div>
               <CookieConsentBanner />
             </ColaboradorAuthProvider>
           </AuthProvider>

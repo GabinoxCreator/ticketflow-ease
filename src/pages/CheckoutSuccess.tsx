@@ -113,7 +113,7 @@ const CheckoutSuccess = () => {
 
   if (view === 'loading') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Verificando pagamento...</p>
@@ -171,7 +171,7 @@ const CheckoutSuccess = () => {
         <title>{TITLES[view]}</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}

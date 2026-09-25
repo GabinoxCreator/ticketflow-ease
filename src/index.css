@@ -14,45 +14,61 @@
 
 @layer base {
   :root {
-    --background: 220 15% 8%;
-    --foreground: 0 0% 98%;
+    /* ══════════════════════════════════════════════════════════════════
+       TEMA CLARO — virada de 24/09/2026, a pedido do Gabriel
+       ("quero trabalhar com um tema claro, tudo vai ser claro agora").
 
-    --card: 220 15% 12%;
-    --card-foreground: 0 0% 98%;
+       A paleta NÃO foi inventada: é a marca oficial v0.1, a mesma que já
+       estava aprovada e rodando no painel admin (.admin-theme, mais abaixo)
+       e na landing /lp. Índigo #5F6EF9 → magenta #F766C6.
 
-    --popover: 220 15% 12%;
-    --popover-foreground: 0 0% 98%;
+       ⚠️ Para quem mexer aqui depois: `--accent` continua sendo o MAGENTA da
+       marca, e não um cinza de destaque como no .admin-theme. É de propósito —
+       dezenas de componentes fazem `from-primary to-accent` esperando o
+       gradiente da marca; trocar o accent por um tom claro apagaria todos eles
+       de uma vez, sem erro nenhum aparecer no build.
+       ══════════════════════════════════════════════════════════════════ */
+    --background: 230 33% 97%;
+    --foreground: 252 35% 14%;
 
-    --primary: 250 85% 60%;
+    --card: 0 0% 100%;
+    --card-foreground: 252 35% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 252 35% 14%;
+
+    --primary: 233 93% 67%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 16%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 232 30% 96%;
+    --secondary-foreground: 252 35% 14%;
 
-    --muted: 220 10% 18%;
-    --muted-foreground: 220 10% 70%;
+    --muted: 232 30% 96%;
+    --muted-foreground: 230 9% 42%;
 
-    --accent: 330 85% 60%;
+    /* o magenta da marca — ver o aviso acima antes de trocar */
+    --accent: 322 88% 68%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 10% 18%;
-    --input: 220 10% 18%;
-    --ring: 250 85% 60%;
+    --border: 232 18% 90%;
+    --input: 232 18% 90%;
+    --ring: 233 93% 67%;
 
     --radius: 0.75rem;
 
     /* Brand colors */
-    --brand-indigo: 250 85% 60%;
-    --brand-magenta: 330 85% 60%;
+    --brand-indigo: 233 93% 67%;
+    --brand-magenta: 322 88% 68%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(250 85% 60%) 0%, hsl(330 85% 60%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(330 85% 60%) 0%, hsl(280 80% 55%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(220 15% 8%) 0%, hsl(220 15% 10%) 100%);
-    --glow-primary: 0 0 60px hsl(250 85% 60% / 0.15);
-    --glow-accent: 0 0 40px hsl(330 85% 60% / 0.2);
+    --gradient-primary: linear-gradient(135deg, hsl(233 93% 67%) 0%, hsl(322 88% 68%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(322 88% 68%) 0%, hsl(280 80% 65%) 100%);
+    /* Fundo da página: o gradiente suave que ele pediu, quase branco. */
+    --gradient-hero: linear-gradient(180deg, hsl(230 40% 98%) 0%, hsl(240 35% 96%) 100%);
+    --glow-primary: 0 0 60px hsl(233 93% 67% / 0.18);
+    --glow-accent: 0 0 40px hsl(322 88% 68% / 0.18);
 
     /* Category colors */
     --category-festa: 250 85% 60%;
@@ -70,14 +86,14 @@
     --font-display: 'Sora', sans-serif;
     --font-body: 'Inter', sans-serif;
 
-    --sidebar-background: 220 15% 10%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 250 85% 60%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 252 35% 14%;
+    --sidebar-primary: 233 93% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 10% 18%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 220 10% 18%;
-    --sidebar-ring: 250 85% 60%;
+    --sidebar-accent: 232 92% 96%;
+    --sidebar-accent-foreground: 233 93% 67%;
+    --sidebar-border: 232 18% 90%;
+    --sidebar-ring: 233 93% 67%;
   }
 }
 
@@ -91,8 +107,22 @@
   }
 
   body {
-    @apply bg-background text-foreground font-body antialiased;
+    @apply text-foreground font-body antialiased;
+    /* ⚠️ O body NÃO pinta fundo. Quem pinta é o <FundoDaPagina />, que é um
+       elemento `fixed` em camada NEGATIVA (-z-10).
+       A cor do body é opaca e é desenhada NA FRENTE de qualquer coisa em
+       camada negativa — com `bg-background` aqui, o fundo inteiro ficava
+       escondido atrás dele e a página lia como branco liso. Foi o que
+       aconteceu em 24/09 e custou três tentativas até achar.
+       A cor de segurança (caso o componente não monte) está no `html`. */
   }
+
+  /* ⚠️ NEM o html NEM o body pintam fundo. Quem pinta é o <FundoDaPagina />.
+     Fundo de html/body é desenhado NA FRENTE de qualquer elemento em camada
+     negativa — e o FundoDaPagina é `fixed -z-10`. Com cor aqui, ele fica
+     invisível e a página lê como branco liso. Diagnosticado no navegador em
+     24/09/2026, depois de três tentativas no escuro. A cor de segurança mora
+     no próprio componente (`bg-background` no div raiz dele). */
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
@@ -263,3 +293,32 @@
   background: var(--gradient-brand);
 }
 
+/* ============================================================
+   Fundo da página (src/components/FundoDaPagina.tsx)
+   Três manchas que respiram devagar. Lento de propósito: rápido
+   demais vira distração e briga com a arte dos banners.
+   ============================================================ */
+@keyframes fundo-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4vw, 3vh, 0) scale(1.12); }
+}
+@keyframes fundo-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.06); }
+  50%      { transform: translate3d(-5vw, 4vh, 0) scale(1); }
+}
+@keyframes fundo-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(3vw, -4vh, 0) scale(1.1); }
+}
+
+.animate-fundo-a { animation: fundo-a 22s ease-in-out infinite; }
+.animate-fundo-b { animation: fundo-b 26s ease-in-out infinite; }
+.animate-fundo-c { animation: fundo-c 18s ease-in-out infinite; }
+
+/* Quem pediu menos movimento no sistema recebe o fundo parado — a cor
+   continua lá, só não anda. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fundo-a,
+  .animate-fundo-b,
+  .animate-fundo-c { animation: none; }
+}

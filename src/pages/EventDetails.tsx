@@ -254,7 +254,7 @@ const EventDetails = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -262,7 +262,7 @@ const EventDetails = () => {
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="font-display font-bold text-2xl mb-4">Evento não encontrado</h1>
           <Link to="/" className="text-primary hover:underline">
@@ -522,7 +522,7 @@ const EventDetails = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
 
         <main className={cn('pt-20 w-full pb-28 lg:pb-28')}>

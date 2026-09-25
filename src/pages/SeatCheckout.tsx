@@ -444,7 +444,7 @@ export default function SeatCheckout() {
   // ----- Render -----
   if (!eventId || loadingEvent) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="pt-32 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></main>
       </div>
@@ -455,7 +455,7 @@ export default function SeatCheckout() {
   const isTerminalStep = step === 'success' || step === 'verifying';
   if (!event || !customer || step === null || (!isTerminalStep && !hold)) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="pt-32 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></main>
       </div>
@@ -466,7 +466,7 @@ export default function SeatCheckout() {
   return (
     <>
       <Helmet><title>Checkout — {event.title}</title></Helmet>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="pt-24 pb-16 max-w-2xl mx-auto px-4">
           <div className="flex items-center justify-between mb-4 gap-3">

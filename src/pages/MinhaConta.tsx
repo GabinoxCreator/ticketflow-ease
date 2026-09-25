@@ -144,7 +144,7 @@ const MinhaConta = () => {
 
       <Header />
 
-      <main className="min-h-screen bg-background pt-24 pb-16 relative overflow-hidden">
+      <main className="min-h-screen pt-24 pb-16 relative overflow-hidden">
         {/* Background glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute top-40 right-0 w-[400px] h-[400px] bg-accent/10 rounded-full blur-[120px] pointer-events-none" />

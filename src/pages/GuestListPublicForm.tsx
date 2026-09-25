@@ -166,7 +166,7 @@ export default function GuestListPublicForm() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <Skeleton className="h-48 w-full rounded-t-lg" />
           <CardContent className="p-6 space-y-4">
@@ -182,7 +182,7 @@ export default function GuestListPublicForm() {
 
   if (error || !listData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8 text-center">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <h1 className="text-xl font-semibold mb-2">Lista não encontrada</h1>
@@ -196,7 +196,7 @@ export default function GuestListPublicForm() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <Helmet>
           <title>Inscrição Confirmada | {listData.event.title}</title>
         </Helmet>
@@ -229,7 +229,7 @@ export default function GuestListPublicForm() {
   const valid = isListValid();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Helmet>
         <title>{listData.name} | {listData.event.title}</title>
         <meta name="description" content={`Inscreva-se na lista ${listData.name} do evento ${listData.event.title}`} />

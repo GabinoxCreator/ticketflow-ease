@@ -6,9 +6,10 @@
  * `events.category` estava CRAVADO em 'Outros' no código do criar-evento, então
  * 26 dos 38 eventos nasceram sem categoria nenhuma.
  *
- * A vitrine mostra TODAS as categorias (decisão do Gabriel em 24/09/2026), com
- * a contagem de eventos em cada uma. Clicar numa categoria sem evento leva a uma
- * tela que diz que ainda não há nada ali — e não a um vazio sem explicação.
+ * A vitrine mostra TODAS as categorias numa linha única que arrasta para o lado
+ * (decisão do Gabriel em 24/09/2026), só com o ícone e o nome — sem contagem de
+ * eventos. Clicar numa categoria sem evento leva a uma tela que diz que ainda
+ * não há nada ali, e não a um vazio sem explicação.
  *
  * 'outros' existe mas nunca aparece: é onde caem os testes, as demonstrações e o
  * evento cujo produtor não escolheu nada.
@@ -25,6 +26,12 @@ export interface CategoriaDeEvento {
   naBarra: boolean;
   /** Nome do ícone do lucide-react, desenhado no card. */
   icone: IconeDeCategoria;
+  /**
+   * Rótulo curto SÓ para a vitrine da home, onde o card tem 116px e o nome
+   * completo quebraria em duas linhas apertadas. O nome inteiro continua valendo
+   * no seletor do produtor e na mensagem de "ainda não temos evento em...".
+   */
+  nomeCurto?: string;
 }
 
 /** Só os ícones usados aqui — a lista fechada evita importar a biblioteca inteira. */
@@ -34,17 +41,17 @@ export type IconeDeCategoria =
   | 'Baby' | 'Shapes';
 
 export const CATEGORIAS: CategoriaDeEvento[] = [
-  { slug: 'shows-e-musica', nome: 'Shows e Música', naBarra: true, icone: 'Music' },
+  { slug: 'shows-e-musica', nome: 'Shows e Música', nomeCurto: 'Shows', naBarra: true, icone: 'Music' },
   { slug: 'festas', nome: 'Festas', naBarra: true, icone: 'PartyPopper' },
-  { slug: 'festivais-e-rodeios', nome: 'Festivais e Rodeios', naBarra: true, icone: 'FerrisWheel' },
+  { slug: 'festivais-e-rodeios', nome: 'Festivais e Rodeios', nomeCurto: 'Festivais', naBarra: true, icone: 'FerrisWheel' },
   { slug: 'gastronomia', nome: 'Gastronomia', naBarra: true, icone: 'UtensilsCrossed' },
   { slug: 'esportes', nome: 'Esportes', naBarra: true, icone: 'Trophy' },
   { slug: 'beneficente', nome: 'Beneficente', naBarra: true, icone: 'HeartHandshake' },
-  { slug: 'espetaculos-e-teatro', nome: 'Espetáculos e Teatro', naBarra: true, icone: 'Drama' },
+  { slug: 'espetaculos-e-teatro', nome: 'Espetáculos e Teatro', nomeCurto: 'Teatro', naBarra: true, icone: 'Drama' },
   { slug: 'comedia', nome: 'Comédia', naBarra: true, icone: 'Laugh' },
-  { slug: 'palestras-e-congressos', nome: 'Palestras e Congressos', naBarra: true, icone: 'Presentation' },
-  { slug: 'cultura-e-lazer', nome: 'Cultura e Lazer', naBarra: true, icone: 'Palette' },
-  { slug: 'infantil', nome: 'Infantil e Família', naBarra: true, icone: 'Baby' },
+  { slug: 'palestras-e-congressos', nome: 'Palestras e Congressos', nomeCurto: 'Palestras', naBarra: true, icone: 'Presentation' },
+  { slug: 'cultura-e-lazer', nome: 'Cultura e Lazer', nomeCurto: 'Cultura', naBarra: true, icone: 'Palette' },
+  { slug: 'infantil', nome: 'Infantil e Família', nomeCurto: 'Infantil', naBarra: true, icone: 'Baby' },
   // Onde caem teste, demonstração e quem não escolheu. Nunca na vitrine.
   { slug: 'outros', nome: 'Outros', naBarra: false, icone: 'Shapes' },
 ];
@@ -73,12 +80,7 @@ export function categoriasDaVitrine(): CategoriaDeEvento[] {
   return CATEGORIAS.filter((c) => c.naBarra);
 }
 
-/** Quantos eventos por categoria — o card mostra e some com a dúvida. */
-export function contarPorCategoria(categoriasDosEventos: Array<string | null | undefined>): Map<string, number> {
-  const conta = new Map<string, number>();
-  for (const c of categoriasDosEventos) {
-    if (!c) continue;
-    conta.set(c, (conta.get(c) ?? 0) + 1);
-  }
-  return conta;
+/** O que a vitrine escreve embaixo do ícone. */
+export function rotuloCurto(c: CategoriaDeEvento): string {
+  return c.nomeCurto ?? c.nome;
 }

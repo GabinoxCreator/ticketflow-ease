@@ -12,7 +12,7 @@ export default function TermosDeUso() {
         <meta name="description" content="Termos de Uso da plataforma FestPag. Conheça as regras de uso, responsabilidades e direitos ao utilizar nossos serviços." />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen">
         <Header />
         <main className="pt-24 pb-16">
           <div className="container mx-auto px-4 max-w-3xl">
