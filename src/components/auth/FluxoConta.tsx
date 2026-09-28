@@ -50,6 +50,8 @@ import BarraDeEtapas from '@/components/auth/BarraDeEtapas';
 import FacialInviteModal from '@/components/auth/FacialInviteModal';
 import FacialCaptureFullscreen from '@/components/auth/FacialCaptureFullscreen';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
+import { marcarCadastroEmCurso, cadastroEmCurso, limparCadastroEmCurso } from '@/lib/cadastroEmCurso';
+import { registrarConviteFacial } from '@/lib/conviteFacialLog';
 import {
   identificar, pedirCodigoCadastro, provarCadastro, confirmarCadastro,
   pedirCodigoLogin, confirmarLogin, pedirCodigoReset, confirmarReset,
@@ -215,8 +217,16 @@ export function FluxoConta({
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
-  const [aba, setAba] = useState<AbaConta>(abaInicial);
-  const [etapa, setEtapa] = useState<Etapa>(abaInicial === 'cadastro' ? 'cpf' : 'entrar');
+  const [aba, setAba] = useState<AbaConta>(cadastroEmCurso() ? 'cadastro' : abaInicial);
+  /*
+   * Nascer já no convite quando o cadastro estava em curso: se este componente
+   * foi desmontado no meio (a página do evento piscava ao logar — ver
+   * `cadastroEmCurso`), ele volta de onde parou em vez de recomeçar do CPF e
+   * mandar a pessoa embora.
+   */
+  const [etapa, setEtapa] = useState<Etapa>(
+    cadastroEmCurso() ? 'facial' : abaInicial === 'cadastro' ? 'cpf' : 'entrar',
+  );
   const [ocupado, setOcupado] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -248,7 +258,7 @@ export function FluxoConta({
    * de ver o convite da facial. É `ref` de propósito: o efeito abaixo precisa
    * ler o valor JÁ atualizado, e `state` chegaria um render atrasado.
    */
-  const seguraSaida = useRef(false);
+  const seguraSaida = useRef(cadastroEmCurso());
 
   /*
    * ⚠️ 25/09/2026 — a facial parou de ser oferecida e este efeito era o culpado.
@@ -268,12 +278,36 @@ export function FluxoConta({
    * DO CADASTRO a saída é SEMPRE explícita (o `terminar()`, chamado pelo "Agora
    * não" ou pelo fim da captura). Só o caminho de LOGIN sai sozinho quando a
    * sessão aparece.
+   *
+   * ⚠️ 28/09/2026 — a correção acima estava CERTA e mesmo assim não bastou, e a
+   * medição explicou: o componente era desmontado no instante da sessão e
+   * montava de novo do zero, na etapa 'cpf' e com o ref em false. As duas travas
+   * existiam e morreram juntas, porque as duas moram na memória do componente.
+   * Por isso entrou a terceira, que vive FORA dele (`cadastroEmCurso`) — e é a
+   * única que sobrevive a um remount. Não tire nenhuma das três achando que a
+   * outra cobre: elas caem por motivos diferentes.
    */
   const etapaDeCadastroComSessao = etapa === 'cad-senha' || etapa === 'facial' || etapa === 'facial-camera';
 
   useEffect(() => {
-    if (user && ativo && !seguraSaida.current && !etapaDeCadastroComSessao) onAuthenticated();
+    if (user && ativo && !seguraSaida.current && !etapaDeCadastroComSessao && !cadastroEmCurso()) onAuthenticated();
   }, [user, ativo, onAuthenticated, etapaDeCadastroComSessao]);
+
+  /* Na página o fluxo está embutido num cartão; no modal, veio da compra. */
+  const origemDoConvite = embutido ? 'login' : 'compra';
+
+  /*
+   * O convite chegou a ser PINTADO. Sem esta linha não há como saber, do banco,
+   * se o defeito de 01–28/09 voltou — a recusa não grava nada e a ausência da
+   * tela também não gravava. Uma vez por cadastro.
+   */
+  const conviteJaRegistrado = useRef(false);
+  useEffect(() => {
+    if (etapa === 'facial' && user && !conviteJaRegistrado.current) {
+      conviteJaRegistrado.current = true;
+      registrarConviteFacial('mostrado', origemDoConvite);
+    }
+  }, [etapa, user, origemDoConvite]);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -284,6 +318,9 @@ export function FluxoConta({
 
   useEffect(() => {
     if (!ativo) {
+      /* Modal fechado de verdade = o cadastro acabou (ou foi abandonado). */
+      limparCadastroEmCurso();
+      conviteJaRegistrado.current = false;
       seguraSaida.current = false;
       setAba(abaInicial); setEtapa(abaInicial === 'cadastro' ? 'cpf' : 'entrar');
       setOcupado(false); setCooldown(0); setMostrarSenha(false);
@@ -488,13 +525,19 @@ export function FluxoConta({
     setOcupado(true);
     try {
       const r = await confirmarCadastro(dados(), canal, desafio.desafioId, senha);
-      // Antes de a sessão chegar: segura a saída, senão o convite da facial nem aparece.
+      /*
+       * Antes de a sessão chegar: segura a saída, senão o convite da facial nem
+       * aparece. São duas travas na memória do componente e uma fora dele — a de
+       * fora é a que continua de pé se o componente for desmontado no caminho.
+       */
+      marcarCadastroEmCurso();
       seguraSaida.current = true;
       setEtapa('facial');
       await entrarComSessao(r.sessao);
       toast.success('Conta criada! Falta só uma coisa, e é opcional.');
     } catch (e) {
       seguraSaida.current = false;
+      limparCadastroEmCurso();
       if (e instanceof ErroAuthV2 && ['expirado', 'queimado', 'nao_provado', 'nao_encontrado'].includes(e.erro)) {
         toast.error(mensagemDoErro(e));
         setCodigo(''); setDesafio(null); setCooldown(0); setEtapa('contato');
@@ -506,7 +549,16 @@ export function FluxoConta({
     }
   };
 
-  const terminar = () => { seguraSaida.current = false; onAuthenticated(); };
+  /*
+   * A saída do fim do cadastro é sempre explícita: "Agora não" ou fim da
+   * captura. É aqui que as três travas caem, juntas e de propósito.
+   */
+  const terminar = (motivo: 'recusado' | 'concluido') => {
+    registrarConviteFacial(motivo, origemDoConvite);
+    limparCadastroEmCurso();
+    seguraSaida.current = false;
+    onAuthenticated();
+  };
 
   // ── Código: reenvio e teclado ─────────────────────────────────────────────
   const reenviar = useCallback(async () => {
@@ -566,7 +618,7 @@ export function FluxoConta({
 
   // A facial em tela cheia sai do cartão — é a câmera ocupando o aparelho inteiro.
   if (etapa === 'facial-camera') {
-    return <FacialCaptureFullscreen onDone={terminar} onSkip={() => setEtapa('facial')} />;
+    return <FacialCaptureFullscreen onDone={() => terminar('concluido')} onSkip={() => setEtapa('facial')} />;
   }
 
   return (
@@ -865,7 +917,7 @@ export function FluxoConta({
             )}
 
             {etapa === 'facial' && (
-              <FacialInviteModal onActivate={() => setEtapa('facial-camera')} onSkip={terminar} />
+              <FacialInviteModal onActivate={() => setEtapa('facial-camera')} onSkip={() => terminar('recusado')} />
             )}
 
           </motion.div>

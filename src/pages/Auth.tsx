@@ -18,6 +18,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 import AuroraBackground from '@/components/auth/AuroraBackground';
 import { FluxoConta } from '@/components/auth/FluxoConta';
+import { cadastroEmCurso } from '@/lib/cadastroEmCurso';
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -25,8 +26,21 @@ const Auth: React.FC = () => {
   const { user, isLoading } = useAuth();
   const redirect = searchParams.get('redirect') || '/';
 
+  /*
+   * ⚠️ QUEM ACABOU DE CRIAR A CONTA AINDA NÃO TERMINOU. (28/09/2026)
+   *
+   * Esta página leva a pessoa embora assim que a sessão nasce. Só que a sessão
+   * nasce NO MEIO do cadastro — falta o convite da facial, que é a última
+   * etapa. O `FluxoConta` fora blindado por dentro em 25/09, mas quem expulsava
+   * era o pai: aqui. Por isso o convite não aparecia nem em quem entrava por
+   * `/login` (152 contas de 01 a 28/09, zero rostos).
+   *
+   * `cadastroEmCurso()` é o mesmo sinal que o fluxo usa, e vive fora do React —
+   * a saída volta a ser do fluxo, que chama `onAuthenticated` quando a pessoa
+   * responde ao convite (com rosto ou com "agora não").
+   */
   useEffect(() => {
-    if (user && !isLoading) navigate(redirect);
+    if (user && !isLoading && !cadastroEmCurso()) navigate(redirect);
   }, [user, isLoading, navigate, redirect]);
 
   if (isLoading) {
