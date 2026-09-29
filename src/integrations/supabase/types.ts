@@ -1089,6 +1089,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_hot: boolean | null
+          is_public: boolean
           map_snapshot: Json | null
           map_snapshot_at: string | null
           mesa_reserva_description: string | null
@@ -1125,6 +1126,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_hot?: boolean | null
+          is_public?: boolean
           map_snapshot?: Json | null
           map_snapshot_at?: string | null
           mesa_reserva_description?: string | null
@@ -1161,6 +1163,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_hot?: boolean | null
+          is_public?: boolean
           map_snapshot?: Json | null
           map_snapshot_at?: string | null
           mesa_reserva_description?: string | null
@@ -1210,6 +1213,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      facial_links: {
+        Row: {
+          canal: string
+          criado_em: string
+          expira_em: string
+          id: string
+          token_hash: string
+          usado_em: string | null
+          user_id: string
+        }
+        Insert: {
+          canal?: string
+          criado_em?: string
+          expira_em: string
+          id?: string
+          token_hash: string
+          usado_em?: string | null
+          user_id: string
+        }
+        Update: {
+          canal?: string
+          criado_em?: string
+          expira_em?: string
+          id?: string
+          token_hash?: string
+          usado_em?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       guest_list_entries: {
         Row: {
@@ -1747,6 +1780,50 @@ export type Database = {
           verified?: boolean
         }
         Relationships: []
+      }
+      payout_avisos: {
+        Row: {
+          canal: string
+          created_at: string
+          destino: string | null
+          enviado_em: string | null
+          id: string
+          payout_id: string
+          tentativas: number
+          ultimo_erro: string | null
+          updated_at: string
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          destino?: string | null
+          enviado_em?: string | null
+          id?: string
+          payout_id: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          destino?: string | null
+          enviado_em?: string | null
+          id?: string
+          payout_id?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_avisos_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payouts: {
         Row: {
@@ -2639,6 +2716,7 @@ export type Database = {
         Args: { _mp_payment_id: string; _order_id: string }
         Returns: Json
       }
+      base_de_repasse: { Args: { _event_id: string }; Returns: number }
       buscar_contas_por_identificador: {
         Args: { _tipo: string; _valor: string }
         Returns: {
@@ -3001,6 +3079,10 @@ export type Database = {
         }
         Returns: number
       }
+      registrar_convite_facial: {
+        Args: { p_evento: string; p_origem?: string }
+        Returns: undefined
+      }
       registrar_meu_aceite: {
         Args: { _contexto: string; _pedido_id?: string; _versoes: Json }
         Returns: number
@@ -3018,6 +3100,18 @@ export type Database = {
         Returns: Json
       }
       release_seats_for_order: { Args: { _order_id: string }; Returns: number }
+      repasses_esperando: {
+        Args: never
+        Returns: {
+          avisado_em: string
+          data_do_evento: string
+          evento: string
+          payout_id: string
+          pedido_em: string
+          produtor: string
+          valor: number
+        }[]
+      }
       request_payout: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: Json
@@ -3025,6 +3119,16 @@ export type Database = {
       reserve_lot_quantity: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
+      }
+      resumo_repasse_do_evento: {
+        Args: { _event_id: string }
+        Returns: {
+          base: number
+          disponivel: number
+          ja_pago: number
+          ja_pedido: number
+          pedidos_pagos: number
+        }[]
       }
       set_event_seat_terms: {
         Args: {
