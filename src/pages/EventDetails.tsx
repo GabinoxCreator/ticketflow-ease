@@ -29,6 +29,7 @@ import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
+import { useEventPixel } from '@/hooks/useEventPixel';
 import festpagLogo from '@/assets/logo-festpag.png';
 import { LotCard } from '@/components/event/LotCard';
 import {
@@ -202,21 +203,8 @@ const EventDetails = () => {
     prevTotalRef.current = totalForEffect;
   }, [totalForEffect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pixel ID vem de RPC pública dedicada (producer_profiles tem RLS fechada
-  // pra anônimos, então o embed retornava null no site público).
-  const [pixelId, setPixelId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!eventId) return;
-    let cancelled = false;
-    supabase
-      .rpc('get_event_tracking', { _event_id: eventId })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const row = Array.isArray(data) ? data[0] : null;
-        setPixelId(row?.meta_pixel_id ?? null);
-      });
-    return () => { cancelled = true; };
-  }, [eventId]);
+  // De qual pixel é esta página (ver src/hooks/useEventPixel.ts).
+  const pixelId = useEventPixel(eventId);
 
   useEffect(() => {
     if (!pixelId || !event) return;

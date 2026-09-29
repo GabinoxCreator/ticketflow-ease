@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Check, Loader2, Ticket, Home, AlertTriangle, Clock, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { useMetaPurchase } from '@/hooks/useMetaPurchase';
 
 type ViewState = 'loading' | 'paid' | 'pending' | 'in_process' | 'failed' | 'rejected' | 'expired';
 
@@ -13,6 +14,7 @@ interface OrderRow {
   total_amount: number;
   customer_email: string;
   status: string;
+  event_id: string | null;
 }
 
 const TITLES: Record<ViewState, string> = {
@@ -55,7 +57,7 @@ const CheckoutSuccess = () => {
       if (!orderId) return null;
       const { data } = await supabase
         .from('orders')
-        .select('id, total_amount, customer_email, status')
+        .select('id, total_amount, customer_email, status, event_id')
         .eq('id', orderId)
         .maybeSingle();
       return (data as OrderRow) ?? null;
@@ -107,6 +109,9 @@ const CheckoutSuccess = () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [orderId, paymentId]);
+
+  // Compra confirmada → conta para o pixel do produtor (uma vez por pedido).
+  useMetaPurchase(order);
 
   const formatPrice = (p: number) =>
     p.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

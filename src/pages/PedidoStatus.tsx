@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { supabase } from '@/integrations/supabase/client';
 import { readPendingCheckout, clearPendingCheckout } from '@/lib/pendingCheckout';
+import { useMetaPurchase } from '@/hooks/useMetaPurchase';
 
 /*
  * Acompanhamento do pedido — /pedido/:orderId
@@ -67,6 +68,9 @@ export default function PedidoStatus() {
   const isPaid = order?.status === 'paid';
   const isPending = order?.status === 'pending';
   const isDead = !!order && !isPaid && !isPending; // expired / failed / cancelled
+
+  // PIX confirmado → conta a compra para o pixel do produtor (uma vez por pedido).
+  useMetaPurchase(order);
 
   const fetchOrder = useCallback(async (): Promise<OrderRow | null> => {
     if (!orderId) return null;
