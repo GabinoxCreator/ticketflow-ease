@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -82,6 +82,26 @@ export function useEventLots(eventId: string | undefined) {
       return data as EventLot[];
     },
     enabled: !!eventId,
+    /*
+     * ⚠️ ENTRAR NA CONTA NÃO PODE PISCAR A PÁGINA. (28/09/2026)
+     *
+     * O usuário está na chave acima, e isso é certo — sem ele o rascunho do dono
+     * fica preso no cache. O efeito colateral é que, no segundo em que a sessão
+     * nasce, a chave muda: sem dado para a chave nova, a query volta a "primeira
+     * carga", `isLoading` fica true e a página do evento devolve o spinner no
+     * lugar da árvore INTEIRA — modal de conta junto.
+     *
+     * Foi isso que matou o convite da facial por 18 dias: quem acabava de criar
+     * a conta tinha o cadastro desmontado no meio, e o fluxo remontava zerado,
+     * pulando direto para o pagamento. Medido em 28/09 (desmonta em 4517ms,
+     * monta de novo em 4836ms, já sem o convite).
+     *
+     * `keepPreviousData` mantém a lista anterior na tela enquanto a nova chega:
+     * a leitura com sessão continua acontecendo, nada é perdido, e a página não
+     * desmonta ninguém. Se for tirar isto, prove antes o cadastro inteiro na
+     * tela — não basta o typecheck.
+     */
+    placeholderData: keepPreviousData,
   });
 
   const createLot = useMutation({
