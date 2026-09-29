@@ -29,6 +29,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { carregarConfigWhatsApp, enviarTextoWhatsApp, normalizarNumeroBr, mascararNumero } from '../_shared/whatsapp.ts';
 import { avisarGestao } from '../_shared/avisarGestao.ts';
 import { type Caso, PAINEL, dinheiro, quandoBR, montarTexto } from './texto.ts';
+import { decidirTentativa, JANELA_INSISTENCIA_H } from './insistencia.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,8 +42,6 @@ const json = (body: unknown, status = 200) =>
 const log = (passo: string, dados?: unknown) =>
   console.log(`[AVISO-REPASSE] ${passo}${dados ? ' ' + JSON.stringify(dados) : ''}`);
 
-/** Quantas vezes insistir antes de desistir de um canal. 10 min × 12 = 2 horas. */
-const MAX_TENTATIVAS = 12;
 /** Repesca não olha o arquivo inteiro: pedido de 3 meses atrás não é novidade. */
 const JANELA_REPESCA_DIAS = 60;
 
@@ -144,7 +143,7 @@ async function avisar(admin: any, payoutId: string): Promise<{ whatsapp: boolean
       for (const numero of numeros) {
         const r = await enviarTextoWhatsApp(numero, texto, { timeoutMs: 15_000 });
         if (r.ok) algumFoi = true;
-        else erros.push(`${mascararNumero(numero)}:${r.erro}`);
+        else erros.push(`${mascararNumero(numero)}:${r.erro}${'status' in r && r.status ? `/${r.status}` : ''}`);
       }
       await registrar(admin, payoutId, 'whatsapp', {
         destino: numeros.map(mascararNumero).join(', '),
@@ -194,25 +193,62 @@ async function repescar(admin: any) {
 
   const { data: avisos } = await admin
     .from('payout_avisos')
-    .select('payout_id, canal, enviado_em, tentativas')
+    .select('payout_id, canal, enviado_em, tentativas, ultimo_erro, created_at, updated_at')
     .in('payout_id', abertos.map((p: any) => p.id));
 
-  let reenviados = 0;
+  const agora = new Date();
+  let reenviados = 0, desistidos = 0;
+
   for (const p of abertos) {
     const meus = (avisos ?? []).filter((a: any) => a.payout_id === p.id);
     const entregues = meus.filter((a: any) => a.enviado_em).length;
     if (entregues >= 2) continue; // os dois canais já saíram
 
-    // Desistir depois de 12 tentativas é de propósito: o que falha há duas
-    // horas não se resolve na 13ª chamada, e insistir para sempre esconde o
-    // problema atrás de log repetido. A conferência do "oi" pega o resto.
-    const jaTentou = Math.max(0, ...meus.map((a: any) => Number(a.tentativas ?? 0)));
-    if (jaTentou >= MAX_TENTATIVAS) continue;
+    // Nunca houve linha nenhuma: é aviso que o gatilho não conseguiu criar.
+    const pendentes = meus.filter((a: any) => !a.enviado_em);
+    if (pendentes.length === 0) {
+      await avisar(admin, p.id);
+      reenviados++;
+      continue;
+    }
 
-    await avisar(admin, p.id);
-    reenviados++;
+    const decisoes = pendentes.map((a: any) => decidirTentativa({
+      tentativas: Number(a.tentativas ?? 0),
+      criadoEm: a.created_at,
+      ultimaEm: a.updated_at ?? null,
+    }, agora));
+
+    if (decisoes.includes('tentar')) {
+      await avisar(admin, p.id);
+      reenviados++;
+      continue;
+    }
+
+    // Passou das 48 horas e nunca saiu. Desistir em silêncio seria repetir o
+    // buraco de origem, então o que resta é contar que NÃO conseguimos avisar.
+    const paraDesistir = pendentes.filter((a: any, i: number) =>
+      decisoes[i] === 'desistir' && !String(a.ultimo_erro ?? '').startsWith('desistiu'));
+    if (paraDesistir.length > 0) {
+      for (const a of paraDesistir) {
+        await admin.from('payout_avisos')
+          .update({ ultimo_erro: `desistiu após ${JANELA_INSISTENCIA_H}h — ${a.ultimo_erro ?? 'sem resposta'}`.slice(0, 500) })
+          .eq('id', a.id);
+      }
+      const canais = paraDesistir.map((a: any) => a.canal).join(' e ');
+      log('DESISTIU de avisar', { payoutId: p.id, canais });
+      // Só vale avisar a gestão se o canal DELA estiver de pé.
+      if (!paraDesistir.some((a: any) => a.canal === 'gestao')) {
+        await avisarGestao({
+          tipo: 'repasse',
+          titulo: `Não consegui avisar por ${canais} sobre um pedido de repasse`,
+          mensagem: `O pedido continua aberto e esperando. O canal ${canais} falhou por ${JANELA_INSISTENCIA_H}h seguidas — conferir se o WhatsApp da empresa está conectado. ${PAINEL}`,
+          referencia: p.id,
+        });
+      }
+      desistidos++;
+    }
   }
-  return { olhados: abertos.length, reenviados };
+  return { olhados: abertos.length, reenviados, desistidos };
 }
 
 serve(async (req) => {
