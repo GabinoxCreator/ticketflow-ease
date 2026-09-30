@@ -281,3 +281,8 @@ verify_jwt = true
 # ou por admin logado para reenviar um aviso na mão. Nunca pelo navegador do público.
 [functions.aviso-repasse]
 verify_jwt = false
+
+# Chamada pelo gatilho trg_orders_meta_capi (pedido virou pago). A porta é o
+# X-Cron-Secret do Vault, não o JWT — quem chama é o banco, não um usuário.
+[functions.meta-capi-purchase]
+verify_jwt = false

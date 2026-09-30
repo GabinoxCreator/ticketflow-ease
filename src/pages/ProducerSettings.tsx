@@ -53,6 +53,10 @@ export default function ProducerSettings() {
   // Tracking
   const [metaPixelId, setMetaPixelId] = useState('');
   const [trackingEnabled, setTrackingEnabled] = useState(false);
+  // Token da API de Conversões (o envio pelo servidor). O token NUNCA volta do
+  // banco para cá: o painel só consegue perguntar SE existe um guardado.
+  const [capiToken, setCapiToken] = useState('');
+  const [capiConfigurado, setCapiConfigurado] = useState(false);
 
   const [saving, setSaving] = useState(false);
 
@@ -112,6 +116,15 @@ export default function ProducerSettings() {
     }
   }, [producerProfile]);
 
+  useEffect(() => {
+    if (!effectiveProducerId) { setCapiConfigurado(false); return; }
+    let cancelado = false;
+    supabase
+      .rpc('has_meta_capi_token' as any, { _producer_profile_id: effectiveProducerId } as any)
+      .then(({ data }) => { if (!cancelado) setCapiConfigurado(data === true); });
+    return () => { cancelado = true; };
+  }, [effectiveProducerId]);
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -166,6 +179,18 @@ export default function ProducerSettings() {
       const results = await Promise.all(tasks);
       const firstError = results.find((r) => r.error)?.error;
       if (firstError) throw firstError;
+
+      // O token da API de Conversões não passa pelo UPDATE da tabela: vai por
+      // RPC, porque a tabela dele é fechada até para o próprio dono.
+      if (effectiveProducerId && capiToken.trim()) {
+        const { error: erroToken } = await supabase.rpc('set_meta_capi_token' as any, {
+          _producer_profile_id: effectiveProducerId,
+          _token: capiToken.trim(),
+        } as any);
+        if (erroToken) throw erroToken;
+        setCapiToken('');
+        setCapiConfigurado(true);
+      }
 
       toast.success('Configurações salvas!');
       queryClient.invalidateQueries({ queryKey: ['producer-profile'] });
@@ -437,6 +462,31 @@ export default function ProducerSettings() {
                       Encontre no Gerenciador de Eventos do Meta. Apenas números.
                     </p>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="capiToken">
+                      Token da API de Conversões{' '}
+                      <span className="font-normal text-muted-foreground">(opcional)</span>
+                    </Label>
+                    <Input
+                      id="capiToken"
+                      type="password"
+                      value={capiToken}
+                      onChange={(e) => setCapiToken(e.target.value)}
+                      placeholder={capiConfigurado ? 'Token guardado — cole um novo para substituir' : 'Cole aqui o token gerado no Gerenciador de Eventos'}
+                      autoComplete="off"
+                      disabled={!trackingEnabled}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {capiConfigurado
+                        ? '✅ Token guardado. Cada venda confirmada é enviada à Meta também pelo nosso servidor, o que não se perde com bloqueador de anúncio nem no iPhone.'
+                        : 'Com ele, cada venda confirmada é enviada à Meta também pelo nosso servidor — o navegador sozinho perde parte das compras (bloqueador de anúncio, iPhone, aba fechada depois do PIX). Por segurança o token nunca é mostrado de volta.'}
+                    </p>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground border-t border-primary/20 pt-4">
+                    Só medimos quem autoriza cookies de marketing no aviso do site — é o que a LGPD exige. Quem recusa não é enviado à Meta.
+                  </p>
                 </div>
               </section>
             )}

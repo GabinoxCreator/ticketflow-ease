@@ -5,6 +5,8 @@ import { useEvent } from '@/hooks/useEvents';
 import EventDetailsSeated from './EventDetailsSeated';
 import { Button } from '@/components/ui/button';
 import { formatEventDate } from '@/lib/eventTime';
+import { useEventPixel } from '@/hooks/useEventPixel';
+import { trackPageView, trackViewContent } from '@/lib/metaPixel';
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
@@ -29,6 +31,20 @@ const EventMapPage = () => {
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
+
+  // O mapa é uma tela de evento como outra qualquer — antes ela não contava
+  // nada para a Meta, e quem chegava por anúncio direto no mapa sumia.
+  const pixelId = useEventPixel(event?.id);
+  useEffect(() => {
+    if (!pixelId || !event) return;
+    trackPageView(pixelId);
+    trackViewContent(pixelId, {
+      content_ids: [event.id],
+      content_name: event.title,
+      content_type: 'product',
+      currency: 'BRL',
+    });
+  }, [pixelId, event?.id]);
 
   const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {
