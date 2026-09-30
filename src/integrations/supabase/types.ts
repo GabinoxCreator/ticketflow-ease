@@ -1445,6 +1445,41 @@ export type Database = {
           },
         ]
       }
+      meta_capi_envios: {
+        Row: {
+          enviado_em: string
+          motivo: string | null
+          order_id: string
+          pixel_id: string | null
+          resposta: Json | null
+          sucesso: boolean
+        }
+        Insert: {
+          enviado_em?: string
+          motivo?: string | null
+          order_id: string
+          pixel_id?: string | null
+          resposta?: Json | null
+          sucesso: boolean
+        }
+        Update: {
+          enviado_em?: string
+          motivo?: string | null
+          order_id?: string
+          pixel_id?: string | null
+          resposta?: Json | null
+          sucesso?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_capi_envios_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mp_webhook_events: {
         Row: {
           id: string
@@ -2164,6 +2199,35 @@ export type Database = {
         }
         Relationships: []
       }
+      producer_tracking_secrets: {
+        Row: {
+          meta_capi_token: string | null
+          producer_profile_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          meta_capi_token?: string | null
+          producer_profile_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          meta_capi_token?: string | null
+          producer_profile_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_tracking_secrets_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: true
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2175,7 +2239,12 @@ export type Database = {
           facial_consent_at: string | null
           facial_photo_path: string | null
           facial_synced_at: string | null
+          fbc: string | null
+          fbp: string | null
           id: string
+          marketing_consent: boolean | null
+          marketing_consent_at: string | null
+          marketing_consent_version: string | null
           nome_completo: string
           whatsapp: string
           whatsapp_confirmado_em: string | null
@@ -2190,7 +2259,12 @@ export type Database = {
           facial_consent_at?: string | null
           facial_photo_path?: string | null
           facial_synced_at?: string | null
+          fbc?: string | null
+          fbp?: string | null
           id: string
+          marketing_consent?: boolean | null
+          marketing_consent_at?: string | null
+          marketing_consent_version?: string | null
           nome_completo: string
           whatsapp: string
           whatsapp_confirmado_em?: string | null
@@ -2205,7 +2279,12 @@ export type Database = {
           facial_consent_at?: string | null
           facial_photo_path?: string | null
           facial_synced_at?: string | null
+          fbc?: string | null
+          fbp?: string | null
           id?: string
+          marketing_consent?: boolean | null
+          marketing_consent_at?: string | null
+          marketing_consent_version?: string | null
           nome_completo?: string
           whatsapp?: string
           whatsapp_confirmado_em?: string | null
@@ -2942,6 +3021,10 @@ export type Database = {
         }[]
       }
       has_manage_team: { Args: { _user_id: string }; Returns: boolean }
+      has_meta_capi_token: {
+        Args: { _producer_profile_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3138,6 +3221,10 @@ export type Database = {
           _seat_id: string
         }
         Returns: Json
+      }
+      set_meta_capi_token: {
+        Args: { _producer_profile_id: string; _token: string }
+        Returns: undefined
       }
       slugify: { Args: { _input: string }; Returns: string }
       sweep_expired_event_seat_holds: { Args: never; Returns: number }
