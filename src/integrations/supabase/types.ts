@@ -2475,6 +2475,7 @@ export type Database = {
           id: string
           legal_name: string | null
           logo_url: string | null
+          loja_habilitada: boolean
           meta_pixel_id: string | null
           owner_user_id: string
           phone: string | null
@@ -2493,6 +2494,7 @@ export type Database = {
           id?: string
           legal_name?: string | null
           logo_url?: string | null
+          loja_habilitada?: boolean
           meta_pixel_id?: string | null
           owner_user_id: string
           phone?: string | null
@@ -2511,6 +2513,7 @@ export type Database = {
           id?: string
           legal_name?: string | null
           logo_url?: string | null
+          loja_habilitada?: boolean
           meta_pixel_id?: string | null
           owner_user_id?: string
           phone?: string | null
@@ -3495,6 +3498,7 @@ export type Database = {
       }
       ler_segredo: { Args: { _nome: string }; Returns: string }
       lgpd_retention_sweep: { Args: never; Returns: undefined }
+      loja_habilitada: { Args: never; Returns: boolean }
       lookup_customer_by_cpf: {
         Args: { _cpf: string; _event_id: string }
         Returns: {
