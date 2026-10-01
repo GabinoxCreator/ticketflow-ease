@@ -72,6 +72,8 @@ export function useVitrineDaLoja(eventId: string | undefined, ligada: boolean) {
           productIds.length
             ? lojaDbPublico.from('producer_products')
                 .select('id, kind, name, color, description, image_url').in('id', productIds)
+                // Desativado no catálogo sai de todos os eventos (o servidor também recusa).
+                .eq('is_active', true)
             : nada,
           productIds.length
             ? lojaDbPublico.from('producer_product_variants')

@@ -191,7 +191,7 @@ export async function resolverPreco(
     const productIds = Array.from(new Set(eps.map((e) => e.product_id)));
     if (productIds.length > 0) {
       const [{ data: c1, error: x2 }, { data: v1, error: x3 }, { data: s1, error: x4 }] = await Promise.all([
-        client.from('producer_products').select('id, name, color').in('id', productIds),
+        client.from('producer_products').select('id, name, color, is_active').in('id', productIds),
         client.from('producer_product_variants').select('id, product_id, label, is_active').in('product_id', productIds),
         client.from('event_product_stock').select('id, event_product_id, variant_id, is_active').in('event_product_id', epIds),
       ]);
@@ -210,7 +210,10 @@ export async function resolverPreco(
     if (!ep) throw new CarrinhoInvalido('Produto inválido');
     const prod = catalogo.find((c) => c.id === ep.product_id);
     const nome = [prod?.name, prod?.color].filter(Boolean).join(' ') || 'Produto';
-    if (ep.status !== 'active') throw new CarrinhoInvalido(`"${nome}" não está à venda`);
+    // Desativado no catálogo do produtor vale para todos os eventos de uma vez.
+    if (ep.status !== 'active' || prod?.is_active === false) {
+      throw new CarrinhoInvalido(`"${nome}" não está à venda`);
+    }
 
     const doProduto = estoques.filter((s) => s.event_product_id === ep.id && s.is_active);
     const porTamanho = doProduto.filter((s) => s.variant_id);

@@ -401,6 +401,7 @@ AS $function$
 DECLARE _ok int;
 BEGIN
   IF _qty <= 0 THEN RETURN false; END IF;
+  PERFORM set_config('loja.movimento_de_estoque', 'on', true);
   UPDATE public.event_product_stock
      SET reserved_quantity = reserved_quantity + _qty
    WHERE id = _stock_id
@@ -419,6 +420,7 @@ AS $function$
 DECLARE _ok int;
 BEGIN
   IF _qty <= 0 THEN RETURN false; END IF;
+  PERFORM set_config('loja.movimento_de_estoque', 'on', true);
   UPDATE public.event_product_stock
      SET reserved_quantity = GREATEST(reserved_quantity - _qty, 0)
    WHERE id = _stock_id;
@@ -435,6 +437,7 @@ AS $function$
 DECLARE _ok int;
 BEGIN
   IF _qty <= 0 THEN RETURN false; END IF;
+  PERFORM set_config('loja.movimento_de_estoque', 'on', true);
   UPDATE public.event_product_stock
      SET sold_quantity    = sold_quantity + _qty,
          reserved_quantity = GREATEST(reserved_quantity - _qty, 0)
@@ -624,6 +627,160 @@ CREATE POLICY product_claims_producer_select ON public.product_claims
     EXISTS (SELECT 1 FROM public.events e WHERE e.id = product_claims.event_id AND e.producer_id = auth.uid())
   );
 
+-- Admin da plataforma enxerga e conserta tudo (suporte). Catálogo e ativação
+-- já têm a deles acima; faltavam estoque, combos, itens e comprovantes.
+DROP POLICY IF EXISTS event_product_stock_admin_all ON public.event_product_stock;
+CREATE POLICY event_product_stock_admin_all ON public.event_product_stock
+  FOR ALL USING (has_role(auth.uid(), 'admin'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+DROP POLICY IF EXISTS producer_product_variants_admin_all ON public.producer_product_variants;
+CREATE POLICY producer_product_variants_admin_all ON public.producer_product_variants
+  FOR ALL USING (has_role(auth.uid(), 'admin'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+DROP POLICY IF EXISTS event_bundles_admin_all ON public.event_bundles;
+CREATE POLICY event_bundles_admin_all ON public.event_bundles
+  FOR ALL USING (has_role(auth.uid(), 'admin'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+DROP POLICY IF EXISTS event_bundle_items_admin_all ON public.event_bundle_items;
+CREATE POLICY event_bundle_items_admin_all ON public.event_bundle_items
+  FOR ALL USING (has_role(auth.uid(), 'admin'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
+DROP POLICY IF EXISTS order_product_items_admin_select ON public.order_product_items;
+CREATE POLICY order_product_items_admin_select ON public.order_product_items
+  FOR SELECT USING (has_role(auth.uid(), 'admin'::app_role));
+DROP POLICY IF EXISTS product_claims_admin_select ON public.product_claims;
+CREATE POLICY product_claims_admin_select ON public.product_claims
+  FOR SELECT USING (has_role(auth.uid(), 'admin'::app_role));
+
+-- ----------------------------------------------------------------------------
+-- 7b. QUEM MEXE NOS CONTADORES DE ESTOQUE
+-- ----------------------------------------------------------------------------
+-- O produtor é dono da linha de estoque (define a quantidade total, liga e
+-- desliga tamanho), e a policy dele é FOR ALL. Mas `sold_quantity` e
+-- `reserved_quantity` são CONTABILIDADE: quem os move é a venda, nunca a tela.
+-- Sem esta guarda, uma chamada direta à API zeraria "vendidos" e o sistema
+-- venderia de novo o que já foi vendido.
+--
+-- Como a guarda sabe quem é quem: as funções de venda desta migration ligam
+-- uma marca que vale só dentro da transação delas. Sem a marca, quem chega pela
+-- API como usuário (logado ou anônimo) tem os dois contadores preservados.
+
+CREATE OR REPLACE FUNCTION public.event_product_stock_guardar_contadores()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  _em_venda boolean := COALESCE(current_setting('loja.movimento_de_estoque', true), '') = 'on';
+  _pela_api boolean := COALESCE(auth.role(), '') IN ('authenticated', 'anon');
+BEGIN
+  IF _em_venda OR NOT _pela_api THEN RETURN NEW; END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    NEW.sold_quantity := 0;
+    NEW.reserved_quantity := 0;
+  ELSE
+    NEW.sold_quantity := OLD.sold_quantity;
+    NEW.reserved_quantity := OLD.reserved_quantity;
+    -- Total abaixo do que já saiu deixaria a conta negativa.
+    IF NEW.total_quantity < OLD.sold_quantity + OLD.reserved_quantity THEN
+      RAISE EXCEPTION 'A quantidade não pode ser menor que o que já foi vendido ou reservado (%)',
+        OLD.sold_quantity + OLD.reserved_quantity USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END $function$;
+
+DROP TRIGGER IF EXISTS trg_event_product_stock_guardar ON public.event_product_stock;
+CREATE TRIGGER trg_event_product_stock_guardar
+  BEFORE INSERT OR UPDATE ON public.event_product_stock
+  FOR EACH ROW EXECUTE FUNCTION public.event_product_stock_guardar_contadores();
+
+REVOKE ALL ON FUNCTION public.event_product_stock_guardar_contadores() FROM PUBLIC, anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 7c. A TRAVA DE ATIVAÇÃO DO COMBO
+-- ----------------------------------------------------------------------------
+-- A tela mostra a conta e segura o botão; aqui a mesma regra vale no servidor,
+-- para o combo quebrado não existir nem por chamada direta.
+--   1. tem pelo menos um item;
+--   2. a soma das fatias é igual ao preço (senão alguém paga ou recebe a
+--      diferença sem saber; a venda também recusa, mas só na hora de cobrar);
+--   3. todo produto do combo está à venda neste evento;
+--   4. todo ingresso do combo tem de estar À VENDA SOZINHO. É isso que mantém o
+--      combo opcional: quem quer só o convite compra só o convite, pelo preço
+--      do lote. Condicionar o ingresso à compra de outro produto é a infração
+--      do art. 39, I do CDC ("venda casada"); combo de lote que não se vende
+--      avulso seria exatamente isso.
+--      ⚠️ A regra NÃO é "o evento precisa ter mais de um lote": a Porcada tem um
+--      lote só (Convite Solidário, R$ 90), ele é vendido avulso, e o combo
+--      "convite + camiseta" é legítimo. O que não pode é o lote estar fechado.
+
+CREATE OR REPLACE FUNCTION public.event_bundles_validar_ativacao()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  _itens int;
+  _soma numeric;
+  _produtos_fora int;
+  _lotes_fechados int;
+BEGIN
+  IF TG_OP = 'INSERT' AND NEW.status = 'active' THEN
+    RAISE EXCEPTION 'Combo nasce como rascunho: monte os itens antes de ativar'
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND NEW.status = 'active' AND OLD.status IS DISTINCT FROM 'active' THEN
+    SELECT count(*), COALESCE(sum(unit_face_share * quantity), 0)
+      INTO _itens, _soma
+      FROM public.event_bundle_items WHERE bundle_id = NEW.id;
+
+    IF _itens = 0 THEN
+      RAISE EXCEPTION 'Combo sem itens não pode ser ativado' USING ERRCODE = 'check_violation';
+    END IF;
+    IF abs(_soma - NEW.price) > 0.005 THEN
+      RAISE EXCEPTION 'A soma das partes (%) é diferente do preço do combo (%)', _soma, NEW.price
+        USING ERRCODE = 'check_violation';
+    END IF;
+
+    SELECT count(*) INTO _produtos_fora
+      FROM public.event_bundle_items i
+      JOIN public.event_products ep ON ep.id = i.event_product_id
+     WHERE i.bundle_id = NEW.id AND i.kind = 'product'
+       AND (ep.status <> 'active' OR ep.event_id <> NEW.event_id);
+    IF _produtos_fora > 0 THEN
+      RAISE EXCEPTION 'Há produto no combo que não está à venda neste evento'
+        USING ERRCODE = 'check_violation';
+    END IF;
+
+    SELECT count(*) INTO _lotes_fechados
+      FROM public.event_bundle_items i
+      JOIN public.event_lots l ON l.id = i.lot_id
+     WHERE i.bundle_id = NEW.id AND i.kind = 'lot'
+       AND (l.event_id <> NEW.event_id
+            OR l.is_active = false
+            OR COALESCE(l.manually_sold_out, false) = true
+            OR (l.sold_quantity + l.reserved_quantity) >= l.total_quantity);
+    IF _lotes_fechados > 0 THEN
+      RAISE EXCEPTION 'Há ingresso no combo que não está à venda sozinho. O ingresso tem de continuar disponível avulso'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+
+  NEW.updated_at := now();
+  RETURN NEW;
+END $function$;
+
+DROP TRIGGER IF EXISTS trg_event_bundles_validar_ativacao ON public.event_bundles;
+CREATE TRIGGER trg_event_bundles_validar_ativacao
+  BEFORE INSERT OR UPDATE ON public.event_bundles
+  FOR EACH ROW EXECUTE FUNCTION public.event_bundles_validar_ativacao();
+
+REVOKE ALL ON FUNCTION public.event_bundles_validar_ativacao() FROM PUBLIC, anon, authenticated;
+
 -- ----------------------------------------------------------------------------
 -- 8. CÓDIGO DE RETIRADA
 -- ----------------------------------------------------------------------------
@@ -681,6 +838,7 @@ SET search_path TO 'public'
 AS $function$
 DECLARE _n int := 0;
 BEGIN
+  PERFORM set_config('loja.movimento_de_estoque', 'on', true);
   WITH movidos AS (
     UPDATE public.order_product_items
        SET stock_state = 'released'
@@ -707,6 +865,7 @@ SET search_path TO 'public'
 AS $function$
 DECLARE _n int := 0; _event_id uuid;
 BEGIN
+  PERFORM set_config('loja.movimento_de_estoque', 'on', true);
   WITH movidos AS (
     UPDATE public.order_product_items
        SET stock_state = 'sold'
@@ -751,6 +910,7 @@ BEGIN
     RETURN 0;
   END IF;
 
+  PERFORM set_config('loja.movimento_de_estoque', 'on', true);
   WITH movidos AS (
     UPDATE public.order_product_items
        SET stock_state = 'returned'
@@ -824,6 +984,7 @@ SET search_path TO 'public'
 AS $function$
 BEGIN
   IF OLD.stock_state = 'reserved' THEN
+    PERFORM set_config('loja.movimento_de_estoque', 'on', true);
     UPDATE public.event_product_stock
        SET reserved_quantity = GREATEST(0, reserved_quantity - OLD.quantity)
      WHERE id = OLD.stock_id;

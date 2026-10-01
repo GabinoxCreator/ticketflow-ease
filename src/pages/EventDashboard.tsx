@@ -14,10 +14,11 @@ import { useEvent } from '@/hooks/useEvents';
 import { EventCouponsTab } from '@/components/producer/tabs/EventCouponsTab';
 import { EventFinanceiroTab } from '@/components/producer/tabs/EventFinanceiroTab';
 import { EventTablesTab } from '@/components/producer/tabs/EventTablesTab';
+import { EventProductsTab } from '@/components/producer/tabs/EventProductsTab';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { useEventStats } from '@/hooks/useEventStats';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, Tag, Wallet, Armchair } from 'lucide-react';
+import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, Tag, Wallet, Armchair, ShoppingBag } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -80,6 +81,7 @@ export default function EventDashboard() {
     { value: 'data', label: 'Dados', icon: FileText },
     { value: 'lots', label: 'Ingressos', icon: Ticket },
     ...(showTables ? [{ value: 'tables', label: vocab.Plural, icon: Armchair }] : []),
+    { value: 'products', label: 'Produtos', icon: ShoppingBag },
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'financeiro', label: 'Financeiro', icon: Wallet },
@@ -146,6 +148,10 @@ export default function EventDashboard() {
             <EventTablesTab eventId={event.id} eventTitle={event.title} />
           </TabsContent>
         )}
+
+        <TabsContent value="products">
+          <EventProductsTab eventId={event.id} />
+        </TabsContent>
 
         <TabsContent value="orders">
           <EventOrdersTab eventId={event.id} event={event} />
