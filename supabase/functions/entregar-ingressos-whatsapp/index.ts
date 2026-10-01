@@ -23,6 +23,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { carregarConfigWhatsApp, enviarTextoWhatsApp, enviarImagemWhatsApp, mascararNumero } from '../_shared/whatsapp.ts';
+import { carregarProdutosDoPedido } from '../_shared/produtosDoPedido.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +72,11 @@ async function montarMensagens(admin: any, orderId: string) {
     admin.from('tickets').select('ticket_code, holder_name, lot_id').eq('order_id', orderId).order('created_at'),
   ]);
   const tickets = (ticketRows ?? []) as Array<{ ticket_code: string; holder_name: string | null; lot_id: string | null }>;
-  if (tickets.length === 0) throw new Error('pedido_sem_ingressos');
+  // Loja do evento: o pedido pode trazer produto junto do ingresso, ou só
+  // produto (camiseta para quem já tem o convite). Sem um nem outro, aí sim
+  // não há o que entregar.
+  const produtos = await carregarProdutosDoPedido(admin, orderId);
+  if (tickets.length === 0 && !produtos) throw new Error('pedido_sem_ingressos');
 
   const lotIds = [...new Set(tickets.map((t) => t.lot_id).filter(Boolean))] as string[];
   const lotNameById = new Map<string, string>();
@@ -93,11 +98,25 @@ async function montarMensagens(admin: any, orderId: string) {
     quando ? `📅 ${quando}` : '',
     local ? `📍 ${local}` : '',
     '',
-    n === 1
-      ? 'Seu ingresso vem logo abaixo, como imagem. Na entrada, é só mostrar o QR.'
-      : `Você tem ${n} ingressos. Cada um vem logo abaixo, como imagem. Na entrada, é só mostrar o QR.`,
+    n === 0
+      ? ''
+      : n === 1
+        ? 'Seu ingresso vem logo abaixo, como imagem. Na entrada, é só mostrar o QR.'
+        : `Você tem ${n} ingressos. Cada um vem logo abaixo, como imagem. Na entrada, é só mostrar o QR.`,
     '',
-    'Para ver seus ingressos a qualquer hora: https://festpag.digital/meus-ingressos',
+    ...(produtos
+      ? [
+          '🛍️ *Seus produtos*',
+          ...produtos.itens.map((i) => `• ${i.quantidade}x ${i.rotulo}`),
+          produtos.codigo ? `Código de retirada: *${produtos.codigo}*` : '',
+          ...produtos.comoRetirar,
+          'Para retirar, informe o código acima.',
+          '',
+        ]
+      : []),
+    n === 0
+      ? 'Para ver a sua compra a qualquer hora: https://festpag.digital/meus-ingressos'
+      : 'Para ver seus ingressos a qualquer hora: https://festpag.digital/meus-ingressos',
   ].filter((l) => l !== null).join('\n').replace(/\n{3,}/g, '\n\n');
 
   const imagens = tickets.map((t, i) => ({

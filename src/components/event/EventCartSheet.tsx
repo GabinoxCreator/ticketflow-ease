@@ -22,6 +22,8 @@ interface Props {
   isBeneficent?: boolean;
   /** Mostra a regra de 1 ingresso por noite (evento com noites cadastradas). */
   avisoUmPorNoite?: boolean;
+  /** Carrinho com produto ou combo: a contagem vira "itens". */
+  temLoja?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -39,6 +41,7 @@ export function EventCartSheet({
   avisoUmPorNoite = false,
   onRemove,
   isBeneficent,
+  temLoja,
 }: Props) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -47,7 +50,7 @@ export function EventCartSheet({
           <DrawerTitle>
             Sua seleção
             <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({totalCount} {isBeneficent ? 'convite' : 'ingresso'}{totalCount > 1 ? 's' : ''})
+              ({totalCount} {temLoja ? (totalCount > 1 ? 'itens' : 'item') : `${isBeneficent ? 'convite' : 'ingresso'}${totalCount > 1 ? 's' : ''}`})
             </span>
           </DrawerTitle>
         </DrawerHeader>

@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
 import { TransferirIngresso } from '@/components/tickets/TransferirIngresso';
+import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
 import { formatInSaoPaulo, formatEventDate } from '@/lib/eventTime';
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -759,6 +760,12 @@ const MeusIngressos = () => {
           </motion.div>
 
           {/* Tabs */}
+          {/* Loja do evento: comprovantes de retirada de produto. Fica fora das
+              abas porque existe pedido só de produto, sem ingresso nenhum. */}
+          <div className="mb-6">
+            <RetiradasDoComprador titulo="Produtos para retirar" />
+          </div>
+
           <Tabs defaultValue="upcoming" className="w-full">
             <TabsList className="w-full mb-6 bg-card/60 backdrop-blur-xl border border-border/50 p-1 h-auto">
               <TabsTrigger

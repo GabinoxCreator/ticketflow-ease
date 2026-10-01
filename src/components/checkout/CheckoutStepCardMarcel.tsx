@@ -9,12 +9,10 @@ import { CartaoMarcelForm, type CotacaoMarcel, type DadosDoCartao } from './Cart
  * edge que cobra.
  */
 
-interface CartItem {
-  lotId: string;
-  lotName: string;
-  quantity: number;
-  price: number;
-}
+import { corpoDoCarrinho, type ItemDoCarrinho } from '@/lib/loja/carrinho';
+
+// Ingresso, produto ou combo: ver src/lib/loja/carrinho.ts.
+type CartItem = ItemDoCarrinho;
 
 interface CheckoutStepCardMarcelProps {
   eventId: string;
@@ -46,13 +44,14 @@ export function CheckoutStepCardMarcel({
   onSuccess,
   onError,
 }: CheckoutStepCardMarcelProps) {
-  const carrinho = items.map(i => ({ lotId: i.lotId, quantity: i.quantity }));
+  // `items` (lotes) no formato de sempre; `products` e `bundles` só quando há loja.
+  const carrinho = corpoDoCarrinho(items);
 
   // Cotação: pede à edge os valores já precificados. O servidor é a fonte da
   // verdade; a tela nunca calcula preço.
   const cotar = async (): Promise<CotacaoMarcel | null> => {
     const { data, error } = await supabase.functions.invoke('marcel-process-card', {
-      body: { eventId, items: carrinho, couponId, quote: true },
+      body: { eventId, ...carrinho, couponId, quote: true },
     });
     if (error) throw error;
     return data as CotacaoMarcel;
@@ -62,7 +61,7 @@ export function CheckoutStepCardMarcel({
     const { data, error } = await supabase.functions.invoke('marcel-process-card', {
       body: {
         eventId,
-        items: carrinho,
+        ...carrinho,
         customerName,
         customerEmail,
         customerPhone,

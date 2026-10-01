@@ -13,6 +13,8 @@ import type { AppliedCoupon } from './CheckoutModal';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
+import { baseDoCupom } from '@/lib/loja/carrinho';
+
 interface CartItem {
   lotId: string;
   lotName: string;
@@ -97,10 +99,17 @@ export function CheckoutStepPayment({
         toast.error(data?.message || 'Cupom inválido');
         return;
       }
+      // O cupom é de ingresso: incide só sobre os ingressos comprados avulsos
+      // (mesma regra do servidor). Em carrinho só de ingresso, é o total.
+      const base = baseDoCupom(items);
+      if (base <= 0) {
+        toast.error('Este cupom vale para ingressos, e o seu carrinho só tem itens da loja.');
+        return;
+      }
       const discountAmount =
         data.discountType === 'percent'
-          ? (totalAmount * Number(data.discountValue)) / 100
-          : Math.min(Number(data.discountValue), totalAmount);
+          ? (base * Number(data.discountValue)) / 100
+          : Math.min(Number(data.discountValue), base);
       onApplyCoupon({
         couponId: data.couponId,
         code: data.code,
