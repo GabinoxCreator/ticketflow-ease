@@ -25,6 +25,12 @@ export const IDENTIDADE_FESTPAG = {
   email: "suporte@festpag.digital",
 } as const;
 
-/** "FESTPAG EVENTOS LTDA — CNPJ: 68.425.626/0001-83" */
+/*
+ * "FESTPAG EVENTOS LTDA, CNPJ: 68.425.626/0001-83"
+ *
+ * ⚠️ Sem travessão, e isso é regra do Gabriel (30/09/2026): travessão não entra
+ * em nada que saia com a marca FestPag. Aparece no rodapé dos Termos e da
+ * Política de Privacidade.
+ */
 export const razaoSocialComCnpj = () =>
-  `${IDENTIDADE_FESTPAG.razaoSocial} — CNPJ: ${IDENTIDADE_FESTPAG.cnpj}`;
+  `${IDENTIDADE_FESTPAG.razaoSocial}, CNPJ: ${IDENTIDADE_FESTPAG.cnpj}`;
