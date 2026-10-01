@@ -20,7 +20,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
-import { resolverPreco, produtorAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoCarrinho } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, carrinhoAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoPedido, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
@@ -64,6 +64,8 @@ serve(async (req) => {
   // Estoque já tirado da prateleira. Tem que voltar em TODA saída que não vira
   // venda — inclusive nas exceções lá do fim.
   let reservado: { lotId: string; quantity: number }[] = [];
+  // Reserva de produto que ainda não virou linha de pedido (loja do produtor).
+  let reservadoProd: { stockId: string; quantity: number }[] = [];
 
   try {
     const body = await req.json();
@@ -74,10 +76,13 @@ serve(async (req) => {
 
     if (!eventId) return json({ error: 'Evento obrigatório' }, 400);
 
-    const preco = await resolverPreco(admin, eventId, items, 'card', couponId);
-    const absorve = produtorAbsorve(preco.linhas);
+    const preco = await resolverPreco(admin, eventId, items, 'card', couponId,
+      { products: body.products, bundles: body.bundles });
+    // Em carrinho só de ingresso, as duas funções dão o mesmo que as antigas
+    // (`produtorAbsorve` e `parcelasSemJurosDoCarrinho`).
+    const absorve = carrinhoAbsorve(preco);
     const teto = tetoDeParcelas(preco.linhas, MAX_PARCELAS);
-    const semJuros = parcelasSemJurosDoCarrinho(preco.linhas);
+    const semJuros = parcelasSemJurosDoPedido(preco);
     const faceCents = Math.round(preco.subtotal * 100);
 
     /** Uma faixa da tabela versionada. `absorve` decide quem paga o custo. */
@@ -218,6 +223,7 @@ serve(async (req) => {
     // último ingresso — e é justamente com o lote acabando que mais gente
     // compra ao mesmo tempo.
     reservado = await reservarEstoque(admin, preco.linhas);
+    reservadoProd = await reservarProdutos(admin, preco.produtos);
 
     const { data: order, error: orderError } = await admin
       .from('orders')
@@ -241,6 +247,15 @@ serve(async (req) => {
     if (orderError || !order) throw new Error('Erro ao criar pedido');
     orderId = order.id;
 
+    // Linhas de produto. Gravou, a reserva passa a ser do pedido: dali em
+    // diante o banco devolve ou confirma o estoque conforme o pedido anda.
+    if (!(await gravarItensDeProduto(admin, order.id, preco.produtos))) {
+      await admin.from('orders').delete().eq('id', order.id);
+      orderId = null;
+      throw new Error('Erro ao reservar produtos');
+    }
+    reservadoProd = [];
+
     const ticketsToCreate = preco.linhas.flatMap((item) =>
       Array.from({ length: item.quantity }, () => ({
         event_id: eventId, order_id: order.id, lot_id: item.lotId,
@@ -248,9 +263,15 @@ serve(async (req) => {
         holder_phone: customerPhone || null, user_id: userId, status: 'pending',
       })),
     );
-    const { error: ticketsError } = await admin.from('tickets').insert(ticketsToCreate);
+    // Pedido só de produto não tem ingresso: nada a inserir.
+    const { error: ticketsError } = ticketsToCreate.length > 0
+      ? await admin.from('tickets').insert(ticketsToCreate)
+      : { error: null };
     if (ticketsError) {
+      // Apagar o pedido leva as linhas de produto junto, e a reserva delas
+      // volta pelo gatilho de exclusão.
       await admin.from('orders').delete().eq('id', order.id);
+      orderId = null;
       throw new Error('Erro ao reservar ingressos');
     }
     // A partir daqui o pedido existe e é dele o estoque: quem devolve, se a
@@ -363,11 +384,7 @@ serve(async (req) => {
     // pagou — erro que só apareceria no fechamento, com a venda feita.
     const clientePagouOJuro = semJuros > 0 && n > semJuros;
     await captureSaleTerms(admin, order.id,
-      preco.linhas.map((i) => ({
-        lotId: i.lotId, lotName: i.lotName, unitFace: i.price,
-        quantity: i.quantity,
-        modoTaxa: clientePagouOJuro ? 'cliente_paga' : i.modoTaxa,
-      })),
+      linhasDeFace(preco, (i) => (clientePagouOJuro ? 'cliente_paga' : i.modoTaxa)),
       { installments: n, brandRaw: bandeira, provider: 'marcel', method: 'card',
         parcelasSemJuros: semJuros });
 
@@ -401,6 +418,7 @@ serve(async (req) => {
     // `reservado` já foi zerado nas saídas que trataram a devolução, então não
     // há risco de devolver duas vezes e inflar o estoque.
     await devolverEstoque(admin, reservado);
+    await devolverProdutos(admin, reservadoProd);
 
     if (e instanceof CarrinhoInvalido) return json({ error: e.message }, e.status);
     if (e instanceof MarcelIndisponivel) {

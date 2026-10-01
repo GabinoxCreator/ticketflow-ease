@@ -18,7 +18,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
-import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace } from "../_shared/carrinhoMarcel.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 import { semEmailInterno } from '../_shared/emailInterno.ts';
@@ -50,6 +50,8 @@ serve(async (req) => {
 
   let orderId: string | null = null;
   let reservado: { lotId: string; quantity: number }[] = [];
+  // Reserva de produto que ainda não virou linha de pedido (loja do produtor).
+  let reservadoProd: { stockId: string; quantity: number }[] = [];
 
   try {
     const body = await req.json();
@@ -57,7 +59,12 @@ serve(async (req) => {
     // Quem só tem WhatsApp tem e-mail interno no Supabase: nunca gravar nem mandar ao gateway.
     const customerEmail = semEmailInterno(body.customerEmail);
 
-    if (!eventId || !Array.isArray(items) || items.length === 0) {
+    // Carrinho pode ser só de produto (camiseta para quem já tem o convite):
+    // vale ter lote, produto ou combo. Vazio de tudo é que não vale.
+    const temAlgo = (Array.isArray(items) && items.length > 0)
+      || (Array.isArray(body.products) && body.products.length > 0)
+      || (Array.isArray(body.bundles) && body.bundles.length > 0);
+    if (!eventId || !temAlgo) {
       return json({ error: 'Dados incompletos' }, 400);
     }
 
@@ -92,7 +99,8 @@ serve(async (req) => {
     // PREÇO VEM DO BANCO, pela mesma função que o cartão usa. Manter a conta
     // duplicada aqui foi o que deixou esta edge sem tratar cupom na 1ª versão:
     // o cliente via o desconto na tela e era cobrado o valor cheio.
-    const preco = await resolverPreco(admin, eventId, items, 'pix', body.couponId);
+    const preco = await resolverPreco(admin, eventId, items, 'pix', body.couponId,
+      { products: body.products, bundles: body.bundles });
     const lineItems = preco.linhas;
 
     // Trava "1 ingresso por CPF" nos eventos que a exigem, ANTES de reservar.
@@ -131,6 +139,7 @@ serve(async (req) => {
     // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto dois compradores levam o mesmo
     // último ingresso — e é com o lote acabando que mais gente compra junto.
     reservado = await reservarEstoque(admin, lineItems);
+    reservadoProd = await reservarProdutos(admin, preco.produtos);
 
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60_000).toISOString();
 
@@ -160,6 +169,15 @@ serve(async (req) => {
     orderId = order.id;
     log('Pedido criado', { orderId });
 
+    // Linhas de produto. Gravou, a reserva passa a ser do pedido: dali em
+    // diante o banco devolve ou confirma o estoque conforme o pedido anda.
+    if (!(await gravarItensDeProduto(admin, order.id, preco.produtos))) {
+      await admin.from('orders').delete().eq('id', order.id);
+      orderId = null;
+      throw new Error('Erro ao reservar produtos');
+    }
+    reservadoProd = [];
+
     const ticketsToCreate = lineItems.flatMap((item) =>
       Array.from({ length: item.quantity }, () => ({
         event_id: eventId, order_id: order.id, lot_id: item.lotId,
@@ -167,23 +185,26 @@ serve(async (req) => {
         holder_phone: customerPhone || null, user_id: userId, status: 'pending',
       })),
     );
-    const { error: ticketsError } = await admin.from('tickets').insert(ticketsToCreate);
+    // Pedido só de produto não tem ingresso: nada a inserir.
+    const { error: ticketsError } = ticketsToCreate.length > 0
+      ? await admin.from('tickets').insert(ticketsToCreate)
+      : { error: null };
     if (ticketsError) {
       log('Falha ao criar tickets', { ticketsError });
+      // Apagar o pedido leva as linhas de produto junto, e a reserva delas
+      // volta pelo gatilho de exclusão.
       await admin.from('orders').delete().eq('id', order.id);
+      orderId = null;
       throw new Error('Erro ao reservar ingressos');
     }
 
     // O que o sistema jogava fora. PIX não tem parcela nem bandeira, mas grava
     // igual (installments=1): se só o cartão gravasse, a conferência de
     // completude acusaria buraco para sempre num evento onde PIX é maioria.
+    // Ingresso e produto na mesma tabela de face: é o que faz o produto entrar
+    // no repasse do produtor pela fórmula que já existe.
     await captureSaleTerms(admin, order.id,
-      lineItems.map((i) => ({
-        lotId: i.lotId, lotName: i.lotName, unitFace: i.price, quantity: i.quantity,
-        // O modo vem da própria linha resolvida — antes eu buscava numa lista de
-        // lotes que o refactor tirou daqui, e isso quebraria a função.
-        modoTaxa: i.modoTaxa,
-      })),
+      linhasDeFace(preco),
       { installments: 1, brandRaw: null, provider: 'marcel', method: 'pix' });
 
     // purchaseId = id do pedido. É por ele que o /reconcile acha a venda depois
@@ -251,6 +272,7 @@ serve(async (req) => {
     // Devolve o que ainda estiver reservado. Já foi zerado nas saídas tratadas,
     // então não há risco de devolver duas vezes e inflar o estoque.
     await devolverEstoque(admin, reservado);
+    await devolverProdutos(admin, reservadoProd);
 
     // Carrinho inválido (lote de outro evento, lote inativo, sem estoque) é erro
     // do pedido, não falha do sistema — devolve a mensagem que explica o motivo.
