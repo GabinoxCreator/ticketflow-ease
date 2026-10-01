@@ -17,6 +17,7 @@ import { EventTablesTab } from '@/components/producer/tabs/EventTablesTab';
 import { EventProductsTab } from '@/components/producer/tabs/EventProductsTab';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { useEventStats } from '@/hooks/useEventStats';
+import { useLojaHabilitada } from '@/hooks/useLojaHabilitada';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, Tag, Wallet, Armchair, ShoppingBag } from 'lucide-react';
 
@@ -26,6 +27,7 @@ export default function EventDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   
   const { data: event, isLoading: eventLoading, error } = useEvent(id);
+  const { lojaHabilitada } = useLojaHabilitada();
   const stats = useEventStats(id);
 
   if (eventLoading || stats.isLoading) {
@@ -63,6 +65,8 @@ export default function EventDashboard() {
   }
 
   const showTables = event.event_type === 'mesa' || event.event_type === 'hibrido';
+  // A loja está escondida por padrão (Gabriel, 01/10): só quem foi liberado vê.
+  const mostrarLoja = lojaHabilitada;
   // Como este produtor chama o produto do mapa. No rodeio é "camarote" — e a
   // aba precisa dizer isso, não "Mesas": é o primeiro lugar em que ele olha.
   const vocab = vocabularioAssento((event as any).seat_noun);
@@ -81,7 +85,7 @@ export default function EventDashboard() {
     { value: 'data', label: 'Dados', icon: FileText },
     { value: 'lots', label: 'Ingressos', icon: Ticket },
     ...(showTables ? [{ value: 'tables', label: vocab.Plural, icon: Armchair }] : []),
-    { value: 'products', label: 'Produtos', icon: ShoppingBag },
+    ...(mostrarLoja ? [{ value: 'products', label: 'Produtos', icon: ShoppingBag }] : []),
     { value: 'orders', label: 'Pedidos', icon: ClipboardList },
     { value: 'participants', label: 'Participantes', icon: Users },
     { value: 'financeiro', label: 'Financeiro', icon: Wallet },

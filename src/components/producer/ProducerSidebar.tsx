@@ -27,6 +27,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLojaHabilitada } from '@/hooks/useLojaHabilitada';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,7 @@ export function ProducerSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const { lojaHabilitada } = useLojaHabilitada();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
@@ -143,7 +145,13 @@ export function ProducerSidebar() {
               Gestão
             </SidebarGroupLabel>
           )}
-          <SidebarGroupContent>{renderMenuItems(managementItems)}</SidebarGroupContent>
+          {/* Produtos só aparece para quem tem a loja liberada (Gabriel, 01/10):
+              aba que ninguém sabe para que serve vira dúvida e suporte. */}
+          <SidebarGroupContent>
+            {renderMenuItems(
+              managementItems.filter((i) => i.url !== '/produtor/produtos' || lojaHabilitada),
+            )}
+          </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
