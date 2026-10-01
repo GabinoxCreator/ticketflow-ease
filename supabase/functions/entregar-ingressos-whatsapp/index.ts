@@ -86,7 +86,7 @@ async function montarMensagens(admin: any, orderId: string) {
   }
 
   const titulo = event?.title ?? 'seu evento';
-  const local = event?.venue ? `${event.venue}${event?.city ? ` — ${event.city}/${event.state ?? ''}` : ''}` : '';
+  const local = event?.venue ? `${event.venue}${event?.city ? `, ${event.city}/${event.state ?? ''}` : ''}` : '';
   const quando = dataPorExtenso(event?.date ?? null, event?.time ?? null);
   const nome = primeiroNome(order.customer_name);
   const n = tickets.length;
