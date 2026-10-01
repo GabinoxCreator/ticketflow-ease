@@ -610,6 +610,102 @@ export type Database = {
           },
         ]
       }
+      event_bundle_items: {
+        Row: {
+          bundle_id: string
+          event_product_id: string | null
+          id: string
+          kind: string
+          lot_id: string | null
+          quantity: number
+          unit_face_share: number
+        }
+        Insert: {
+          bundle_id: string
+          event_product_id?: string | null
+          id?: string
+          kind: string
+          lot_id?: string | null
+          quantity?: number
+          unit_face_share: number
+        }
+        Update: {
+          bundle_id?: string
+          event_product_id?: string | null
+          id?: string
+          kind?: string
+          lot_id?: string | null
+          quantity?: number
+          unit_face_share?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_bundle_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "event_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_bundle_items_event_product_id_fkey"
+            columns: ["event_product_id"]
+            isOneToOne: false
+            referencedRelation: "event_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_bundle_items_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_bundles: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          name: string
+          price: number
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          name: string
+          price: number
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          name?: string
+          price?: number
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_bundles_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_coupons: {
         Row: {
           code: string
@@ -877,6 +973,111 @@ export type Database = {
             columns: ["starts_after_lot_id"]
             isOneToOne: false
             referencedRelation: "event_lots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_product_stock: {
+        Row: {
+          created_at: string
+          event_product_id: string
+          id: string
+          is_active: boolean
+          reserved_quantity: number
+          sold_quantity: number
+          total_quantity: number
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_product_id: string
+          id?: string
+          is_active?: boolean
+          reserved_quantity?: number
+          sold_quantity?: number
+          total_quantity?: number
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_product_id?: string
+          id?: string
+          is_active?: boolean
+          reserved_quantity?: number
+          sold_quantity?: number
+          total_quantity?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_product_stock_event_product_id_fkey"
+            columns: ["event_product_id"]
+            isOneToOne: false
+            referencedRelation: "event_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_product_stock_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "producer_product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_products: {
+        Row: {
+          created_at: string
+          event_id: string
+          fulfillment: string | null
+          fulfillment_info: string | null
+          id: string
+          modo_taxa: string
+          price: number | null
+          product_id: string
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          fulfillment?: string | null
+          fulfillment_info?: string | null
+          id?: string
+          modo_taxa?: string
+          price?: number | null
+          product_id: string
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          fulfillment?: string | null
+          fulfillment_info?: string | null
+          id?: string
+          modo_taxa?: string
+          price?: number | null
+          product_id?: string
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_products_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "producer_products"
             referencedColumns: ["id"]
           },
         ]
@@ -1653,6 +1854,84 @@ export type Database = {
           },
         ]
       }
+      order_product_items: {
+        Row: {
+          bundle_id: string | null
+          created_at: string
+          event_product_id: string
+          id: string
+          label_snapshot: string | null
+          order_id: string
+          quantity: number
+          stock_id: string
+          stock_state: string
+          unit_face: number
+          variant_id: string | null
+        }
+        Insert: {
+          bundle_id?: string | null
+          created_at?: string
+          event_product_id: string
+          id?: string
+          label_snapshot?: string | null
+          order_id: string
+          quantity?: number
+          stock_id: string
+          stock_state?: string
+          unit_face: number
+          variant_id?: string | null
+        }
+        Update: {
+          bundle_id?: string | null
+          created_at?: string
+          event_product_id?: string
+          id?: string
+          label_snapshot?: string | null
+          order_id?: string
+          quantity?: number
+          stock_id?: string
+          stock_state?: string
+          unit_face?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_product_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "event_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_product_items_event_product_id_fkey"
+            columns: ["event_product_id"]
+            isOneToOne: false
+            referencedRelation: "event_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_product_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_product_items_stock_id_fkey"
+            columns: ["stock_id"]
+            isOneToOne: false
+            referencedRelation: "event_product_stock"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_product_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "producer_product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           collaborator_id: string | null
@@ -2109,6 +2388,83 @@ export type Database = {
           },
         ]
       }
+      producer_product_variants: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          product_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          product_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          product_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "producer_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_products: {
+        Row: {
+          base_price: number | null
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          kind: string
+          name: string
+          producer_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_price?: number | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          kind?: string
+          name: string
+          producer_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          kind?: string
+          name?: string
+          producer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       producer_profiles: {
         Row: {
           admin_status: string
@@ -2224,6 +2580,57 @@ export type Database = {
             columns: ["producer_profile_id"]
             isOneToOne: true
             referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_claims: {
+        Row: {
+          claim_code: string
+          created_at: string
+          event_id: string
+          id: string
+          order_id: string
+          picked_up_at: string | null
+          picked_up_by: string | null
+          picked_up_by_name: string | null
+          status: string
+        }
+        Insert: {
+          claim_code?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          order_id: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
+          picked_up_by_name?: string | null
+          status?: string
+        }
+        Update: {
+          claim_code?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          order_id?: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
+          picked_up_by_name?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_claims_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_claims_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -2855,6 +3262,10 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      confirm_product_sale: {
+        Args: { _qty: number; _stock_id: string }
+        Returns: boolean
+      }
       confirm_seats: {
         Args: { _event_id: string; _hold_token: string; _seat_ids: string[] }
         Returns: Json
@@ -2917,6 +3328,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      event_product_faltas: {
+        Args: {
+          _event_product_id: string
+          _fulfillment: string
+          _price: number
+          _product_id: string
+        }
+        Returns: string[]
+      }
+      event_product_pendencias: {
+        Args: { _event_product_id: string }
+        Returns: string[]
+      }
       expirar_transferencias_vencidas: {
         Args: { _ticket_id?: string }
         Returns: number
@@ -2930,6 +3354,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      gerar_codigo_retirada: { Args: never; Returns: string }
       get_camarote_wristbands: {
         Args: { _event_id: string }
         Returns: {
@@ -3119,6 +3544,9 @@ export type Database = {
         Args: { o: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: number
       }
+      order_products_confirmar: { Args: { _order_id: string }; Returns: number }
+      order_products_devolver: { Args: { _order_id: string }; Returns: number }
+      order_products_liberar: { Args: { _order_id: string }; Returns: number }
       prepare_event_seats: { Args: { _event_id: string }; Returns: Json }
       producer_order_values: {
         Args: { p_order_ids: string[] }
@@ -3174,6 +3602,10 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      release_product_quantity: {
+        Args: { _qty: number; _stock_id: string }
+        Returns: boolean
+      }
       release_seats: {
         Args: { _event_id: string; _hold_token: string }
         Returns: Json
@@ -3203,6 +3635,10 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      reserve_product_quantity: {
+        Args: { _qty: number; _stock_id: string }
+        Returns: boolean
+      }
       resumo_repasse_do_evento: {
         Args: { _event_id: string }
         Returns: {
@@ -3212,6 +3648,10 @@ export type Database = {
           ja_pedido: number
           pedidos_pagos: number
         }[]
+      }
+      retirar_produto: {
+        Args: { _claim_code: string; _event_id: string }
+        Returns: Json
       }
       set_event_seat_terms: {
         Args: {
