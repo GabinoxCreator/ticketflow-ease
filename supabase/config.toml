@@ -151,6 +151,12 @@ verify_jwt = false
 [functions.facial-enroll]
 verify_jwt = true
 
+# A ação `abrir` roda no celular ANTES de existir sessão (o link chega pelo
+# WhatsApp), então a porta é pública e a ação `enviar` valida o usuário na mão,
+# pelo header. Ver o cabeçalho da função.
+[functions.facial-link]
+verify_jwt = false
+
 # Check-in facial na portaria: quem chama é o servidor do Marcel, sem sessão
 # Supabase (verify_jwt=false — com true o gateway barraria antes do código). A
 # autenticação é por header x-api-key comparado ao secret MARCEL_CHECKIN_KEY —
