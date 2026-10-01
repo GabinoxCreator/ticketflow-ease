@@ -3,6 +3,7 @@
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { maskEmail } from "./pii.ts";
+import { carregarProdutosDoPedido, type ProdutosDoPedido } from "./produtosDoPedido.ts";
 
 // A coluna `source` no banco é texto livre (não há CHECK), então valor novo não
 // quebra o envio — mas o tipo aqui existe para o autor de uma rota nova saber
@@ -77,6 +78,30 @@ function buildTicketSection(args: { bannerUrl: string; cardsHtml: string }): str
       </div>`;
 }
 
+// Bloco da loja do evento: o que foi comprado, o código de retirada e onde
+// pegar. Vazio quando o pedido não tem produto.
+function buildProductSection(p: ProdutosDoPedido | null): string {
+  if (!p) return "";
+  const itens = p.itens
+    .map((i) => `<p style="margin:4px 0;color:#374151;font-size:14px;">${i.quantidade}x ${escapeHtml(i.rotulo)}</p>`)
+    .join("");
+  const codigo = p.codigo
+    ? `<p style="margin:14px 0 2px 0;font-size:12px;color:#6b7280;">Código de retirada</p>
+        <p style="margin:0 0 10px 0;font-size:26px;font-weight:bold;letter-spacing:3px;color:#1f2937;font-family:'Courier New',monospace;">${escapeHtml(p.codigo)}</p>`
+    : "";
+  const como = p.comoRetirar
+    .map((c) => `<p style="margin:4px 0;color:#4b5563;font-size:13px;">${escapeHtml(c)}</p>`)
+    .join("");
+  return `
+      <div style="border:1px solid #e5e7eb;border-radius:14px;padding:20px;margin:0 0 24px 0;text-align:center;background:#ffffff;">
+        <p style="margin:0 0 10px 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#7c3aed;font-weight:bold;">Seus produtos</p>
+        ${itens}
+        ${codigo}
+        ${como}
+        <p style="margin:8px 0 0 0;font-size:13px;color:#6b7280;">Para retirar, informe o código acima.</p>
+      </div>`;
+}
+
 function buildHtml(args: {
   customerName: string | null;
   customerEmail: string;
@@ -88,6 +113,8 @@ function buildHtml(args: {
   qty: number;
   total: number;
   ticketSectionHtml: string;
+  productSectionHtml: string;
+  productUnits: number;
 }): string {
   const linkedNote = args.hasUserId
     ? `Acesse seus ingressos a qualquer momento em <a href="https://festpag.digital/meus-ingressos" style="color:#7c3aed;">Meus Ingressos</a>.`
@@ -108,15 +135,19 @@ function buildHtml(args: {
       </table>
       <h2 style="color: #1f2937; font-size: 18px;">Olá, ${args.customerName || "tudo certo"}!</h2>
       <p style="color: #4b5563; font-size: 15px; line-height: 1.5;">
-        Recebemos seu pagamento e seus ingressos já estão garantidos.
+        ${args.qty > 0
+          ? "Recebemos seu pagamento e seus ingressos já estão garantidos."
+          : "Recebemos seu pagamento e a sua compra está garantida."}
       </p>
       ${args.ticketSectionHtml}
+      ${args.productSectionHtml}
       <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin:20px 0;">
         <p style="margin:0 0 6px 0;color:#374151;font-size:14px;"><strong>Resumo</strong></p>
         <p style="margin:4px 0;color:#4b5563;font-size:14px;">Evento: <strong>${args.eventTitle}</strong></p>
         ${args.eventDate ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Data: ${args.eventDate}${args.eventTime ? ` às ${args.eventTime}` : ""}</p>` : ""}
         ${args.eventVenue ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Local: ${args.eventVenue}</p>` : ""}
-        <p style="margin:4px 0;color:#4b5563;font-size:14px;">Ingressos: <strong>${args.qty}</strong></p>
+        ${args.qty > 0 ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Ingressos: <strong>${args.qty}</strong></p>` : ""}
+        ${args.productUnits > 0 ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Produtos: <strong>${args.productUnits}</strong></p>` : ""}
         <p style="margin:4px 0;color:#4b5563;font-size:14px;">Total pago: <strong>${formatBRL(args.total)}</strong></p>
         <p style="margin:4px 0;color:#10b981;font-size:14px;"><strong>Status: Pago</strong></p>
       </div>
@@ -327,6 +358,10 @@ export async function sendOrderConfirmationEmailSafe(
       });
     }
 
+    // Loja do evento. Nunca lança: sem produto (ou com erro) devolve null e o
+    // e-mail sai igual ao de sempre.
+    const produtos = await carregarProdutosDoPedido(supabase, orderId);
+
     const html = buildHtml({
       customerName: order.customer_name ?? null,
       customerEmail: order.customer_email,
@@ -338,6 +373,8 @@ export async function sendOrderConfirmationEmailSafe(
       qty,
       total: Number(order.total_amount ?? 0),
       ticketSectionHtml,
+      productSectionHtml: buildProductSection(produtos),
+      productUnits: produtos?.unidades ?? 0,
     });
 
     // === 5) SEND VIA RESEND ===

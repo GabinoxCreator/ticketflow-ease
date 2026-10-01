@@ -13,6 +13,7 @@ import ColaboradorVenderTab from '@/components/colaborador/ColaboradorVenderTab'
 import ColaboradorRelatoriosTab from '@/components/colaborador/ColaboradorRelatoriosTab';
 import ColaboradorAoVivoTab from '@/components/colaborador/ColaboradorAoVivoTab';
 import ColaboradorAbadaTab from '@/components/colaborador/ColaboradorAbadaTab';
+import ColaboradorRetiradaTab from '@/components/colaborador/ColaboradorRetiradaTab';
 import { formatEventDate } from '@/lib/eventTime';
 
 
@@ -24,6 +25,7 @@ export default function ColaboradorEvento() {
   const [stats, setStats] = useState({ checkins: 0, pending: 0, total: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [abadaEnabled, setAbadaEnabled] = useState(false);
+  const [temLoja, setTemLoja] = useState(false);
 
   const event = events.find(e => e.id === eventId);
 
@@ -38,6 +40,21 @@ export default function ColaboradorEvento() {
       .eq('id', eventId)
       .maybeSingle()
       .then(({ data }: any) => { if (active) setAbadaEnabled(!!data?.abada_enabled); });
+    return () => { active = false; };
+  }, [eventId]);
+
+  // A aba "Retirada" só aparece se o evento tem produto à venda na loja.
+  // Leitura pública; se falhar (ou a tabela ainda não existir), a aba some.
+  useEffect(() => {
+    if (!eventId) return;
+    let active = true;
+    (supabasePublic as any)
+      .from('event_products')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('status', 'active')
+      .limit(1)
+      .then(({ data, error }: any) => { if (active) setTemLoja(!error && (data?.length ?? 0) > 0); });
     return () => { active = false; };
   }, [eventId]);
 
@@ -223,6 +240,14 @@ export default function ColaboradorEvento() {
             onSessionExpired={handleSessionExpired}
           />
         )}
+        {activeTab === 'retirada' && temLoja && (
+          <ColaboradorRetiradaTab
+            eventId={eventId!}
+            collaboratorId={collaborator.id}
+            sessionToken={session.token}
+            onSessionExpired={handleSessionExpired}
+          />
+        )}
         {activeTab === 'relatorios' && (
           <ColaboradorRelatoriosTab
             eventId={eventId!}
@@ -233,7 +258,7 @@ export default function ColaboradorEvento() {
         )}
       </div>
 
-      <ColaboradorBottomNav activeTab={activeTab} onTabChange={setActiveTab} showAbada={abadaEnabled} />
+      <ColaboradorBottomNav activeTab={activeTab} onTabChange={setActiveTab} showAbada={abadaEnabled} showRetirada={temLoja} />
     </div>
   );
 }

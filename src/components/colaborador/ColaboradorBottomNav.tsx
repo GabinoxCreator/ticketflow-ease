@@ -1,20 +1,23 @@
-import { QrCode, List, ShoppingBag, BarChart3, Radio, Shirt } from 'lucide-react';
+import { QrCode, List, ShoppingBag, BarChart3, Radio, Shirt, Package } from 'lucide-react';
 
-export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios' | 'aovivo' | 'abada';
+export type ColaboradorTab = 'qr' | 'listas' | 'vender' | 'relatorios' | 'aovivo' | 'abada' | 'retirada';
 
 interface ColaboradorBottomNavProps {
   activeTab: ColaboradorTab;
   onTabChange: (tab: ColaboradorTab) => void;
   // Só aparece quando o evento tem abada_enabled = true.
   showAbada?: boolean;
+  // Só aparece quando o evento tem produto à venda na loja.
+  showRetirada?: boolean;
 }
 
-export default function ColaboradorBottomNav({ activeTab, onTabChange, showAbada }: ColaboradorBottomNavProps) {
+export default function ColaboradorBottomNav({ activeTab, onTabChange, showAbada, showRetirada }: ColaboradorBottomNavProps) {
   const tabs: Array<{ id: ColaboradorTab; label: string; Icon: typeof QrCode }> = [
     { id: 'qr', label: 'Check-in', Icon: QrCode },
     { id: 'listas', label: 'Listas', Icon: List },
     { id: 'vender', label: 'Vender', Icon: ShoppingBag },
     ...(showAbada ? [{ id: 'abada' as const, label: 'Camiseta', Icon: Shirt }] : []),
+    ...(showRetirada ? [{ id: 'retirada' as const, label: 'Retirada', Icon: Package }] : []),
     { id: 'aovivo', label: 'Ao Vivo', Icon: Radio },
     { id: 'relatorios', label: 'Relatórios', Icon: BarChart3 },
   ];

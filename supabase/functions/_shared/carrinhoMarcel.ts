@@ -26,10 +26,42 @@ export interface LinhaCarrinho {
   maxParcelas?: number | null;
   /** Quantas parcelas o produtor absorve. Acima disso o juro vai para o comprador. */
   parcelasSemJuros?: number | null;
+  /** Preenchido quando a linha veio de dentro de um combo. Aí `price` é a fatia
+   *  do combo que cabe ao ingresso (`unit_face_share`), não o preço do lote. */
+  bundleId?: string | null;
+}
+
+/** Uma linha de PRODUTO do carrinho (loja do produtor), já resolvida no banco. */
+export interface LinhaProduto {
+  eventProductId: string;
+  /** Linha de estoque de onde sai a unidade (por tamanho, ou a única do produto). */
+  stockId: string;
+  /** Tamanho escolhido. Nulo em produto sem grade (copo). */
+  variantId: string | null;
+  /** "Camiseta branca · G": é o que vai para o pedido, o repasse e a retirada. */
+  label: string;
+  quantity: number;
+  /** Face unitária: preço do produto no evento, ou a fatia dele no combo. */
+  price: number;
+  modoTaxa: string;
+  bundleId: string | null;
+}
+
+/** O que a tela manda além dos lotes. Só ids e quantidades: preço, nunca. */
+export interface ExtrasDoCarrinho {
+  products?: Array<{ eventProductId: string; variantId?: string | null; quantity: number }>;
+  bundles?: Array<{
+    bundleId: string;
+    quantity: number;
+    /** Tamanho escolhido para cada produto do combo: { eventProductId: variantId }. */
+    escolhas?: Record<string, string | null>;
+  }>;
 }
 
 export interface PrecoResolvido {
   linhas: LinhaCarrinho[];
+  /** Linhas de produto (avulso ou de dentro de combo). Vazio em compra só de ingresso. */
+  produtos: LinhaProduto[];
   /** Soma das faces. É o que o produtor recebe. */
   totalFace: number;
   /** Taxa administrativa da plataforma (a "conveniência"). */
@@ -74,63 +106,232 @@ async function taxaDoEvento(client: any, eventId: string, metodo: 'pix' | 'card'
 export async function resolverPreco(
   client: any,
   eventId: string,
-  items: Array<{ lotId: string; quantity: number }>,
+  items: Array<{ lotId: string; quantity: number }> | null | undefined,
   metodo: 'pix' | 'card',
   couponId?: string | null,
+  extras?: ExtrasDoCarrinho | null,
 ): Promise<PrecoResolvido> {
-  if (!Array.isArray(items) || items.length === 0) {
+  const itensLote = Array.isArray(items) ? items : [];
+  const pedidosProduto = Array.isArray(extras?.products) ? extras!.products! : [];
+  const pedidosCombo = Array.isArray(extras?.bundles) ? extras!.bundles! : [];
+
+  if (itensLote.length === 0 && pedidosProduto.length === 0 && pedidosCombo.length === 0) {
     throw new CarrinhoInvalido('Carrinho vazio');
   }
 
-  const lotIds = items.map((i) => i.lotId);
-  const { data: lots, error } = await client
-    .from('event_lots')
-    .select('id, name, price, is_active, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros')
-    .in('id', lotIds)
-    .eq('event_id', eventId);
-
-  if (error || !lots) throw new CarrinhoInvalido('Erro ao buscar lotes', 500);
-
-  const linhas: LinhaCarrinho[] = [];
-  let totalFace = 0;
-  // Base da taxa administrativa: SÓ as linhas de lote 'cliente_paga'. Lote
-  // 'absorve' sai da base — é assim que o promocional do rodeio chega redondo
-  // ao comprador, com a conveniência saindo do repasse do produtor.
-  let baseDaTaxa = 0;
-
-  for (const item of items) {
-    const lot = lots.find((l: any) => l.id === item.lotId);
-    if (!lot) throw new CarrinhoInvalido('Lote inválido');
-    if (!lot.is_active) throw new CarrinhoInvalido(`Lote "${lot.name}" não está à venda`);
-
-    // Quantidade inválida é RECUSADA, não "corrigida" para 1. Antes, pedir 0 ou
-    // −5 ingressos criava um pedido de 1 e cobrava por ele: o comprador pediria
-    // uma coisa e pagaria por outra. Requisição malformada tem que falhar alto.
-    const qty = Number(item.quantity);
+  // Quantidade inválida é RECUSADA, não "corrigida" para 1. Antes, pedir 0 ou
+  // −5 ingressos criava um pedido de 1 e cobrava por ele: o comprador pediria
+  // uma coisa e pagaria por outra. Requisição malformada tem que falhar alto.
+  const quantidadeValida = (bruto: unknown, nome: string): number => {
+    const qty = Number(bruto);
     if (!Number.isInteger(qty) || qty < 1) {
-      throw new CarrinhoInvalido(`Quantidade inválida para "${lot.name}"`);
+      throw new CarrinhoInvalido(`Quantidade inválida para "${nome}"`);
     }
     if (qty > 50) {
-      // Teto de sanidade: pedido de 10 mil ingressos é engano ou abuso, e
-      // reservaria o lote inteiro antes de alguém perceber.
-      throw new CarrinhoInvalido(`Quantidade acima do permitido para "${lot.name}"`);
+      // Teto de sanidade: pedido de 10 mil unidades é engano ou abuso, e
+      // reservaria o estoque inteiro antes de alguém perceber.
+      throw new CarrinhoInvalido(`Quantidade acima do permitido para "${nome}"`);
     }
-    const linha = Number(lot.price) * qty;
+    return qty;
+  };
+
+  // ---- COMBOS: lidos primeiro, porque trazem lotes e produtos para dentro ----
+  let combos: any[] = [];
+  let itensDeCombo: any[] = [];
+  if (pedidosCombo.length > 0) {
+    const ids = pedidosCombo.map((b) => b.bundleId);
+    const { data: bs, error: eb } = await client
+      .from('event_bundles')
+      .select('id, name, price, status')
+      .in('id', ids)
+      .eq('event_id', eventId);
+    if (eb || !bs) throw new CarrinhoInvalido('Erro ao buscar combos', 500);
+    combos = bs;
+    const { data: bi, error: ei } = await client
+      .from('event_bundle_items')
+      .select('bundle_id, kind, lot_id, event_product_id, quantity, unit_face_share')
+      .in('bundle_id', ids);
+    if (ei || !bi) throw new CarrinhoInvalido('Erro ao buscar combos', 500);
+    itensDeCombo = bi;
+  }
+
+  // ---- LOTES: os avulsos e os que vêm dentro de combo, numa leitura só ----
+  const lotIds = Array.from(new Set([
+    ...itensLote.map((i) => i.lotId),
+    ...itensDeCombo.filter((i) => i.kind === 'lot').map((i) => i.lot_id),
+  ]));
+  let lots: any[] = [];
+  if (lotIds.length > 0) {
+    const { data, error } = await client
+      .from('event_lots')
+      .select('id, name, price, is_active, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros')
+      .in('id', lotIds)
+      .eq('event_id', eventId);
+    if (error || !data) throw new CarrinhoInvalido('Erro ao buscar lotes', 500);
+    lots = data;
+  }
+
+  // ---- PRODUTOS: idem, avulsos e de combo ----
+  const epIds = Array.from(new Set([
+    ...pedidosProduto.map((p) => p.eventProductId),
+    ...itensDeCombo.filter((i) => i.kind === 'product').map((i) => i.event_product_id),
+  ]));
+  let eps: any[] = [];
+  let catalogo: any[] = [];
+  let variantes: any[] = [];
+  let estoques: any[] = [];
+  if (epIds.length > 0) {
+    const { data: e1, error: x1 } = await client
+      .from('event_products')
+      .select('id, product_id, price, modo_taxa, status')
+      .in('id', epIds)
+      .eq('event_id', eventId);
+    if (x1 || !e1) throw new CarrinhoInvalido('Erro ao buscar produtos', 500);
+    eps = e1;
+    const productIds = Array.from(new Set(eps.map((e) => e.product_id)));
+    if (productIds.length > 0) {
+      const [{ data: c1, error: x2 }, { data: v1, error: x3 }, { data: s1, error: x4 }] = await Promise.all([
+        client.from('producer_products').select('id, name, color, is_active').in('id', productIds),
+        client.from('producer_product_variants').select('id, product_id, label, is_active').in('product_id', productIds),
+        client.from('event_product_stock').select('id, event_product_id, variant_id, is_active').in('event_product_id', epIds),
+      ]);
+      if (x2 || x3 || x4 || !c1 || !v1 || !s1) throw new CarrinhoInvalido('Erro ao buscar produtos', 500);
+      catalogo = c1; variantes = v1; estoques = s1;
+    }
+  }
+
+  /** Resolve uma unidade de produto: confere que está à venda, acha o tamanho e
+   *  a linha de estoque. `face` é o preço do evento ou a fatia do combo. */
+  const resolverProduto = (
+    eventProductId: string, variantId: string | null | undefined,
+    qty: number, face: number | null, bundleId: string | null,
+  ): LinhaProduto => {
+    const ep = eps.find((e) => e.id === eventProductId);
+    if (!ep) throw new CarrinhoInvalido('Produto inválido');
+    const prod = catalogo.find((c) => c.id === ep.product_id);
+    const nome = [prod?.name, prod?.color].filter(Boolean).join(' ') || 'Produto';
+    // Desativado no catálogo do produtor vale para todos os eventos de uma vez.
+    if (ep.status !== 'active' || prod?.is_active === false) {
+      throw new CarrinhoInvalido(`"${nome}" não está à venda`);
+    }
+
+    const doProduto = estoques.filter((s) => s.event_product_id === ep.id && s.is_active);
+    const porTamanho = doProduto.filter((s) => s.variant_id);
+    const unico = doProduto.find((s) => !s.variant_id);
+    const grade = variantes.filter((v) => v.product_id === ep.product_id && v.is_active);
+    // Quais tamanhos valem NESTE evento: com estoque por tamanho, só os que têm
+    // linha; com estoque único, a grade inteira do produto.
+    const tamanhosDoEvento = porTamanho.length > 0
+      ? grade.filter((v) => porTamanho.some((s) => s.variant_id === v.id))
+      : grade;
+
+    let variante: any = null;
+    if (tamanhosDoEvento.length > 0) {
+      if (!variantId) throw new CarrinhoInvalido(`Escolha o tamanho de "${nome}"`);
+      variante = tamanhosDoEvento.find((v) => v.id === variantId);
+      if (!variante) throw new CarrinhoInvalido(`Tamanho indisponível para "${nome}"`);
+    }
+    const estoque = variante
+      ? (porTamanho.find((s) => s.variant_id === variante.id) ?? unico)
+      : unico;
+    if (!estoque) throw new CarrinhoInvalido(`"${nome}" está sem estoque`);
+
+    const price = face ?? Number(ep.price);
+    if (!Number.isFinite(price) || price < 0) throw new CarrinhoInvalido(`"${nome}" está sem preço`, 500);
+
+    return {
+      eventProductId: ep.id,
+      stockId: estoque.id,
+      variantId: variante?.id ?? null,
+      label: variante ? `${nome} · ${variante.label}` : nome,
+      quantity: qty,
+      price,
+      modoTaxa: ep.modo_taxa === 'absorve' ? 'absorve' : 'cliente_paga',
+      bundleId,
+    };
+  };
+
+  const linhas: LinhaCarrinho[] = [];
+  const produtos: LinhaProduto[] = [];
+  let totalFace = 0;
+  // Base da taxa administrativa: SÓ as linhas 'cliente_paga'. Lote (ou produto)
+  // 'absorve' sai da base: é assim que o promocional do rodeio chega redondo
+  // ao comprador, com a conveniência saindo do repasse do produtor.
+  let baseDaTaxa = 0;
+  // O cupom é de INGRESSO: incide sobre a face dos lotes comprados avulsos.
+  // Combo já é preço promocional e produto não é ingresso. Em compra só de
+  // ingresso (tudo o que existia até aqui) esta base é igual ao total de face.
+  let baseDoCupom = 0;
+
+  const linhaDeLote = (lotId: string, qty: number, face: number | null, bundleId: string | null) => {
+    const lot = lots.find((l: any) => l.id === lotId);
+    if (!lot) throw new CarrinhoInvalido('Lote inválido');
+    if (!lot.is_active) throw new CarrinhoInvalido(`Lote "${lot.name}" não está à venda`);
+    const price = face ?? Number(lot.price);
+    const linha = price * qty;
     totalFace += linha;
     // Fail-safe para o comportamento antigo: só 'absorve' exato tira a linha da
     // base. Qualquer outro valor cai em 'cliente_paga', que é como sempre foi.
     if (lot.modo_taxa !== 'absorve') baseDaTaxa += linha;
-
+    if (!bundleId) baseDoCupom += linha;
     linhas.push({
       lotId: lot.id,
       lotName: lot.name,
       quantity: qty,
-      price: Number(lot.price),
+      price,
       modoTaxa: lot.modo_taxa ?? 'cliente_paga',
       maxParcelas: lot.max_parcelas ?? null,
       parcelasSemJuros: lot.parcelas_sem_juros ?? null,
       cobreTodosOsDias: lot.covers_all_days === true,
+      bundleId,
     });
+  };
+
+  const linhaDeProduto = (p: LinhaProduto) => {
+    const linha = p.price * p.quantity;
+    totalFace += linha;
+    if (p.modoTaxa !== 'absorve') baseDaTaxa += linha;
+    produtos.push(p);
+  };
+
+  for (const item of itensLote) {
+    const lot = lots.find((l: any) => l.id === item.lotId);
+    if (!lot) throw new CarrinhoInvalido('Lote inválido');
+    linhaDeLote(item.lotId, quantidadeValida(item.quantity, lot.name), null, null);
+  }
+
+  for (const pedido of pedidosProduto) {
+    const qty = quantidadeValida(pedido.quantity, 'produto');
+    linhaDeProduto(resolverProduto(pedido.eventProductId, pedido.variantId, qty, null, null));
+  }
+
+  for (const pedido of pedidosCombo) {
+    const combo = combos.find((b) => b.id === pedido.bundleId);
+    if (!combo) throw new CarrinhoInvalido('Combo inválido');
+    if (combo.status !== 'active') throw new CarrinhoInvalido(`"${combo.name}" não está à venda`);
+    const qty = quantidadeValida(pedido.quantity, combo.name);
+    const receita = itensDeCombo.filter((i) => i.bundle_id === combo.id);
+    if (receita.length === 0) throw new CarrinhoInvalido(`"${combo.name}" está sem itens`, 500);
+
+    // ⚠️ O combo se DESMONTA em linhas, cada uma com a sua fatia do preço. Se a
+    // soma das fatias não der o preço do combo, alguém receberia ou pagaria a
+    // diferença sem saber. Não vende: falha alto e o produtor corrige o rateio.
+    const somaDasFatias = receita.reduce(
+      (s, i) => s + Number(i.unit_face_share) * Number(i.quantity), 0);
+    if (Math.abs(somaDasFatias - Number(combo.price)) > 0.005) {
+      throw new CarrinhoInvalido(`"${combo.name}" está com o rateio diferente do preço`, 500);
+    }
+
+    for (const it of receita) {
+      const unidades = Number(it.quantity) * qty;
+      if (it.kind === 'lot') {
+        linhaDeLote(it.lot_id, unidades, Number(it.unit_face_share), combo.id);
+      } else {
+        const escolha = pedido.escolhas?.[it.event_product_id] ?? null;
+        linhaDeProduto(resolverProduto(
+          it.event_product_id, escolha, unidades, Number(it.unit_face_share), combo.id));
+      }
+    }
   }
 
   // CUPOM. Sem isto o cliente aplica o desconto, VÊ o valor abatido na tela e é
@@ -151,11 +352,12 @@ export async function resolverPreco(
         && (!cupom.valid_until || new Date(cupom.valid_until).getTime() > Date.now())
         && (cupom.max_uses == null || cupom.uses_count < cupom.max_uses)) {
       desconto = cupom.discount_type === 'percent'
-        ? (totalFace * Number(cupom.discount_value)) / 100
+        ? (baseDoCupom * Number(cupom.discount_value)) / 100
         // Desconto fixo nunca passa do valor da compra: senão o total fica
         // negativo e a cobrança vira um crédito ao cliente.
-        : Math.min(Number(cupom.discount_value), totalFace);
-      cupomId = cupom.id;
+        : Math.min(Number(cupom.discount_value), baseDoCupom);
+      // Cupom que não abateu nada (carrinho sem ingresso avulso) não é gasto.
+      cupomId = desconto > 0 ? cupom.id : null;
     }
   }
 
@@ -173,7 +375,7 @@ export async function resolverPreco(
     Math.round((totalFace - desconto + taxaAdministrativa) * 100) / 100,
   );
 
-  return { linhas, totalFace, taxaAdministrativa, desconto, cupomId, subtotal };
+  return { linhas, produtos, totalFace, taxaAdministrativa, desconto, cupomId, subtotal };
 }
 
 /** Todo o carrinho é de lote que o produtor absorve? Decide se o custo do
@@ -223,6 +425,30 @@ export function parcelasSemJurosDoCarrinho(linhas: LinhaCarrinho[]): number {
 
 export function produtorAbsorve(linhas: LinhaCarrinho[]): boolean {
   return linhas.length > 0 && linhas.every((l) => l.modoTaxa === 'absorve');
+}
+
+/**
+ * O produtor absorve o custo do cartão do pedido INTEIRO?
+ *
+ * Só quando tudo o que está no carrinho é 'absorve', ingresso e produto. Um
+ * único item em que o cliente paga leva o pedido para "cliente paga": é o
+ * lado conservador, o produtor nunca absorve mais do que combinou.
+ * Em carrinho só de ingresso, é idêntico a `produtorAbsorve(linhas)`.
+ */
+export function carrinhoAbsorve(preco: PrecoResolvido): boolean {
+  if (preco.linhas.length === 0 && preco.produtos.length === 0) return false;
+  return preco.linhas.every((l) => l.modoTaxa === 'absorve')
+    && preco.produtos.every((p) => p.modoTaxa === 'absorve');
+}
+
+/**
+ * Faixa sem juros do pedido inteiro. Produto não tem faixa própria, então
+ * carrinho com produto não tem parcela sem juros. É a mesma regra que já vale
+ * entre lotes: um item sem faixa leva o pedido com ele.
+ */
+export function parcelasSemJurosDoPedido(preco: PrecoResolvido): number {
+  if (preco.produtos.length > 0) return 0;
+  return parcelasSemJurosDoCarrinho(preco.linhas);
 }
 
 /**
@@ -285,4 +511,94 @@ export async function devolverEstoque(
       console.error('[CARRINHO] falha ao devolver estoque', r.lotId, e);
     }
   }
+}
+
+/**
+ * RESERVA DO ESTOQUE DE PRODUTO, antes de criar o pedido. Mesma disciplina
+ * da reserva de lote: atômica no banco, e se uma linha falhar tudo o que já
+ * foi reservado volta antes de o erro subir.
+ */
+export async function reservarProdutos(
+  client: any,
+  produtos: LinhaProduto[],
+): Promise<{ stockId: string; quantity: number }[]> {
+  const reservado: { stockId: string; quantity: number }[] = [];
+  try {
+    for (const p of produtos) {
+      const { data: ok, error } = await client.rpc('reserve_product_quantity', {
+        _stock_id: p.stockId, _qty: p.quantity,
+      });
+      if (error) throw new CarrinhoInvalido('Erro ao reservar produtos', 500);
+      if (!ok) throw new CarrinhoInvalido(`Quantidade insuficiente para ${p.label}`);
+      reservado.push({ stockId: p.stockId, quantity: p.quantity });
+    }
+    return reservado;
+  } catch (e) {
+    await devolverProdutos(client, reservado);
+    throw e;
+  }
+}
+
+/** Devolve reserva de produto que AINDA NÃO virou linha de pedido. Depois que
+ *  `gravarItensDeProduto` passa, quem devolve é o banco (o estoque acompanha o
+ *  estado do pedido por gatilho) e esta função não deve mais ser chamada. */
+export async function devolverProdutos(
+  client: any,
+  reservado: { stockId: string; quantity: number }[],
+): Promise<void> {
+  for (const r of reservado) {
+    try {
+      await client.rpc('release_product_quantity', { _stock_id: r.stockId, _qty: r.quantity });
+    } catch (e) {
+      console.error('[CARRINHO] falha ao devolver produto', r.stockId, e);
+    }
+  }
+}
+
+/**
+ * Grava as linhas de produto do pedido. A partir daqui a reserva é DO PEDIDO:
+ * se ele expirar, falhar ou for apagado, o banco devolve o estoque sozinho; se
+ * for pago, o banco confirma a venda e cria o código de retirada.
+ *
+ * @returns false se não gravou. Quem chama desfaz o pedido e devolve a reserva.
+ */
+export async function gravarItensDeProduto(
+  client: any,
+  orderId: string,
+  produtos: LinhaProduto[],
+): Promise<boolean> {
+  if (produtos.length === 0) return true;
+  const { error } = await client.from('order_product_items').insert(
+    produtos.map((p) => ({
+      order_id: orderId,
+      event_product_id: p.eventProductId,
+      stock_id: p.stockId,
+      variant_id: p.variantId,
+      bundle_id: p.bundleId,
+      quantity: p.quantity,
+      unit_face: p.price,
+      label_snapshot: p.label.slice(0, 200),
+    })),
+  );
+  if (error) {
+    console.error('[CARRINHO] falha ao gravar itens de produto', orderId, error.message);
+    return false;
+  }
+  return true;
+}
+
+/** Linhas de face para o repasse: ingresso e produto, na mesma fórmula. O
+ *  produto vai com `lotId` nulo e o próprio nome, e é assim que
+ *  `order_producer_value` passa a incluí-lo sem mudar uma linha. */
+export function linhasDeFace(preco: PrecoResolvido, modoDoLote?: (l: LinhaCarrinho) => string) {
+  return [
+    ...preco.linhas.map((i) => ({
+      lotId: i.lotId, lotName: i.lotName, unitFace: i.price, quantity: i.quantity,
+      modoTaxa: modoDoLote ? modoDoLote(i) : i.modoTaxa,
+    })),
+    ...preco.produtos.map((p) => ({
+      lotId: null, lotName: p.label, unitFace: p.price, quantity: p.quantity,
+      modoTaxa: p.modoTaxa,
+    })),
+  ];
 }

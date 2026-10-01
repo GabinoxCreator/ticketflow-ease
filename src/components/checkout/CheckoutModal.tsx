@@ -25,14 +25,11 @@ import { savePendingCheckout, readPendingCheckout, clearPendingCheckout } from '
 
 type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
-interface CartItem {
-  lotId: string;
-  lotName: string;
-  quantity: number;
-  price: number;
-  /** `event_lots.modo_taxa`. 'absorve' = a taxa sai de dentro do preço de face. */
-  modoTaxa?: string | null;
-}
+import { corpoDoCarrinho, contarIngressos, ehIngresso, temLoja, type ItemDoCarrinho } from '@/lib/loja/carrinho';
+
+// Ingresso, produto ou combo: ver src/lib/loja/carrinho.ts. Linha sem `tipo`
+// é ingresso, e `modoTaxa` 'absorve' = a taxa sai de dentro do preço de face.
+type CartItem = ItemDoCarrinho;
 
 export interface AppliedCoupon {
   couponId: string;
@@ -159,7 +156,7 @@ export function CheckoutModal({
       // passe permanente. Falhar aqui não bloqueia a compra — o servidor confere
       // de novo antes de cobrar, e é lá que a regra vale de verdade.
       try {
-        const ids = items.map((i) => i.lotId);
+        const ids = items.filter(ehIngresso).map((i) => i.lotId);
         if (ids.length > 0) {
           const { data: lotes } = await supabase
             .from('event_lots')
@@ -213,7 +210,7 @@ export function CheckoutModal({
       const { data, error } = await supabase.functions.invoke(pixFn, {
         body: {
           eventId,
-          items: items.map(item => ({ lotId: item.lotId, quantity: item.quantity })),
+          ...corpoDoCarrinho(items),
           customerName: customerData.name,
           customerEmail: customerData.email,
           customerCPF: cpfDigits,
@@ -258,6 +255,13 @@ export function CheckoutModal({
 
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
+    // A loja (produto e combo) só existe na rota do Marcel. A vitrine nem a
+    // mostra em evento de outro provedor; esta trava é a segunda rede: sem
+    // ela a rota antiga ignoraria o produto e cobraria só o ingresso.
+    if (temLoja(items) && paymentProvider !== 'marcel') {
+      toast.error('Os produtos deste evento não estão disponíveis no momento.');
+      return;
+    }
     setSelectedMethod(method);
     const cpfDigits = unformatCPF(customerData.cpf);
     if (!validateCPF(cpfDigits)) {
@@ -347,7 +351,7 @@ export function CheckoutModal({
   const canGoBack = step === 'payment' || step === 'card' || step === 'pix' || step === 'cpf';
   const showHeader = step !== 'success';
   const showTrust = step === 'payment' || step === 'card' || step === 'pix';
-  const totalTickets = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalTickets = contarIngressos(items);
 
   const titleByStep: Record<CheckoutStep, string> = {
     form: 'Seus Dados',

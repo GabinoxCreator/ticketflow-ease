@@ -82,10 +82,12 @@ export function computeFee(subtotal: number, percent: number, fixed: number) {
  * (achado do Gabriel, 20/08). Se as duas divergirem de novo, a do servidor manda.
  */
 export function baseDaTaxa(
-  itens: Array<{ price: number; quantity: number; modoTaxa?: string | null }>,
+  itens: Array<{ price: number; quantity: number; modoTaxa?: string | null; baseDaTaxaUnit?: number }>,
 ): number {
-  return itens.reduce(
-    (soma, i) => (i.modoTaxa === 'absorve' ? soma : soma + i.price * i.quantity),
-    0,
-  );
+  return itens.reduce((soma, i) => {
+    // Combo da loja: parte dele pode ter taxa e parte não. Quem monta a linha
+    // já diz quanto de cada unidade entra na base.
+    if (typeof i.baseDaTaxaUnit === 'number') return soma + i.baseDaTaxaUnit * i.quantity;
+    return i.modoTaxa === 'absorve' ? soma : soma + i.price * i.quantity;
+  }, 0);
 }

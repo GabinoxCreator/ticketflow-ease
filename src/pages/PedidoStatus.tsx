@@ -7,6 +7,7 @@ import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { supabase } from '@/integrations/supabase/client';
 import { readPendingCheckout, clearPendingCheckout } from '@/lib/pendingCheckout';
 import { useMetaPurchase } from '@/hooks/useMetaPurchase';
+import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
 
 /*
  * Acompanhamento do pedido — /pedido/:orderId
@@ -246,9 +247,12 @@ export default function PedidoStatus() {
           <div className="space-y-1.5">
             <h1 className="font-display font-bold text-2xl">Pagamento confirmado!</h1>
             <p className="text-muted-foreground text-sm">
-              {eventTitle ? <>Seu ingresso para <b>{eventTitle}</b> já está na sua conta.</> : 'Seu ingresso já está na sua conta.'}
+              {eventTitle ? <>Sua compra para <b>{eventTitle}</b> já está na sua conta.</> : 'Sua compra já está na sua conta.'}
             </p>
           </div>
+          {/* Loja do evento: código de retirada dos produtos deste pedido. Não
+              mostra nada quando o pedido é só de ingresso. */}
+          <RetiradasDoComprador orderId={order.id} />
           <div className="rounded-xl bg-card/60 border border-border/60 p-3">
             <p className="text-[11px] text-muted-foreground">
               Pedido #{order.id.slice(0, 8).toUpperCase()} · {formatPrice(Number(order.total_amount))}

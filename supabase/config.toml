@@ -32,6 +32,9 @@ verify_jwt = false
 [functions.collaborator-redeem-abada]
 verify_jwt = false
 
+[functions.collaborator-redeem-product]
+verify_jwt = false
+
 [functions.public-guest-list-signup]
 verify_jwt = false
 

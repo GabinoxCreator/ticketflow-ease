@@ -3,6 +3,8 @@ import { ChevronUp } from 'lucide-react';
 
 interface Props {
   count: number;
+  /** Carrinho com produto ou combo: a contagem vira "itens". */
+  temLoja?: boolean;
   totalAmount: number;
   visible: boolean;
   onOpen: () => void;
@@ -12,7 +14,7 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function EventCartMiniBar({ count, totalAmount, visible, onOpen, isBeneficent }: Props) {
+export function EventCartMiniBar({ count, totalAmount, visible, onOpen, isBeneficent, temLoja }: Props) {
   if (!visible || count === 0) return null;
 
   return (
@@ -20,7 +22,7 @@ export function EventCartMiniBar({ count, totalAmount, visible, onOpen, isBenefi
       <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">
-            {count} {isBeneficent ? 'convite' : 'ingresso'}{count > 1 ? 's' : ''}
+            {count} {temLoja ? (count > 1 ? 'itens' : 'item') : `${isBeneficent ? 'convite' : 'ingresso'}${count > 1 ? 's' : ''}`}
           </p>
           <p className="font-bold text-base gradient-text tabular-nums">
             {fmt(totalAmount)}

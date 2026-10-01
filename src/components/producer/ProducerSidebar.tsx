@@ -8,6 +8,7 @@ import {
   Users,
   Armchair,
   MapPin,
+  ShoppingBag,
   Settings,
   LogOut,
 } from 'lucide-react';
@@ -40,6 +41,7 @@ const managementItems = [
   { title: 'Colaboradores', url: '/produtor/equipe', icon: Users },
   { title: 'Locais', url: '/produtor/locais', icon: MapPin },
   { title: 'Tipos de Assento', url: '/produtor/tipos-de-assento', icon: Armchair },
+  { title: 'Produtos', url: '/produtor/produtos', icon: ShoppingBag },
 ];
 
 const settingsItems = [

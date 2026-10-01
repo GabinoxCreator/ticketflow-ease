@@ -42,6 +42,7 @@ import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
 import SeatTypes from "./pages/SeatTypes";
+import ProducerProducts from "./pages/ProducerProducts";
 import Locais from "./pages/Locais";
 import LocaisMapas from "./pages/LocaisMapas";
 import MapEditorPage from "./pages/producer/MapEditorPage";
@@ -136,6 +137,7 @@ const App = () => (
                 <Route path="/produtor/financeiro/:eventId" element={<ProtectedRoute requiredRole="produtor"><FinanceiroEvento /></ProtectedRoute>} />
                 <Route path="/produtor/equipe" element={<ProtectedRoute requiredRole="produtor"><ColaboradoresManager /></ProtectedRoute>} />
                 <Route path="/produtor/tipos-de-assento" element={<ProtectedRoute requiredRole="produtor"><SeatTypes /></ProtectedRoute>} />
+                <Route path="/produtor/produtos" element={<ProtectedRoute requiredRole="produtor"><ProducerProducts /></ProtectedRoute>} />
                 <Route path="/produtor/locais" element={<ProtectedRoute requiredRole="produtor"><Locais /></ProtectedRoute>} />
                 <Route path="/produtor/locais/:venueId/mapas" element={<ProtectedRoute requiredRole="produtor"><LocaisMapas /></ProtectedRoute>} />
                 <Route path="/produtor/locais/:venueId/mapas/:mapId/editor" element={<ProtectedRoute requiredRole="produtor"><MapEditorPage /></ProtectedRoute>} />

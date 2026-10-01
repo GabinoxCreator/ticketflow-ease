@@ -62,6 +62,9 @@ import { MapaArena } from '@/components/event/MapaArena';
 import { getMapaDaArena } from '@/data/mapasDeArena';
 import { InstrucoesDoEventoDialog, BotaoComoFunciona } from '@/components/event/InstrucoesDoEventoDialog';
 import { getInstrucoesDoEvento } from '@/data/instrucoesDoEvento';
+import { LojaDoEvento } from '@/components/event/LojaDoEvento';
+import { useVitrineDaLoja } from '@/hooks/useVitrineDaLoja';
+import { ehLinhaDaLoja, type ItemDoCarrinho } from '@/lib/loja/carrinho';
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -105,6 +108,8 @@ const EventDetails = () => {
   const maxPerLot = ticketLimit ?? 10;
   const { lots, isLoading: lotsLoading } = useEventLots(eventId);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
+  // Produtos e combos da loja do evento que estão no carrinho.
+  const [itensDaLoja, setItensDaLoja] = useState<ItemDoCarrinho[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -195,7 +200,8 @@ const EventDetails = () => {
   }, [eventId, liked, user]);
 
   // Auto-abre sheet apenas na transição 0 -> 1; fecha quando esvazia
-  const totalForEffect = Object.values(selectedLots).reduce((s, q) => s + q, 0);
+  const totalForEffect = Object.values(selectedLots).reduce((s, q) => s + q, 0)
+    + itensDaLoja.reduce((s, i) => s + i.quantity, 0);
   useEffect(() => {
     const prev = prevTotalRef.current;
     if (prev === 0 && totalForEffect > 0) setIsCartOpen(true);
@@ -239,6 +245,10 @@ const EventDetails = () => {
       return data ?? [];
     },
   });
+
+  // A loja só existe na rota do Marcel: é onde o servidor sabe cobrar produto.
+  // Também ANTES dos returns (é hook). Falha de leitura vira loja vazia.
+  const { data: loja } = useVitrineDaLoja(eventId, (event as any)?.payment_provider === 'marcel');
 
   if (isLoading) {
     return (
@@ -334,12 +344,29 @@ const EventDetails = () => {
     });
   };
 
+  const adicionarDaLoja = (item: ItemDoCarrinho) =>
+    setItensDaLoja((prev) => [...prev, item]);
+
+  const mudarDaLoja = (chave: string, delta: number) =>
+    setItensDaLoja((prev) => prev
+      .map((i) => (i.lotId === chave ? { ...i, quantity: Math.min(10, i.quantity + delta) } : i))
+      .filter((i) => i.quantity > 0));
+
+  const removerDaLoja = (chave: string) =>
+    setItensDaLoja((prev) => prev.filter((i) => i.lotId !== chave));
+
+  const totalDaLoja = itensDaLoja.reduce((s, i) => s + i.price * i.quantity, 0);
+  const unidadesDaLoja = itensDaLoja.reduce((s, i) => s + i.quantity, 0);
+
   const totalAmount = Object.entries(selectedLots).reduce((total, [lotId, qty]) => {
     const lot = activeLots.find((l) => l.id === lotId);
     return total + (lot?.price || 0) * qty;
-  }, 0);
+  }, 0) + totalDaLoja;
 
   const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
+  // O que está no carrinho, ingresso ou não. É o que abre o carrinho e libera o
+  // pagamento: dá para comprar só a camiseta, sem ingresso.
+  const totalItens = totalTickets + unidadesDaLoja;
 
   // "A partir de" — lotes + (se mesa) menor base_price
   const lotsFromPrice = activeLots.length
@@ -367,7 +394,7 @@ const EventDetails = () => {
   };
 
   const handleCheckout = () => {
-    if (totalTickets === 0) {
+    if (totalItens === 0) {
       toast.error('Selecione pelo menos um ingresso');
       return;
     }
@@ -385,7 +412,7 @@ const EventDetails = () => {
     setIsCheckoutOpen(true);
   };
 
-  const cartItems = Object.entries(selectedLots).map(([lotId, quantity]) => {
+  const cartItems: ItemDoCarrinho[] = Object.entries(selectedLots).map(([lotId, quantity]) => {
     const lot = activeLots.find((l) => l.id === lotId);
     return {
       lotId,
@@ -397,6 +424,7 @@ const EventDetails = () => {
       modoTaxa: (lot as any)?.modo_taxa ?? null,
     };
   });
+  cartItems.push(...itensDaLoja);
 
   const summaryItems: SummaryItem[] = cartItems.map((it) => ({
     id: it.lotId,
@@ -723,6 +751,19 @@ const EventDetails = () => {
                 </motion.div>
               )}
 
+              {/* Loja do evento: produtos e combos do produtor. Não renderiza
+                  nada em evento sem loja. */}
+              {!isEventFinished && loja && (
+                <LojaDoEvento
+                  loja={loja}
+                  lotesAbertos={activeLots as any}
+                  itens={itensDaLoja}
+                  onAdicionar={adicionarDaLoja}
+                  onMudar={mudarDaLoja}
+                  formatPrice={formatPrice}
+                />
+              )}
+
               {/* A planta da arena, depois dos ingressos: quem chegou até aqui já
                   viu preço e data, e a pergunta que sobra é "onde eu vou ficar".
                   Só aparece em evento que tem planta curada — os outros nem
@@ -783,9 +824,10 @@ const EventDetails = () => {
 
         <Footer />
 
-        {!isEventFinished && totalTickets > 0 && (
+        {!isEventFinished && totalItens > 0 && (
           <EventCartMiniBar
-            count={totalTickets}
+            temLoja={unidadesDaLoja > 0}
+            count={totalItens}
             totalAmount={totalAmount}
             visible={!isCartOpen}
             onOpen={() => setIsCartOpen(true)}
@@ -795,16 +837,17 @@ const EventDetails = () => {
 
         {!isEventFinished && (
           <EventCartSheet
-            open={isCartOpen && totalTickets > 0}
+            open={isCartOpen && totalItens > 0}
+            temLoja={unidadesDaLoja > 0}
             onOpenChange={setIsCartOpen}
             items={summaryItems}
             totalAmount={totalAmount}
-            totalCount={totalTickets}
+            totalCount={totalItens}
             onCheckout={handleCheckout}
             avisoUmPorNoite={regraDeNoiteAtiva}
-            onIncrement={(lotId) => handleQuantityChange(lotId, 1)}
-            onDecrement={(lotId) => handleQuantityChange(lotId, -1)}
-            onRemove={handleRemoveLot}
+            onIncrement={(id) => (ehLinhaDaLoja(id) ? mudarDaLoja(id, 1) : handleQuantityChange(id, 1))}
+            onDecrement={(id) => (ehLinhaDaLoja(id) ? mudarDaLoja(id, -1) : handleQuantityChange(id, -1))}
+            onRemove={(id) => (ehLinhaDaLoja(id) ? removerDaLoja(id) : handleRemoveLot(id))}
             isBeneficent={isBeneficent}
           />
         )}

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, Ticket, Download, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
 
 interface CheckoutStepSuccessProps {
   eventTitle: string;
@@ -49,7 +50,7 @@ export function CheckoutStepSuccess({
           transition={{ delay: 0.4 }}
           className="text-muted-foreground"
         >
-          Seus ingressos foram gerados com sucesso
+          {ticketCount > 0 ? 'Seus ingressos foram gerados com sucesso' : 'Sua compra foi confirmada'}
         </motion.p>
       </div>
 
@@ -60,15 +61,21 @@ export function CheckoutStepSuccess({
         transition={{ delay: 0.5 }}
         className="bg-secondary/50 rounded-xl p-4 space-y-3"
       >
-        <div className="flex items-center justify-center gap-2 text-primary">
-          <Ticket className="w-5 h-5" />
-          <span className="font-semibold">{ticketCount} ingresso{ticketCount > 1 ? 's' : ''}</span>
-        </div>
+        {/* Pedido só de produto (loja do evento) não tem ingresso para contar. */}
+        {ticketCount > 0 && (
+          <div className="flex items-center justify-center gap-2 text-primary">
+            <Ticket className="w-5 h-5" />
+            <span className="font-semibold">{ticketCount} ingresso{ticketCount > 1 ? 's' : ''}</span>
+          </div>
+        )}
         <p className="font-display font-bold text-lg">{eventTitle}</p>
         <p className="text-sm text-muted-foreground">
           Pedido #{orderId.slice(0, 8).toUpperCase()}
         </p>
       </motion.div>
+
+      {/* Loja do evento: código de retirada dos produtos deste pedido. */}
+      <RetiradasDoComprador orderId={orderId} />
 
       {/* Email Notice */}
       <motion.div
