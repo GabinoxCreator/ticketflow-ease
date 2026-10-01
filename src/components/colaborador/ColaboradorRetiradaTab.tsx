@@ -100,7 +100,8 @@ export default function ColaboradorRetiradaTab({
           <input
             value={codigo}
             onChange={(e) => { setCodigo(e.target.value.toUpperCase()); setResposta(null); }}
-            placeholder="CÓDIGO"
+            placeholder="000000"
+            inputMode="numeric"
             maxLength={12}
             autoCapitalize="characters"
             autoCorrect="off"

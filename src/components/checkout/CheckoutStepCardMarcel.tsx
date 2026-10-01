@@ -9,7 +9,7 @@ import { CartaoMarcelForm, type CotacaoMarcel, type DadosDoCartao } from './Cart
  * edge que cobra.
  */
 
-import { corpoDoCarrinho, type ItemDoCarrinho } from '@/lib/loja/carrinho';
+import { corpoDoCarrinho, temLoja, type ItemDoCarrinho } from '@/lib/loja/carrinho';
 
 // Ingresso, produto ou combo: ver src/lib/loja/carrinho.ts.
 type CartItem = ItemDoCarrinho;
@@ -87,7 +87,8 @@ export function CheckoutStepCardMarcel({
     <CartaoMarcelForm
       totalAmount={totalAmount}
       nomeSugerido={customerName}
-      rotuloFace="Ingressos"
+      // Carrinho com produto ou combo da loja não é só ingresso.
+      rotuloFace={temLoja(items) ? 'Itens' : 'Ingressos'}
       cotar={cotar}
       cobrar={cobrar}
     />

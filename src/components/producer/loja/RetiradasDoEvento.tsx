@@ -185,7 +185,8 @@ export function RetiradasDoEvento({ eventId, produtos }: Props) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') enviarCodigo();
                 }}
-                placeholder="Código do comprador, ex: K7MQ2XPA"
+                placeholder="Código do comprador, ex: 482915"
+                inputMode="numeric"
                 className="font-mono tracking-widest sm:max-w-xs"
                 maxLength={16}
                 autoComplete="off"
