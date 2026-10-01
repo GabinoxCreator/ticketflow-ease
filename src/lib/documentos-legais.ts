@@ -14,7 +14,10 @@ export type DocumentoLegal = 'termos' | 'privacidade' | 'reembolso';
 /** Data da última atualização de cada documento, no formato do banco (AAAA-MM-DD). */
 export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
   termos: '2026-04-14',
-  privacidade: '2026-09-21',
+  /* 01/10/2026: a política dizia "não guardamos a sua foto" e guardamos desde
+   * sempre. Corrigido, mais o compartilhamento com o fornecedor facial, a foto
+   * na lista de dados coletados e o prazo em que ela fica. */
+  privacidade: '2026-10-01',
   reembolso: '2026-05-14',
 };
 
