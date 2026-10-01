@@ -15,7 +15,7 @@ export type DocumentoLegal = 'termos' | 'privacidade' | 'reembolso';
 export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
   termos: '2026-04-14',
   privacidade: '2026-09-21',
-  reembolso: '2026-05-14',
+  reembolso: '2026-09-30',
 };
 
 export const CAMINHOS_LEGAIS: Record<DocumentoLegal, string> = {
