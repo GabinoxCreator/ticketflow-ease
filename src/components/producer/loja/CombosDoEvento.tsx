@@ -47,7 +47,8 @@ export function CombosDoEvento({ eventId, produtos, lots }: Props) {
   const nomeDoItem = (i: ItemDoCombo): string => {
     if (i.kind === 'lot') {
       const lote = lots.find((l) => l.id === i.lot_id);
-      return lote ? `Ingresso ${nomeDoLote(lote)}` : 'Ingresso que não existe mais';
+      // Só o nome do lote: o setor padrão já se chama "Ingresso" e a linha saía "Ingresso Ingresso".
+      return lote ? `Ingresso: ${lote.name}` : 'Ingresso que não existe mais';
     }
     const ep = produtos.find((p) => p.id === i.event_product_id);
     return ep ? nomeDoProduto(ep.product) : 'Produto que não está mais no evento';
