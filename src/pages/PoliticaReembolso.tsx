@@ -69,8 +69,8 @@ export default function PoliticaReembolso() {
                 </p>
                 <p>
                   Este direito é válido <strong>desde que ainda faltem mais de 7 dias para a realização
-                  do evento</strong>. Nesta hipótese, o reembolso será integral, incluindo taxas de
-                  serviço, conforme legislação vigente.
+                  do evento</strong>. Nesta hipótese, será devolvido o <strong>valor integral dos
+                  ingressos</strong>. A taxa de serviço da plataforma não é reembolsável (ver seção 7).
                 </p>
               </section>
 
@@ -158,8 +158,19 @@ export default function PoliticaReembolso() {
                   7. Taxas e valores não reembolsáveis
                 </h2>
                 <p>
-                  Taxas de serviço, taxas operacionais e encargos de parcelamento poderão ter
-                  tratamento próprio, conforme as condições informadas no momento da compra.
+                  <strong>A taxa de serviço da plataforma não é reembolsável</strong> quando o
+                  reembolso é pedido pelo comprador (desistência dentro do prazo de arrependimento ou
+                  solicitação até 48h antes do evento). Ela remunera o serviço de intermediação já
+                  prestado no momento da compra: processamento do pagamento, emissão e envio dos
+                  ingressos e atendimento. Nesses casos, é devolvido o valor dos ingressos.
+                </p>
+                <p>
+                  A única exceção é o cancelamento, adiamento ou alteração substancial do evento pelo
+                  produtor (seção 4), em que a devolução é integral.
+                </p>
+                <p>
+                  Encargos de parcelamento seguem as regras da operadora do cartão e não são
+                  devolvidos pela FestPag.
                 </p>
                 <p>
                   <strong>Ingressos com QR Code já validado</strong> (com check-in registrado na portaria

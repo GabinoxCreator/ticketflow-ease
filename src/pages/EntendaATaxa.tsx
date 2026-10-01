@@ -140,9 +140,11 @@ export default function EntendaATaxa() {
                   Reembolso: a taxa volta?
                 </h2>
                 <p>
-                  Sim nos casos previstos. Se você desistir dentro do prazo de arrependimento, ou se
-                  o evento for cancelado ou alterado de forma substancial pelo produtor, o reembolso
-                  é integral, incluindo a taxa de serviço. Os prazos e as exceções estão na{' '}
+                  Depende de quem pediu. Se a desistência for sua (dentro do prazo de arrependimento
+                  ou até 48h antes do evento), você recebe de volta o valor dos ingressos, e a taxa de
+                  serviço não é devolvida: ela paga o serviço que já foi prestado na hora da compra.
+                  Se o evento for cancelado, adiado ou alterado de forma substancial pelo produtor, o
+                  reembolso é integral, com a taxa. Os prazos e as exceções estão na{' '}
                   <Link to="/reembolso" className="text-primary hover:underline">
                     Política de Reembolso
                   </Link>
