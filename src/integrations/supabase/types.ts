@@ -668,6 +668,7 @@ export type Database = {
           description: string | null
           event_id: string
           id: string
+          image_url: string | null
           name: string
           price: number
           sort_order: number
@@ -679,6 +680,7 @@ export type Database = {
           description?: string | null
           event_id: string
           id?: string
+          image_url?: string | null
           name: string
           price: number
           sort_order?: number
@@ -690,6 +692,7 @@ export type Database = {
           description?: string | null
           event_id?: string
           id?: string
+          image_url?: string | null
           name?: string
           price?: number
           sort_order?: number
@@ -3506,6 +3509,15 @@ export type Database = {
           name: string
           source: string
           whatsapp: string
+        }[]
+      }
+      lot_sales_counts: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          cortesias: number
+          event_id: string
+          lot_id: string
+          vendidos: number
         }[]
       }
       marcar_pulseiras: {
