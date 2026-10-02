@@ -25,6 +25,35 @@ export async function hashToken(token: string): Promise<string> {
     .join("");
 }
 
+// Colaborador desativado perde o acesso na hora (OS-105, 02/10/2026): a sessão
+// dura 24h, então sem esta conferência quem já estava logado seguia vendendo e
+// validando depois de desativado. Só roda DEPOIS do token conferido, para não
+// contar a quem não tem sessão se um colaborador está ativo. Mesma regra do
+// login (`is_active = true`); linha apagada conta como desativado.
+// Nunca lança: erro de banco vira transient (503), que recusa sem deslogar.
+async function ensureCollaboratorActive(
+  supabase: any,
+  collaboratorId: string,
+): Promise<SessionValidation> {
+  try {
+    const { data: collaborator, error } = await supabase
+      .from("collaborators")
+      .select("is_active")
+      .eq("id", collaboratorId)
+      .maybeSingle();
+
+    if (error) {
+      return { valid: false, transient: true, error: error.message || "DB error" };
+    }
+    if (!collaborator || collaborator.is_active !== true) {
+      return { valid: false, expired: true, error: "Acesso desativado. Fale com o produtor do evento." };
+    }
+    return { valid: true };
+  } catch (_e) {
+    return { valid: false, transient: true, error: "Erro temporário ao verificar sessão" };
+  }
+}
+
 export async function validateCollaboratorSession(
   supabase: any,
   collaboratorId: string,
@@ -56,7 +85,7 @@ export async function validateCollaboratorSession(
   // New format: SHA-256 hex (64 lowercase hex chars).
   if (/^[0-9a-f]{64}$/.test(stored)) {
     const incoming = await hashToken(sessionToken);
-    if (incoming === stored) return { valid: true };
+    if (incoming === stored) return await ensureCollaboratorActive(supabase, collaboratorId);
     return { valid: false, expired: true, error: "Token de sessão inválido. Faça login novamente." };
   }
 
@@ -72,7 +101,7 @@ export async function validateCollaboratorSession(
       } catch (_e) {
         // Upgrade failure is not fatal; session still valid for this request.
       }
-      return { valid: true };
+      return await ensureCollaboratorActive(supabase, collaboratorId);
     }
     return { valid: false, expired: true, error: "Token de sessão inválido. Faça login novamente." };
   } catch (_e) {
