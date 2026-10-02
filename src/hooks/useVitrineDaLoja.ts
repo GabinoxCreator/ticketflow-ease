@@ -56,7 +56,7 @@ export function useVitrineDaLoja(eventId: string | undefined, ligada: boolean) {
 
         const { data: combosRaw, error: e5 } = await lojaDbPublico
           .from('event_bundles')
-          .select('id, event_id, name, description, price, status, sort_order')
+          .select('id, event_id, name, description, price, status, sort_order, image_url')
           .eq('event_id', eventId)
           .eq('status', 'active')
           .order('sort_order');

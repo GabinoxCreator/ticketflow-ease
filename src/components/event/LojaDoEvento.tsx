@@ -66,8 +66,11 @@ function produtosEnvolvidos(o: Oferta, loja: Loja): Array<{ p: ProdutoDaVitrine;
     .filter((x): x is { p: ProdutoDaVitrine; quantidade: number } => x !== null);
 }
 
+/** A imagem própria do combo manda; sem ela, cai na foto de um dos produtos. */
 const fotoDaOferta = (o: Oferta, loja: Loja) =>
-  produtosEnvolvidos(o, loja).find((x) => x.p.produto.image_url)?.p.produto.image_url ?? null;
+  (o.tipo === 'pacote' ? o.combo.combo.image_url : null)
+  ?? produtosEnvolvidos(o, loja).find((x) => x.p.produto.image_url)?.p.produto.image_url
+  ?? null;
 
 const esgotadaOferta = (o: Oferta, loja: Loja) =>
   produtosEnvolvidos(o, loja).some(({ p }) => p.estoques.every((s) => disponivel(s) === 0));
@@ -275,7 +278,7 @@ function PopupDeCompra({
           {comTamanho.map(({ p }) => (
             <div key={p.ativacao.id} className="space-y-2">
               <p className="text-sm font-semibold text-foreground">
-                {comTamanho.length > 1 ? `Tamanho — ${nomeDoProduto(p.produto)}` : 'Escolha o tamanho'}
+                {comTamanho.length > 1 ? `Tamanho: ${nomeDoProduto(p.produto)}` : 'Escolha o tamanho'}
               </p>
               <SeletorDeTamanho
                 produto={p}
@@ -321,7 +324,8 @@ function PopupDeCompra({
             type="button"
             onClick={confirmar}
             disabled={faltaEscolher.length > 0 || teto < 1}
-            className="w-full h-12 rounded-xl text-base"
+            variant={faltaEscolher.length > 0 || teto < 1 ? 'secondary' : 'gradient'}
+            className="w-full h-12 rounded-xl text-base font-semibold"
           >
             {teto < 1
               ? 'Esgotado'
@@ -403,7 +407,7 @@ function CardDaVitrine({
             type="button"
             onClick={onAbrir}
             disabled={esgotado}
-            variant={noCarrinho > 0 ? 'secondary' : 'default'}
+            variant={noCarrinho > 0 ? 'secondary' : 'gradient'}
             className="w-full rounded-xl"
             size="sm"
           >
@@ -457,10 +461,10 @@ function CardDeCombo({
         onClick={onAbrir}
         disabled={esgotado}
         aria-label={`Ver ${c.combo.name}`}
-        className="w-24 h-24 md:w-28 md:h-28 shrink-0 rounded-xl overflow-hidden bg-muted disabled:cursor-not-allowed"
+        className="w-32 h-32 md:w-36 md:h-36 shrink-0 rounded-xl overflow-hidden bg-white disabled:cursor-not-allowed"
       >
         {foto
-          ? <img src={foto} alt={c.combo.name} className="w-full h-full object-cover" loading="lazy" />
+          ? <img src={foto} alt={c.combo.name} className="w-full h-full object-contain" loading="lazy" />
           : <span className="w-full h-full flex items-center justify-center"><Package className="w-8 h-8 text-muted-foreground" /></span>}
       </button>
 
@@ -501,7 +505,7 @@ function CardDeCombo({
           type="button"
           onClick={onAbrir}
           disabled={esgotado}
-          variant={noCarrinho > 0 ? 'secondary' : 'default'}
+          variant={noCarrinho > 0 ? 'secondary' : 'gradient'}
           className="rounded-xl self-start"
           size="sm"
         >
