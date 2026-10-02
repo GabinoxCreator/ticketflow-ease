@@ -1,7 +1,7 @@
 // Shared helper: send post-payment confirmation email with atomic idempotency.
 // Never throws — payment-critical callers can `await` this safely.
 
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { maskEmail } from "./pii.ts";
 import { carregarProdutosDoPedido, type ProdutosDoPedido } from "./produtosDoPedido.ts";
 
@@ -178,7 +178,10 @@ function buildHtml(args: {
  * Never throws — wraps everything in try/catch.
  */
 export async function sendOrderConfirmationEmailSafe(
-  supabase: SupabaseClient,
+  // Typado como any de propósito: callers importam versões diferentes do
+  // supabase-js (2 / 2.57.2 / 2.117.2), e o tipo nominal do cliente de uma
+  // versão não é atribuível ao da outra. Restringir aqui quebra o deno check.
+  supabase: any,
   args: { orderId: string; source: OrderEmailSource },
 ): Promise<OrderEmailResult> {
   const { orderId, source } = args;
