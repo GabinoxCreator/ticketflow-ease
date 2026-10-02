@@ -63,3 +63,29 @@ export const VERSOES_CADASTRO = versoesDe('termos', 'privacidade');
 
 /** O que a compra aceita: termos + reembolso (é o que fixa prazo e regra de devolução). */
 export const VERSOES_CHECKOUT = versoesDe('termos', 'reembolso');
+
+/*
+ * O resumo da regra de reembolso, para todo lugar que a cita FORA da Política:
+ * página do evento, Central de Ajuda e tela de pagamento.
+ *
+ * Por que mora aqui (01/10/2026): o site dizia o prazo de três jeitos. A página
+ * do evento juntava "7 dias da compra" com "48h antes do evento" numa condição
+ * só, a Central de Ajuda tratava como dois caminhos, e a Política ainda tinha
+ * uma terceira redação. Prazo de reembolso dito de formas diferentes é brecha
+ * numa reclamação: vale a mais favorável ao comprador.
+ *
+ * ⚠️ REGRA: este texto ESPELHA as seções 2, 3, 4 e 7 da Política de Reembolso
+ * (`src/pages/PoliticaReembolso.tsx`). Quem manda é a Política, porque é ela que
+ * o comprador aceita. Mudou lá, muda aqui no mesmo commit. Nenhuma página
+ * escreve prazo de reembolso por conta própria: importa daqui.
+ */
+export const RESUMO_REEMBOLSO = {
+  prazo:
+    'O reembolso pode ser pedido em até 7 dias corridos após a compra, desde que ainda faltem mais de 7 dias para o evento. Fora desse prazo, o pedido é aceito até 48 horas antes do início do evento.',
+  taxa:
+    'Na desistência do comprador é devolvido o valor dos ingressos; a taxa de serviço não é reembolsável.',
+  produtor:
+    'Se o evento for cancelado, adiado ou alterado pelo produtor, o reembolso é integral.',
+  /** A versão curta, para a tela de pagamento. */
+  taxaNoPagamento: 'Em caso de desistência da compra, a taxa de serviço não é reembolsável.',
+} as const;

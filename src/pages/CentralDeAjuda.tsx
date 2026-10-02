@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { RESUMO_REEMBOLSO } from '@/lib/documentos-legais';
 
 type FAQ = { q: string; a: React.ReactNode };
 
@@ -48,9 +49,8 @@ const clientesFaq: FAQ[] = [
       <>
         Pelo e-mail{' '}
         <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
-        , respeitando os prazos da{' '}
-        <Link to="/reembolso" className="text-primary hover:underline">Política de Reembolso</Link>{' '}
-        (até 7 dias após a compra pelo direito de arrependimento, ou até 48h antes do evento).
+        . {RESUMO_REEMBOLSO.prazo} {RESUMO_REEMBOLSO.taxa} As regras completas estão na{' '}
+        <Link to="/reembolso" className="text-primary hover:underline">Política de Reembolso</Link>.
       </>
     ),
   },
