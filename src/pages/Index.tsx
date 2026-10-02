@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { VitrineDeCategorias } from '@/components/home/VitrineDeCategorias';
 import { nomeDaCategoria } from '@/lib/categorias-de-evento';
 import { CarrosselDeBanners } from '@/components/home/CarrosselDeBanners';
+import { isLotEnded, isLotOpenForSale, type LotForAvailability } from '@/lib/lot-availability';
 
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
@@ -19,7 +20,14 @@ const Index = () => {
 
     return dbEvents.map((event) => {
       const lots = event.event_lots || [];
-      const activeLots = lots.filter((lot: any) => lot.is_active);
+      // "A partir de" sai dos lotes à venda agora, com a mesma regra da página do
+      // evento: lote com data de fim vencida não anuncia preço. Se nenhum abriu
+      // ainda (o 1º lote abre amanhã), mostra o preço do que vai abrir, nunca o de
+      // lote já encerrado.
+      const abertos = lots.filter((lot: any) => isLotOpenForSale(lot, lots as LotForAvailability[]));
+      const activeLots = abertos.length > 0
+        ? abertos
+        : lots.filter((lot: any) => lot.is_active && !isLotEnded(lot));
       const prices = activeLots.map((lot: any) => lot.price);
       const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
       const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;

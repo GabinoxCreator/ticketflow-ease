@@ -46,6 +46,12 @@ export interface Event {
     sold_quantity: number;
     reserved_quantity?: number;
     is_active?: boolean;
+    // Só a vitrine pública (usePublicEvents) traz estes: é a agenda do lote.
+    manually_sold_out?: boolean;
+    sales_start_type?: string;
+    start_date?: string | null;
+    end_date?: string | null;
+    starts_after_lot_id?: string | null;
   }>;
   paid_revenue?: number;
 }
@@ -297,7 +303,13 @@ export function usePublicEvents() {
             original_price,
             total_quantity,
             sold_quantity,
-            is_active
+            reserved_quantity,
+            is_active,
+            manually_sold_out,
+            sales_start_type,
+            start_date,
+            end_date,
+            starts_after_lot_id
           )
         `)
         .eq('status', 'published')

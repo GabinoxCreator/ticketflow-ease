@@ -11,6 +11,8 @@
 //   custo do crédito (`opcoes_parcelamento`). Aqui para no subtotal: o que o
 //   produtor recebe mais a taxa administrativa da plataforma.
 
+import { CAMPOS_DA_REGRA, lotesAnteriores, mensagemDoFechado, porQueFechado, type LoteAnterior } from './loteAberto.ts';
+
 export const DEFAULT_FEE_PERCENT = 10;
 
 export interface LinhaCarrinho {
@@ -161,15 +163,21 @@ export async function resolverPreco(
     ...itensDeCombo.filter((i) => i.kind === 'lot').map((i) => i.lot_id),
   ]));
   let lots: any[] = [];
+  // Lote anterior de cada lote encadeado: é ele que diz se o seguinte já abriu.
+  let anteriores = new Map<string, LoteAnterior>();
   if (lotIds.length > 0) {
     const { data, error } = await client
       .from('event_lots')
-      .select('id, name, price, is_active, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros')
+      .select(`id, name, price, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros, ${CAMPOS_DA_REGRA}`)
       .in('id', lotIds)
       .eq('event_id', eventId);
     if (error || !data) throw new CarrinhoInvalido('Erro ao buscar lotes', 500);
     lots = data;
+    anteriores = await lotesAnteriores(client, lots);
   }
+  // Um relógio só para o carrinho inteiro: duas linhas do mesmo pedido não
+  // podem cair em lados diferentes da data de fim.
+  const agora = new Date();
 
   // ---- PRODUTOS: idem, avulsos e de combo ----
   const epIds = Array.from(new Set([
@@ -266,7 +274,10 @@ export async function resolverPreco(
   const linhaDeLote = (lotId: string, qty: number, face: number | null, bundleId: string | null) => {
     const lot = lots.find((l: any) => l.id === lotId);
     if (!lot) throw new CarrinhoInvalido('Lote inválido');
-    if (!lot.is_active) throw new CarrinhoInvalido(`Lote "${lot.name}" não está à venda`);
+    // A mesma regra da vitrine: ativo, dentro da data de fim, já aberto (agenda
+    // ou lote anterior esgotado). Vale também para o ingresso de dentro do combo.
+    const fechado = porQueFechado(lot, anteriores.get(lot.starts_after_lot_id), agora);
+    if (fechado) throw new CarrinhoInvalido(mensagemDoFechado(lot.name, fechado));
     const price = face ?? Number(lot.price);
     const linha = price * qty;
     totalFace += linha;

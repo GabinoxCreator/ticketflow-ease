@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
+import { encerrou, mensagemDoFechado } from "../_shared/loteAberto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,7 +54,7 @@ serve(async (req) => {
 
     const { data: lot } = await supabase
       .from('event_lots')
-      .select('id, event_id, price, total_quantity, sold_quantity, reserved_quantity, is_active, name')
+      .select('id, event_id, price, total_quantity, sold_quantity, reserved_quantity, is_active, name, end_date')
       .eq('id', lot_id)
       .maybeSingle();
     if (!lot || lot.event_id !== event_id) {
@@ -62,6 +63,11 @@ serve(async (req) => {
     }
     if (!lot.is_active) {
       return new Response(JSON.stringify({ error: 'Lote inativo' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // Data de fim vencida não vende (OS-106): a mesma regra do site e da maquininha.
+    if (encerrou(lot)) {
+      return new Response(JSON.stringify({ error: mensagemDoFechado(lot.name, 'encerrado') }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const available = lot.total_quantity - lot.sold_quantity - lot.reserved_quantity;

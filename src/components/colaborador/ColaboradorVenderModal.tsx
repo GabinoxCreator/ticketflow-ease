@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useEventLots } from '@/hooks/useEventLots';
 import { useRegisterDoorSale } from '@/hooks/useColaboradorDoorSales';
+import { isLotEnded } from '@/lib/lot-availability';
 import { toast } from 'sonner';
 
 const formatBRL = (v: number) =>
@@ -47,7 +48,9 @@ export default function ColaboradorVenderModal({
   const [paymentMethod, setPaymentMethod] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const activeLots = (lots || []).filter(l => l.is_active);
+  // Mesma regra da maquininha (collaborator-list-lots): lote com data de fim vencida
+  // não aparece para vender na portaria. A data de início não filtra aqui, como sempre.
+  const activeLots = (lots || []).filter(l => l.is_active && !isLotEnded(l));
   const selectedLot = activeLots.find(l => l.id === lotId);
   const available = selectedLot
     ? selectedLot.total_quantity - selectedLot.sold_quantity - selectedLot.reserved_quantity
