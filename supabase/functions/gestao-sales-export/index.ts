@@ -70,6 +70,121 @@ const METHOD_LABEL: Record<Method, string> = {
   dinheiro: "Dinheiro", cortesia: "Cortesia", outros: "Outros",
 };
 
+// --- Reembolsos (OS-111) ---------------------------------------------------------------
+// Consultas separadas e junção aqui, em vez de embed do PostgREST: a tabela `tickets`
+// tem mais de um caminho até `orders`/`events`, e um embed ambíguo quebra calado.
+const STATUS_REEMBOLSO = ["solicitado", "aprovado", "pago", "recusado", "desistido"];
+const ORDEM_STATUS: Record<string, number> = { solicitado: 1, aprovado: 2 };
+
+// deno-lint-ignore no-explicit-any
+async function listarReembolsos(admin: any, status: string | null) {
+  // "abertos" = o que ainda pede ação da casa: analisar ou pagar.
+  let q = admin.from("reembolsos").select("*").order("solicitado_em", { ascending: true });
+  if (status === "abertos") q = q.in("status", ["solicitado", "aprovado"]);
+  else if (status && STATUS_REEMBOLSO.includes(status)) q = q.eq("status", status);
+  const { data: reembolsos, error } = await q;
+  if (error) throw new Error(`reembolsos: ${error.message}`);
+  const rs = (reembolsos ?? []) as Record<string, any>[];
+  if (rs.length === 0) return { reembolsos: [], generated_at: new Date().toISOString() };
+
+  const uniq = (xs: unknown[]) => [...new Set(xs.filter(Boolean))] as string[];
+  const orderIds = uniq(rs.map((r) => r.order_id));
+  const eventIds = uniq(rs.map((r) => r.event_id));
+  const reembolsoIds = rs.map((r) => r.id as string);
+
+  const [ordersR, eventsR, itensR, ticketsDoPedidoR, payoutsR] = await Promise.all([
+    admin.from("orders")
+      .select("id, customer_name, customer_cpf, customer_email, customer_phone, payment_method, provider_transaction_id, mp_payment_id, total_amount, created_at")
+      .in("id", orderIds),
+    admin.from("events").select("id, title, date, time").in("id", eventIds),
+    admin.from("reembolso_ingressos").select("reembolso_id, ticket_id, valor_ingresso, valor_taxa").in("reembolso_id", reembolsoIds),
+    admin.from("tickets").select("id, order_id, status").in("order_id", orderIds),
+    admin.from("payouts").select("event_id, net_amount, status").in("event_id", eventIds).in("status", ["paid", "requested"]),
+  ]);
+  for (const [nome, r] of [["orders", ordersR], ["events", eventsR], ["reembolso_ingressos", itensR], ["tickets", ticketsDoPedidoR], ["payouts", payoutsR]] as const) {
+    if (r.error) throw new Error(`${nome}: ${r.error.message}`);
+  }
+
+  const itens = (itensR.data ?? []) as Record<string, any>[];
+  const ticketIds = uniq(itens.map((i) => i.ticket_id));
+  const { data: tickets, error: tErr } = ticketIds.length
+    ? await admin.from("tickets").select("id, ticket_code, holder_name, status, lot_id, event_seat_id").in("id", ticketIds)
+    : { data: [], error: null };
+  if (tErr) throw new Error(`tickets: ${tErr.message}`);
+  const lotIds = uniq((tickets ?? []).map((t: any) => t.lot_id));
+  const seatIds = uniq((tickets ?? []).map((t: any) => t.event_seat_id));
+  const [lotsR, seatsR] = await Promise.all([
+    lotIds.length ? admin.from("event_lots").select("id, name").in("id", lotIds) : { data: [] },
+    seatIds.length ? admin.from("event_seats").select("id, label").in("id", seatIds) : { data: [] },
+  ]);
+
+  // Saldo do produtor por evento, a mesma conta da tela do site: a base de repasse
+  // menos os repasses pagos e os pedidos abertos. Negativo = o produtor já recebeu.
+  const saldo = new Map<string, number>();
+  await Promise.all(eventIds.map(async (eid) => {
+    const { data: base, error: bErr } = await admin.rpc("base_de_repasse", { _event_id: eid });
+    if (bErr) throw new Error(`base_de_repasse: ${bErr.message}`);
+    const saiu = (payoutsR.data ?? []).filter((p: any) => p.event_id === eid)
+      .reduce((s: number, p: any) => s + Number(p.net_amount ?? 0), 0);
+    saldo.set(eid, round2(Number(base ?? 0) - saiu));
+  }));
+
+  const porId = <T extends { id: string }>(xs: T[] | null) => new Map((xs ?? []).map((x) => [x.id, x]));
+  const orders = porId(ordersR.data as any[]);
+  const events = porId(eventsR.data as any[]);
+  const ticketMap = porId(tickets as any[]);
+  const lots = porId(lotsR.data as any[]);
+  const seats = porId(seatsR.data as any[]);
+
+  const lista = rs.map((r) => {
+    const o = orders.get(r.order_id) ?? {};
+    const e = events.get(r.event_id) ?? {};
+    const ingressos = itens.filter((i) => i.reembolso_id === r.id).map((i) => {
+      const t = ticketMap.get(i.ticket_id) ?? {};
+      return {
+        ticket_id: i.ticket_id,
+        codigo: String(t.ticket_code ?? "").slice(0, 8).toUpperCase(),
+        titular: t.holder_name ?? null,
+        nome: lots.get(t.lot_id)?.name ?? seats.get(t.event_seat_id)?.label ?? "Ingresso",
+        status: t.status ?? null,
+        valor_ingresso: Number(i.valor_ingresso ?? 0),
+        valor_taxa: Number(i.valor_taxa ?? 0),
+      };
+    }).sort((a, b) => a.codigo.localeCompare(b.codigo));
+    return {
+      id: r.id, numero: r.numero, status: r.status, order_id: r.order_id, event_id: r.event_id,
+      comprador: o.customer_name ?? null, comprador_cpf: o.customer_cpf ?? null,
+      comprador_email: o.customer_email ?? null, comprador_telefone: o.customer_phone ?? null,
+      evento: e.title ?? null, data_do_evento: e.date ?? null, hora_do_evento: e.time ?? null,
+      forma: r.forma, chave_pix: r.chave_pix, tipo_chave_pix: r.tipo_chave_pix,
+      payment_method: o.payment_method ?? null, provider_transaction_id: o.provider_transaction_id ?? null,
+      mp_payment_id: o.mp_payment_id ?? null, total_pago: Number(o.total_amount ?? 0), comprado_em: o.created_at ?? null,
+      valor_ingressos: Number(r.valor_ingressos), valor_taxa: Number(r.valor_taxa), devolve_taxa: r.devolve_taxa,
+      valor_a_devolver: Number(r.valor_a_devolver), regra: r.regra, motivo: r.motivo,
+      solicitado_em: r.solicitado_em, decidido_em: r.decidido_em, motivo_recusa: r.motivo_recusa,
+      modo_cancelamento: r.modo_cancelamento, pago_em: r.pago_em, observacao_pagamento: r.observacao_pagamento,
+      tem_comprovante: Boolean(r.comprovante_path),
+      ingressos,
+      ingressos_do_pedido: (ticketsDoPedidoR.data ?? []).filter((t: any) => t.order_id === r.order_id && t.status !== "pending").length,
+      saldo_do_produtor: saldo.get(r.event_id) ?? null,
+    };
+  });
+
+  // Comprovante: link temporário (10 min) para o João conferir a baixa sem conta no
+  // cofre do site. Ler o arquivo não muda nada lá.
+  await Promise.all(lista.map(async (l, i) => {
+    const path = rs.find((r) => r.id === l.id)?.comprovante_path;
+    if (!path) return;
+    const { data } = await admin.storage.from("payout-proofs").createSignedUrl(path, 600);
+    (lista[i] as any).comprovante_url = data?.signedUrl ?? null;
+  }));
+
+  lista.sort((a, b) =>
+    (ORDEM_STATUS[a.status] ?? 3) - (ORDEM_STATUS[b.status] ?? 3) ||
+    String(a.solicitado_em).localeCompare(String(b.solicitado_em)));
+  return { reembolsos: lista, generated_at: new Date().toISOString() };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -84,6 +199,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } },
     );
+
+    // Fila de reembolsos (OS-111): o financeiro da gestão vê o que o João tem para pagar.
+    // Mesmos campos de `admin_reembolsos_listar`, que não serve aqui porque exige um
+    // admin logado (auth.uid()) e quem chama é o servidor da gestão. A baixa e o
+    // comprovante continuam sendo dados no painel do site: daqui só sai leitura.
+    if (url.searchParams.get("list") === "reembolsos") {
+      return json(await listarReembolsos(admin, url.searchParams.get("status")));
+    }
 
     // Catálogo: a gestão usa para casar a empresa dela com o produtor daqui.
     if (url.searchParams.get("list") === "producers") {
