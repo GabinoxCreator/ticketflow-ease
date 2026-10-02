@@ -5,6 +5,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Link } from 'react-router-dom';
+import { CAMINHOS_LEGAIS, NOMES_LEGAIS, RESUMO_REEMBOLSO } from '@/lib/documentos-legais';
 
 const policies = [
   {
@@ -16,8 +18,18 @@ const policies = [
   {
     id: 'cancelamento',
     title: 'Cancelamento e reembolso',
-    body:
-      'Solicitações de cancelamento podem ser feitas em até 7 dias após a compra, desde que respeitada a antecedência mínima de 48 horas em relação ao início do evento, conforme o Código de Defesa do Consumidor.',
+    // O prazo NÃO se escreve aqui: vem do resumo único, que espelha a Política
+    // de Reembolso. Este bloco já disse uma regra diferente da Política (01/10/2026).
+    body: (
+      <>
+        {RESUMO_REEMBOLSO.prazo} {RESUMO_REEMBOLSO.taxa} {RESUMO_REEMBOLSO.produtor} As regras completas
+        estão na{' '}
+        <Link to={CAMINHOS_LEGAIS.reembolso} className="text-primary hover:underline">
+          {NOMES_LEGAIS.reembolso}
+        </Link>
+        .
+      </>
+    ),
   },
   {
     id: 'idade',

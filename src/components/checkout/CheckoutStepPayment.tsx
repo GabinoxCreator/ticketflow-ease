@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import type { AppliedCoupon } from './CheckoutModal';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
+import { AvisoTaxaNaoReembolsavel } from '@/components/legal/AvisoTaxaNaoReembolsavel';
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
 import { baseDoCupom } from '@/lib/loja/carrinho';
@@ -405,7 +406,8 @@ export function CheckoutStepPayment({
         * aqui que o aviso vale. A Política de Reembolso entra junto porque é ela
         * que fixa prazo e regra de devolução — o que a pessoa mais vai procurar
         * depois. (21/09/2026) */}
-      <AvisoDeAceite acao="Ao concluir a compra" documentos={['termos', 'reembolso']} className="mt-5" />
+      {serviceFee > 0 && <AvisoTaxaNaoReembolsavel className="mt-5" />}
+      <AvisoDeAceite acao="Ao concluir a compra" documentos={['termos', 'reembolso']} className={serviceFee > 0 ? 'mt-3' : 'mt-5'} />
     </motion.div>
   );
 }

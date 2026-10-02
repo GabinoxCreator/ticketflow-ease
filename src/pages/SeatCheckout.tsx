@@ -33,6 +33,7 @@ import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
+import { AvisoTaxaNaoReembolsavel } from '@/components/legal/AvisoTaxaNaoReembolsavel';
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
 
@@ -613,6 +614,7 @@ export default function SeatCheckout() {
 
                 {/* Mesmo aviso do checkout de ingresso (21/09/2026) — mesa e
                   * camarote passam pelas mesmas regras. */}
+                {serviceFee > 0 && <AvisoTaxaNaoReembolsavel />}
                 <AvisoDeAceite acao="Ao concluir a compra" documentos={['termos', 'reembolso']} className="pt-1" />
               </motion.div>
             )}
