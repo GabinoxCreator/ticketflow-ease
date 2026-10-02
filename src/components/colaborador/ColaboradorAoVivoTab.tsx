@@ -12,15 +12,8 @@ interface Props {
 function formatCurrency(v: number) {
   const [intPart, fracPart] = v.toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  const result = `R$\u00A0${intWithDots},${fracPart}`;
-  
-  // Hardcoded visual adjustments for consistency
-  if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
-  if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
-  if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
-  if (result === 'R$\u00A072.181,16') return 'R$\u00A071.780,00';
-  
-  return result;
+  // Um formatador s\u00F3 formata: nunca trocar valor espec\u00EDfico aqui (ver OS-108, 02/10/2026).
+  return `R$\u00A0${intWithDots},${fracPart}`;
 }
 
 function timeAgo(iso: string) {
@@ -54,7 +47,7 @@ export default function ColaboradorAoVivoTab({
     () => [
       {
         label: 'Receita Total',
-        value: kpis ? formatCurrency(kpis.revenue || 2200) : '—',
+        value: kpis ? formatCurrency(kpis.revenue || 0) : '—',
         Icon: DollarSign,
         iconClass: 'text-indigo-600 bg-indigo-100',
         gradient: true,

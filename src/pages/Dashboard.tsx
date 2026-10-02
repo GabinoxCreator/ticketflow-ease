@@ -31,6 +31,7 @@ export default function Dashboard() {
   const {
     totalRevenue,
     totalTicketsSold,
+    totalCourtesies,
     totalCapacity,
     conversionRate,
     averageTicket,
@@ -87,9 +88,14 @@ export default function Dashboard() {
           />
           <EventStatsCard
             title="Ingressos Vendidos"
-            value={totalTicketsSold}
+            value={totalTicketsSold ?? '—'}
             icon={Ticket}
-            description={totalCapacity > 0 ? `de ${totalCapacity} disponíveis` : undefined}
+            description={
+              [
+                totalCapacity > 0 ? `de ${totalCapacity} disponíveis` : null,
+                totalCourtesies > 0 ? `${totalCourtesies} ${totalCourtesies === 1 ? 'cortesia' : 'cortesias'} à parte` : null,
+              ].filter(Boolean).join(' · ') || undefined
+            }
             trend={
               ticketsTrend !== 0
                 ? { value: Math.abs(ticketsTrend), isPositive: ticketsTrend >= 0 }
@@ -102,7 +108,9 @@ export default function Dashboard() {
             description={
               conversionRate !== null
                 ? 'vendidos / capacidade'
-                : 'Configure lotes para calcular'
+                : totalTicketsSold == null && totalCapacity > 0
+                  ? undefined
+                  : 'Configure lotes para calcular'
             }
             icon={TrendingUp}
           />

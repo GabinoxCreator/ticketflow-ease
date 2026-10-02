@@ -107,8 +107,9 @@ export default function EventDashboard() {
 
       <EventDashboardHeader 
         event={event} 
-        totalRevenue={stats.totalRevenue} 
-        ticketsSold={stats.totalTicketsSold} 
+        totalRevenue={stats.totalRevenue}
+        ticketsSold={stats.totalTicketsSold}
+        courtesies={stats.totalCourtesies}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -131,6 +132,7 @@ export default function EventDashboard() {
             eventSlug={event.slug ?? null}
             totalRevenue={stats.totalRevenue}
             ticketsSold={stats.totalTicketsSold}
+            courtesies={stats.totalCourtesies}
             ticketsAvailable={stats.totalTicketsAvailable}
             conversionRate={stats.conversionRate}
             salesByLot={stats.salesByLot}

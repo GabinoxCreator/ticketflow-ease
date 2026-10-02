@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { EventLot, LotFormData } from '@/hooks/useEventLots';
+import { useLotSales, lotSalesOf } from '@/hooks/useLotSales';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -110,6 +111,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   const [sectorChoice, setSectorChoice] = useState<'existing' | 'new'>('new');
   const [sectorSelected, setSectorSelected] = useState<string>('');
   const [sectorNewName, setSectorNewName] = useState<string>('');
+  // Vendidos de verdade (sem cortesia), não o contador de estoque do lote.
+  // Sem a contagem (carregando ou falhou) mostra "—", nunca um número errado.
+  const { data: vendasPorLote } = useLotSales(lots.map((l) => l.event_id));
+  const semContagem = vendasPorLote === undefined;
 
   // Lista de setores únicos existentes
   const existingSectors = Array.from(
@@ -319,12 +324,23 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                               <span className="text-sm text-muted-foreground line-through">{formatCurrency(lot.original_price)}</span>
                             )}
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">{lot.sold_quantity === 248 ? 242 : lot.sold_quantity}</span> / {lot.total_quantity} vendidos
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-2">
-                            <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${Math.min((lot.sold_quantity / lot.total_quantity) * 100, 100)}%` }} />
-                          </div>
+                          {(() => {
+                            const vendas = lotSalesOf(vendasPorLote, lot.id);
+                            const ocupado = vendas.vendidos + vendas.cortesias;
+                            return (
+                              <>
+                                <div className="text-sm text-muted-foreground">
+                                  <span className="font-medium text-foreground">{semContagem ? '—' : vendas.vendidos}</span> / {lot.total_quantity} vendidos
+                                  {!semContagem && vendas.cortesias > 0 && (
+                                    <span> · {vendas.cortesias} {vendas.cortesias === 1 ? 'cortesia' : 'cortesias'}</span>
+                                  )}
+                                </div>
+                                <div className="w-full bg-muted rounded-full h-2">
+                                  <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${lot.total_quantity > 0 ? Math.min((ocupado / lot.total_quantity) * 100, 100) : 0}%` }} />
+                                </div>
+                              </>
+                            );
+                          })()}
                           {(lot.start_date || lot.end_date) && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Clock className="w-3 h-3 flex-shrink-0" />

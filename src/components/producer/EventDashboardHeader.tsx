@@ -12,10 +12,12 @@ import { CourtesyTicketsButton } from '@/components/producer/admin/CourtesyTicke
 interface EventDashboardHeaderProps {
   event: Event;
   totalRevenue: number;
-  ticketsSold: number;
+  /** Pago, sem cortesia. null = contagem falhou (mostra "—"). */
+  ticketsSold: number | null;
+  courtesies?: number;
 }
 
-export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: EventDashboardHeaderProps) {
+export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtesies = 0 }: EventDashboardHeaderProps) {
   const navigate = useNavigate();
   const publishEvent = usePublishEvent();
   const unpublishEvent = useUnpublishEvent();
@@ -164,14 +166,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
                 </div>
                 <div className="min-w-0">
                   <p className="text-lg font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent truncate">
-                    {(() => {
-                      const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue);
-                      if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
-                      if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
-                      if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
-                      if (result === 'R$\u00A072.181,16') return 'R$\u00A071.780,00';
-                      return result;
-                    })()}
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">Receita Total</p>
                 </div>
@@ -182,8 +177,13 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold }: Event
                   <TicketIcon className="h-4 w-4 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-lg font-bold">{ticketsSold}</p>
-                  <p className="text-[11px] text-muted-foreground">Vendidos</p>
+                  <p className="text-lg font-bold">{ticketsSold ?? '—'}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Vendidos
+                    {ticketsSold != null && courtesies > 0 && (
+                      <> · {courtesies} {courtesies === 1 ? 'cortesia' : 'cortesias'}</>
+                    )}
+                  </p>
                 </div>
               </div>
 

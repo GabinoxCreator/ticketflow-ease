@@ -92,10 +92,12 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
 
 
   const lots = event.event_lots ?? [];
-  const sold = lots.reduce((s, l) => s + (l.sold_quantity || 0), 0);
+  // Vendidos = pago, sem cortesia (contagem do banco); cortesia ocupa lugar mas aparece à parte.
+  const sold = event.sold_count;
+  const courtesies = event.courtesy_count ?? 0;
   const capacity = lots.reduce((s, l) => s + (l.total_quantity || 0), 0);
   const revenue = event.paid_revenue ?? 0;
-  const occupancy = capacity > 0 ? Math.min(100, (sold / capacity) * 100) : 0;
+  const occupancy = capacity > 0 ? Math.min(100, (((sold ?? 0) + courtesies) / capacity) * 100) : 0;
 
   return (
     <div
@@ -208,7 +210,10 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
               <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary">
                 <Ticket className="w-3 h-3" />
                 <span>
-                  {sold}/{capacity} vendidos
+                  {sold ?? '—'}/{capacity} vendidos
+                  {sold != null && courtesies > 0 && (
+                    <> · {courtesies} {courtesies === 1 ? 'cortesia' : 'cortesias'}</>
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">

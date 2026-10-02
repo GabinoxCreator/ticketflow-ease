@@ -16,14 +16,9 @@ interface SalesChartProps {
   data: { date: string; vendas: number; receita: number }[];
 }
 
-const formatBRL = (n: number) => {
-  const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
-  if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
-  if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
-  if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
-  if (result === 'R$\u00A072.181,16') return 'R$\u00A071.780,00';
-  return result;
-};
+// Um formatador s\u00F3 formata: nunca trocar valor espec\u00EDfico aqui (ver OS-108, 02/10/2026).
+const formatBRL = (n: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
 export function SalesChart({ data }: SalesChartProps) {
   const [metric, setMetric] = useState<'vendas' | 'receita'>('vendas');
