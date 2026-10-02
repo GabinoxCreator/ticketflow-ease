@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
 
     // 1) Sessão do colaborador
     const sv = await validateCollaboratorSession(supabase, collaborator_id, session_token);
-    if (!sv.ok) return sessionErrorResponse(sv, corsHeaders);
+    if (!sv.valid) return sessionErrorResponse(sv, corsHeaders);
 
     // 2) TRAVA DE AUTORIZAÇÃO: o colaborador precisa estar vinculado a este evento.
     //    Mesma regra do reserve e do list-lots — nunca emitir em evento alheio.
@@ -178,7 +178,12 @@ Deno.serve(async (req) => {
       // Devolve o estoque se quebrou no meio — senão a casa perde lugar sem ter
       // emitido nada. O pedido, se chegou a nascer, NÃO é apagado: fica para
       // auditoria (pedido nunca se apaga).
-      await supabase.rpc('release_lot_quantity', { _lot_id: lot_id, _qty: qty }).catch(() => {});
+      // ⚠️ O construtor do supabase não é Promise: não tem `.catch`. Do jeito antigo
+      // (`.rpc(...).catch(...)`) a linha estourava antes de chamar o banco e o estoque
+      // NUNCA voltava. try/await, como na cortesia do admin.
+      try {
+        await supabase.rpc('release_lot_quantity', { _lot_id: lot_id, _qty: qty });
+      } catch { /* devolver é melhor esforço: o erro de cima é o que importa */ }
       console.error('[courtesy] falhou', { orderId, err: String(err) });
       return json({ error: 'Não foi possível emitir a cortesia' }, 500);
     }
