@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
+import { ehErroDeReembolso, MENSAGEM_REEMBOLSO_EM_ANALISE } from "../_shared/reembolsoEmAnalise.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,13 +154,32 @@ serve(async (req) => {
 
       // Atomic update: only succeeds if status is still 'valid'
       const validatedAt = new Date().toISOString();
-      const { data: updated } = await supabase
+      const { data: updated, error: updateErr } = await supabase
         .from('tickets')
         .update({ status: 'used', validated_at: validatedAt })
         .eq('id', ticket.id)
         .eq('status', 'valid')
         .select()
         .maybeSingle();
+
+      // O banco barra ingresso com reembolso em análise (OS-103); o porteiro
+      // tem que ler o motivo, não "status inválido" (OS-113).
+      if (ehErroDeReembolso(updateErr)) {
+        return new Response(
+          JSON.stringify({
+            found: true,
+            reason: 'refund_in_review',
+            error: MENSAGEM_REEMBOLSO_EM_ANALISE,
+            ticket: {
+              id: ticket.id,
+              ticket_code: ticket.ticket_code,
+              holder_name: ticket.holder_name,
+              status: ticket.status,
+            },
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       if (!updated) {
         // Re-read to determine current state

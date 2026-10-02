@@ -17,6 +17,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 import { maskCpf } from "../_shared/pii.ts";
+import {
+  ehErroDeReembolso,
+  ingressosEmReembolso,
+  MENSAGEM_REEMBOLSO_EM_ANALISE,
+} from "../_shared/reembolsoEmAnalise.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +37,9 @@ const json = (body: unknown, status = 200) =>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Motivos devolvidos quando não há ingresso pra queimar (contrato com o Marcel).
-type Motivo = "sem_ingresso" | "ja_utilizado" | "fora_da_janela";
+// 'reembolso_em_analise' (02/10/2026): o CPF só tem ingresso com pedido de
+// reembolso esperando a casa; vem com `mensagem` em português para a tela.
+type Motivo = "sem_ingresso" | "ja_utilizado" | "fora_da_janela" | "reembolso_em_analise";
 const semIngresso = (motivo: Motivo, extra: Record<string, unknown> = {}) =>
   json({ tem_ingresso: false, motivo, ...extra });
 
@@ -163,8 +170,21 @@ serve(async (req) => {
     }
 
     // ---------- 5. Escolha do ingresso (o mais antigo) ----------
+    // Ingresso com reembolso em análise é pulado: o banco recusa a queima dele, e
+    // escolhê-lo prenderia os outros ingressos do mesmo CPF (a família que pediu
+    // reembolso de um só). OS-113.
     const inWindow = tickets.filter((t) => openEventIds.has(t.event_id));
-    const valid = inWindow.filter((t) => t.status === "valid"); // já vem por created_at asc
+    const validTodos = inWindow.filter((t) => t.status === "valid"); // já vem por created_at asc
+    const emReembolso = await ingressosEmReembolso(
+      supabase,
+      validTodos.map((t) => t.id),
+      "FACIAL-CHECKIN",
+    );
+    const valid = validTodos.filter((t) => !emReembolso.has(t.id));
+    if (valid.length === 0 && emReembolso.size > 0) {
+      console.log("[FACIAL-CHECKIN] só ingresso em reembolso", { cpf: cpfLog, event_id: eventId });
+      return semIngresso("reembolso_em_analise", { mensagem: MENSAGEM_REEMBOLSO_EM_ANALISE });
+    }
     if (valid.length === 0) {
       const jaUsou = inWindow.some((t) => t.status === "used");
       console.log("[FACIAL-CHECKIN] sem ingresso disponível", {
@@ -190,6 +210,11 @@ serve(async (req) => {
       .select("id")
       .maybeSingle();
 
+    if (ehErroDeReembolso(updateErr)) {
+      // O pedido de reembolso nasceu entre a escolha e a queima.
+      console.log("[FACIAL-CHECKIN] barrado pelo reembolso", { cpf: cpfLog, ticket_id: ticket.id });
+      return semIngresso("reembolso_em_analise", { mensagem: MENSAGEM_REEMBOLSO_EM_ANALISE });
+    }
     if (updateErr) {
       console.error("[FACIAL-CHECKIN] update error", { cpf: cpfLog, ticket_id: ticket.id, error: updateErr });
       return json({ error: "internal_error" }, 503);

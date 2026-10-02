@@ -46,7 +46,16 @@ const MinhaConta = () => {
     setDeleting(true);
     try {
       const { data, error } = await supabase.functions.invoke('delete-my-account', { body: {} });
-      if (error || !(data as { ok?: boolean })?.ok) throw error ?? new Error('falha');
+      const resposta = data as { ok?: boolean; motivo?: string; message?: string } | null;
+      // Reembolso em andamento segura a exclusão: nada foi apagado, e a pessoa
+      // precisa saber o porquê e o que fazer (OS-113).
+      if (!error && resposta?.motivo === 'reembolso_em_andamento' && resposta.message) {
+        toast.error(resposta.message, { duration: 10000 });
+        setShowDeleteDialog(false);
+        setDeleting(false);
+        return;
+      }
+      if (error || !resposta?.ok) throw error ?? new Error('falha');
       toast.success('Conta excluída. Seus dados pessoais foram removidos.');
       await signOut();
       navigate('/');

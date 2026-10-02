@@ -244,6 +244,9 @@ verify_jwt = false
 [functions.gestao-sales-export]
 verify_jwt = false
 
+[functions.gestao-reembolso-baixa]
+verify_jwt = false
+
 # Transferência de ingresso (§4 do framework do Rodeio).
 # O dono inicia e cancela logado — o ingresso é dele, e quem manda é a sessão,
 # nunca um id vindo do navegador.
@@ -294,4 +297,9 @@ verify_jwt = false
 # Chamada pelo gatilho trg_orders_meta_capi (pedido virou pago). A porta é o
 # X-Cron-Secret do Vault, não o JWT — quem chama é o banco, não um usuário.
 [functions.meta-capi-purchase]
+verify_jwt = false
+
+# Chamada pelo gatilho da tabela reembolsos e pelo cron de repesca (segredo no header),
+# ou por admin logado para reenviar um aviso na mão. Nunca pelo navegador do público.
+[functions.aviso-reembolso]
 verify_jwt = false
