@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatEventDate, getEventEndInstant } from '@/lib/eventTime';
+import type { ReembolsoDoIngresso } from '@/lib/reembolso';
 
 
 export interface UserTicket {
@@ -54,6 +55,13 @@ export interface UserTicket {
     expires_at: string;
     to_cpf_final: string;
   } | null;
+  /**
+   * Pedido de reembolso deste ingresso, quando existe (OS-103). Em análise
+   * (`solicitado`), o ingresso está BLOQUEADO: não entra nem é transferido,
+   * mesmo com `status` ainda `valid`. Aprovado ou pago, o ingresso já está
+   * `cancelled` e isto diz se o dinheiro já voltou.
+   */
+  reembolso?: ReembolsoDoIngresso | null;
 }
 
 /**
@@ -158,6 +166,26 @@ export function useUserTickets() {
           }
         }
       } catch { /* sem o aviso de transferência, mas com os ingressos na tela */ }
+
+      // Pedidos de reembolso desta pessoa (OS-103). Mesma regra da consulta
+      // acima: separada e tolerante a falha. Sem ela a tela só deixa de mostrar
+      // "em análise" e "reembolsado"; a trava de verdade mora no banco.
+      // Desistência não aparece: o ingresso voltou a ser um ingresso comum.
+      try {
+        const { data: reembolsos } = await (supabase as any)
+          .from('reembolsos')
+          .select('id, numero, status, forma, valor_a_devolver, solicitado_em, decidido_em, pago_em, motivo_recusa, reembolso_ingressos(ticket_id)')
+          .eq('user_id', user.id)
+          .in('status', ['solicitado', 'aprovado', 'pago', 'recusado'])
+          .order('solicitado_em', { ascending: true });
+        // Em ordem de data: o pedido mais recente de cada ingresso é o que vale.
+        const porTicket = new Map<string, ReembolsoDoIngresso>();
+        for (const r of reembolsos ?? []) {
+          const { reembolso_ingressos, ...pedido } = r;
+          for (const i of reembolso_ingressos ?? []) porTicket.set(i.ticket_id, pedido as ReembolsoDoIngresso);
+        }
+        for (const t of lista) t.reembolso = porTicket.get(t.id) ?? null;
+      } catch { /* sem o aviso de reembolso, mas com os ingressos na tela */ }
 
       return lista;
     },

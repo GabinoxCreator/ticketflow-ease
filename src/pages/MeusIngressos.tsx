@@ -18,9 +18,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
 import { TransferirIngresso } from '@/components/tickets/TransferirIngresso';
+import { PedirReembolso } from '@/components/tickets/PedirReembolso';
+import { brl } from '@/lib/reembolso';
 import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
 import { formatInSaoPaulo, formatEventDate } from '@/lib/eventTime';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 function groupByOrder(tickets: UserTicket[]): UserTicket[][] {
@@ -45,24 +47,49 @@ function groupByOrder(tickets: UserTicket[]): UserTicket[][] {
   return order.map((k) => map.get(k)!);
 }
 
-const OrderGroupCard = ({ tickets, onTransferChange }: { tickets: UserTicket[]; onTransferChange?: () => void }) => {
+/** Ingresso com pedido de reembolso esperando a resposta da casa: está bloqueado. */
+const reembolsoEmAnalise = (t: UserTicket) => t.status === 'valid' && t.reembolso?.status === 'solicitado';
+
+/**
+ * O que dizer de um ingresso cancelado por reembolso: o dinheiro está a caminho
+ * ou já voltou. Nulo quando o cancelamento não veio de um pedido de reembolso.
+ */
+function situacaoDoReembolso(t: UserTicket): string | null {
+  const r = t.reembolso;
+  if (t.status !== 'cancelled' || !r) return null;
+  const por = r.forma === 'cartao' ? 'por estorno no cartão' : 'por PIX';
+  if (r.status === 'pago') {
+    const dia = r.pago_em ? formatInSaoPaulo(r.pago_em).slice(0, 5) : null;
+    return `Reembolsado${dia ? ` em ${dia}` : ''}: ${brl(r.valor_a_devolver)} ${por}`;
+  }
+  if (r.status === 'aprovado') return `Reembolso aprovado: ${brl(r.valor_a_devolver)} a caminho, ${por}`;
+  return null;
+}
+
+const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false }: { tickets: UserTicket[]; onTransferChange?: () => void; permitirReembolso?: boolean }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
 
+  // O pedido de reembolso é da COMPRA, não de um ingresso: o botão fica uma vez
+  // por compra, e é dentro dele que a pessoa escolhe quais ingressos devolver.
+  const reembolso = permitirReembolso ? <PedirReembolso tickets={tickets} onChange={onTransferChange} /> : null;
+
   if (tickets.length === 1) {
-    return <TicketCardSimple ticket={tickets[0]} onTransferChange={onTransferChange} />;
+    return <TicketCardSimple ticket={tickets[0]} onTransferChange={onTransferChange} rodape={reembolso} />;
   }
 
   const first = tickets[0];
   const event = ticketEventDisplay(first.event);
   const counts = {
-    valid: tickets.filter((t) => t.status === 'valid').length,
+    valid: tickets.filter((t) => t.status === 'valid' && !reembolsoEmAnalise(t)).length,
+    emReembolso: tickets.filter(reembolsoEmAnalise).length,
     used: tickets.filter((t) => t.status === 'used').length,
     cancelled: tickets.filter((t) => t.status === 'cancelled').length,
     pending: tickets.filter((t) => t.status === 'pending').length,
   };
   const statusBits: string[] = [];
   if (counts.valid) statusBits.push(`${counts.valid} válido${counts.valid > 1 ? 's' : ''}`);
+  if (counts.emReembolso) statusBits.push(`${counts.emReembolso} com reembolso em análise`);
   if (counts.used) statusBits.push(`${counts.used} utilizado${counts.used > 1 ? 's' : ''}`);
   if (counts.cancelled) statusBits.push(`${counts.cancelled} cancelado${counts.cancelled > 1 ? 's' : ''}`);
   if (counts.pending) statusBits.push(`${counts.pending} pendente${counts.pending > 1 ? 's' : ''}`);
@@ -159,6 +186,7 @@ const OrderGroupCard = ({ tickets, onTransferChange }: { tickets: UserTicket[]; 
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               {expanded ? 'Ocultar ingressos' : `Ver ingressos (${tickets.length})`}
             </Button>
+            {reembolso && <div className="mt-2">{reembolso}</div>}
           </div>
 
           {expanded && (
@@ -180,7 +208,7 @@ const OrderGroupCard = ({ tickets, onTransferChange }: { tickets: UserTicket[]; 
 
 
 
-const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticket: UserTicket; compact?: boolean; onTransferChange?: () => void }) => {
+const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }: { ticket: UserTicket; compact?: boolean; onTransferChange?: () => void; rodape?: ReactNode }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -204,10 +232,26 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
     valid: { label: 'Válido', color: 'bg-green-500/10 text-green-500 border-green-500/20', icon: CheckCircle2 },
     used: { label: 'Utilizado', color: 'bg-muted text-muted-foreground border-muted', icon: CheckCircle2 },
     cancelled: { label: 'Cancelado', color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle },
+    em_reembolso: { label: 'Reembolso em análise', color: 'bg-amber-500/10 text-amber-500 border-amber-500/30', icon: Clock },
   };
 
-  const status = statusConfig[ticket.status];
+  // Reembolso em análise: o `status` continua `valid` no banco (quem bloqueia é
+  // a trava de lá), mas para o comprador este ingresso NÃO é um ingresso
+  // pronto para uso. A tela inteira passa a tratá-lo como bloqueado.
+  const emAnalise = reembolsoEmAnalise(ticket);
+  const visual = emAnalise ? 'em_reembolso' : ticket.status;
+  const situacaoReembolso = situacaoDoReembolso(ticket);
+
+  const status = ticket.status === 'cancelled' && ticket.reembolso?.status === 'pago'
+    ? { ...statusConfig.cancelled, label: 'Reembolsado' }
+    : statusConfig[visual];
   const StatusIcon = status.icon;
+  const faixaLateral =
+    emAnalise ? 'bg-amber-500' :
+    ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
+    ticket.status === 'used' ? 'bg-muted-foreground/40' :
+    ticket.status === 'cancelled' ? 'bg-destructive' :
+    'bg-yellow-500';
 
   const ev = ticketEventDisplay(ticket.event);
 
@@ -277,9 +321,27 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
       ctaVariant: 'outline' as const,
       cardBtnClass: 'border-destructive/30 text-destructive hover:bg-destructive/10',
     },
+    em_reembolso: {
+      heroGradient: 'from-amber-500/95 via-amber-600/95 to-orange-700/95',
+      heroIcon: Clock,
+      heroTitle: 'Reembolso em análise',
+      heroSubtitle: 'Este ingresso está bloqueado até a resposta',
+      qrFaded: true,
+      stamp: 'BLOQUEADO',
+      stampColor: 'text-amber-600 border-amber-600',
+      bannerBg: 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400',
+      bannerIcon: Clock,
+      bannerText: 'Pedido de reembolso em análise: este ingresso não entra no evento',
+      ctaLabel: 'Ver Detalhes',
+      ctaIcon: Eye,
+      ctaVariant: 'outline' as const,
+      cardBtnClass: '',
+    },
   };
 
-  const modal = modalConfig[ticket.status];
+  const modal = situacaoReembolso
+    ? { ...modalConfig.cancelled, bannerText: situacaoReembolso }
+    : modalConfig[visual];
   const ModalHeroIcon = modal.heroIcon;
   const ModalBannerIcon = modal.bannerIcon;
   const CtaIcon = modal.ctaIcon;
@@ -312,12 +374,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
           transition={{ duration: 0.2 }}
         >
           <Card className="relative overflow-hidden border-border/50 bg-card/80">
-            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-              ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
-              ticket.status === 'used' ? 'bg-muted-foreground/40' :
-              ticket.status === 'cancelled' ? 'bg-destructive' :
-              'bg-yellow-500'
-            }`} />
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${faixaLateral}`} />
             <CardContent className="p-3 sm:p-4 pl-4 sm:pl-5">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2 min-w-0">
@@ -342,8 +399,11 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
                   <span className="text-xs font-bold leading-tight break-words">{seatDisplay}</span>
                 </div>
               )}
+              {situacaoReembolso && (
+                <p className="mb-3 text-xs text-muted-foreground leading-relaxed">{situacaoReembolso}</p>
+              )}
               <div className="flex gap-2 justify-end flex-wrap">
-                {ticket.status === 'valid' && (
+                {ticket.status === 'valid' && !emAnalise && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -376,12 +436,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
         >
           <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
             {/* Faixa lateral colorida por status */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-              ticket.status === 'valid' ? 'bg-gradient-to-b from-primary to-accent' :
-              ticket.status === 'used' ? 'bg-muted-foreground/40' :
-              ticket.status === 'cancelled' ? 'bg-destructive' :
-              'bg-yellow-500'
-            }`} />
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${faixaLateral}`} />
             <CardContent className="p-0">
               {/* Sem evento legível não há foto: um placeholder do tamanho de uma
                   capa empurraria o botão do ingresso para fora da tela. Cabeçalho
@@ -471,7 +526,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
                     </code>
                   </div>
                   <div className="flex gap-2">
-                    {ticket.status === 'valid' && (
+                    {ticket.status === 'valid' && !emAnalise && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -494,6 +549,10 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
                     </Button>
                   </div>
                 </div>
+                {situacaoReembolso && (
+                  <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{situacaoReembolso}</p>
+                )}
+                {rodape && <div className="mt-3">{rodape}</div>}
               </div>
             </CardContent>
           </Card>
@@ -623,9 +682,11 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
               válido e não usado — o próprio componente decide, e some sozinho
               quando não cabe. Quando há transferência em andamento, ele vira o
               aviso de "transferindo" com a opção de cancelar. */}
-          <div className="shrink-0 px-4 pb-3">
-            <TransferirIngresso ticket={ticket} onChange={onTransferChange} />
-          </div>
+          {!emAnalise && (
+            <div className="shrink-0 px-4 pb-3">
+              <TransferirIngresso ticket={ticket} onChange={onTransferChange} />
+            </div>
+          )}
 
           {/* FOOTER sticky com ações */}
           <div className="shrink-0 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2">
@@ -633,12 +694,12 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange }: { ticke
               variant="outline"
               className="flex-1 gap-2"
               onClick={handleDownloadPDF}
-              disabled={isDownloading}
+              disabled={isDownloading || emAnalise}
             >
               <Download className="w-4 h-4" />
               {isDownloading ? 'Gerando...' : 'Baixar PDF'}
             </Button>
-            {ticket.status === 'valid' && (
+            {ticket.status === 'valid' && !emAnalise && (
               <Button
                 variant="gradient"
                 className="flex-1 gap-2"
@@ -812,7 +873,7 @@ const MeusIngressos = () => {
                 </>
               ) : upcomingTickets.length > 0 ? (
                 groupByOrder(upcomingTickets).map((group) => (
-                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} onTransferChange={() => refetch()} />
+                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} onTransferChange={() => refetch()} permitirReembolso />
                 ))
               ) : (
                 <EmptyState
