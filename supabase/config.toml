@@ -244,6 +244,9 @@ verify_jwt = false
 [functions.gestao-sales-export]
 verify_jwt = false
 
+[functions.gestao-reembolso-baixa]
+verify_jwt = false
+
 # Transferência de ingresso (§4 do framework do Rodeio).
 # O dono inicia e cancela logado — o ingresso é dele, e quem manda é a sessão,
 # nunca um id vindo do navegador.

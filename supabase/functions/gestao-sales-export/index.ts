@@ -163,6 +163,8 @@ async function listarReembolsos(admin: any, status: string | null) {
       valor_a_devolver: Number(r.valor_a_devolver), regra: r.regra, motivo: r.motivo,
       solicitado_em: r.solicitado_em, decidido_em: r.decidido_em, motivo_recusa: r.motivo_recusa,
       modo_cancelamento: r.modo_cancelamento, pago_em: r.pago_em, observacao_pagamento: r.observacao_pagamento,
+      // Quem deu a baixa pela gestão (OS-112). Vazio quando a baixa foi dada no painel do site.
+      pago_por_gestao: r.pago_por_gestao ?? null, baixa_no_site: r.status === "pago" && !r.pago_por_gestao,
       tem_comprovante: Boolean(r.comprovante_path),
       ingressos,
       ingressos_do_pedido: (ticketsDoPedidoR.data ?? []).filter((t: any) => t.order_id === r.order_id && t.status !== "pending").length,
@@ -202,8 +204,8 @@ Deno.serve(async (req) => {
 
     // Fila de reembolsos (OS-111): o financeiro da gestão vê o que o João tem para pagar.
     // Mesmos campos de `admin_reembolsos_listar`, que não serve aqui porque exige um
-    // admin logado (auth.uid()) e quem chama é o servidor da gestão. A baixa e o
-    // comprovante continuam sendo dados no painel do site: daqui só sai leitura.
+    // admin logado (auth.uid()) e quem chama é o servidor da gestão. Daqui só sai
+    // leitura: a baixa pela gestão entra pela porta separada `gestao-reembolso-baixa` (OS-112).
     if (url.searchParams.get("list") === "reembolsos") {
       return json(await listarReembolsos(admin, url.searchParams.get("status")));
     }
