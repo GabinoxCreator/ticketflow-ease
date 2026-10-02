@@ -12,6 +12,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  ehErroDeReembolso,
+  ingressosEmReembolso,
+  MENSAGEM_REEMBOLSO_EM_ANALISE,
+} from "../_shared/reembolsoEmAnalise.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -205,6 +210,17 @@ serve(async (req) => {
       // Neste ponto status é 'valid' (used/outros já saíram acima ou caem no ramo
       // de promoção). Reporta o result que teria, sem efeito colateral.
       if (ticket.status === "valid") {
+        const emReembolso = await ingressosEmReembolso(supabase, [ticket.id], "PARTNER-CHECKIN");
+        if (emReembolso.has(ticket.id)) {
+          return json({
+            result: "invalid_status",
+            reason: "refund_in_review",
+            checked_in: false,
+            dry_run: true,
+            message: MENSAGEM_REEMBOLSO_EM_ANALISE,
+            ticket: ticketView(),
+          });
+        }
         return json({
           result: "valid",
           checked_in: false,
@@ -233,13 +249,26 @@ serve(async (req) => {
 
     // ---------- 9. Promoção atômica valid -> used ----------
     const validatedAt = new Date().toISOString();
-    const { data: updated } = await supabase
+    const { data: updated, error: updateErr } = await supabase
       .from("tickets")
       .update({ status: "used", validated_at: validatedAt })
       .eq("id", ticket.id)
       .eq("status", "valid")
       .select()
       .maybeSingle();
+
+    // O banco barra ingresso com reembolso em análise (OS-103). O `result` fica
+    // no contrato de sempre ('invalid_status'); o motivo vem em `reason` e na
+    // mensagem que o porteiro lê (OS-113).
+    if (ehErroDeReembolso(updateErr)) {
+      return json({
+        result: "invalid_status",
+        reason: "refund_in_review",
+        checked_in: false,
+        message: MENSAGEM_REEMBOLSO_EM_ANALISE,
+        ticket: ticketView(),
+      });
+    }
 
     if (!updated) {
       // Reler o estado atual (concorrência ou já usado antes).

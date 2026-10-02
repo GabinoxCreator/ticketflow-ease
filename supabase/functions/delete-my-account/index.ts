@@ -47,7 +47,51 @@ serve(async (req) => {
     // Placeholder determinístico: some com a PII, mantém a linha rastreável por id.
     const anonTag = `[conta removida ${uid.slice(0, 8)}]`;
 
-    // 1) Anonimiza pedidos (NOT NULL name/email → placeholder; resto → null).
+    // 0) Reembolso em andamento segura a exclusão, ANTES de mexer em qualquer
+    //    coisa (OS-113, decisão do Gabriel em 02/10/2026). Em análise, o banco
+    //    não deixa tirar o dono do ingresso e a conta ficaria pela metade;
+    //    aprovado, a casa ainda precisa do nome e do WhatsApp para pagar.
+    //    Tabela inexistente (a migration do reembolso ainda não subiu) = não há
+    //    reembolso. Qualquer outra falha recusa: melhor tentar de novo do que
+    //    apagar pela metade.
+    const { data: emAndamento, error: reembErr } = await admin
+      .from("reembolsos")
+      .select("id")
+      .eq("user_id", uid)
+      .in("status", ["solicitado", "aprovado"])
+      .limit(1);
+    const tabelaNaoExiste = reembErr?.code === "42P01" || reembErr?.code === "PGRST205";
+    if (reembErr && !tabelaNaoExiste) {
+      console.error("[DELETE-ACCOUNT] reembolso check error:", reembErr.message);
+      return json({ error: "Falha ao conferir reembolsos" }, 500);
+    }
+    if (!tabelaNaoExiste && (emAndamento?.length ?? 0) > 0) {
+      return json({
+        ok: false,
+        motivo: "reembolso_em_andamento",
+        message:
+          "Você tem um pedido de reembolso em andamento. Para excluir a conta, espere ele ser concluído ou desista do pedido em Meus Ingressos.",
+      });
+    }
+
+    // 1) Anonimiza ingressos (holder_name NOT NULL → placeholder). Vem ANTES dos
+    //    pedidos: é o passo que o banco pode recusar (gatilho do reembolso), e
+    //    recusado aqui, num UPDATE só, nada ficou alterado.
+    const { error: tkErr } = await admin
+      .from("tickets")
+      .update({
+        user_id: null,
+        holder_name: anonTag,
+        holder_email: null,
+        holder_phone: null,
+      })
+      .eq("user_id", uid);
+    if (tkErr) {
+      console.error("[DELETE-ACCOUNT] tickets anon error:", tkErr.message);
+      return json({ error: "Falha ao anonimizar ingressos" }, 500);
+    }
+
+    // 2) Anonimiza pedidos (NOT NULL name/email → placeholder; resto → null).
     const { error: ordErr } = await admin
       .from("orders")
       .update({
@@ -61,21 +105,6 @@ serve(async (req) => {
     if (ordErr) {
       console.error("[DELETE-ACCOUNT] orders anon error:", ordErr.message);
       return json({ error: "Falha ao anonimizar pedidos" }, 500);
-    }
-
-    // 2) Anonimiza ingressos (holder_name NOT NULL → placeholder).
-    const { error: tkErr } = await admin
-      .from("tickets")
-      .update({
-        user_id: null,
-        holder_name: anonTag,
-        holder_email: null,
-        holder_phone: null,
-      })
-      .eq("user_id", uid);
-    if (tkErr) {
-      console.error("[DELETE-ACCOUNT] tickets anon error:", tkErr.message);
-      return json({ error: "Falha ao anonimizar ingressos" }, 500);
     }
 
     // 3) Auditoria ANTES de destruir o vínculo (o ator é o próprio titular).
