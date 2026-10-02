@@ -73,6 +73,8 @@ export interface ComboDoEvento {
   price: number;
   status: EstadoNaLoja;
   sort_order: number;
+  /** Imagem própria do combo (o que vem nele). Vazio = usa a foto de um produto. */
+  image_url: string | null;
 }
 
 export interface ItemDoCombo {
