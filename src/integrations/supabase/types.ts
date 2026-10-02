@@ -2704,6 +2704,194 @@ export type Database = {
         }
         Relationships: []
       }
+      reembolso_avisos: {
+        Row: {
+          canal: string
+          created_at: string
+          destino: string | null
+          enviado_em: string | null
+          id: string
+          reembolso_id: string
+          tentativas: number
+          ultimo_erro: string | null
+          updated_at: string
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          destino?: string | null
+          enviado_em?: string | null
+          id?: string
+          reembolso_id: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          destino?: string | null
+          enviado_em?: string | null
+          id?: string
+          reembolso_id?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reembolso_avisos_reembolso_id_fkey"
+            columns: ["reembolso_id"]
+            isOneToOne: false
+            referencedRelation: "reembolsos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reembolso_ingressos: {
+        Row: {
+          reembolso_id: string
+          ticket_id: string
+          valor_ingresso: number
+          valor_taxa: number
+        }
+        Insert: {
+          reembolso_id: string
+          ticket_id: string
+          valor_ingresso?: number
+          valor_taxa?: number
+        }
+        Update: {
+          reembolso_id?: string
+          ticket_id?: string
+          valor_ingresso?: number
+          valor_taxa?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reembolso_ingressos_reembolso_id_fkey"
+            columns: ["reembolso_id"]
+            isOneToOne: false
+            referencedRelation: "reembolsos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reembolso_ingressos_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reembolsos: {
+        Row: {
+          chave_pix: string | null
+          comprovante_path: string | null
+          created_at: string
+          decidido_em: string | null
+          decidido_por: string | null
+          desistido_em: string | null
+          devolve_taxa: boolean
+          event_id: string
+          forma: string
+          id: string
+          modo_cancelamento: string | null
+          motivo: string | null
+          motivo_recusa: string | null
+          numero: number
+          observacao_pagamento: string | null
+          order_id: string
+          pago_em: string | null
+          pago_por: string | null
+          pago_por_gestao: string | null
+          regra: Json
+          solicitado_em: string
+          status: string
+          tipo_chave_pix: string | null
+          updated_at: string
+          user_id: string
+          valor_a_devolver: number
+          valor_ingressos: number
+          valor_taxa: number
+        }
+        Insert: {
+          chave_pix?: string | null
+          comprovante_path?: string | null
+          created_at?: string
+          decidido_em?: string | null
+          decidido_por?: string | null
+          desistido_em?: string | null
+          devolve_taxa?: boolean
+          event_id: string
+          forma: string
+          id?: string
+          modo_cancelamento?: string | null
+          motivo?: string | null
+          motivo_recusa?: string | null
+          numero?: number
+          observacao_pagamento?: string | null
+          order_id: string
+          pago_em?: string | null
+          pago_por?: string | null
+          pago_por_gestao?: string | null
+          regra?: Json
+          solicitado_em?: string
+          status?: string
+          tipo_chave_pix?: string | null
+          updated_at?: string
+          user_id: string
+          valor_a_devolver: number
+          valor_ingressos: number
+          valor_taxa?: number
+        }
+        Update: {
+          chave_pix?: string | null
+          comprovante_path?: string | null
+          created_at?: string
+          decidido_em?: string | null
+          decidido_por?: string | null
+          desistido_em?: string | null
+          devolve_taxa?: boolean
+          event_id?: string
+          forma?: string
+          id?: string
+          modo_cancelamento?: string | null
+          motivo?: string | null
+          motivo_recusa?: string | null
+          numero?: number
+          observacao_pagamento?: string | null
+          order_id?: string
+          pago_em?: string | null
+          pago_por?: string | null
+          pago_por_gestao?: string | null
+          regra?: Json
+          solicitado_em?: string
+          status?: string
+          tipo_chave_pix?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_a_devolver?: number
+          valor_ingressos?: number
+          valor_taxa?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reembolsos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reembolsos_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seat_types: {
         Row: {
           base_capacity: number
@@ -3193,6 +3381,23 @@ export type Database = {
       }
       admin_mark_payout_paid: { Args: { p_payout_id: string }; Returns: Json }
       admin_platform_net: { Args: never; Returns: Json }
+      admin_reembolso_anexar_comprovante: {
+        Args: { p_path: string; p_reembolso_id: string }
+        Returns: Json
+      }
+      admin_reembolso_aprovar: {
+        Args: { p_reembolso_id: string }
+        Returns: Json
+      }
+      admin_reembolso_marcar_pago: {
+        Args: { p_observacao?: string; p_reembolso_id: string }
+        Returns: Json
+      }
+      admin_reembolso_recusar: {
+        Args: { p_motivo: string; p_reembolso_id: string }
+        Returns: Json
+      }
+      admin_reembolsos_listar: { Args: { p_status?: string }; Returns: Json }
       admin_sales_timeseries: { Args: never; Returns: Json }
       admin_set_event_fee: {
         Args: {
@@ -3361,6 +3566,15 @@ export type Database = {
         Returns: boolean
       }
       gerar_codigo_retirada: { Args: never; Returns: string }
+      gestao_reembolso_dar_baixa: {
+        Args: {
+          p_comprovante_path: string
+          p_observacao?: string
+          p_quem: string
+          p_reembolso_id: string
+        }
+        Returns: Json
+      }
       get_camarote_wristbands: {
         Args: { _event_id: string }
         Returns: {
@@ -3560,6 +3774,10 @@ export type Database = {
         Args: { o: Database["public"]["Tables"]["orders"]["Row"] }
         Returns: number
       }
+      order_producer_value_bruto: {
+        Args: { o: Database["public"]["Tables"]["orders"]["Row"] }
+        Returns: number
+      }
       order_products_confirmar: { Args: { _order_id: string }; Returns: number }
       order_products_devolver: { Args: { _order_id: string }; Returns: number }
       order_products_liberar: { Args: { _order_id: string }; Returns: number }
@@ -3593,6 +3811,49 @@ export type Database = {
           indicador: string
           observacao: string
           valor: string
+        }[]
+      }
+      reembolso_desistir: { Args: { _reembolso_id: string }; Returns: Json }
+      reembolso_motivo_do_ingresso: {
+        Args: { _dono: string; _ticket_id: string }
+        Returns: string
+      }
+      reembolso_regra: {
+        Args: { _agora?: string; _order_id: string }
+        Returns: Json
+      }
+      reembolso_simular: { Args: { _order_id: string }; Returns: Json }
+      reembolso_solicitar: {
+        Args: {
+          _chave_pix?: string
+          _motivo?: string
+          _order_id: string
+          _ticket_ids: string[]
+          _tipo_chave_pix?: string
+        }
+        Returns: Json
+      }
+      reembolso_valores: {
+        Args: { _order_id: string }
+        Returns: {
+          ticket_id: string
+          valor_ingresso: number
+          valor_taxa: number
+        }[]
+      }
+      reembolsos_esperando: {
+        Args: never
+        Returns: {
+          avisado_em: string
+          comprador: string
+          data_do_evento: string
+          evento: string
+          forma: string
+          numero: number
+          pedido_em: string
+          reembolso_id: string
+          situacao: string
+          valor: number
         }[]
       }
       registrar_aceite: {
