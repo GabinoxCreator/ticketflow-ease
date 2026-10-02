@@ -6,6 +6,7 @@ import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/co
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 import { resolveFee, computeServiceFee, feeMethodFromPaymentMethod } from "../_shared/eventFee.ts";
+import { encerrou, mensagemDoFechado } from "../_shared/loteAberto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
     const lotIds = Array.from(new Set(normalized.map(i => i.lot_id)));
     const { data: lots, error: lotsErr } = await supabase
       .from('event_lots')
-      .select('id, event_id, price')
+      .select('id, event_id, price, name, end_date')
       .in('id', lotIds);
     if (lotsErr) {
       console.error('[RESERVE] lots query error:', lotsErr);
@@ -83,6 +84,18 @@ Deno.serve(async (req) => {
       const lot = lotMap.get(id);
       if (!lot || lot.event_id !== event_id) {
         return new Response(JSON.stringify({ error: 'Lote inválido para este evento', lot_id: id }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // Lote com data de fim vencida não vende (OS-106): a mesma regra da lista
+    // (collaborator-list-lots) e do site. A lista já esconde; aqui barra a tela da
+    // maquininha ou do totem que ficou aberta depois da data. Roda ANTES de reservar estoque.
+    const agora = new Date();
+    for (const id of lotIds) {
+      const lot: any = lotMap.get(id);
+      if (encerrou(lot, agora)) {
+        return new Response(JSON.stringify({ error: mensagemDoFechado(lot.name, 'encerrado'), lot_id: id }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }

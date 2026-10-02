@@ -36,6 +36,7 @@ import { usePublishEvent } from '@/hooks/useEventPublishing';
 import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { cn } from '@/lib/utils';
 import { CATEGORIAS_ESCOLHIVEIS, CATEGORIA_PADRAO } from '@/lib/categorias-de-evento';
+import { spWallToInstant } from '@/lib/eventTime';
 
 const states = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -86,6 +87,18 @@ function createEmptyLot(index: number): InlineLot {
     is_active: true,
   };
 }
+
+// Início das vendas do lote agendado, como o insert grava (mesma conta, lá embaixo).
+const inicioDasVendas = (lot: InlineLot): Date | null =>
+  lot.sales_start_type === 'scheduled' && lot.start_date
+    ? new Date(`${lot.start_date}T${lot.start_time || '00:00'}:00`)
+    : null;
+
+// Fim das vendas: o dia escolhido, no horário escolhido ou até 23:59:59, no fuso de
+// São Paulo. Até 02/10/2026 este campo aparecia na tela e era jogado fora: o lote
+// vendia para sempre (OS-106).
+const fimDasVendas = (lot: InlineLot): Date | null =>
+  lot.end_date ? spWallToInstant(lot.end_date, lot.end_time || null, '23:59:59') : null;
 
 const allTimeOptions: string[] = [];
 for (let h = 0; h < 24; h++) {
@@ -198,6 +211,15 @@ export default function CriarEvento() {
       if (!venue || venue.length < 2) newErrors.venue = 'Informe o local';
       if (!city || city.length < 2) newErrors.city = 'Informe a cidade';
       if (!state) newErrors.state = 'Selecione o estado';
+    } else if (step === 3) {
+      // Lote que termina antes de começar nunca venderia: barra aqui, não no dia do evento.
+      for (const lot of lots) {
+        const inicio = inicioDasVendas(lot);
+        const fim = fimDasVendas(lot);
+        if (inicio && fim && fim <= inicio) {
+          newErrors[`lotEnd_${lot.id}`] = 'O fim das vendas precisa ser depois do início';
+        }
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -270,6 +292,9 @@ export default function CriarEvento() {
           start_date: lot.sales_start_type === 'scheduled' && lot.start_date
             ? new Date(`${lot.start_date}T${lot.start_time || '00:00'}:00`).toISOString()
             : null,
+          // A data de fim escolhida passa a valer: nela o lote sai do site, da
+          // maquininha e da portaria (OS-106, decisão do Gabriel em 02/10/2026).
+          end_date: fimDasVendas(lot)?.toISOString() ?? null,
           fake_scarcity_enabled: lot.fake_scarcity_enabled,
           fake_scarcity_percentage: lot.fake_scarcity_percentage,
         }).select('id').single();
@@ -788,6 +813,7 @@ export default function CriarEvento() {
                           <Calendar mode="single" selected={lot.end_date ? new Date(lot.end_date + 'T12:00:00') : undefined} onSelect={(d) => updateLot(lot.id, { end_date: d ? format(d, 'yyyy-MM-dd') : undefined })} disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))} initialFocus className="p-3 pointer-events-auto" />
                         </PopoverContent>
                       </Popover>
+                      {errors[`lotEnd_${lot.id}`] && <p className="text-xs text-destructive">{errors[`lotEnd_${lot.id}`]}</p>}
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground">Horário de fim (opcional)</Label>

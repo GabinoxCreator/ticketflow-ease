@@ -34,7 +34,8 @@ export interface LotFormData {
   original_price?: number;
   total_quantity: number;
   start_date?: string;
-  end_date?: string;
+  /** Fim das vendas. `null` apaga a data (o lote volta a vender até esgotar). */
+  end_date?: string | null;
   description?: string;
   is_active?: boolean;
   fake_scarcity_enabled?: boolean;

@@ -124,7 +124,7 @@ serve(async (req) => {
     const lotIds = items.map(i => i.lotId);
     const { data: lots, error: lotsError } = await supabaseClient
       .from('event_lots')
-      .select('id, name, price, is_active, sales_start_type, start_date, starts_after_lot_id, modo_taxa, max_parcelas')
+      .select('id, name, price, is_active, sales_start_type, start_date, end_date, starts_after_lot_id, modo_taxa, max_parcelas')
       .in('id', lotIds)
       .eq('event_id', eventId);
     if (lotsError || !lots) throw new Error('Erro ao buscar lotes');
@@ -148,8 +148,12 @@ serve(async (req) => {
       const lot = lots.find((l: any) => l.id === item.lotId);
       if (!lot) throw new Error(`Lote não encontrado: ${item.lotId}`);
       if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
-      // Espelho de src/lib/lot-availability.ts: lote agendado não vende antes da hora,
-      // lote encadeado não vende enquanto o anterior não esgotar.
+      // Espelho de src/lib/lot-availability.ts: lote com data de fim vencida não vende,
+      // lote agendado não vende antes da hora, lote encadeado não vende enquanto o
+      // anterior não esgotar.
+      if (lot.end_date && new Date(lot.end_date) < new Date()) {
+        throw new Error(`As vendas do lote "${lot.name}" já encerraram`);
+      }
       if (lot.sales_start_type === 'scheduled' && lot.start_date && new Date(lot.start_date) > new Date()) {
         throw new Error(`Lote "${lot.name}" ainda não está à venda`);
       }

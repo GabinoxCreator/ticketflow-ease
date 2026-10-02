@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { resolveFee } from "../_shared/eventFee.ts";
+import { encerrou } from "../_shared/loteAberto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,9 +60,14 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 4) Regra "à venda no momento" — IDÊNTICA ao ColaboradorVenderModal / door-sale:
-    //    available = total - sold - reserved (clamp >= 0). Sem filtro de data.
+    // 4) Regra "à venda no momento" — IDÊNTICA ao ColaboradorVenderModal / door-sale e à
+    //    reserva: dentro da data de fim e available = total - sold - reserved (clamp >= 0).
+    //    A data de fim vale desde 02/10/2026 (OS-106): antes o painel do produtor dizia
+    //    "Encerrado" e a maquininha seguia vendendo. Decisão do Gabriel: a data de fim
+    //    vale em todo lugar. A data de INÍCIO continua sem filtrar aqui, como sempre.
+    const agora = new Date();
     const formatted = (lots || [])
+      .filter((l: any) => !encerrou(l, agora))
       .map((l: any) => {
         const available = Math.max(
           0,

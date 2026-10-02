@@ -139,7 +139,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
         original_price: lot.original_price || undefined,
         total_quantity: lot.total_quantity,
         start_date: isoToLocalInput(lot.start_date) || undefined,
-        end_date: lot.end_date || undefined,
+        end_date: isoToLocalInput(lot.end_date) || undefined,
         description: lot.description || undefined,
         is_active: lot.is_active,
         fake_scarcity_enabled: lot.fake_scarcity_enabled || false,
@@ -214,6 +214,18 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       toast.error('Escolha qual lote precisa esgotar antes deste entrar à venda.');
       return;
     }
+    // Fim das vendas (opcional). O campo só mostra até o minuto: se o produtor não
+    // mexeu nele, mantém o valor guardado (senão um 23:59:59 viraria 23:59:00 ao
+    // salvar o preço). Em branco = sem data de fim.
+    const fimGuardado = editingLot?.end_date ?? null;
+    const endDate = formData.end_date && formData.end_date === isoToLocalInput(fimGuardado)
+      ? fimGuardado
+      : localInputToIso(formData.end_date);
+    const startDate = formData.sales_start_type === 'scheduled' ? localInputToIso(formData.start_date) : null;
+    if (endDate && startDate && new Date(endDate) <= new Date(startDate)) {
+      toast.error('O fim das vendas precisa ser depois do início.');
+      return;
+    }
 
     const payload: LotFormData = {
       ...formData,
@@ -221,6 +233,8 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
       start_date: formData.sales_start_type === 'scheduled'
         ? (localInputToIso(formData.start_date) ?? undefined)
         : undefined,
+      // Nessa hora o lote sai do site, da maquininha e da portaria (OS-106).
+      end_date: endDate,
       starts_after_lot_id: formData.sales_start_type === 'after_lot'
         ? formData.starts_after_lot_id
         : null,
@@ -564,6 +578,14 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                   </Select>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label>Fim das vendas (opcional)</Label>
+                <Input type="datetime-local" value={formData.end_date || ''} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} />
+                <p className="text-xs text-muted-foreground">
+                  Nesse horário o lote sai do site, da maquininha e da portaria. Em branco, vende até esgotar.
+                </p>
+              </div>
             </div>
 
             {/* Group Ticket */}
