@@ -5,6 +5,7 @@ import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getEventEndInstant } from '@/lib/eventTime';
+import { fetchLotSales, sumLotSales } from '@/hooks/useLotSales';
 
 
 export type EventType = 'ingresso' | 'mesa' | 'hibrido';
@@ -48,6 +49,9 @@ export interface Event {
     is_active?: boolean;
   }>;
   paid_revenue?: number;
+  /** Vendidos de verdade: pago, sem cortesia. null = a contagem falhou. */
+  sold_count?: number | null;
+  courtesy_count?: number;
 }
 
 export interface EventFormData {
@@ -116,6 +120,23 @@ export function useEvents() {
         eventsList.forEach(e => {
           e.paid_revenue = revenueByEvent.get(e.id) || 0;
         });
+
+        // "Vendidos" = pago, sem cortesia; cortesia à parte (decisão do Gabriel, 02/10/2026).
+        // Se a contagem falhar, a lista mostra "—" e o resto da página segue.
+        try {
+          const vendasPorLote = await fetchLotSales(eventIds);
+          eventsList.forEach(e => {
+            const vendas = sumLotSales(vendasPorLote, (e.event_lots || []).map(l => l.id));
+            e.sold_count = vendas.vendidos;
+            e.courtesy_count = vendas.cortesias;
+          });
+        } catch (err) {
+          console.warn('[useEvents] contagem de vendidos falhou', err);
+          eventsList.forEach(e => {
+            e.sold_count = null;
+            e.courtesy_count = 0;
+          });
+        }
       }
 
       return eventsList;

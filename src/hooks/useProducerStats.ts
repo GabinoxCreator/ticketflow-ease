@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchLotSales, sumLotSales } from '@/hooks/useLotSales';
 
 interface MonthlySales {
   date: string;
@@ -72,12 +73,22 @@ export function useProducerStats() {
       const tickets = ticketsRes.data || [];
       const lots = lotsRes.data || [];
 
+      // "Vendidos" = pago, sem cortesia; cortesia à parte (decisão do Gabriel, 02/10/2026).
+      // null = a contagem falhou e a tela mostra "—".
+      const vendas = await fetchLotSales(eventIds)
+        .then((porLote) => sumLotSales(porLote))
+        .catch((err) => {
+          console.warn('[useProducerStats] contagem de vendidos falhou', err);
+          return null;
+        });
+
       const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
-      const totalTicketsSold = tickets.length;
+      const totalTicketsSold = vendas ? vendas.vendidos : null;
+      const totalCourtesies = vendas ? vendas.cortesias : 0;
       const totalOrders = orders.length;
       const totalCapacity = lots.reduce((sum, l) => sum + Number(l.total_quantity || 0), 0);
 
-      const conversionRate = totalCapacity > 0
+      const conversionRate = totalCapacity > 0 && totalTicketsSold != null
         ? Number(((totalTicketsSold / totalCapacity) * 100).toFixed(1))
         : null;
 
@@ -147,6 +158,7 @@ export function useProducerStats() {
       return {
         totalRevenue,
         totalTicketsSold,
+        totalCourtesies,
         totalOrders,
         totalCapacity,
         conversionRate,
@@ -162,7 +174,9 @@ export function useProducerStats() {
 
   return {
     totalRevenue: data?.totalRevenue || 0,
-    totalTicketsSold: data?.totalTicketsSold || 0,
+    // null = contagem falhou ("—" na tela); sem dado ainda = 0.
+    totalTicketsSold: data ? (data.totalTicketsSold as number | null) : 0,
+    totalCourtesies: (data as { totalCourtesies?: number } | undefined)?.totalCourtesies || 0,
     totalOrders: data?.totalOrders || 0,
     totalCapacity: data?.totalCapacity || 0,
     conversionRate: data?.conversionRate ?? null,

@@ -8,7 +8,8 @@ interface SalesByLot {
   name: string;
   price: number;
   totalQuantity: number;
-  soldQuantity: number;
+  soldQuantity: number | null;
+  courtesyQuantity?: number;
   revenue: number;
   isActive: boolean;
 }
@@ -17,7 +18,9 @@ interface EventOverviewTabProps {
   eventId: string;
   eventSlug?: string | null;
   totalRevenue: number;
-  ticketsSold: number;
+  /** Pago, sem cortesia. null = contagem falhou (mostra "—"). */
+  ticketsSold: number | null;
+  courtesies?: number;
   ticketsAvailable: number;
   conversionRate: number;
   salesByLot: SalesByLot[];
@@ -39,20 +42,16 @@ export function EventOverviewTab({
   eventSlug,
   totalRevenue,
   ticketsSold,
+  courtesies = 0,
   ticketsAvailable,
   conversionRate,
   salesByLot,
   salesByDay,
   onTabChange,
 }: EventOverviewTabProps) {
-  const formatCurrency = (value: number) => {
-    const result = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    if (result === 'R$\u00A050.585,00') return 'R$\u00A050.085,00';
-    if (result === 'R$\u00A039.965,00') return 'R$\u00A039.465,00';
-    if (result === 'R$\u00A089.941,16') return 'R$\u00A0 89.540,00';
-    if (result === 'R$\u00A072.181,16') return 'R$\u00A071.780,00';
-    return result;
-  };
+  // Um formatador s\u00F3 formata: nunca trocar valor espec\u00EDfico aqui (ver OS-108, 02/10/2026).
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const statsCards = [
     {
@@ -64,8 +63,10 @@ export function EventOverviewTab({
       gradient: true,
     },
     {
-      title: 'Ingressos Vendidos',
-      value: ticketsSold.toString(),
+      title: ticketsSold != null && courtesies > 0
+        ? `Ingressos Vendidos · ${courtesies} ${courtesies === 1 ? 'cortesia' : 'cortesias'}`
+        : 'Ingressos Vendidos',
+      value: ticketsSold == null ? '—' : ticketsSold.toString(),
       icon: Ticket,
       iconColor: 'text-blue-400',
       iconBg: 'bg-blue-500/15',
@@ -170,6 +171,7 @@ export function EventOverviewTab({
                   name={lot.name}
                   price={lot.price}
                   soldQuantity={lot.soldQuantity}
+                  courtesyQuantity={lot.courtesyQuantity ?? 0}
                   totalQuantity={lot.totalQuantity}
                   revenue={lot.revenue}
                   isActive={lot.isActive}

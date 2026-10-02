@@ -3,11 +3,13 @@ import { useEventLots } from './useEventLots';
 import { useEventOrders } from './useEventOrders';
 import { useEventParticipants } from './useEventParticipants';
 import { computeSalesByLot, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
+import { useLotSales, lotSalesOf, sumLotSales } from './useLotSales';
 
 export function useEventStats(eventId: string | undefined) {
   const { lots, totalQuantity, soldQuantity, availableQuantity, isLoading: lotsLoading } = useEventLots(eventId);
   const { orders, totalRevenue, paidOrders, isLoading: ordersLoading } = useEventOrders(eventId);
   const { tickets, validTickets, usedTickets, cancelledTickets, isLoading: ticketsLoading } = useEventParticipants(eventId);
+  const { data: vendasPorLote } = useLotSales(eventId ? [eventId] : []);
 
   const stats = useMemo(() => {
     // Count only paid tickets (valid or used)
@@ -16,9 +18,22 @@ export function useEventStats(eventId: string | undefined) {
     const actualAvailable = totalQuantity - paidTicketsCount;
     const conversionRate = totalQuantity > 0 ? ((paidTicketsCount / totalQuantity) * 100).toFixed(1) : '0';
 
+    // "Vendidos" = pago, sem cortesia; cortesia à parte (decisão do Gabriel, 02/10/2026).
+    // Sem a contagem (carregando ou falhou) o número é null e a tela mostra "—".
+    const semContagem = vendasPorLote === undefined;
+    const vendas = sumLotSales(vendasPorLote);
+
     // Quebra por lote — fonte única (src/lib/producerFinance.ts): rateio do valor
-    // do ingresso (sem taxa, sem cortesia) entre os tickets pagos.
-    const salesByLot = computeSalesByLot({ orders: paidOrders, tickets, lots });
+    // do ingresso (sem taxa, sem cortesia) entre os tickets pagos. A quantidade
+    // vendida vem da contagem do banco, com a cortesia separada.
+    const salesByLot = computeSalesByLot({ orders: paidOrders, tickets, lots }).map((row) => {
+      const doLote = lotSalesOf(vendasPorLote, row.id);
+      return {
+        ...row,
+        soldQuantity: semContagem ? null : doLote.vendidos as number | null,
+        courtesyQuantity: semContagem ? 0 : doLote.cortesias,
+      };
+    });
 
     // Sales over time (last 7 days)
     const today = new Date();
@@ -47,7 +62,9 @@ export function useEventStats(eventId: string | undefined) {
 
     return {
       totalRevenue,
-      totalTicketsSold: paidTicketsCount,
+      // null = sem a contagem: a tela mostra "—" em vez de um número errado.
+      totalTicketsSold: semContagem ? null : vendas.vendidos,
+      totalCourtesies: semContagem ? 0 : vendas.cortesias,
       totalTicketsAvailable: actualAvailable,
       totalCapacity: totalQuantity,
       conversionRate: parseFloat(conversionRate),
@@ -59,7 +76,7 @@ export function useEventStats(eventId: string | undefined) {
       salesByLot,
       salesByDay,
     };
-  }, [lots, tickets, orders, totalQuantity, soldQuantity, availableQuantity, totalRevenue, paidOrders, validTickets, usedTickets, cancelledTickets]);
+  }, [lots, tickets, orders, totalQuantity, soldQuantity, availableQuantity, totalRevenue, paidOrders, validTickets, usedTickets, cancelledTickets, vendasPorLote]);
 
   return {
     ...stats,

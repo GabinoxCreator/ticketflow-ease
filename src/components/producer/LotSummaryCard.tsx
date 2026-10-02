@@ -4,21 +4,25 @@ import { Badge } from '@/components/ui/badge';
 interface LotSummaryCardProps {
   name: string;
   price: number;
-  soldQuantity: number;
+  /** Pago, sem cortesia. null = sem a contagem (mostra "—"). */
+  soldQuantity: number | null;
+  /** Cortesia ocupa lugar no lote, mas não conta como vendido (decisão do Gabriel, 02/10/2026). */
+  courtesyQuantity?: number;
   totalQuantity: number;
   revenue: number;
   isActive: boolean;
 }
 
-export function LotSummaryCard({ 
-  name, 
-  price, 
-  soldQuantity, 
-  totalQuantity, 
-  revenue, 
-  isActive 
+export function LotSummaryCard({
+  name,
+  price,
+  soldQuantity,
+  courtesyQuantity = 0,
+  totalQuantity,
+  revenue,
+  isActive
 }: LotSummaryCardProps) {
-  const progress = totalQuantity > 0 ? (soldQuantity / totalQuantity) * 100 : 0;
+  const progress = totalQuantity > 0 ? (((soldQuantity ?? 0) + courtesyQuantity) / totalQuantity) * 100 : 0;
   const isAlmostSoldOut = progress >= 80;
   const isSoldOut = progress >= 100;
 
@@ -41,7 +45,10 @@ export function LotSummaryCard({
         <div className="flex items-center gap-2 mb-2">
           <Progress value={progress} className="flex-1 h-2" />
           <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {soldQuantity}/{totalQuantity}
+            {soldQuantity ?? '—'}/{totalQuantity}
+            {courtesyQuantity > 0 && (
+              <> · {courtesyQuantity} {courtesyQuantity === 1 ? 'cortesia' : 'cortesias'}</>
+            )}
           </span>
         </div>
         

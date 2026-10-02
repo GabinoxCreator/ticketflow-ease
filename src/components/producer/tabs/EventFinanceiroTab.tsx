@@ -5,6 +5,7 @@ import { Loader2, DollarSign, Banknote, Ticket, ShoppingBag, QrCode, CreditCard,
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
+import { useLotSales, sumLotSales } from '@/hooks/useLotSales';
 import { computeProducerFinance, isPaidStatus, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
 import { attachProducerValues } from '@/lib/orderProducerValues';
 
@@ -54,6 +55,8 @@ interface DoorSaleRow {
 
 export function EventFinanceiroTab({ eventId }: Props) {
   const { lots } = useEventLots(eventId);
+  // Vendidos de verdade (pago, sem cortesia), não o contador de estoque do lote.
+  const { data: vendasPorLote } = useLotSales(eventId ? [eventId] : []);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['event-financeiro', eventId],
@@ -136,8 +139,12 @@ export function EventFinanceiroTab({ eventId }: Props) {
       byMethodManual.set(k, cur);
     });
 
-    // Tickets sold (online)
-    const ticketsSold = (lots || []).reduce((s, l) => s + Number(l.sold_quantity || 0), 0);
+    // Ingressos vendidos: pago, sem cortesia; cortesia à parte (decisão do Gabriel, 02/10/2026).
+    // null = sem a contagem (carregando ou falhou) e a tela mostra "—".
+    const semContagem = vendasPorLote === undefined;
+    const vendas = sumLotSales(vendasPorLote);
+    const ticketsSold = semContagem ? null : vendas.vendidos;
+    const courtesies = semContagem ? 0 : vendas.cortesias;
     const capacity = (lots || []).reduce((s, l) => s + Number(l.total_quantity || 0), 0);
 
     // Door sales
@@ -167,12 +174,12 @@ export function EventFinanceiroTab({ eventId }: Props) {
       fisicaCount: finance.fisicaCount,
       manualCount: finance.manualCount,
       byMethodManual: Array.from(byMethodManual.entries()),
-      ticketsSold, capacity,
+      ticketsSold, courtesies, capacity,
       doorTotal, doorTickets,
       doorByMethod: Array.from(doorByMethod.entries()),
       doorByOperator: Array.from(doorByOperator.entries()),
     };
-  }, [data, lots]);
+  }, [data, lots, vendasPorLote]);
 
   if (isLoading) {
     return (
@@ -241,8 +248,12 @@ export function EventFinanceiroTab({ eventId }: Props) {
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
               <Ticket className="w-4 h-4" /> Ingressos Vendidos
             </div>
-            <div className="text-3xl font-bold mt-2 break-words">{stats.ticketsSold}<span className="text-lg text-muted-foreground">/{stats.capacity}</span></div>
-            <p className="text-xs text-muted-foreground mt-1">Total emitido no evento</p>
+            <div className="text-3xl font-bold mt-2 break-words">{stats.ticketsSold ?? '—'}<span className="text-lg text-muted-foreground">/{stats.capacity}</span></div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.courtesies > 0
+                ? `Pagos · mais ${stats.courtesies} ${stats.courtesies === 1 ? 'cortesia' : 'cortesias'}`
+                : 'Pagos, sem cortesia'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -254,7 +265,10 @@ export function EventFinanceiroTab({ eventId }: Props) {
           <div className="grid sm:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground text-xs">Ingressos Vendidos</p>
-              <p className="text-2xl font-bold tabular-nums">{stats.ticketsSold}<span className="text-base text-muted-foreground">/{stats.capacity}</span></p>
+              <p className="text-2xl font-bold tabular-nums">{stats.ticketsSold ?? '—'}<span className="text-base text-muted-foreground">/{stats.capacity}</span></p>
+              {stats.courtesies > 0 && (
+                <p className="text-xs text-muted-foreground">mais {stats.courtesies} {stats.courtesies === 1 ? 'cortesia' : 'cortesias'}</p>
+              )}
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Valor Arrecadado</p>
