@@ -9,6 +9,9 @@
  *
  * É o mesmo motor do `aviso-repasse`, com as mesmas duas portas:
  *   { reembolso_id }     → o gatilho `trg_reembolsos_aviso`, no ato do pedido
+ *   { reembolso_id, evento: 'aprovado' }
+ *                        → o gatilho `trg_reembolsos_aviso_aprovado` (OS-118),
+ *                          quando a casa aprova: só o sininho, para quem paga
  *   { modo: 'repescar' } → o cron de 10 em 10 minutos, que tenta de novo o que
  *                          não saiu
  * Admin logado também pode chamar, para reenviar um aviso na mão.
@@ -39,6 +42,10 @@ const log = (passo: string, dados?: unknown) =>
 
 /** Repesca não olha o arquivo inteiro: pedido de 2 meses atrás não é novidade. */
 const JANELA_REPESCA_DIAS = 60;
+
+/** Os dois canais do PEDIDO. A aprovação tem o canal dela (OS-118). */
+const CANAIS_DO_PEDIDO = ['whatsapp', 'gestao'];
+const CANAL_APROVADO = 'gestao_aprovado';
 
 async function carregarCaso(admin: any, reembolsoId: string): Promise<Caso | null> {
   const { data: reembolso, error } = await admin
@@ -164,6 +171,8 @@ async function avisar(admin: any, reembolsoId: string): Promise<{ whatsapp: bool
   }
 
   // ── Canal 2: sino e push do app da gestão ────────────────────────────────
+  // Quem recebe a gestão decide pelo tipo: o Gabriel, que aprova, e quem dá a
+  // baixa (OS-118).
   const { data: jaGestao } = await admin
     .from('reembolso_avisos').select('enviado_em').eq('reembolso_id', reembolsoId).eq('canal', 'gestao').maybeSingle();
   if (jaGestao?.enviado_em) {
@@ -187,9 +196,92 @@ async function avisar(admin: any, reembolsoId: string): Promise<{ whatsapp: bool
   return resultado;
 }
 
+/**
+ * A casa aprovou: quem PAGA precisa saber (OS-118, 05/10/2026). Antes disto a
+ * aprovação não avisava ninguém, e quem dá a baixa só achava o reembolso
+ * abrindo a gestão por acaso. Só o sininho: quem aprova é o próprio Gabriel, e
+ * WhatsApp para ele mesmo seria ruído (decisão dele em 05/10).
+ */
+async function avisarAprovado(admin: any, reembolsoId: string): Promise<{ gestao: boolean }> {
+  const caso = await carregarCaso(admin, reembolsoId);
+  if (!caso) return { gestao: false };
+
+  // Pago (ou desfeito) antes do aviso sair: não há mais o que cobrar de ninguém.
+  if (caso.reembolso.status !== 'aprovado') {
+    log('aprovação já resolvida; nada a avisar', { reembolsoId, status: caso.reembolso.status });
+    await registrar(admin, reembolsoId, CANAL_APROVADO, { enviado_em: new Date().toISOString(), ultimo_erro: 'pedido_ja_resolvido' });
+    return { gestao: true };
+  }
+
+  const { data: ja } = await admin
+    .from('reembolso_avisos').select('enviado_em').eq('reembolso_id', reembolsoId).eq('canal', CANAL_APROVADO).maybeSingle();
+  if (ja?.enviado_em) return { gestao: true };
+
+  const r = caso.reembolso;
+  // ⚠️ Sem a chave PIX aqui também: o push aparece na tela de bloqueio.
+  const comoDevolver = r.forma === 'cartao'
+    ? 'Devolver pelo estorno no cartão'
+    : 'Devolver por PIX (a chave está na gestão)';
+  const ok = await avisarGestao({
+    tipo: 'reembolso_aprovado',
+    titulo: `Reembolso aprovado, falta pagar: ${dinheiro(r.valor_a_devolver)} · ${caso.comprador}`,
+    mensagem: `${caso.evento}. Pedido nº ${r.numero}. ${comoDevolver} e dar a baixa com o comprovante na gestão, em Financeiro › Reembolsos.`,
+    referencia: reembolsoId,
+  });
+  await registrar(admin, reembolsoId, CANAL_APROVADO, {
+    destino: 'gestao',
+    enviado_em: ok ? new Date().toISOString() : null,
+    ultimo_erro: ok ? null : 'gestao_nao_recebeu',
+  });
+  log('aprovação avisada', { reembolsoId, gestao: ok });
+  return { gestao: ok };
+}
+
+/** Aprovado sem o sininho entregue: tenta de novo, na mesma régua do pedido. */
+async function repescarAprovados(admin: any, desde: string, agora: Date) {
+  const { data: aprovados } = await admin
+    .from('reembolsos')
+    .select('id')
+    .eq('status', 'aprovado')
+    .gte('decidido_em', desde)
+    .order('decidido_em', { ascending: true })
+    .limit(50);
+  if (!aprovados?.length) return { aprovados: 0, aprovadosReenviados: 0, aprovadosDesistidos: 0 };
+
+  const { data: avisos } = await admin
+    .from('reembolso_avisos')
+    .select('id, reembolso_id, enviado_em, tentativas, ultimo_erro, created_at, updated_at')
+    .eq('canal', CANAL_APROVADO)
+    .in('reembolso_id', aprovados.map((p: any) => p.id));
+
+  let aprovadosReenviados = 0, aprovadosDesistidos = 0;
+  for (const p of aprovados) {
+    const a = (avisos ?? []).find((x: any) => x.reembolso_id === p.id);
+    if (a?.enviado_em) continue;
+    const decisao = a
+      ? decidirTentativa({ tentativas: Number(a.tentativas ?? 0), criadoEm: a.created_at, ultimaEm: a.updated_at ?? null }, agora)
+      : 'tentar'; // o gatilho não conseguiu nem criar a linha
+    if (decisao === 'tentar') {
+      await avisarAprovado(admin, p.id);
+      aprovadosReenviados++;
+    } else if (decisao === 'desistir' && !String(a?.ultimo_erro ?? '').startsWith('desistiu')) {
+      // O canal que falhou é a própria gestão: não há onde mais gritar além do log.
+      await admin.from('reembolso_avisos')
+        .update({ ultimo_erro: `desistiu após ${JANELA_INSISTENCIA_H}h: ${a?.ultimo_erro ?? 'sem resposta'}`.slice(0, 500) })
+        .eq('id', a.id);
+      log('DESISTIU de avisar a aprovação', { reembolsoId: p.id });
+      aprovadosDesistidos++;
+    }
+  }
+  return { aprovados: aprovados.length, aprovadosReenviados, aprovadosDesistidos };
+}
+
 /** O que ficou para trás: pedido em análise sem os dois canais entregues. */
 async function repescar(admin: any) {
   const desde = new Date(Date.now() - JANELA_REPESCA_DIAS * 86_400_000).toISOString();
+  const agora = new Date();
+  const doAprovado = await repescarAprovados(admin, desde, agora);
+
   const { data: abertos } = await admin
     .from('reembolsos')
     .select('id')
@@ -198,14 +290,14 @@ async function repescar(admin: any) {
     .order('solicitado_em', { ascending: true })
     .limit(50);
 
-  if (!abertos?.length) return { olhados: 0, reenviados: 0, desistidos: 0 };
+  if (!abertos?.length) return { olhados: 0, reenviados: 0, desistidos: 0, ...doAprovado };
 
   const { data: avisos } = await admin
     .from('reembolso_avisos')
     .select('id, reembolso_id, canal, enviado_em, tentativas, ultimo_erro, created_at, updated_at')
+    .in('canal', CANAIS_DO_PEDIDO)
     .in('reembolso_id', abertos.map((p: any) => p.id));
 
-  const agora = new Date();
   let reenviados = 0, desistidos = 0;
 
   for (const p of abertos) {
@@ -247,8 +339,10 @@ async function repescar(admin: any) {
       log('DESISTIU de avisar', { reembolsoId: p.id, canais });
       // Só vale avisar a gestão se o canal DELA estiver de pé.
       if (!paraDesistir.some((a: any) => a.canal === 'gestao')) {
+        // Tipo próprio: este recado é sobre o WhatsApp da empresa, assunto do
+        // Gabriel, e não deve tocar no celular de quem só paga (OS-118).
         await avisarGestao({
-          tipo: 'reembolso',
+          tipo: 'reembolso_aviso_falhou',
           titulo: `Não consegui avisar por ${canais} sobre um pedido de reembolso`,
           mensagem: `O pedido continua em análise e os ingressos seguem bloqueados. O canal ${canais} falhou por ${JANELA_INSISTENCIA_H}h seguidas: conferir se o WhatsApp da empresa está conectado. ${PAINEL}`,
           referencia: p.id,
@@ -257,7 +351,7 @@ async function repescar(admin: any) {
       desistidos++;
     }
   }
-  return { olhados: abertos.length, reenviados, desistidos };
+  return { olhados: abertos.length, reenviados, desistidos, ...doAprovado };
 }
 
 serve(async (req) => {
@@ -311,6 +405,11 @@ serve(async (req) => {
 
     const reembolsoId = body?.reembolso_id;
     if (!reembolsoId || typeof reembolsoId !== 'string') return json({ ok: false, erro: 'reembolso_id_ausente' }, 400);
+
+    if (body?.evento === 'aprovado') {
+      const r = await avisarAprovado(admin, reembolsoId);
+      return json({ ok: true, ...r });
+    }
 
     const r = await avisar(admin, reembolsoId);
     return json({ ok: true, ...r });
