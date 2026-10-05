@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const lotIds = Array.from(new Set(normalized.map(i => i.lot_id)));
     const { data: lots, error: lotsErr } = await supabase
       .from('event_lots')
-      .select('id, event_id, price, name, end_date')
+      .select('id, event_id, price, name, end_date, is_active, manually_sold_out')
       .in('id', lotIds);
     if (lotsErr) {
       console.error('[RESERVE] lots query error:', lotsErr);
@@ -88,14 +88,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Lote com data de fim vencida não vende (OS-106): a mesma regra da lista
-    // (collaborator-list-lots) e do site. A lista já esconde; aqui barra a tela da
-    // maquininha ou do totem que ficou aberta depois da data. Roda ANTES de reservar estoque.
+    // Lote que o produtor fechou não vende, e o operador lê o motivo certo. A lista
+    // (collaborator-list-lots) já esconde estes lotes; aqui barra a tela da maquininha
+    // ou do totem que ficou aberta com a lista velha. Roda ANTES de reservar estoque.
+    //  - desativado ou marcado esgotado (OS-119, 05/10/2026): `reserve_lot_quantity`
+    //    já recusava, mas a resposta saía "Estoque insuficiente", que não diz o que fazer;
+    //  - data de fim vencida (OS-106): a mesma regra do site.
+    // O errorCode faz a maquininha mostrar "Não é possível vender" (regra), não "Falha".
     const agora = new Date();
     for (const id of lotIds) {
       const lot: any = lotMap.get(id);
-      if (encerrou(lot, agora)) {
-        return new Response(JSON.stringify({ error: mensagemDoFechado(lot.name, 'encerrado'), lot_id: id }),
+      const fechado =
+        !lot.is_active ? `${mensagemDoFechado(lot.name, 'inativo')}. Atualize a lista de lotes.`
+        : lot.manually_sold_out ? `Lote "${lot.name}" esgotado. Atualize a lista de lotes.`
+        : encerrou(lot, agora) ? mensagemDoFechado(lot.name, 'encerrado')
+        : null;
+      if (fechado) {
+        return new Response(JSON.stringify({ error: fechado, errorCode: 'lot_closed', lot_id: id }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
