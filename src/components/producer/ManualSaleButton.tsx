@@ -24,11 +24,12 @@ export function ManualSaleButton({ event, variant = 'gradient', size = 'sm', lab
     <>
       <Button
         size={size}
+        variant={variant === 'outline' ? 'outline' : 'default'}
         onClick={() => setOpen(true)}
         className={
           variant === 'gradient'
             ? 'rounded-xl bg-gradient-to-r from-primary to-pink-500 hover:opacity-90 text-white shadow-lg shadow-primary/20'
-            : 'rounded-xl bg-card/40 backdrop-blur-xl border border-primary/10 hover:bg-card/60'
+            : 'rounded-xl bg-card/40 backdrop-blur-xl border border-primary/10 text-foreground hover:bg-card/60'
         }
       >
         {courtesy ? <Gift className="h-4 w-4 mr-2" /> : <ShoppingBag className="h-4 w-4 mr-2" />}
