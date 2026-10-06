@@ -44,7 +44,7 @@ export function EventStatsCard({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider truncate">
               {title}
             </p>
-            <p className="text-2xl md:text-3xl font-bold tracking-tight break-words">
+            <p className="text-xl sm:text-2xl 2xl:text-3xl font-bold tracking-tight whitespace-nowrap">
               {value}
             </p>
             {description && (
