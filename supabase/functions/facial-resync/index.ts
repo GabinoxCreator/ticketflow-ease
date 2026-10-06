@@ -12,7 +12,12 @@
 // implementação do push.
 //
 // Auth: verify_jwt=false (chamada administrativa server-to-server), em troca exige
-// x-api-key == FACIAL_RESYNC_KEY. Sem o secret no ambiente, recusa tudo.
+// UM destes, fail-closed:
+//   1) x-api-key == FACIAL_RESYNC_KEY (secret da edge);
+//   2) X-Cron-Secret == CRON_SECRET do Vault (get_cron_secret), o mesmo segredo dos
+//      outros jobs da casa. Existe desde 05/10/2026 (OS-130): o FACIAL_RESYNC_KEY só
+//      mora no ambiente da edge, então ninguém conseguia disparar o reenvio de dentro
+//      do banco, e 8 faciais ficaram presas sem reenvio.
 //
 // LGPD: CPF e e-mail entram no payload do push, mas NUNCA saem na resposta nem no
 // log — resultado é por user_id.
@@ -21,7 +26,7 @@ import { pushToMarcelSafe } from "../_shared/marcelFace.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-cron-secret",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -59,14 +64,23 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   try {
-    // ---------- 1. Auth: x-api-key vs secret em env (fail-closed) ----------
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // ---------- 1. Auth: x-api-key (env) OU X-Cron-Secret (Vault), fail-closed ----------
     const secret = Deno.env.get("FACIAL_RESYNC_KEY");
-    if (!secret) {
-      console.error("[FACIAL-RESYNC] FACIAL_RESYNC_KEY ausente — recusando");
-      return json({ error: "service_unavailable" }, 500);
-    }
     const apiKey = req.headers.get("x-api-key");
-    if (!apiKey || apiKey !== secret) {
+    let autorizado = !!secret && !!apiKey && apiKey === secret;
+    const cronFornecido = req.headers.get("x-cron-secret");
+    if (!autorizado && cronFornecido) {
+      try {
+        const { data: doVault } = await admin.rpc("get_cron_secret");
+        autorizado = !!doVault && cronFornecido === doVault;
+      } catch { /* fica não autorizado */ }
+    }
+    if (!autorizado) {
       return json({ error: "unauthorized" }, 401);
     }
 
@@ -91,11 +105,6 @@ Deno.serve(async (req) => {
       }
       limit = Math.min(Math.floor(n), MAX_LIMIT);
     }
-
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     // ---------- 3. Pendentes ----------
     // Critério de pendência: TEM foto e NÃO tem carimbo de sincronia. Com user_id,
