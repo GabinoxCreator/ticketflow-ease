@@ -210,6 +210,24 @@ Deno.serve(async (req) => {
       return json(await listarReembolsos(admin, url.searchParams.get("status")));
     }
 
+    // Leads da landing (/lp), OS-151: o CRM da gestão traz quem preencheu o formulário.
+    // Só leitura, como o resto desta ponte: quem decide o que vira lead lá é a gestão, e
+    // nada aqui é marcado como "enviado". `since` (data ISO) é o ponto de partida; sem ele
+    // vem tudo o que ainda existe (o site apaga lead com mais de 12 meses, LGPD).
+    if (url.searchParams.get("list") === "landing_leads") {
+      const since = url.searchParams.get("since");
+      if (since && Number.isNaN(Date.parse(since))) return fail("input", "since precisa ser uma data ISO", 400);
+      let q = admin
+        .from("landing_leads")
+        .select("id, nome, cidade, tipo_evento, telefone, created_at")
+        .order("created_at", { ascending: true })
+        .limit(1000);
+      if (since) q = q.gte("created_at", since);
+      const { data, error } = await q;
+      if (error) return fail("landing_leads", error.message, 500);
+      return json({ leads: data ?? [], generated_at: new Date().toISOString() });
+    }
+
     // Catálogo: a gestão usa para casar a empresa dela com o produtor daqui.
     if (url.searchParams.get("list") === "producers") {
       const { data } = await admin
