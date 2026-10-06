@@ -78,7 +78,7 @@ export default function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <EventStatsCard
             title="Receita Total"
-            value={formatBRL(totalRevenue)}
+            value={totalRevenue != null ? formatBRL(totalRevenue) : '—'}
             icon={DollarSign}
             trend={
               revenueTrend !== 0
@@ -116,7 +116,7 @@ export default function Dashboard() {
           />
           <EventStatsCard
             title="Ticket Médio"
-            value={formatBRL(averageTicket)}
+            value={averageTicket != null ? formatBRL(averageTicket) : '—'}
             description="por pedido pago"
             icon={Receipt}
           />

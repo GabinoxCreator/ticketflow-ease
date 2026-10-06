@@ -42,3 +42,43 @@ export async function attachProducerValues<T extends { id: string }>(
 
   return orders.map((o) => ({ ...o, producer_value: values.get(o.id) ?? null }));
 }
+
+const ORDERS_PAGE = 1000;
+
+export interface PaidOrderRow {
+  id: string;
+  event_id: string;
+  status: string;
+  total_amount: number;
+  service_fee_amount: number | null;
+  sale_origin: string | null;
+  created_at: string;
+}
+
+/**
+ * Pedidos pagos (paid/completed) dos eventos, já com o valor de face de cada um.
+ * É o que alimenta a receita do início do painel e da lista "Meus Eventos" — a
+ * mesma conta do painel do evento (OS-136, 06/10/2026).
+ *
+ * Paginado: o banco devolve no máximo 1000 linhas por consulta, e um produtor
+ * com vários eventos passa disso sem aviso (a soma sairia menor, calada).
+ */
+export async function fetchPaidOrdersWithProducerValue(
+  eventIds: string[],
+): Promise<WithProducerValue<PaidOrderRow>[]> {
+  if (eventIds.length === 0) return [];
+  const rows: PaidOrderRow[] = [];
+  for (let from = 0; ; from += ORDERS_PAGE) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, event_id, status, total_amount, service_fee_amount, sale_origin, created_at')
+      .in('event_id', eventIds)
+      .in('status', ['paid', 'completed'])
+      .order('id')
+      .range(from, from + ORDERS_PAGE - 1);
+    if (error) throw new Error(`Não foi possível ler os pedidos pagos: ${error.message}`);
+    rows.push(...((data || []) as PaidOrderRow[]));
+    if (!data || data.length < ORDERS_PAGE) break;
+  }
+  return attachProducerValues(rows);
+}

@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getEventEndInstant } from '@/lib/eventTime';
 import { fetchLotSales, sumLotSales } from '@/hooks/useLotSales';
+import { fetchPaidOrdersWithProducerValue } from '@/lib/orderProducerValues';
+import { computeProducerFinance } from '@/lib/producerFinance';
 
 
 export type EventType = 'ingresso' | 'mesa' | 'hibrido';
@@ -54,7 +56,8 @@ export interface Event {
     end_date?: string | null;
     starts_after_lot_id?: string | null;
   }>;
-  paid_revenue?: number;
+  /** Receita no valor de face (sem taxa, sem juro, sem cortesia). null = o cálculo falhou. */
+  paid_revenue?: number | null;
   /** Vendidos de verdade: pago, sem cortesia. null = a contagem falhou. */
   sold_count?: number | null;
   courtesy_count?: number;
@@ -113,19 +116,28 @@ export function useEvents() {
       const eventIds = eventsList.map(e => e.id);
 
       if (eventIds.length > 0) {
-        const { data: paidOrders } = await supabase
-          .from('orders')
-          .select('event_id, total_amount')
-          .eq('status', 'paid')
-          .in('event_id', eventIds);
-
-        const revenueByEvent = new Map<string, number>();
-        (paidOrders || []).forEach((o: any) => {
-          revenueByEvent.set(o.event_id, (revenueByEvent.get(o.event_id) || 0) + Number(o.total_amount || 0));
-        });
-        eventsList.forEach(e => {
-          e.paid_revenue = revenueByEvent.get(e.id) || 0;
-        });
+        // Receita = valor de face, a mesma conta do painel do evento (fonte única em
+        // src/lib/producerFinance.ts): sem taxa de conveniência, sem juro de parcela
+        // e sem cortesia. Antes somava `total_amount`, o que o COMPRADOR pagou
+        // (OS-136, 06/10/2026). Se o cálculo falhar, a lista mostra "—" em vez de
+        // um número errado com cara de certo.
+        try {
+          const paidOrders = await fetchPaidOrdersWithProducerValue(eventIds);
+          const ordersByEvent = new Map<string, typeof paidOrders>();
+          paidOrders.forEach((o) => {
+            const list = ordersByEvent.get(o.event_id) || [];
+            list.push(o);
+            ordersByEvent.set(o.event_id, list);
+          });
+          eventsList.forEach(e => {
+            e.paid_revenue = computeProducerFinance(ordersByEvent.get(e.id)).total;
+          });
+        } catch (err) {
+          console.warn('[useEvents] receita falhou', err);
+          eventsList.forEach(e => {
+            e.paid_revenue = null;
+          });
+        }
 
         // "Vendidos" = pago, sem cortesia; cortesia à parte (decisão do Gabriel, 02/10/2026).
         // Se a contagem falhar, a lista mostra "—" e o resto da página segue.

@@ -96,7 +96,8 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
   const sold = event.sold_count;
   const courtesies = event.courtesy_count ?? 0;
   const capacity = lots.reduce((s, l) => s + (l.total_quantity || 0), 0);
-  const revenue = event.paid_revenue ?? 0;
+  // Valor de face (sem taxa, sem juro, sem cortesia). null = o cálculo falhou: mostra "—".
+  const revenue = event.paid_revenue;
   const occupancy = capacity > 0 ? Math.min(100, (((sold ?? 0) + courtesies) / capacity) * 100) : 0;
 
   return (
@@ -218,7 +219,7 @@ export function EventListItem({ event, onDelete, onDuplicate }: EventListItemPro
               </div>
               <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                 <TrendingUp className="w-3 h-3" />
-                <span>{formatBRL(revenue)}</span>
+                <span>{revenue != null ? formatBRL(revenue) : '—'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent-foreground">
                 <Layers className="w-3 h-3" />
