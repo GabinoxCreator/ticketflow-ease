@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchLotSales, sumLotSales } from '@/hooks/useLotSales';
+import { fetchPaidOrdersWithProducerValue, type PaidOrderRow, type WithProducerValue } from '@/lib/orderProducerValues';
+import { computeProducerFinance, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
 
 interface MonthlySales {
   date: string;
@@ -52,12 +54,16 @@ export function useProducerStats() {
 
       const eventIds = events.map(e => e.id);
 
-      const [ordersRes, ticketsRes, lotsRes] = await Promise.all([
-        supabase
-          .from('orders')
-          .select('total_amount, status, created_at')
-          .in('event_id', eventIds)
-          .in('status', ['paid', 'completed']),
+      // Receita = valor de face, a mesma conta do painel do evento (fonte única em
+      // src/lib/producerFinance.ts): sem taxa de conveniência, sem juro de parcela
+      // e sem cortesia. Antes somava `total_amount`, o que o COMPRADOR pagou
+      // (OS-136, 06/10/2026). null = o cálculo falhou e a tela mostra "—".
+      const ordersPromise = fetchPaidOrdersWithProducerValue(eventIds).catch((err) => {
+        console.warn('[useProducerStats] receita falhou', err);
+        return null;
+      });
+
+      const [ticketsRes, lotsRes] = await Promise.all([
         supabase
           .from('tickets')
           .select('id, status, created_at')
@@ -69,7 +75,9 @@ export function useProducerStats() {
           .in('event_id', eventIds),
       ]);
 
-      const orders = ordersRes.data || [];
+      const allOrders: WithProducerValue<PaidOrderRow>[] | null = await ordersPromise;
+      // Cortesia não é venda: fica fora da receita, do nº de pedidos e do ticket médio.
+      const orders = (allOrders || []).filter((o) => saleOrigin(o) !== 'courtesy');
       const tickets = ticketsRes.data || [];
       const lots = lotsRes.data || [];
 
@@ -82,7 +90,7 @@ export function useProducerStats() {
           return null;
         });
 
-      const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+      const totalRevenue = allOrders ? computeProducerFinance(orders).total : null;
       const totalTicketsSold = vendas ? vendas.vendidos : null;
       const totalCourtesies = vendas ? vendas.cortesias : 0;
       const totalOrders = orders.length;
@@ -92,7 +100,7 @@ export function useProducerStats() {
         ? Number(((totalTicketsSold / totalCapacity) * 100).toFixed(1))
         : null;
 
-      const averageTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const averageTicket = totalRevenue == null ? null : totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
       // Aggregate monthly sales (last 6 months)
       const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -111,7 +119,7 @@ export function useProducerStats() {
         if (monthMap.has(key)) {
           const entry = monthMap.get(key)!;
           entry.vendas += 1;
-          entry.receita += Number(o.total_amount);
+          entry.receita += orderTicketNet(o);
         }
       });
 
@@ -173,14 +181,15 @@ export function useProducerStats() {
   });
 
   return {
-    totalRevenue: data?.totalRevenue || 0,
+    // null = cálculo da receita falhou ("—" na tela); sem dado ainda = 0.
+    totalRevenue: data ? (data.totalRevenue as number | null) : 0,
     // null = contagem falhou ("—" na tela); sem dado ainda = 0.
     totalTicketsSold: data ? (data.totalTicketsSold as number | null) : 0,
     totalCourtesies: (data as { totalCourtesies?: number } | undefined)?.totalCourtesies || 0,
     totalOrders: data?.totalOrders || 0,
     totalCapacity: data?.totalCapacity || 0,
     conversionRate: data?.conversionRate ?? null,
-    averageTicket: data?.averageTicket || 0,
+    averageTicket: data ? (data.averageTicket as number | null) : 0,
     revenueTrend: data?.revenueTrend || 0,
     ticketsTrend: data?.ticketsTrend || 0,
     nextEventDate: data?.nextEventDate || null,
