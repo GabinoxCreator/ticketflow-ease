@@ -22,7 +22,7 @@
 // LGPD: CPF e e-mail entram no payload do push, mas NUNCA saem na resposta nem no
 // log — resultado é por user_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { pushToMarcelSafe } from "../_shared/marcelFace.ts";
+import { pushToMarcelSafe, telefoneDoPerfil } from "../_shared/marcelFace.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
           uid,
           cpf: profile.cpf,
           email: profile.email,
-          telefone: profile.whatsapp,
+          telefone: await telefoneDoPerfil(admin, uid, profile.whatsapp),
           imageBase64,
         },
         "FACIAL-RESYNC",

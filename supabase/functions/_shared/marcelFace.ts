@@ -52,6 +52,48 @@ export function emailParaMarcel(email: string | null, cpf: string | null): strin
   return digitos ? emailInternoSemEmail(digitos) : null;
 }
 
+// Telefone que vai no push (OS-152). Quem se cadastrou só com e-mail tem o
+// WhatsApp do perfil VAZIO, e o Marcel respondia `invalid_telefone` e recusava a
+// foto. Formato nunca foi o problema: ele já aceita mascarado "(17) 99999-9999",
+// 13 dígitos com 55 e 11 sem 55, então o número vai COMO ESTÁ, sem reformatar.
+// Regra do Gabriel (06/10/2026): só mandar telefone quando EXISTE, nunca inventado.
+// Vazio, em branco ou sem dígito nenhum vira null (o Marcel passa a aceitar sem).
+export function telefoneParaMarcel(...candidatos: Array<string | null | undefined>): string | null {
+  for (const c of candidatos) {
+    const t = (c ?? "").trim();
+    if (t && /\d/.test(t)) return t;
+  }
+  return null;
+}
+
+// Telefone do perfil e, se estiver vazio, o do pedido mais recente da própria conta
+// (`orders.customer_phone`, o comprador é o dono da conta). Nunca o `holder_phone`
+// do ingresso: pode ser de outra pessoa (presente). Best-effort: erro de consulta
+// vira null, nunca derruba o push. `admin` é o client service-role da edge.
+export async function telefoneDoPerfil(
+  // deno-lint-ignore no-explicit-any
+  admin: any,
+  userId: string,
+  whatsappDoPerfil: string | null | undefined,
+): Promise<string | null> {
+  const doPerfil = telefoneParaMarcel(whatsappDoPerfil);
+  if (doPerfil) return doPerfil;
+  try {
+    const { data, error } = await admin
+      .from("orders")
+      .select("customer_phone")
+      .eq("user_id", userId)
+      .not("customer_phone", "is", null)
+      .neq("customer_phone", "")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (error) return null;
+    return telefoneParaMarcel(...((data ?? []) as Array<{ customer_phone: string | null }>).map((r) => r.customer_phone));
+  } catch {
+    return null;
+  }
+}
+
 // Push best-effort: NUNCA lança — todo caminho de erro vira console.warn +
 // { ok: false }. A API aceita base64 sem prefixo data-URI e CPF com ou sem
 // máscara, então mandamos os valores como estão no perfil.
@@ -79,7 +121,11 @@ export async function pushToMarcelSafe(
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify({ ...payload, email: emailParaMarcel(payload.email, payload.cpf) }),
+      body: JSON.stringify({
+        ...payload,
+        email: emailParaMarcel(payload.email, payload.cpf),
+        telefone: telefoneParaMarcel(payload.telefone),
+      }),
       signal: controller.signal,
     });
     // Corpo lido só pra extrair o slug de erro (extractReason descarta o resto).
