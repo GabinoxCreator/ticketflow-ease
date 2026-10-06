@@ -445,7 +445,7 @@ function CartaoDoReembolso({ r }: { r: Reembolso }) {
               </div>
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Taxa de serviço</span>
-                <span>{r.devolve_taxa ? `${brl(r.valor_taxa)} (volta: comprou com a Política antiga)` : `${brl(r.valor_taxa)} (não volta)`}</span>
+                <span>{r.devolve_taxa ? `${brl(r.valor_taxa)} (volta: desistiu nos 7 dias da compra)` : `${brl(r.valor_taxa)} (não volta)`}</span>
               </div>
               <div className="text-xs text-muted-foreground">
                 Comprado em {dataBR(r.comprado_em, true)} · total pago {brl(r.total_pago)}
