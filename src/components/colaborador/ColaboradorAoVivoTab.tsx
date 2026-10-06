@@ -28,6 +28,7 @@ const sourceStyles: Record<LiveFeedItem['source'], { label: string; classes: str
   online: { label: 'Online', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
   manual: { label: 'Manual', classes: 'bg-amber-100 text-amber-700 border-amber-200' },
   portaria: { label: 'Portaria', classes: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  cortesia: { label: 'Cortesia', classes: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 
 export default function ColaboradorAoVivoTab({
@@ -55,6 +56,8 @@ export default function ColaboradorAoVivoTab({
       {
         label: 'Vendidos',
         value: kpis ? kpis.ticketsSold.toString() : '—',
+        // Cortesia aparece à parte, como no painel do evento (OS-108/OS-148).
+        sub: kpis && kpis.courtesies ? `+ ${kpis.courtesies} ${kpis.courtesies === 1 ? 'cortesia' : 'cortesias'}` : null,
         Icon: Ticket,
         iconClass: 'text-blue-600 bg-blue-100',
       },
@@ -128,6 +131,9 @@ export default function ColaboradorAoVivoTab({
             >
               {c.value}
             </p>
+            {'sub' in c && c.sub && (
+              <p className="mt-0.5 text-[11px] font-semibold text-slate-500">{c.sub}</p>
+            )}
           </div>
         ))}
       </div>
@@ -150,10 +156,7 @@ export default function ColaboradorAoVivoTab({
         ) : (
           <ul className="divide-y divide-slate-100">
             {recent.map((item) => {
-              const displaySource = item.customer_name === 'Ricardo Alexandre de Lima'
-                ? 'online'
-                : item.source;
-              const style = sourceStyles[displaySource];
+              const style = sourceStyles[item.source] ?? sourceStyles.online;
               return (
                 <li
                   key={item.id}
@@ -173,7 +176,7 @@ export default function ColaboradorAoVivoTab({
                     </p>
                   </div>
                   <div className="text-sm font-bold text-slate-900 tabular-nums shrink-0">
-                    {formatCurrency(item.amount)}
+                    {item.source === 'cortesia' ? 'Cortesia' : formatCurrency(item.amount)}
                   </div>
                 </li>
               );

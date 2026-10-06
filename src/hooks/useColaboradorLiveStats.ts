@@ -3,14 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface LiveKpis {
   revenue: number;
+  /** Ingressos vendidos (online, manual e portaria), sem cortesia. */
   ticketsSold: number;
+  /** Cortesias emitidas: à parte, nunca somadas em vendidos nem em receita. */
+  courtesies?: number;
   ticketsAvailable: number;
   avgTicket: number;
 }
 
 export interface LiveFeedItem {
   id: string;
-  source: 'online' | 'manual' | 'portaria';
+  source: 'online' | 'manual' | 'portaria' | 'cortesia';
   customer_name: string;
   lot_name: string;
   quantity: number;

@@ -9,7 +9,7 @@ const corsHeaders = {
 
 interface FeedItem {
   id: string;
-  source: 'online' | 'manual' | 'portaria';
+  source: 'online' | 'manual' | 'portaria' | 'cortesia';
   customer_name: string;
   lot_name: string;
   quantity: number;
@@ -61,32 +61,61 @@ serve(async (req) => {
       ticketsAvailable += Math.max(0, Number(l.total_quantity || 0) - Number(l.sold_quantity || 0));
     });
 
-    // Paid orders (online + manual)
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('id, customer_name, total_amount, service_fee_amount, created_at, sale_origin, user_id')
-      .eq('event_id', event_id)
-      .in('status', ['paid', 'completed'])
-      .order('created_at', { ascending: false })
-      .limit(200);
+    // Pedidos pagos do evento, TODOS (o banco corta em 1.000 linhas por consulta,
+    // então pagina). `order_producer_value` é a fórmula única do valor de face
+    // (sem taxa de conveniência, sem juro de parcela, já sem reembolso): a mesma
+    // do painel do evento e do repasse. OS-148, 06/10/2026.
+    const PAGE = 1000;
+    const paidOrders: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, customer_name, created_at, sale_origin, user_id, order_producer_value')
+        .eq('event_id', event_id)
+        .in('status', ['paid', 'completed'])
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      paidOrders.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
+    const isCourtesy = (o: any) => o.sale_origin === 'courtesy';
+    const orderById = new Map<string, any>(paidOrders.map((o: any) => [o.id, o]));
 
-    // Tickets paid (valid/used) — for sold count + per-order lot/qty + holder fallback
-    const { data: tickets } = await supabase
-      .from('tickets')
-      .select('order_id, lot_id, status, holder_name')
-      .eq('event_id', event_id)
-      .in('status', ['valid', 'used']);
+    // Ingressos válidos/usados dos pedidos pagos: vendidos e cortesias contados
+    // como no painel (`lot_sales_counts`), mais lote/quantidade/titular do feed.
+    const tickets: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('id, order_id, lot_id, holder_name')
+        .eq('event_id', event_id)
+        .in('status', ['valid', 'used'])
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      tickets.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+    }
 
     const ticketsByOrder = new Map<string, { count: number; lotId: string | null; holderName: string | null }>();
     let ticketsSoldOnline = 0;
-    (tickets || []).forEach((t: any) => {
-      ticketsSoldOnline += 1;
+    let courtesies = 0;
+    tickets.forEach((t: any) => {
+      const order = orderById.get(t.order_id);
+      if (!order) return; // ingresso de pedido não pago não conta
+      if (isCourtesy(order)) courtesies += 1;
+      else ticketsSoldOnline += 1;
       const prev = ticketsByOrder.get(t.order_id) || { count: 0, lotId: null, holderName: null };
       prev.count += 1;
       if (!prev.lotId) prev.lotId = t.lot_id;
       if (!prev.holderName && t.holder_name) prev.holderName = t.holder_name;
       ticketsByOrder.set(t.order_id, prev);
     });
+
+    // O feed mostra só as 200 vendas mais recentes (como antes).
+    const orders = paidOrders.slice(0, 200);
 
     // Fallback names from profiles for orders with empty customer_name
     const missingUserIds = Array.from(new Set(
@@ -121,13 +150,13 @@ serve(async (req) => {
       doorTickets += Number(d.quantity || 0);
     });
 
-    const onlineRevenue = (orders || []).reduce(
-      (acc: number, o: any) => acc + (Number(o.total_amount || 0) - Number(o.service_fee_amount || 0)),
-      0,
-    );
-    const revenue = onlineRevenue; // Somente receita de ingressos (online + manual) líquida da taxa FestPag
+    // Receita = valor de face dos pedidos vendidos (cortesia fora), igual ao painel
+    // do evento. A portaria segue fora da receita, como sempre esteve.
+    const soldOrders = paidOrders.filter((o: any) => !isCourtesy(o));
+    const revenue = soldOrders.reduce((acc: number, o: any) => acc + Number(o.order_producer_value || 0), 0);
     const ticketsSold = ticketsSoldOnline + doorTickets;
-    const avgTicket = ticketsSold > 0 ? revenue / ticketsSold : 0;
+    // Ticket médio por pedido vendido, como no início do painel do produtor.
+    const avgTicket = soldOrders.length > 0 ? revenue / soldOrders.length : 0;
 
     // Build feed
     const feed: FeedItem[] = [];
@@ -137,7 +166,7 @@ serve(async (req) => {
       const lotName = info.lotId ? (lotMap.get(info.lotId)?.name || 'Ingresso') : 'Ingresso';
       feed.push({
         id: `order:${o.id}`,
-        source: o.sale_origin === 'manual' ? 'manual' : 'online',
+        source: isCourtesy(o) ? 'cortesia' : o.sale_origin === 'manual' ? 'manual' : 'online',
         customer_name:
           (o.customer_name && o.customer_name.trim()) ||
           (o.user_id && profileNames.get(o.user_id)) ||
@@ -145,7 +174,7 @@ serve(async (req) => {
           'Cliente',
         lot_name: lotName,
         quantity: info.count,
-        amount: Number(o.total_amount || 0) - Number(o.service_fee_amount || 0),
+        amount: isCourtesy(o) ? 0 : Number(o.order_producer_value || 0),
         created_at: o.created_at,
       });
     });
@@ -166,7 +195,7 @@ serve(async (req) => {
     const recent = feed.slice(0, 30);
 
     return new Response(JSON.stringify({
-      kpis: { revenue, ticketsSold, ticketsAvailable, avgTicket },
+      kpis: { revenue, ticketsSold, courtesies, ticketsAvailable, avgTicket },
       recent,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (error) {
