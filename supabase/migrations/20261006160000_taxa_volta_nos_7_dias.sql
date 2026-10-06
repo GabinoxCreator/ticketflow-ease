@@ -8,8 +8,11 @@
 -- esperar a resposta do advogado: devolver mais do que o texto promete não
 -- cria risco.
 --
--- O que muda é uma linha, a marcada com [TAXA]. Fora da janela de 7 dias
--- (até 48 horas antes do evento) a taxa continua não voltando.
+-- O que muda é uma linha, a marcada com [TAXA]: a taxa volta sempre que o
+-- pedido sai até o fim do 7º dia depois da compra, inclusive para quem comprou
+-- a menos de 7 dias do evento (decisão dele de 06/10, o caso da Thais). Depois
+-- do 7º dia a taxa continua não voltando, e o prazo de 48 horas antes do
+-- evento segue igual.
 --
 -- A tela do comprador (`reembolso_simular`) e o pedido (`reembolso_solicitar`)
 -- leem esta mesma função, então o valor que ele vê é o valor que ele pede.
@@ -124,11 +127,13 @@ begin
   end if;
   _texto_antigo := _versao < '2026-09-30';
 
-  -- [TAXA] Desde 06/10/2026 (OS-144): a taxa volta para todo mundo que desiste
-  -- nos 7 dias, aceitando o texto antigo ou o novo. Fora do arrependimento,
-  -- não volta. `versao_aceita` segue no retorno, para a casa ver qual texto o
-  -- comprador aceitou.
-  _devolve_taxa := (_janela = 'arrependimento');
+  -- [TAXA] Desde 06/10/2026 (OS-144): a taxa volta para todo mundo que pede
+  -- até o fim do 7º dia depois da compra, aceitando o texto antigo ou o novo.
+  -- Vale também para quem compra a menos de 7 dias do evento (cai na janela
+  -- "até 48 h", mas pediu dentro dos 7 dias da compra): decisão do Gabriel de
+  -- 06/10, o caso da Thais. Depois do 7º dia, não volta. `versao_aceita` segue
+  -- no retorno, para a casa ver qual texto o comprador aceitou.
+  _devolve_taxa := (_agora < _fim_arrependimento);
 
   return jsonb_build_object(
     'permitido', true,
