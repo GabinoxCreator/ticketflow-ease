@@ -202,7 +202,7 @@ export default function Financeiro() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
                       <Wallet className="w-4 h-4" /> Disponível
                     </div>
-                    <div className="text-3xl font-bold mt-2 break-words text-secondary">
+                    <div className="text-3xl font-bold mt-2 break-words">
                       {financeLoading ? '—' : formatBRL(finance?.totals.available || 0)}
                     </div>
                     {!financeLoading && (finance?.totals.receivedDirectly || 0) > 0 && (
@@ -300,7 +300,7 @@ export default function Financeiro() {
                                   <div className="text-xs text-muted-foreground">Receita Líquida</div>
                                 </div>
                                 <div className="flex flex-col items-end flex-shrink-0">
-                                  <div className="font-semibold text-secondary">{formatBRL(event.available)}</div>
+                                  <div className="font-semibold">{formatBRL(event.available)}</div>
                                   <div className="text-xs text-muted-foreground">Disponível</div>
                                 </div>
                                 <Button
