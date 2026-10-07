@@ -365,7 +365,9 @@ function CartaoDoReembolso({ r }: { r: Reembolso }) {
 
   const janela = r.regra?.janela === 'arrependimento'
     ? 'Desistência dentro dos 7 dias da compra'
-    : 'Fora dos 7 dias, pedido até 48h antes do evento';
+    : r.devolve_taxa
+      ? 'Pedido até 48h antes do evento, dentro dos 7 dias da compra'
+      : 'Fora dos 7 dias, pedido até 48h antes do evento';
 
   const telefone = (r.comprador_telefone ?? '').replace(/\D/g, '');
   const transacao = r.provider_transaction_id || r.mp_payment_id;
