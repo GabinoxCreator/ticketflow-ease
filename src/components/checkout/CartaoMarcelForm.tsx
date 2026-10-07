@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Loader2, Lock, User, Calendar, Shield, AlertCircle } from 'lucide-react';
+import { CreditCard, Loader2, Lock, User, Calendar, Shield, AlertCircle, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +44,18 @@ export interface CotacaoMarcel {
   taxaAdministrativa?: number;
 }
 
+/**
+ * O banco RECUSOU o cartão, de forma explícita (`aprovado:false`, `status:'rejected'`).
+ *
+ * ⚠️ Só a recusa explícita é este erro. Resultado indefinido (HTTP 202,
+ * `indefinido:true`) e erro do servidor (5xx) NÃO são: ali a cobrança pode ter
+ * passado, e oferecer PIX por cima cobraria o comprador duas vezes. Quem lança
+ * decide; o formulário só reage a esta classe.
+ */
+export class CartaoRecusadoError extends Error {
+  constructor(message: string) { super(message); this.name = 'CartaoRecusadoError'; }
+}
+
 export interface DadosDoCartao {
   holder: string;
   number: string;
@@ -63,10 +75,13 @@ interface Props {
   cotar: () => Promise<CotacaoMarcel | null>;
   /** Cobra. Lançar erro aqui vira toast; quem chama decide o que fazer depois. */
   cobrar: (args: { installments: number; card: DadosDoCartao }) => Promise<void>;
+  /** Depois de uma recusa explícita do banco, gera o PIX do mesmo carrinho.
+   *  Sem esta função, o formulário só mostra o erro, como sempre fez (mesa). */
+  onPagarComPix?: () => Promise<void>;
 }
 
 export function CartaoMarcelForm({
-  totalAmount, nomeSugerido, rotuloFace = 'Ingressos', cotar, cobrar,
+  totalAmount, nomeSugerido, rotuloFace = 'Ingressos', cotar, cobrar, onPagarComPix,
 }: Props) {
   const [cardNumber, setCardNumber] = useState('');
   // Pré-preenchido JÁ ABREVIADO: a Safe2Pay recusa nome com mais de 25 letras, e
@@ -89,6 +104,10 @@ export function CartaoMarcelForm({
   // simplesmente sumia, o cliente achava que o evento não parcela, e o total
   // mostrado era o de antes do custo do cartão — menor do que ele pagaria.
   const [quoteFalhou, setQuoteFalhou] = useState(false);
+  // O banco recusou o cartão: mostra o bloco que oferece o PIX.
+  const [recusado, setRecusado] = useState(false);
+  const [gerandoPix, setGerandoPix] = useState(false);
+  const blocoRecusaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -130,8 +149,17 @@ export function CartaoMarcelForm({
   const formatPrice = (price: number) =>
     price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const formatCardNumber = (value: string) =>
-    value.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
+  // Cartões vão de 13 a 19 dígitos (ISO/IEC 7812). Cortar em 16 impedia quem tem
+  // cartão de 17 a 19 dígitos de pagar. Amex tem sempre 15, agrupados 4-6-5;
+  // os demais, de 4 em 4.
+  const formatCardNumber = (value: string) => {
+    const d = value.replace(/\D/g, '');
+    if (d.startsWith('34') || d.startsWith('37')) {
+      const a = d.slice(0, 15);
+      return [a.slice(0, 4), a.slice(4, 10), a.slice(10, 15)].filter(Boolean).join(' ');
+    }
+    return d.slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
+  };
 
   const formatExpiry = (value: string) => {
     const n = value.replace(/\D/g, '').slice(0, 4);
@@ -140,14 +168,25 @@ export function CartaoMarcelForm({
 
   const handleSubmit = async () => {
     const cleanCard = cardNumber.replace(/\s/g, '');
-    const [expMonth, expYear] = expiryDate.split('/');
 
-    if (cleanCard.length < 13 || !expMonth || !expYear || cvv.length < 3 || !cardHolder.trim()) {
+    if (cleanCard.length < 13 || cvv.length < 3 || !cardHolder.trim()) {
       toast.error('Preencha todos os campos corretamente.');
       return;
     }
 
+    // Validade completa: MM/AA com 4 números e mês de 01 a 12. Antes passava
+    // "12/3", que ia para o banco como "12/203" e voltava recusado.
+    const dig = expiryDate.replace(/\D/g, '');
+    const expMonth = dig.slice(0, 2);
+    const expYear = dig.slice(2, 4);
+    const mes = Number(expMonth);
+    if (dig.length !== 4 || mes < 1 || mes > 12) {
+      toast.error('Confira a validade do cartão: digite o mês e o ano com 4 números, como 08/29.');
+      return;
+    }
+
     setIsProcessing(true);
+    setRecusado(false);
     try {
       await cobrar({
         installments: selectedInstallments,
@@ -159,10 +198,27 @@ export function CartaoMarcelForm({
         },
       });
     } catch (err: any) {
-      const msg = err?.message || 'Erro ao processar pagamento';
-      toast.error(msg);
+      if (err instanceof CartaoRecusadoError && onPagarComPix) {
+        // Recusa explícita do banco: o bloco oferece o PIX (sem toast vermelho em cima).
+        setRecusado(true);
+        requestAnimationFrame(() =>
+          blocoRecusaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      } else {
+        const msg = err?.message || 'Erro ao processar pagamento';
+        toast.error(msg);
+      }
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handlePagarComPix = async () => {
+    if (!onPagarComPix || gerandoPix) return;
+    setGerandoPix(true);
+    try {
+      await onPagarComPix();
+    } finally {
+      setGerandoPix(false);
     }
   };
 
@@ -178,6 +234,34 @@ export function CartaoMarcelForm({
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Valor a pagar</p>
         <p className="font-display font-bold text-4xl gradient-text tabular-nums">{formatPrice(selectedTotal)}</p>
       </div>
+
+      {/* Recusa explícita do banco: oferece o PIX do mesmo carrinho. Nunca
+          aparece em resultado indefinido nem em erro do servidor (a cobrança
+          pode ter passado, e o PIX cobraria duas vezes). */}
+      {recusado && onPagarComPix && (
+        <div ref={blocoRecusaRef} role="alert"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-3.5 py-3.5 space-y-3">
+          <div className="flex gap-2.5">
+            <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+            <div className="text-sm leading-relaxed">
+              <p className="font-semibold">Seu banco recusou o cartão.</p>
+              <p className="text-muted-foreground mt-0.5">Pague com PIX: a confirmação sai na hora.</p>
+            </div>
+          </div>
+          <Button type="button" variant="hero" size="lg" className="w-full h-12 font-semibold"
+            onClick={handlePagarComPix} disabled={gerandoPix}>
+            {gerandoPix ? (
+              <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Gerando o PIX...</>
+            ) : (
+              <><QrCode className="w-5 h-5 mr-2" /> Pagar com PIX</>
+            )}
+          </Button>
+          <Button type="button" variant="ghost" className="w-full text-muted-foreground"
+            onClick={() => setRecusado(false)} disabled={gerandoPix}>
+            Tentar outro cartão
+          </Button>
+        </div>
+      )}
 
       {/* De onde vem cada centavo. É o padrão do mercado e resolve a pergunta
           que o cliente faz sozinho: "por que aqui é mais caro que no resumo?" */}
@@ -258,7 +342,7 @@ export function CartaoMarcelForm({
         <Label htmlFor="m-cardNumber">Número do cartão</Label>
         <div className="relative">
           <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input id="m-cardNumber" inputMode="numeric" placeholder="0000 0000 0000 0000" className="pl-10"
+          <Input id="m-cardNumber" inputMode="numeric" placeholder="0000 0000 0000 0000" className="pl-10" autoComplete="cc-number"
             value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} />
         </div>
       </div>
