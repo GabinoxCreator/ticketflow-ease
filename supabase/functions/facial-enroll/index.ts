@@ -6,7 +6,7 @@
 // Depois de gravar, empurra a foto pra API facial do Marcel — push BEST-EFFORT:
 // falha lá nunca derruba o cadastro (ver pushToMarcelSafe).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { pushToMarcelSafe } from "../_shared/marcelFace.ts";
+import { pushToMarcelSafe, telefoneDoPerfil } from "../_shared/marcelFace.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
         uid,
         cpf: profile?.cpf ?? null,
         email: profile?.email ?? null,
-        telefone: profile?.whatsapp ?? null,
+        telefone: await telefoneDoPerfil(admin, uid, profile?.whatsapp),
         imageBase64: photoBase64,
       },
       "FACIAL-ENROLL",
