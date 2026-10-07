@@ -1,4 +1,4 @@
-import { Mail, Phone, Receipt, Gift, AlertTriangle, Tag, ChevronRight } from 'lucide-react';
+import { Mail, Phone, Receipt, Gift, AlertTriangle, Tag, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Order } from '@/hooks/useEventOrders';
@@ -10,6 +10,8 @@ interface OrderListItemProps {
   // onClick do item e reabrir). A lista controla o drawer; o item só sinaliza a seleção.
   onSelect: (order: Order) => void;
   onUpdateStatus?: (orderId: string, status: Order['status']) => void;
+  /** Aba "Não concluídos": a mesma pessoa tem pedido pago neste evento. */
+  boughtLater?: boolean;
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -22,7 +24,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   outro: 'Outro',
 };
 
-export function OrderListItem({ order, onSelect }: OrderListItemProps) {
+export function OrderListItem({ order, onSelect, boughtLater }: OrderListItemProps) {
   const isManual = order.sale_origin === 'manual';
   const isCourtesy = order.sale_origin === 'courtesy';
 
@@ -38,9 +40,9 @@ export function OrderListItem({ order, onSelect }: OrderListItemProps) {
       case 'refunded':
         return <Badge variant="outline">Reembolsado</Badge>;
       case 'failed':
-        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">Falhou</Badge>;
+        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">Cartão recusado</Badge>;
       case 'expired':
-        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">Expirado</Badge>;
+        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">PIX venceu</Badge>;
       case 'charged_back':
         return <Badge variant="outline" className="border-orange-500/40 text-orange-500">Chargeback</Badge>;
       default:
@@ -68,6 +70,11 @@ export function OrderListItem({ order, onSelect }: OrderListItemProps) {
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <h4 className="font-medium">{order.customer_name}</h4>
           {getStatusBadge()}
+          {boughtLater && (
+            <Badge className="bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500/20">
+              <CheckCircle2 className="h-3 w-3 mr-1" /> Comprou depois
+            </Badge>
+          )}
           {isManual && (
             <Badge className="bg-primary/15 text-primary border border-primary/30 hover:bg-primary/20">
               <Receipt className="h-3 w-3 mr-1" /> Manual
@@ -90,11 +97,11 @@ export function OrderListItem({ order, onSelect }: OrderListItemProps) {
                   {order.review_status === 'partial_delivery' ? (
                     <>
                       <strong className="text-red-400">Entrega parcial.</strong> Pagamento confirmado, mas só{' '}
-                      {order.review_reason?.delivered ?? '?'} de {order.review_reason?.expected ?? '?'} assentos foram entregues. Confira no painel do provedor de pagamento e reembolse a diferença manualmente se necessário.
+                      {order.review_reason?.delivered ?? '?'} de {order.review_reason?.expected ?? '?'} assentos foram entregues. Fale com a FestPag para devolver a diferença ou entregar o que faltou.
                     </>
                   ) : (
                     <>
-                      <strong className="text-red-400">Pago sem entrega.</strong> O pagamento foi confirmado, mas o pedido já estava {order.review_reason?.order_status ?? 'encerrado'} quando a confirmação chegou — nenhum ingresso foi entregue. Confira no painel do provedor de pagamento e devolva o valor, ou entregue o ingresso manualmente.
+                      <strong className="text-red-400">Pago sem entrega.</strong> O pagamento foi confirmado, mas o pedido já estava {order.review_reason?.order_status ?? 'encerrado'} quando a confirmação chegou — nenhum ingresso foi entregue. Fale com a FestPag para devolver o valor ou entregar o ingresso.
                     </>
                   )}
                 </TooltipContent>
