@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSeatHold, type HoldState, readStoredOrderId, writeStoredOrderId, clearStoredOrderId } from '@/hooks/useSeatHold';
 import { HoldCountdown } from '@/components/seated/HoldCountdown';
-import { CheckoutStepProgressiveForm } from '@/components/checkout/CheckoutStepProgressiveForm';
+import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
 import { CheckoutStepPix } from '@/components/checkout/CheckoutStepPix';
 import { SeatCheckoutCard, CARD_ERROR_MESSAGES } from '@/components/checkout/SeatCheckoutCard';
@@ -37,7 +37,7 @@ import { AvisoTaxaNaoReembolsavel } from '@/components/legal/AvisoTaxaNaoReembol
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
 
-type Step = 'form' | 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
+type Step = 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
 
 
 interface CustomerData {
@@ -101,7 +101,7 @@ function ReservedPill({ expiresAt }: { expiresAt: string }) {
 export default function SeatCheckout() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, isLoading: authLoading } = useAuth();
   const {
     hold,
     addons,
@@ -193,10 +193,10 @@ export default function SeatCheckout() {
   // Decide o step inicial assim que customer estiver pronto.
   useEffect(() => {
     if (!customer || step !== null) return;
-    if (!user) {
-      setStep('form');
-      return;
-    }
+    // Sem conta não se chega aqui (o gate de login abaixo cuida). O formulário
+    // antigo de visitante (CPF + senha) foi aposentado: ele pedia a senha e a
+    // jogava fora, e a pessoa comprava sem conta (OS-160).
+    if (!user) return;
     const digits = (customer.cpf || '').replace(/\D/g, '');
     const cpfOk = digits.length === 11 && validateCPF(digits);
     const nameOk = customer.name.trim().length >= 3;
@@ -451,6 +451,33 @@ export default function SeatCheckout() {
       </div>
     );
   }
+  // Sem conta, quem compra mesa entra ou cria a conta de verdade (FluxoConta:
+  // senha + confirmação do canal por código) ANTES de reservar e pagar. A rota
+  // já é protegida; este gate cobre a sessão que caiu no meio da compra e
+  // qualquer reaproveitamento desta tela fora da rota protegida. Nunca comprar
+  // como visitante: o ingresso ficaria sem dono e a pessoa sem como entrar.
+  if (!authLoading && !user) {
+    return (
+      <>
+        <Helmet><title>Entrar — {event?.title ?? 'Checkout'}</title></Helmet>
+        <div className="min-h-screen">
+          <Header />
+          <main className="pt-32 max-w-md mx-auto px-4 text-center space-y-4">
+            <h1 className="font-display font-bold text-xl">Entre ou crie sua conta para continuar</h1>
+            <p className="text-sm text-muted-foreground">
+              O ingresso fica na sua conta, em Meus Ingressos. Sua reserva continua guardada enquanto o relógio não zerar.
+            </p>
+          </main>
+        </div>
+        <AuthModalV2
+          isOpen
+          onClose={() => navigate(`/evento/${eventId}`, { replace: true })}
+          onAuthenticated={() => { /* o AuthContext traz o usuário e o checkout segue sozinho */ }}
+        />
+      </>
+    );
+  }
+
   // Steps terminais não dependem do hold (já foi limpo após pagamento).
   // Sem essa exceção, o gate engole 'success'/'verifying' e fica em spinner eterno.
   const isTerminalStep = step === 'success' || step === 'verifying';
@@ -519,19 +546,6 @@ export default function SeatCheckout() {
                 <p className="text-sm text-muted-foreground mb-3">{event.venue} — {event.city}/{event.state}</p>
               </>
             )}
-            {step === 'form' && !user && (
-
-              <motion.div key="form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                <CheckoutStepProgressiveForm
-                  initialData={customer}
-                  onComplete={(data) => {
-                    setCustomer({ name: data.name, email: data.email, cpf: data.cpf, phone: data.phone });
-                    setStep('method');
-                  }}
-                />
-              </motion.div>
-            )}
-
             {step === 'cpf' && user && (
               <motion.div key="cpf" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 <CheckoutStepCPF
