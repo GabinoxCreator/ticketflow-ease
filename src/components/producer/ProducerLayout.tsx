@@ -1,6 +1,7 @@
 import React from 'react';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { ProducerSidebar } from './ProducerSidebar';
+import { PinObrigatorioAviso } from './PinObrigatorioAviso';
 import { Separator } from '@/components/ui/separator';
 import { 
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator 
@@ -60,6 +61,8 @@ export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutP
           <main className="flex-1 p-6 overflow-auto">
             {children}
           </main>
+          {/* OS-166: dono da produtora sem PIN vê o aviso a cada entrada no painel. */}
+          <PinObrigatorioAviso />
         </SidebarInset>
       </div>
     </SidebarProvider>

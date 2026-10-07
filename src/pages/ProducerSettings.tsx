@@ -29,7 +29,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { documentoValido } from '@/lib/repasseDocumento';
+import { CHAVE_PENDENCIAS_REPASSE, documentoValido, soDigitos } from '@/lib/repasseDocumento';
+import {
+  PIN_CRIE_ANTES,
+  PIN_PARA_TROCAR_DOCUMENTO,
+  chamarPin,
+  useMeuPin,
+  type RespostaPin,
+} from '@/lib/pinRepasse';
+import { PinConfirmDialog } from '@/components/producer/PinConfirmDialog';
 
 export default function ProducerSettings() {
   const { profile, user, producerProfileId, userRole } = useAuth();
@@ -144,8 +152,47 @@ export default function ProducerSettings() {
     setLogoUrl(null);
   };
 
+  // OS-166: o CPF/CNPJ da produtora só se troca com o PIN, conferido no banco
+  // (`salvar_documento_da_produtora`). A casa (admin) continua corrigindo direto.
+  const { data: meuPin } = useMeuPin();
+  const [pedindoPin, setPedindoPin] = useState(false);
+  const documentoMudou =
+    !isAdmin && !!effectiveProducerId && soDigitos(document) !== soDigitos(producerProfile?.document);
+
   const handleSaveAll = async () => {
     if (!user?.id) return;
+    if (documentoMudou) {
+      if (document.trim() !== '' && !documentoValido(document)) {
+        toast.error('Número de CPF ou CNPJ inválido.');
+        return;
+      }
+      if (meuPin && !meuPin.tem_pin) {
+        toast.error(PIN_CRIE_ANTES);
+        return;
+      }
+      setPedindoPin(true);
+      return;
+    }
+    await salvarTudo(null);
+  };
+
+  // `pin` só vem quando o documento mudou. O documento vai PRIMEIRO: com o PIN
+  // errado, nada é salvo (é o que a frase "Nada foi trocado." promete).
+  const salvarTudo = async (pin: string | null): Promise<RespostaPin> => {
+    if (!user?.id) return { ok: false, error: 'falha' };
+    if (pin !== null && effectiveProducerId) {
+      setSaving(true);
+      const r = await chamarPin('salvar_documento_da_produtora', {
+        _producer_profile_id: effectiveProducerId,
+        _documento: document,
+        _pin: pin,
+      });
+      if (!r.ok) {
+        setSaving(false);
+        return r;
+      }
+      setPedindoPin(false);
+    }
     setSaving(true);
     try {
       const tasks: Promise<any>[] = [
@@ -166,7 +213,8 @@ export default function ProducerSettings() {
               brand_name: brandName,
               logo_url: logoUrl,
               legal_name: legalName || null,
-              document: document || null,
+              // Produtor: o documento já foi (ou não precisou) pela função com PIN.
+              ...(isAdmin ? { document: document || null } : {}),
               email: orgEmail || null,
               phone: orgPhone || null,
               meta_pixel_id: metaPixelId.trim() || null,
@@ -195,11 +243,14 @@ export default function ProducerSettings() {
 
       toast.success('Configurações salvas!');
       queryClient.invalidateQueries({ queryKey: ['producer-profile'] });
+      // O aviso do Financeiro (o que falta para pedir repasse) muda com o documento.
+      queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao salvar configurações');
     } finally {
       setSaving(false);
     }
+    return { ok: true };
   };
 
   const previewLogo = logoUrl || festpagLogo;
@@ -558,6 +609,12 @@ export default function ProducerSettings() {
           </CardContent>
         </Card>
       </div>
+      <PinConfirmDialog
+        open={pedindoPin}
+        descricao={PIN_PARA_TROCAR_DOCUMENTO}
+        onCancelar={() => setPedindoPin(false)}
+        onConfirmar={(pin) => salvarTudo(pin)}
+      />
     </ProducerLayout>
   );
 }

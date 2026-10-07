@@ -2,6 +2,7 @@
  * O motor do código de acesso: gera, guarda (só o hash), entrega pelo canal e
  * confere. Serve ao cadastro, ao login (senha + código), à confirmação de um
  * canal novo e à recuperação de senha. Plano de 09/09/2026 — `_docs/plano-login-cpf-whatsapp.md`.
+ * Desde 07/10/2026 serve também ao PIN esquecido do produtor (OS-166).
  *
  * Regras que não se negociam:
  *   · O código nunca é gravado nem logado — só `sha256(id:código)`.
@@ -28,7 +29,7 @@ export const VALIDADE_MIN = 10;
 export const JANELA_PROVA_MIN = 15;
 export const MAX_TENTATIVAS = 5;
 
-export type Proposito = 'cadastro' | 'login' | 'canal' | 'reset';
+export type Proposito = 'cadastro' | 'login' | 'canal' | 'reset' | 'pin';
 export type Canal = 'whatsapp' | 'email';
 
 export type PedidoDeCodigo = {
@@ -40,6 +41,9 @@ export type PedidoDeCodigo = {
   userId?: string | null;
   nome?: string | null;
   ip: string;
+  /* E-mail com texto próprio (o PIN esquecido não é "código para entrar").
+   * Sem isto, sai o e-mail padrão do código de acesso. */
+  emailPersonalizado?: (codigo: string) => { assunto: string; html: string };
 };
 
 export type ResultadoEnvio =
@@ -78,7 +82,10 @@ function textoWhatsApp(codigo: string): string {
   ].join('\n');
 }
 
-async function entregar(canal: Canal, destino: string, codigo: string, nome: string | null | undefined): Promise<ResultadoEnvio | null> {
+async function entregar(
+  canal: Canal, destino: string, codigo: string, nome: string | null | undefined,
+  emailPersonalizado?: PedidoDeCodigo['emailPersonalizado'],
+): Promise<ResultadoEnvio | null> {
   if (canal === 'whatsapp') {
     const r = await enviarTextoWhatsApp(destino, textoWhatsApp(codigo), { timeoutMs: 8_000 });
     if (r.ok) return null;
@@ -88,11 +95,12 @@ async function entregar(canal: Canal, destino: string, codigo: string, nome: str
   if (!chave) return { ok: false, erro: 'resend_nao_configurado' };
   const Resend = (await import('https://esm.sh/resend@2.0.0')).Resend;
   const resend = new Resend(chave);
+  const proprio = emailPersonalizado ? emailPersonalizado(codigo) : null;
   const { error } = await resend.emails.send({
     from: 'FestPag <naoresponda@festpag.com.br>',
     to: [destino],
-    subject: assuntoCodigo(codigo),
-    html: htmlCodigo({ codigo, nome, validadeMin: VALIDADE_MIN }),
+    subject: proprio ? proprio.assunto : assuntoCodigo(codigo),
+    html: proprio ? proprio.html : htmlCodigo({ codigo, nome, validadeMin: VALIDADE_MIN }),
   });
   if (error) {
     console.error('[CODIGO] Resend recusou para', maskEmail(destino), error);
@@ -136,7 +144,7 @@ export async function criarEEnviarCodigo(admin: any, pedido: PedidoDeCodigo): Pr
     return { ok: false, erro: 'falha_ao_guardar' };
   }
 
-  const falha = await entregar(pedido.canal, destino, codigo, pedido.nome);
+  const falha = await entregar(pedido.canal, destino, codigo, pedido.nome, pedido.emailPersonalizado);
   if (falha) {
     // Não entregou: queima o desafio para o código não ficar vivo à toa.
     await admin.from('auth_codigos').update({ usado_em: new Date().toISOString() }).eq('id', id);

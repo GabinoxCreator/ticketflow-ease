@@ -56,6 +56,50 @@ export function htmlCodigo(opts: { codigo: string; nome?: string | null; validad
     </div>`;
 }
 
+/*
+ * PIN esquecido do painel do produtor (OS-166, 07/10/2026). Mesmo desenho do
+ * código de acesso; o texto diz para que serve e o que fazer se não foi ele,
+ * porque quem pede PIN novo sem ser o dono está mexendo na conta do repasse.
+ */
+export function assuntoCodigoPin(codigo: string): string {
+  return `${codigo} é o código para criar um PIN novo - FestPag`;
+}
+
+export function htmlCodigoPin(opts: { codigo: string; nome?: string | null; validadeMin?: number }): string {
+  const nome = (opts.nome ?? '').trim().split(' ')[0];
+  const validade = opts.validadeMin ?? 10;
+  return `
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0;">
+      Código para criar um PIN novo: ${opts.codigo} (vale por ${validade} minutos)
+    </div>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+      ${cabecalho()}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; margin: 0 0 30px 0;">
+        <tr>
+          <td align="center" bgcolor="#f5f3ff" style="background-color: #f5f3ff; border: 2px solid #7c3aed; border-radius: 12px; padding: 24px 16px;">
+            <p style="margin: 0 0 10px 0; color: #6d28d9; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-family: Arial, sans-serif;">
+              Seu código
+            </p>
+            <div style="font-size: 40px; font-weight: bold; letter-spacing: 8px; text-indent: 8px; color: #1f2937; font-family: Arial, sans-serif;">
+              ${opts.codigo}
+            </div>
+          </td>
+        </tr>
+      </table>
+      <h2 style="color: #1f2937; font-family: Arial, sans-serif;">Olá${nome ? `, ${nome}` : ''}!</h2>
+      <p style="color: #4b5563; font-size: 18px; font-family: Arial, sans-serif;">
+        Você pediu para criar um PIN novo no painel do produtor da FestPag. Digite o código acima na tela do PIN.
+      </p>
+      <p style="color: #6b7280; font-size: 15px; font-family: Arial, sans-serif;">
+        Ele vale por <strong>${validade} minutos</strong>. Ninguém da FestPag vai pedir esse código para você.
+      </p>
+      <p style="color: #6b7280; font-size: 15px; font-family: Arial, sans-serif;">
+        Não foi você? Não passe este código para ninguém e troque a senha da sua conta. Alguém pode estar tentando mexer na conta que recebe os seus repasses. Se precisar, fale com a gente em suporte@festpag.digital.
+      </p>
+      ${rodape()}
+    </div>`;
+}
+
 export function assuntoLink(tipo: string): string {
   switch (tipo) {
     case 'invite': return 'Você foi convidado para a FestPag';

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar, Banknote, AlertTriangle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { PinSetupCard } from '@/components/producer/PinSetupCard';
 import { BankAccountCard } from '@/components/producer/BankAccountCard';
@@ -29,6 +29,7 @@ import {
   MENSAGEM_PENDENCIA_REPASSE,
   usePendenciasRepasse,
 } from '@/lib/repasseDocumento';
+import { atualizarMeuPin, useMeuPin } from '@/lib/pinRepasse';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -52,29 +53,28 @@ const formatBRL = (v: number) => {
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
 
 export default function Financeiro() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasPin, setHasPin] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<{ id: string; title: string; available: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
 
-  const checkPinStatus = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('producer_stripe_accounts')
-        .select('pin_hash')
-        .single();
-      setHasPin(!!data?.pin_hash);
-    } catch {
-      setHasPin(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // OS-166: "tem PIN?" vem do banco (meu_pin); o navegador não lê o PIN guardado.
+  // Se a consulta falhar, a tela abre sem a trava, como antes: quem protege a
+  // conta e o documento é o servidor, que pede o PIN na troca.
+  const { data: meuPin, isLoading } = useMeuPin();
+  const hasPin = !!meuPin?.tem_pin;
+  // O pop-up do painel (OS-166) manda para cá com ?aba=dados.
+  // Controlada: se o produtor já está no Financeiro quando clica no pop-up, a
+  // aba tem que trocar mesmo sem a tela ser montada de novo.
+  const [searchParams] = useSearchParams();
+  const pedeDados = searchParams.get('aba') === 'dados';
+  const [aba, setAba] = useState(pedeDados ? 'dados' : 'por-evento');
+  useEffect(() => { if (pedeDados) setAba('dados'); }, [pedeDados, searchParams]);
 
-  useEffect(() => { checkPinStatus(); }, [checkPinStatus]);
+  // Quem entrou sem PIN já está com a tela aberta: criar o PIN aqui não pode
+  // fazer a trava aparecer em cima do que ele está preenchendo.
+  useEffect(() => { if (meuPin && !meuPin.tem_pin) setIsUnlocked(true); }, [meuPin]);
 
   const showContent = !hasPin || isUnlocked;
   const { data: finance, isLoading: financeLoading } = useProducerFinance();
@@ -143,7 +143,8 @@ export default function Financeiro() {
             open={hasPin && !isUnlocked}
             onVerified={() => setIsUnlocked(true)}
             hasPin={hasPin}
-            onPinCreated={() => { setHasPin(true); setIsUnlocked(true); }}
+            onPinCreated={() => { setIsUnlocked(true); atualizarMeuPin(queryClient); }}
+            emailRecuperacao={meuPin?.email_recuperacao ?? null}
           />
 
           {showContent && (
@@ -243,7 +244,7 @@ export default function Financeiro() {
               )}
 
               {/* Tabs */}
-              <Tabs defaultValue="por-evento" className="w-full">
+              <Tabs value={aba} onValueChange={setAba} className="w-full">
                 <TabsList className="grid grid-cols-2 w-full sm:w-auto">
                   <TabsTrigger value="por-evento">Por Evento</TabsTrigger>
                   <TabsTrigger value="dados">Dados & PIN</TabsTrigger>
@@ -345,8 +346,11 @@ export default function Financeiro() {
                 </TabsContent>
 
                 <TabsContent value="dados" className="mt-4 space-y-6">
-                  <BankAccountCard />
-                  <PinSetupCard />
+                  {/* Sem PIN, o PIN vem primeiro: a conta só se salva com ele (OS-166).
+                      Lista com chave para a troca de ordem não apagar o que está sendo digitado. */}
+                  {(hasPin ? ['conta', 'pin'] : ['pin', 'conta']).map((k) =>
+                    k === 'conta' ? <BankAccountCard key="conta" /> : <PinSetupCard key="pin" />,
+                  )}
                 </TabsContent>
               </Tabs>
             </div>
