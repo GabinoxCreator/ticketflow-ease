@@ -1,3 +1,13 @@
+/*
+ * ⚠️ NÃO LIGAR ESTE FORMULÁRIO EM NENHUM CHECKOUT (OS-160).
+ *
+ * Ele pede senha (duas vezes), mas o `onComplete` só ENTREGA os dados: nenhuma
+ * conta é criada. Quem passar por aqui compra como visitante e depois não
+ * consegue entrar nem ver o ingresso. Hoje nenhum checkout alcança este passo
+ * (o do ingresso abre direto no pagamento; o de mesa exige login e, sem sessão,
+ * abre o AuthModalV2). Se precisar de cadastro dentro da compra, use o
+ * `AuthModalV2`/`FluxoConta`, que cria a conta de verdade.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
