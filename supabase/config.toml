@@ -303,3 +303,9 @@ verify_jwt = false
 # ou por admin logado para reenviar um aviso na mão. Nunca pelo navegador do público.
 [functions.aviso-reembolso]
 verify_jwt = false
+
+# Alarme do relógio que confere o PIX (OS-158). Chamada pelo vigia
+# vigiar_relogio_do_pix() (pg_cron, segredo X-Cron-Secret do Vault), ou por admin
+# logado para reenviar na mão. Nunca pelo navegador do público.
+[functions.aviso-relogio]
+verify_jwt = false
