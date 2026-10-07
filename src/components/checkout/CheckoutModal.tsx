@@ -263,6 +263,25 @@ export function CheckoutModal({
       return;
     }
     setSelectedMethod(method);
+    // Cartão que ficou em verificação (OS-165) deixa um rascunho SEM código PIX.
+    // Escolher cartão de novo, enquanto aquele pedido está pendente, cobraria
+    // duas vezes se a primeira cobrança tiver passado: leva ao acompanhamento.
+    // (O PIX já faz esta conferência dentro do `startPix`.)
+    if (method === 'card') {
+      const draft = readPendingCheckout();
+      if (draft && draft.eventId === eventId && !draft.pixCode) {
+        const { data: existing } = await supabase
+          .from('orders')
+          .select('id, status')
+          .eq('id', draft.orderId)
+          .maybeSingle();
+        if (existing?.status === 'pending') {
+          onClose();
+          navigate(`/pedido/${existing.id}`);
+          return;
+        }
+      }
+    }
     const cpfDigits = unformatCPF(customerData.cpf);
     if (!validateCPF(cpfDigits)) {
       setPendingMethod(method);
@@ -475,6 +494,21 @@ export function CheckoutModal({
                 onPagarComPix={async () => {
                   setSelectedMethod('pix');
                   await startPix(unformatCPF(customerData.cpf));
+                }}
+                // Cobrança em dúvida (OS-165): o Pagar já travou e o aviso ficou
+                // na tela. Daqui vai para o acompanhamento, com endereço próprio,
+                // igual ao cartão em análise do Mercado Pago logo abaixo.
+                onEmDuvida={(newOrderId) => {
+                  setOrderId(newOrderId);
+                  savePendingCheckout({
+                    orderId: newOrderId,
+                    paymentId: null,
+                    pixCode: null,
+                    expiresAt: null,
+                    eventId,
+                  });
+                  onClose();
+                  navigate(`/pedido/${newOrderId}`);
                 }}
               />
             )}

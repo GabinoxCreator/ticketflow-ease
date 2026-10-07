@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { CartaoMarcelForm, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
+import { CartaoMarcelForm, CobrancaEmDuvidaError, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
+import { corpoDoErroDaEdge } from '@/lib/corpoDoErroDaEdge';
 
 /*
  * Cartão do checkout de MESA/CAMAROTE, pela rota do Marcel.
@@ -65,6 +66,20 @@ export function SeatCheckoutCardMarcel({
       },
     });
 
+    // Os dois casos em que a cobrança PODE ter passado chegam como erro HTTP, e
+    // resposta 4xx/5xx não preenche `data`: o corpo fica em `error.context`.
+    //   409 `paid_pending_review`: o cartão passou e a mesa não pôde ser entregue
+    //       (já marcado em vermelho no painel do produtor);
+    //   502 `payment_provider_unreachable` COM pedido: não deu para saber se o
+    //       banco aprovou. Sem pedido criado, não houve cobrança.
+    // Antes (até a OS-165) os dois viravam um erro técnico na tela, com o Pagar
+    // livre para tentar de novo. Agora o formulário trava o Pagar, mostra o aviso
+    // fixo e leva ao acompanhamento desta mesma tela (`onInProcess`).
+    const corpo = error ? await corpoDoErroDaEdge(error) : data;
+    if (corpo?.orderId
+        && (corpo?.status === 'paid_pending_review' || corpo?.error === 'payment_provider_unreachable')) {
+      throw new CobrancaEmDuvidaError('Pagamento em verificação.', String(corpo.orderId));
+    }
     if (error) throw error;
 
     if (data?.status === 'approved_pending_confirmation') {
@@ -73,13 +88,6 @@ export function SeatCheckoutCardMarcel({
     }
     if (data?.status === 'rejected') {
       onRejected(data.errorCode || 'unknown');
-      return;
-    }
-    // `paid_pending_review`: o cartão passou mas a mesa não pôde ser entregue.
-    // NÃO dizer "recusado" — o cliente foi cobrado. O caso já está marcado em
-    // vermelho no painel do produtor para alguém resolver.
-    if (data?.status === 'paid_pending_review') {
-      onInProcess(data.orderId, undefined, null);
       return;
     }
     // Reserva vencida ou mesa tomada no meio do caminho: a tela sabe traduzir
@@ -104,6 +112,14 @@ export function SeatCheckoutCardMarcel({
       rotuloFace={seats.length > 1 ? 'Mesas' : 'Mesa'}
       cotar={cotar}
       cobrar={cobrar}
+      // O acompanhamento da mesa é a própria tela de checkout (passo
+      // "Finalizando pagamento"), que segue conferindo o pedido. Sair dela
+      // soltaria a reserva das mesas. Volta ao topo: o passo novo é curto e,
+      // sem isso, a pessoa ficava olhando o rodapé da página.
+      onEmDuvida={(orderId) => {
+        onInProcess(orderId, undefined, null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }}
     />
   );
 }
