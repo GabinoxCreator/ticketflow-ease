@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar, Banknote } from 'lucide-react';
+import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar, Banknote, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { PinSetupCard } from '@/components/producer/PinSetupCard';
@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useProducerFinance } from '@/hooks/useProducerFinance';
+import {
+  AVISO_REPASSE,
+  CHAVE_PENDENCIAS_REPASSE,
+  MENSAGEM_PENDENCIA_REPASSE,
+  usePendenciasRepasse,
+} from '@/lib/repasseDocumento';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,7 +37,8 @@ import { ptBR } from 'date-fns/locale';
 const PAYOUT_ERROR_MESSAGES: Record<string, string> = {
   already_requested: 'Você já tem um saque solicitado para este evento.',
   no_available_balance: 'Não há saldo disponível para saque.',
-  no_bank_account: 'Cadastre sua conta bancária antes de solicitar o saque.',
+  // Trava de documento e conta (OS-157): textos aprovados pelo Gabriel.
+  ...MENSAGEM_PENDENCIA_REPASSE,
   not_event_owner: 'Este evento não pertence à sua conta.',
   event_not_found: 'Evento não encontrado.',
 };
@@ -70,6 +78,7 @@ export default function Financeiro() {
 
   const showContent = !hasPin || isUnlocked;
   const { data: finance, isLoading: financeLoading } = useProducerFinance();
+  const { data: pendencias = [] } = usePendenciasRepasse();
 
   const filteredEvents = useMemo(() => {
     if (!finance?.events) return [];
@@ -99,6 +108,10 @@ export default function Financeiro() {
       if (!payload?.ok) {
         const code = payload?.error as string | undefined;
         toast.error(PAYOUT_ERROR_MESSAGES[code ?? ''] ?? 'Não foi possível solicitar o saque. Tente novamente.');
+        // O servidor pode ter visto uma pendência que o aviso ainda não mostrava.
+        if (Array.isArray(payload?.pendencias)) {
+          queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
+        }
         return;
       }
 
@@ -145,6 +158,21 @@ export default function Financeiro() {
                   Acompanhe seus eventos, repasses e dados bancários
                 </p>
               </div>
+
+              {/* Trava de documento e conta (OS-157): só aparece quando falta algo. */}
+              {pendencias.length > 0 && (
+                <Alert className="border-amber-500/50 bg-amber-500/5">
+                  <AlertTriangle className="h-4 w-4 !text-amber-500" />
+                  <AlertDescription className="space-y-2">
+                    <p>{AVISO_REPASSE}</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {pendencias.map((p) => (
+                        <li key={p} className="font-medium">{MENSAGEM_PENDENCIA_REPASSE[p]}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Global Balance */}
               <div className="grid gap-4 sm:grid-cols-3">

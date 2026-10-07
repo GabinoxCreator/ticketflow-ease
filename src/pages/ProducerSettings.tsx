@@ -29,6 +29,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { documentoValido } from '@/lib/repasseDocumento';
 
 export default function ProducerSettings() {
   const { profile, user, producerProfileId, userRole } = useAuth();
@@ -389,6 +390,10 @@ export default function ProducerSettings() {
                         onChange={(e) => setDocument(e.target.value)}
                         placeholder="00.000.000/0000-00"
                       />
+                      {/* OS-157: o repasse só sai com este número certo. */}
+                      {document.trim() !== '' && !documentoValido(document) && (
+                        <p className="text-xs text-destructive">Número de CPF ou CNPJ inválido.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="orgEmail">Email de contato</Label>

@@ -8,10 +8,20 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Landmark, Pencil, Save, X, Loader2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  CHAVE_PENDENCIAS_REPASSE,
+  documentoValido,
+  formatarDocumento,
+  soDigitos,
+} from '@/lib/repasseDocumento';
 
 interface BankAccount {
   bank_name: string;
   account_holder_name: string;
+  // CPF/CNPJ do dono da conta (OS-157). Sem ele o produtor não pede repasse;
+  // o titular pode ser outra pessoa.
+  account_holder_document: string;
   agency: string;
   account_number: string;
   account_type: string;
@@ -22,6 +32,7 @@ interface BankAccount {
 const emptyAccount: BankAccount = {
   bank_name: '',
   account_holder_name: '',
+  account_holder_document: '',
   agency: '',
   account_number: '',
   account_type: 'corrente',
@@ -31,6 +42,7 @@ const emptyAccount: BankAccount = {
 
 const pixKeyTypeLabels: Record<string, string> = {
   cpf: 'CPF',
+  cnpj: 'CNPJ',
   email: 'E-mail',
   telefone: 'Telefone',
   aleatoria: 'Chave Aleatória',
@@ -38,6 +50,7 @@ const pixKeyTypeLabels: Record<string, string> = {
 
 export function BankAccountCard() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [data, setData] = useState<BankAccount>(emptyAccount);
   const [form, setForm] = useState<BankAccount>(emptyAccount);
   const [editing, setEditing] = useState(false);
@@ -54,7 +67,11 @@ export function BankAccountCard() {
         .eq('user_id', user.id)
         .maybeSingle();
       if (row) {
-        const account = row as any as BankAccount;
+        const salvo = row as unknown as BankAccount;
+        const account = {
+          ...salvo,
+          account_holder_document: formatarDocumento(salvo.account_holder_document),
+        };
         setData(account);
         setForm(account);
         setHasData(!!account.bank_name);
@@ -66,8 +83,18 @@ export function BankAccountCard() {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!form.account_holder_name || !form.bank_name || !form.agency || !form.account_number) {
+    if (
+      !form.account_holder_name ||
+      !form.account_holder_document ||
+      !form.bank_name ||
+      !form.agency ||
+      !form.account_number
+    ) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    if (!documentoValido(form.account_holder_document)) {
+      toast.error('O CPF ou CNPJ do titular está com número errado.');
       return;
     }
     setSaving(true);
@@ -76,6 +103,8 @@ export function BankAccountCard() {
       .upsert({
         user_id: user.id,
         ...form,
+        // No banco vai só número (a regra da coluna recusa pontuação).
+        account_holder_document: soDigitos(form.account_holder_document),
         updated_at: new Date().toISOString(),
       } as any, { onConflict: 'user_id' });
 
@@ -86,6 +115,8 @@ export function BankAccountCard() {
       setHasData(true);
       setEditing(false);
       toast.success('Dados bancários salvos com sucesso!');
+      // O aviso do Financeiro (o que falta para pedir repasse) muda com a conta.
+      queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
     }
     setSaving(false);
   };
@@ -115,6 +146,7 @@ export function BankAccountCard() {
         <CardContent className="grid gap-3 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <div><span className="text-muted-foreground">Titular:</span> <span className="font-medium">{data.account_holder_name}</span></div>
+            <div><span className="text-muted-foreground">CPF/CNPJ do titular:</span> <span className="font-medium">{data.account_holder_document || '—'}</span></div>
             <div><span className="text-muted-foreground">Banco:</span> <span className="font-medium">{data.bank_name}</span></div>
             <div><span className="text-muted-foreground">Agência:</span> <span className="font-medium">{data.agency}</span></div>
             <div><span className="text-muted-foreground">Conta:</span> <span className="font-medium">{data.account_number}</span></div>
@@ -146,6 +178,15 @@ export function BankAccountCard() {
             <Input value={form.account_holder_name} onChange={(e) => setForm({ ...form, account_holder_name: e.target.value })} placeholder="Nome completo" />
           </div>
           <div className="space-y-2">
+            <Label>CPF/CNPJ do titular *</Label>
+            <Input
+              value={form.account_holder_document}
+              onChange={(e) => setForm({ ...form, account_holder_document: formatarDocumento(e.target.value) })}
+              placeholder="000.000.000-00"
+              inputMode="numeric"
+            />
+          </div>
+          <div className="space-y-2">
             <Label>Banco *</Label>
             <Input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="Ex: Nubank, Bradesco" />
           </div>
@@ -173,6 +214,7 @@ export function BankAccountCard() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="cpf">CPF</SelectItem>
+                <SelectItem value="cnpj">CNPJ</SelectItem>
                 <SelectItem value="email">E-mail</SelectItem>
                 <SelectItem value="telefone">Telefone</SelectItem>
                 <SelectItem value="aleatoria">Chave Aleatória</SelectItem>

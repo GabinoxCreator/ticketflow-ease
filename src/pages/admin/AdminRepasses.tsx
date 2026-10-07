@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Banknote, Loader2, Paperclip, ExternalLink } from 'lucide-react';
+import { formatarDocumento } from '@/lib/repasseDocumento';
 
 type PayoutStatus = 'requested' | 'paid' | string;
 
@@ -35,6 +36,7 @@ interface BankSnapshot {
   agency?: string | null;
   account_number?: string | null;
   account_holder_name?: string | null;
+  account_holder_document?: string | null;
   account_type?: string | null;
   [k: string]: unknown;
 }
@@ -93,6 +95,11 @@ function formatDestino(snap: BankSnapshot | null): string[] {
     const second = [ag, cc].filter(Boolean).join(' · ');
     if (second) lines.push(second);
     if (nonEmpty(snap.account_holder_name)) lines.push(snap.account_holder_name);
+  }
+  // OS-157: o CPF/CNPJ do titular que o produtor informou (pode ser outra
+  // pessoa); quem paga confere no app do banco se o destino bate.
+  if (nonEmpty(snap.account_holder_document)) {
+    lines.push(`CPF/CNPJ do titular · ${formatarDocumento(snap.account_holder_document)}`);
   }
   return lines.length ? lines : ['—'];
 }
