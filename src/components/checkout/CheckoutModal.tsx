@@ -470,6 +470,12 @@ export function CheckoutModal({
                 customerCPF={customerData.cpf}
                 onSuccess={(newOrderId) => { setOrderId(newOrderId); setStep('success'); }}
                 onError={() => {}}
+                // Só depois de recusa explícita do banco (a tela do cartão decide).
+                // Mesmo carrinho, mesmo cupom, mesmo aceite do passe: é o `startPix`.
+                onPagarComPix={async () => {
+                  setSelectedMethod('pix');
+                  await startPix(unformatCPF(customerData.cpf));
+                }}
               />
             )}
 

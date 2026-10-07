@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { CartaoMarcelForm, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
+import { CartaoMarcelForm, CartaoRecusadoError, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
 
 /*
  * Passo do cartão no checkout de INGRESSO, pela rota do Marcel.
@@ -29,6 +29,8 @@ interface CheckoutStepCardMarcelProps {
   customerCPF: string;
   onSuccess: (orderId: string, paymentId?: string) => void;
   onError: (message: string) => void;
+  /** Gera o PIX do mesmo carrinho depois que o banco recusa o cartão. */
+  onPagarComPix?: () => Promise<void>;
 }
 
 export function CheckoutStepCardMarcel({
@@ -43,6 +45,7 @@ export function CheckoutStepCardMarcel({
   customerCPF,
   onSuccess,
   onError,
+  onPagarComPix,
 }: CheckoutStepCardMarcelProps) {
   // `items` (lotes) no formato de sempre; `products` e `bundles` só quando há loja.
   const carrinho = corpoDoCarrinho(items);
@@ -78,7 +81,17 @@ export function CheckoutStepCardMarcel({
       onSuccess(data.orderId);
       return;
     }
-    const msg = data?.error || 'Pagamento não aprovado. Tente outro cartão.';
+    // Recusa EXPLÍCITA do banco (`aprovado:false` + `status:'rejected'`): é o único
+    // caso em que a tela oferece PIX. Resultado indefinido (202 `indefinido:true`)
+    // cai no ramo de baixo, de propósito: a cobrança pode ter passado.
+    if (data?.aprovado === false && data?.status === 'rejected' && !data?.indefinido) {
+      const recusa = data?.message || data?.error || 'Pagamento recusado. Tente outro cartão.';
+      onError(recusa);
+      throw new CartaoRecusadoError(recusa);
+    }
+    // `message` vem em texto de gente ("Não conseguimos confirmar... Não tente de
+    // novo"); `error` no indefinido é só o código `nao_confirmado`.
+    const msg = data?.message || data?.error || 'Pagamento não aprovado. Tente outro cartão.';
     onError(msg);
     throw new Error(msg);
   };
@@ -91,6 +104,7 @@ export function CheckoutStepCardMarcel({
       rotuloFace={temLoja(items) ? 'Itens' : 'Ingressos'}
       cotar={cotar}
       cobrar={cobrar}
+      onPagarComPix={onPagarComPix}
     />
   );
 }
