@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderListItem } from '@/components/producer/OrderListItem';
 import { OrderDetailDrawer } from '@/components/producer/OrderDetailDrawer';
 import { useEventOrders, Order } from '@/hooks/useEventOrders';
+import { analyzeAttempts, reasonOf } from '@/lib/orderAttempts';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventOrdersTabProps {
@@ -26,7 +27,7 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 
 export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const { orders, paidOrders, pendingOrders, cancelledOrders, flaggedOrders, totalRevenue, isLoading, updateOrderStatus } = useEventOrders(eventId);
+  const { orders, paidOrders, pendingOrders, cancelledOrders, attemptOrders, flaggedOrders, totalRevenue, isLoading, updateOrderStatus } = useEventOrders(eventId);
 
   // Drawer de detalhe controlado AQUI (um só, fora dos itens clicáveis) — o clique de
   // fechar não borbulha mais até o onClick do item. selectedOrder fica após fechar
@@ -48,6 +49,12 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
       order.customer_phone?.toLowerCase().includes(query)
     );
   };
+
+  const { boughtLater, notReturned } = analyzeAttempts(attemptOrders || [], paidOrders || []);
+  const filteredNotReturned = !searchQuery ? notReturned : notReturned.filter((p) => {
+    const q = searchQuery.toLowerCase();
+    return p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.phone?.toLowerCase().includes(q);
+  });
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -85,7 +92,7 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
           </div>
           <div className="text-xs sm:text-sm text-red-100/90">
             <strong className="text-red-300">{flaggedOrders.length} pedido(s) com problema:</strong>{' '}
-            pagamento confirmado no Mercado Pago, mas a entrega de assentos falhou (parcial ou totalmente). Revise abaixo e reembolse manualmente no painel do MP se necessário.
+            o pagamento foi confirmado, mas a entrega dos ingressos falhou (parcial ou totalmente). Revise abaixo e fale com a FestPag para devolver o valor ou entregar o ingresso.
           </div>
         </div>
       )}
@@ -153,7 +160,7 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
 
       {/* Orders Tabs — scrollable horizontally on mobile */}
       <Tabs defaultValue="all">
-        <TabsList className="grid grid-cols-4 sm:flex w-full gap-1 p-1 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
+        <TabsList className="grid grid-cols-3 sm:flex w-full gap-1 p-1 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
           <TabsTrigger value="all" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
             Todos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{orders?.length || 0}</Badge>
           </TabsTrigger>
@@ -165,6 +172,9 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
           </TabsTrigger>
           <TabsTrigger value="cancelled" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
             Cancelados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{cancelledOrders?.length || 0}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="attempts" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+            Não concluídos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{attemptOrders?.length || 0}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -206,6 +216,56 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
             ? renderEmpty('Nenhum pedido cancelado ou reembolsado.')
             : filterOrders(cancelledOrders || []).map((order) => (
                 <OrderListItem key={order.id} order={order} onSelect={openOrder} onUpdateStatus={handleUpdateStatus} />
+              ))}
+        </TabsContent>
+
+        <TabsContent value="attempts" className="mt-4 space-y-3">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/15 flex-shrink-0">
+              <Megaphone className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-100/90">
+              <strong className="text-amber-700 dark:text-amber-300">Tentativas de compra que não foram pagas:</strong> o PIX venceu ou o cartão foi recusado. Cada QR novo ou nova tentativa aparece como um pedido, e muita gente acaba comprando depois (marcada com "Comprou depois"). Nada aqui foi cobrado.
+            </div>
+          </div>
+
+          {notReturned.length > 0 && (
+            <GlassCard>
+              <div className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-primary/15 flex-shrink-0">
+                    <Megaphone className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="text-xs sm:text-sm">
+                    <strong>Quem não voltou ({notReturned.length}):</strong>{' '}
+                    <span className="text-muted-foreground">
+                      estas pessoas tentaram comprar e não têm nenhum pedido pago neste evento. Chame pelo contato para retomar a venda.
+                    </span>
+                  </div>
+                </div>
+                {filteredNotReturned.map((p) => (
+                  <div key={p.key} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 rounded-lg border bg-card p-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="font-medium">{p.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {p.email}{p.phone ? ` · ${p.phone}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-xs text-muted-foreground sm:text-right">
+                      <p>{p.attempts.length} tentativa(s) · {formatCurrency(p.totalAmount)}</p>
+                      <p>última: {reasonOf(p.attempts[0])}, {new Date(p.lastAttemptAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+
+          <h3 className="text-sm font-medium text-muted-foreground pt-2">Todas as tentativas</h3>
+          {filterOrders(attemptOrders || []).length === 0
+            ? renderEmpty('Nenhuma tentativa sem pagamento.')
+            : filterOrders(attemptOrders || []).map((order) => (
+                <OrderListItem key={order.id} order={order} onSelect={openOrder} onUpdateStatus={handleUpdateStatus} boughtLater={boughtLater.has(order.id)} />
               ))}
         </TabsContent>
       </Tabs>

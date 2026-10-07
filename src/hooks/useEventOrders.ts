@@ -86,7 +86,10 @@ export function useEventOrders(eventId: string | undefined) {
 
   const paidOrders = orders?.filter(o => o.status === 'paid' || o.status === 'completed') || [];
   const pendingOrders = orders?.filter(o => o.status === 'pending') || [];
-  const cancelledOrders = orders?.filter(o => ['cancelled','refunded','failed','expired','charged_back'].includes(o.status)) || [];
+  // "Cancelados" = só o que foi cancelado ou devolvido de verdade.
+  const cancelledOrders = orders?.filter(o => ['cancelled','refunded','charged_back'].includes(o.status)) || [];
+  // "Não concluídos" = tentativas que nunca foram pagas (PIX venceu, cartão recusado).
+  const attemptOrders = orders?.filter(o => o.status === 'expired' || o.status === 'failed') || [];
   const failedOrders = orders?.filter(o => o.status === 'failed') || [];
   const flaggedOrders = orders?.filter(o => !!o.review_status) || [];
 
@@ -98,6 +101,7 @@ export function useEventOrders(eventId: string | undefined) {
     paidOrders,
     pendingOrders,
     cancelledOrders,
+    attemptOrders,
     failedOrders,
     flaggedOrders,
     totalRevenue,

@@ -19,6 +19,8 @@ export interface Ticket {
     name: string;
     price: number;
   };
+  /** Pedido do ingresso (só o estado), para separar tentativa não paga de cancelamento de verdade. */
+  order?: { status: string } | null;
 }
 
 export function useEventParticipants(eventId: string | undefined) {
@@ -33,7 +35,8 @@ export function useEventParticipants(eventId: string | undefined) {
         .from('tickets')
         .select(`
           *,
-          lot:event_lots(name, price)
+          lot:event_lots(name, price),
+          order:orders(status)
         `)
         .eq('event_id', eventId)
         // Apenas tickets de quem efetivamente comprou (exclui pending)
@@ -41,7 +44,12 @@ export function useEventParticipants(eventId: string | undefined) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Ticket[];
+      // Ingresso de tentativa (PIX que venceu ou cartão recusado) não é ingresso
+      // cancelado: o comprador nunca pagou. Só aparece o de pedido pago, reembolsado
+      // ou cancelado de verdade (OS-155).
+      return (data as Ticket[]).filter(
+        (t) => !(t.status === 'cancelled' && t.order && ['expired', 'failed'].includes(t.order.status)),
+      );
     },
     enabled: !!eventId,
   });
