@@ -2240,6 +2240,7 @@ export type Database = {
       }
       producer_bank_accounts: {
         Row: {
+          account_holder_document: string | null
           account_holder_name: string
           account_number: string
           account_type: string
@@ -2253,6 +2254,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_holder_document?: string | null
           account_holder_name?: string
           account_number?: string
           account_type?: string
@@ -2266,6 +2268,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_holder_document?: string | null
           account_holder_name?: string
           account_number?: string
           account_type?: string
@@ -2533,6 +2536,8 @@ export type Database = {
           created_at: string
           id: string
           onboarding_completed: boolean
+          pin_definido_em: string | null
+          pin_email: string | null
           pin_hash: string | null
           stripe_account_id: string | null
           stripe_account_status: string
@@ -2543,6 +2548,8 @@ export type Database = {
           created_at?: string
           id?: string
           onboarding_completed?: boolean
+          pin_definido_em?: string | null
+          pin_email?: string | null
           pin_hash?: string | null
           stripe_account_id?: string | null
           stripe_account_status?: string
@@ -2553,6 +2560,8 @@ export type Database = {
           created_at?: string
           id?: string
           onboarding_completed?: boolean
+          pin_definido_em?: string | null
+          pin_email?: string | null
           pin_hash?: string | null
           stripe_account_id?: string | null
           stripe_account_status?: string
@@ -3350,6 +3359,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _conferir_pin: { Args: { _pin: string; _user_id: string }; Returns: Json }
+      _pin_email_da_conta: { Args: { _user_id: string }; Returns: string }
       aceitar_transferencia_ingresso: {
         Args: {
           _cpf_informado: string
@@ -3407,6 +3418,10 @@ export type Database = {
           p_pix_fixed: number
           p_pix_percent: number
         }
+        Returns: Json
+      }
+      admin_zerar_pin: {
+        Args: { _motivo?: string; _user_id: string }
         Returns: Json
       }
       apply_order_approved: {
@@ -3469,6 +3484,7 @@ export type Database = {
         Returns: number
       }
       claim_my_orphan_orders: { Args: never; Returns: Json }
+      conferir_meu_pin: { Args: { _pin: string }; Returns: Json }
       confirm_lot_sale: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
@@ -3510,12 +3526,17 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      definir_meu_pin: {
+        Args: { _pin_atual?: string; _pin_novo: string }
+        Returns: Json
+      }
       dias_ocupados_por_cpf: {
         Args: { _cpf: string; _event_id: string }
         Returns: {
           event_day_id: string
         }[]
       }
+      documento_valido: { Args: { _doc: string }; Returns: boolean }
       entregas_whatsapp_reivindicar: {
         Args: { _limite?: number }
         Returns: {
@@ -3738,6 +3759,7 @@ export type Database = {
         Args: { _acao: string; _retirado_por?: string; _seat_ids: string[] }
         Returns: number
       }
+      meu_pin: { Args: never; Returns: Json }
       meus_ingressos_transferidos: {
         Args: never
         Returns: {
@@ -3755,6 +3777,7 @@ export type Database = {
           transferido_em: string
         }[]
       }
+      minhas_pendencias_de_repasse: { Args: never; Returns: Json }
       normalizar_whatsapp: { Args: { _raw: string }; Returns: string }
       opcoes_parcelamento: {
         Args: {
@@ -3781,6 +3804,10 @@ export type Database = {
       order_products_confirmar: { Args: { _order_id: string }; Returns: number }
       order_products_devolver: { Args: { _order_id: string }; Returns: number }
       order_products_liberar: { Args: { _order_id: string }; Returns: number }
+      pendencias_de_repasse: {
+        Args: { _producer_profile_id: string; _user_id: string }
+        Returns: string[]
+      }
       prepare_event_seats: { Args: { _event_id: string }; Returns: Json }
       producer_order_values: {
         Args: { p_order_ids: string[] }
@@ -3812,6 +3839,10 @@ export type Database = {
           observacao: string
           valor: string
         }[]
+      }
+      redefinir_pin_por_recuperacao: {
+        Args: { _pin_novo: string; _user_id: string }
+        Returns: Json
       }
       reembolso_desistir: { Args: { _reembolso_id: string }; Returns: Json }
       reembolso_motivo_do_ingresso: {
@@ -3928,6 +3959,14 @@ export type Database = {
       }
       retirar_produto: {
         Args: { _claim_code: string; _event_id: string }
+        Returns: Json
+      }
+      salvar_documento_da_produtora: {
+        Args: { _documento: string; _pin: string; _producer_profile_id: string }
+        Returns: Json
+      }
+      salvar_minha_conta_de_repasse: {
+        Args: { _conta: Json; _pin: string }
         Returns: Json
       }
       set_event_seat_terms: {
