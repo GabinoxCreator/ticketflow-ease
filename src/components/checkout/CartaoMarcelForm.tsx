@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { CreditCard, Loader2, Lock, User, Calendar, Shield, AlertCircle, QrCode } from 'lucide-react';
+import { CreditCard, Loader2, Lock, User, Calendar, Shield, AlertCircle, QrCode, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +56,29 @@ export class CartaoRecusadoError extends Error {
   constructor(message: string) { super(message); this.name = 'CartaoRecusadoError'; }
 }
 
+/**
+ * A cobrança ficou EM DÚVIDA: o servidor não sabe dizer se o banco aprovou
+ * (ingresso: HTTP 202 `indefinido:true`; mesa: 502 com o pedido já criado, ou
+ * 409 "pagou, mas não entregou"). Tentar de novo pode cobrar duas vezes.
+ *
+ * Até a OS-165 (07/10/2026) isto virava um aviso de 4 segundos e o Pagar
+ * continuava livre: a pessoa tentava de novo, que é justamente o que a
+ * mensagem pedia para não fazer. Agora o formulário trava o Pagar de vez,
+ * mostra o aviso fixo e leva ao acompanhamento do pedido (`onEmDuvida`).
+ */
+export class CobrancaEmDuvidaError extends Error {
+  readonly orderId: string | null;
+  constructor(message: string, orderId: string | null) {
+    super(message);
+    this.name = 'CobrancaEmDuvidaError';
+    this.orderId = orderId;
+  }
+}
+
+/** Quanto tempo o aviso fica na tela antes de levar ao acompanhamento. Dá para
+ *  ler o aviso inteiro; quem quiser vai antes pelo botão. */
+const ESPERA_ATE_ACOMPANHAR_MS = 8000;
+
 export interface DadosDoCartao {
   holder: string;
   number: string;
@@ -78,10 +101,13 @@ interface Props {
   /** Depois de uma recusa explícita do banco, gera o PIX do mesmo carrinho.
    *  Sem esta função, o formulário só mostra o erro, como sempre fez (mesa). */
   onPagarComPix?: () => Promise<void>;
+  /** Depois de uma cobrança em dúvida (`CobrancaEmDuvidaError`), leva ao
+   *  acompanhamento do pedido. O Pagar fica travado de qualquer jeito. */
+  onEmDuvida?: (orderId: string) => void;
 }
 
 export function CartaoMarcelForm({
-  totalAmount, nomeSugerido, rotuloFace = 'Ingressos', cotar, cobrar, onPagarComPix,
+  totalAmount, nomeSugerido, rotuloFace = 'Ingressos', cotar, cobrar, onPagarComPix, onEmDuvida,
 }: Props) {
   const [cardNumber, setCardNumber] = useState('');
   // Pré-preenchido JÁ ABREVIADO: a Safe2Pay recusa nome com mais de 25 letras, e
@@ -108,6 +134,12 @@ export function CartaoMarcelForm({
   const [recusado, setRecusado] = useState(false);
   const [gerandoPix, setGerandoPix] = useState(false);
   const blocoRecusaRef = useRef<HTMLDivElement>(null);
+  // A cobrança ficou em dúvida: o Pagar trava DE VEZ nesta tela (não volta a
+  // liberar) e o aviso fixo aparece. Ver `CobrancaEmDuvidaError`.
+  const [emDuvida, setEmDuvida] = useState<{ orderId: string | null } | null>(null);
+  const blocoDuvidaRef = useRef<HTMLDivElement>(null);
+  // O botão e o relógio podem disparar juntos: leva ao acompanhamento uma vez só.
+  const jaFoiAcompanharRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -141,6 +173,20 @@ export function CartaoMarcelForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const irParaAcompanhamento = () => {
+    if (!emDuvida?.orderId || !onEmDuvida || jaFoiAcompanharRef.current) return;
+    jaFoiAcompanharRef.current = true;
+    onEmDuvida(emDuvida.orderId);
+  };
+
+  // Em dúvida: o aviso fica alguns segundos e a pessoa é levada sozinha.
+  useEffect(() => {
+    if (!emDuvida?.orderId || !onEmDuvida) return;
+    const t = setTimeout(irParaAcompanhamento, ESPERA_ATE_ACOMPANHAR_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emDuvida]);
+
   // Valor exibido = total da opção escolhida (do servidor); fallback pro total da prop.
   const opcaoEscolhida = options.find(o => o.installments === selectedInstallments);
   const selectedTotal = opcaoEscolhida?.total ?? totalAmount;
@@ -167,6 +213,8 @@ export function CartaoMarcelForm({
   };
 
   const handleSubmit = async () => {
+    // Cobrança em dúvida nesta tela: nunca cobrar de novo daqui.
+    if (emDuvida) return;
     const cleanCard = cardNumber.replace(/\s/g, '');
 
     if (cleanCard.length < 13 || cvv.length < 3 || !cardHolder.trim()) {
@@ -198,7 +246,12 @@ export function CartaoMarcelForm({
         },
       });
     } catch (err: any) {
-      if (err instanceof CartaoRecusadoError && onPagarComPix) {
+      if (err instanceof CobrancaEmDuvidaError) {
+        // Sem toast: o aviso é fixo, não some em 4 segundos.
+        setEmDuvida({ orderId: err.orderId });
+        requestAnimationFrame(() =>
+          blocoDuvidaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+      } else if (err instanceof CartaoRecusadoError && onPagarComPix) {
         // Recusa explícita do banco: o bloco oferece o PIX (sem toast vermelho em cima).
         setRecusado(true);
         requestAnimationFrame(() =>
@@ -234,6 +287,39 @@ export function CartaoMarcelForm({
         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Valor a pagar</p>
         <p className="font-display font-bold text-4xl gradient-text tabular-nums">{formatPrice(selectedTotal)}</p>
       </div>
+
+      {/* Cobrança em dúvida: aviso FIXO (não some), Pagar travado e, em
+          seguida, o acompanhamento do pedido. */}
+      {emDuvida && (
+        <div ref={blocoDuvidaRef} role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3.5 py-3.5 space-y-3">
+          <div className="flex gap-2.5">
+            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-sm leading-relaxed">
+              <p className="font-semibold text-amber-600 dark:text-amber-400">Pagamento em verificação</p>
+              <p className="text-muted-foreground mt-0.5">
+                Ainda não conseguimos confirmar o seu pagamento. Não pague de novo: isso pode gerar
+                uma segunda cobrança. A resposta aparece no acompanhamento do pedido assim que chegar.
+              </p>
+            </div>
+          </div>
+          {emDuvida.orderId && onEmDuvida ? (
+            <>
+              <Button type="button" variant="hero" size="lg" className="w-full h-12 font-semibold"
+                onClick={irParaAcompanhamento}>
+                Acompanhar meu pedido
+              </Button>
+              <p className="text-[11px] text-center text-muted-foreground">
+                Abrindo o acompanhamento em instantes...
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Confira em Meus ingressos daqui a alguns minutos.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Recusa explícita do banco: oferece o PIX do mesmo carrinho. Nunca
           aparece em resultado indefinido nem em erro do servidor (a cobrança
@@ -385,8 +471,10 @@ export function CartaoMarcelForm({
       </div>
 
       <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold"
-        onClick={handleSubmit} disabled={isProcessing || quoteFalhou}>
-        {isProcessing ? (
+        onClick={handleSubmit} disabled={isProcessing || quoteFalhou || !!emDuvida}>
+        {emDuvida ? (
+          <><Clock className="w-5 h-5 mr-2" /> Pagamento em verificação</>
+        ) : isProcessing ? (
           <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processando...</>
         ) : (
           <><Lock className="w-5 h-5 mr-2" /> Pagar {formatPrice(selectedTotal)}</>

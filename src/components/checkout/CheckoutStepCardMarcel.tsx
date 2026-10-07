@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { CartaoMarcelForm, CartaoRecusadoError, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
+import { CartaoMarcelForm, CartaoRecusadoError, CobrancaEmDuvidaError, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
+import { corpoDoErroDaEdge } from '@/lib/corpoDoErroDaEdge';
 
 /*
  * Passo do cartão no checkout de INGRESSO, pela rota do Marcel.
@@ -31,6 +32,8 @@ interface CheckoutStepCardMarcelProps {
   onError: (message: string) => void;
   /** Gera o PIX do mesmo carrinho depois que o banco recusa o cartão. */
   onPagarComPix?: () => Promise<void>;
+  /** Cobrança em dúvida: leva ao acompanhamento do pedido (`/pedido/:id`). */
+  onEmDuvida?: (orderId: string) => void;
 }
 
 export function CheckoutStepCardMarcel({
@@ -46,6 +49,7 @@ export function CheckoutStepCardMarcel({
   onSuccess,
   onError,
   onPagarComPix,
+  onEmDuvida,
 }: CheckoutStepCardMarcelProps) {
   // `items` (lotes) no formato de sempre; `products` e `bundles` só quando há loja.
   const carrinho = corpoDoCarrinho(items);
@@ -76,21 +80,35 @@ export function CheckoutStepCardMarcel({
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      // 409 `pedido_inconsistente`: o cartão PASSOU e o pedido não pôde ser
+      // entregue. Tentar de novo cobraria duas vezes.
+      const corpo = await corpoDoErroDaEdge(error);
+      if (corpo?.aprovado === true && corpo?.orderId) {
+        throw new CobrancaEmDuvidaError('Pagamento em verificação.', String(corpo.orderId));
+      }
+      throw error;
+    }
     if (data?.status === 'approved') {
       onSuccess(data.orderId);
       return;
     }
+    // Resultado indefinido (202 `indefinido:true`): a cobrança PODE ter passado.
+    // O formulário trava o Pagar e leva ao acompanhamento (OS-165).
+    if (data?.indefinido && data?.orderId) {
+      throw new CobrancaEmDuvidaError(
+        data?.message || 'Não conseguimos confirmar o pagamento.', String(data.orderId));
+    }
     // Recusa EXPLÍCITA do banco (`aprovado:false` + `status:'rejected'`): é o único
     // caso em que a tela oferece PIX. Resultado indefinido (202 `indefinido:true`)
-    // cai no ramo de baixo, de propósito: a cobrança pode ter passado.
+    // nunca chega aqui (ramo de cima), de propósito: a cobrança pode ter passado.
     if (data?.aprovado === false && data?.status === 'rejected' && !data?.indefinido) {
       const recusa = data?.message || data?.error || 'Pagamento recusado. Tente outro cartão.';
       onError(recusa);
       throw new CartaoRecusadoError(recusa);
     }
-    // `message` vem em texto de gente ("Não conseguimos confirmar... Não tente de
-    // novo"); `error` no indefinido é só o código `nao_confirmado`.
+    // Qualquer outra resposta: `message` vem em texto de gente; `error` pode ser
+    // só um código.
     const msg = data?.message || data?.error || 'Pagamento não aprovado. Tente outro cartão.';
     onError(msg);
     throw new Error(msg);
@@ -105,6 +123,7 @@ export function CheckoutStepCardMarcel({
       cotar={cotar}
       cobrar={cobrar}
       onPagarComPix={onPagarComPix}
+      onEmDuvida={onEmDuvida}
     />
   );
 }
