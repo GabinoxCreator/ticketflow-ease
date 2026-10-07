@@ -289,6 +289,11 @@ verify_jwt = false
 [functions.auth-canal]
 verify_jwt = true
 
+# PIN esquecido do painel do produtor (OS-166): o código vai para o e-mail
+# guardado quando o PIN foi criado. Exige sessão; quem é vem do token.
+[functions.pin-recuperar]
+verify_jwt = true
+
 # Chamada pelo gatilho da tabela payouts e pelo cron de repesca (segredo no header),
 # ou por admin logado para reenviar um aviso na mão. Nunca pelo navegador do público.
 [functions.aviso-repasse]

@@ -9,21 +9,27 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { RecuperarPinDialog } from './RecuperarPinDialog';
+import { PIN_BLOQUEADO, chamarPin } from '@/lib/pinRepasse';
 
 interface PinVerificationDialogProps {
   open: boolean;
   onVerified: () => void;
   hasPin: boolean;
   onPinCreated: () => void;
+  /** E-mail guardado no PIN, mascarado, para o "Esqueceu o PIN?" (OS-166). */
+  emailRecuperacao?: string | null;
 }
 
-export function PinVerificationDialog({ 
-  open, 
-  onVerified, 
+// OS-166: a conferência e a criação passam pelas funções do banco
+// (conferir_meu_pin, definir_meu_pin), com o mesmo limite de tentativas da edge.
+export function PinVerificationDialog({
+  open,
+  onVerified,
   hasPin,
-  onPinCreated 
+  onPinCreated,
+  emailRecuperacao = null,
 }: PinVerificationDialogProps) {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
@@ -31,6 +37,7 @@ export function PinVerificationDialog({
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState('');
   const [forceCreateMode, setForceCreateMode] = useState(false);
+  const [esqueci, setEsqueci] = useState(false);
 
   const inCreateMode = !hasPin || forceCreateMode;
 
@@ -43,30 +50,24 @@ export function PinVerificationDialog({
     setIsVerifying(true);
     setError('');
 
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-producer-pin', {
-        body: { pin }
-      });
-
-      if (error) throw error;
-
-      if (data.valid) {
-        toast.success('PIN verificado com sucesso!');
-        onVerified();
-      } else if (data.needs_reset) {
-        toast.info('Por segurança, recrie seu PIN.');
-        setForceCreateMode(true);
-        setPin('');
-        setConfirmPin('');
-      } else {
-        setError('PIN incorreto. Tente novamente.');
-        setPin('');
-      }
-    } catch (err: any) {
-      console.error('Error verifying PIN:', err);
+    const r = await chamarPin('conferir_meu_pin', { _pin: pin });
+    setIsVerifying(false);
+    if (r.ok) {
+      toast.success('PIN verificado com sucesso!');
+      onVerified();
+    } else if (r.error === 'pin_refazer') {
+      toast.info('Por segurança, recrie seu PIN.');
+      setForceCreateMode(true);
+      setPin('');
+      setConfirmPin('');
+    } else if (r.error === 'bloqueado') {
+      setError(PIN_BLOQUEADO);
+      setPin('');
+    } else if (r.error === 'pin_incorreto') {
+      setError('PIN incorreto. Tente novamente.');
+      setPin('');
+    } else {
       setError('Erro ao verificar PIN. Tente novamente.');
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -84,22 +85,15 @@ export function PinVerificationDialog({
     setIsVerifying(true);
     setError('');
 
-    try {
-      const { error } = await supabase.functions.invoke('set-producer-pin', {
-        body: { pin }
-      });
-
-      if (error) throw error;
-
-      toast.success('PIN criado com sucesso!');
-      onPinCreated();
-      onVerified();
-    } catch (err: any) {
-      console.error('Error creating PIN:', err);
+    const r = await chamarPin('definir_meu_pin', { _pin_novo: pin, _pin_atual: null });
+    setIsVerifying(false);
+    if (!r.ok) {
       setError('Erro ao criar PIN. Tente novamente.');
-    } finally {
-      setIsVerifying(false);
+      return;
     }
+    toast.success('PIN criado com sucesso!');
+    onPinCreated();
+    onVerified();
   };
 
   const handlePinChange = (value: string, setter: (v: string) => void) => {
@@ -110,7 +104,8 @@ export function PinVerificationDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <>
+    <Dialog open={open && !esqueci} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
@@ -187,8 +182,27 @@ export function PinVerificationDialog({
           >
             {isVerifying ? 'Verificando...' : inCreateMode ? 'Criar PIN' : 'Verificar'}
           </Button>
+
+          {!inCreateMode && (
+            <button
+              type="button"
+              className="w-full text-sm text-primary hover:underline"
+              onClick={() => setEsqueci(true)}
+              disabled={isVerifying}
+            >
+              Esqueceu o PIN?
+            </button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
+
+    <RecuperarPinDialog
+      open={open && esqueci}
+      onOpenChange={(v) => { if (!v) setEsqueci(false); }}
+      emailMascarado={emailRecuperacao}
+      onRecuperado={onVerified}
+    />
+    </>
   );
 }

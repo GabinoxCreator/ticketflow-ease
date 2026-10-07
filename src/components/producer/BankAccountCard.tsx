@@ -15,6 +15,13 @@ import {
   formatarDocumento,
   soDigitos,
 } from '@/lib/repasseDocumento';
+import {
+  PIN_CRIE_ANTES,
+  PIN_PARA_TROCAR_CONTA,
+  chamarPin,
+  useMeuPin,
+} from '@/lib/pinRepasse';
+import { PinConfirmDialog } from './PinConfirmDialog';
 
 interface BankAccount {
   bank_name: string;
@@ -57,6 +64,9 @@ export function BankAccountCard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasData, setHasData] = useState(false);
+  // OS-166: a conta só se grava com o PIN, conferido no banco.
+  const { data: meuPin } = useMeuPin();
+  const [pedindoPin, setPedindoPin] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -97,20 +107,28 @@ export function BankAccountCard() {
       toast.error('O CPF ou CNPJ do titular está com número errado.');
       return;
     }
+    // Sem PIN, cria o PIN antes (decisão de 07/10). O banco recusa do mesmo jeito.
+    if (meuPin && !meuPin.tem_pin) {
+      toast.error(PIN_CRIE_ANTES);
+      return;
+    }
+    setPedindoPin(true);
+  };
+
+  // Grava pelo banco, que confere o PIN. Gravar direto na tabela não passa mais.
+  const salvarComPin = async (pin: string) => {
     setSaving(true);
-    const { error } = await supabase
-      .from('producer_bank_accounts' as any)
-      .upsert({
-        user_id: user.id,
+    const r = await chamarPin('salvar_minha_conta_de_repasse', {
+      _pin: pin,
+      _conta: {
         ...form,
         // No banco vai só número (a regra da coluna recusa pontuação).
         account_holder_document: soDigitos(form.account_holder_document),
-        updated_at: new Date().toISOString(),
-      } as any, { onConflict: 'user_id' });
-
-    if (error) {
-      toast.error('Erro ao salvar dados bancários');
-    } else {
+      },
+    });
+    setSaving(false);
+    if (r.ok) {
+      setPedindoPin(false);
       setData(form);
       setHasData(true);
       setEditing(false);
@@ -118,7 +136,7 @@ export function BankAccountCard() {
       // O aviso do Financeiro (o que falta para pedir repasse) muda com a conta.
       queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
     }
-    setSaving(false);
+    return r;
   };
 
   if (loading) {
@@ -226,6 +244,17 @@ export function BankAccountCard() {
             <Input value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} placeholder="Sua chave PIX" />
           </div>
         </div>
+
+        <PinConfirmDialog
+          open={pedindoPin}
+          descricao={PIN_PARA_TROCAR_CONTA}
+          onCancelar={() => setPedindoPin(false)}
+          onConfirmar={salvarComPin}
+        />
+
+        {meuPin && !meuPin.tem_pin && (
+          <p className="text-sm text-amber-600 dark:text-amber-400">{PIN_CRIE_ANTES}</p>
+        )}
 
         <div className="flex gap-2 pt-2">
           <Button onClick={handleSave} disabled={saving}>

@@ -1,16 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Lock, CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { RecuperarPinDialog } from './RecuperarPinDialog';
+import { atualizarMeuPin, chamarPin, mensagemDoPin, useMeuPin } from '@/lib/pinRepasse';
 
+// OS-166: o PIN é criado e trocado por função do banco (definir_meu_pin), que
+// confere o PIN atual com limite de tentativas. O navegador não lê o PIN guardado.
 export function PinSetupCard() {
-  const [hasPin, setHasPin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: meuPin, isLoading } = useMeuPin();
+  // PIN no formato antigo conta como "sem PIN": é criado de novo, sem o atual.
+  const hasPin = !!meuPin?.tem_pin && !meuPin?.refazer;
+  const [esqueci, setEsqueci] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -18,24 +25,6 @@ export function PinSetupCard() {
   const [showPins, setShowPins] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
-
-  const checkPinStatus = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('producer_stripe_accounts')
-        .select('pin_hash')
-        .single();
-      setHasPin(!!data?.pin_hash);
-    } catch {
-      setHasPin(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    checkPinStatus();
-  }, [checkPinStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,26 +46,23 @@ export function PinSetupCard() {
     }
 
     setIsSaving(true);
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('set-producer-pin', {
-        body: { pin: newPin, current_pin: hasPin ? currentPin : undefined },
-      });
-
-      if (fnError) throw fnError;
-
-      if (data?.success) {
-        toast.success('PIN configurado com sucesso');
-        setIsEditing(false);
-        setCurrentPin('');
-        setNewPin('');
-        setConfirmPin('');
-        await checkPinStatus();
-      }
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao configurar PIN');
-    } finally {
-      setIsSaving(false);
+    const r = await chamarPin('definir_meu_pin', {
+      _pin_novo: newPin,
+      _pin_atual: hasPin ? currentPin : null,
+    });
+    setIsSaving(false);
+    if (!r.ok) {
+      // Aqui nada é trocado se o PIN atual estiver errado: a frase aprovada vale.
+      setError(mensagemDoPin(r.error));
+      setCurrentPin('');
+      return;
     }
+    toast.success('PIN configurado com sucesso');
+    setIsEditing(false);
+    setCurrentPin('');
+    setNewPin('');
+    setConfirmPin('');
+    await atualizarMeuPin(queryClient);
   };
 
   const handleCancel = () => {
@@ -133,9 +119,21 @@ export function PinSetupCard() {
                   ? 'Seu PIN está configurado. Use-o para confirmar operações financeiras.'
                   : 'Configure um PIN de 4 dígitos para proteger suas operações financeiras.'}
               </p>
-              <Button onClick={() => setIsEditing(true)}>
-                {hasPin ? 'Alterar PIN' : 'Configurar PIN'}
-              </Button>
+              {hasPin && meuPin?.email_recuperacao && (
+                <p className="text-sm text-muted-foreground">
+                  Se esquecer o PIN, o código para criar outro vai para {meuPin.email_recuperacao}.
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={() => setIsEditing(true)}>
+                  {hasPin ? 'Alterar PIN' : 'Configurar PIN'}
+                </Button>
+                {hasPin && (
+                  <button type="button" className="text-sm text-primary hover:underline" onClick={() => setEsqueci(true)}>
+                    Esqueceu o PIN?
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ) : (
@@ -210,6 +208,11 @@ export function PinSetupCard() {
           </form>
         )}
       </CardContent>
+      <RecuperarPinDialog
+        open={esqueci}
+        onOpenChange={setEsqueci}
+        emailMascarado={meuPin?.email_recuperacao ?? null}
+      />
     </Card>
   );
 }
