@@ -2901,6 +2901,81 @@ export type Database = {
           },
         ]
       }
+      relogio_alarmes: {
+        Row: {
+          created_at: string
+          dados: Json
+          destino_whatsapp: string | null
+          gestao_enviado_em: string | null
+          id: string
+          incidente_id: string
+          relogio: string
+          tentativas: number
+          tipo: string
+          ultima_tentativa_em: string | null
+          ultimo_erro: string | null
+          updated_at: string
+          whatsapp_enviado_em: string | null
+        }
+        Insert: {
+          created_at?: string
+          dados?: Json
+          destino_whatsapp?: string | null
+          gestao_enviado_em?: string | null
+          id?: string
+          incidente_id: string
+          relogio: string
+          tentativas?: number
+          tipo: string
+          ultima_tentativa_em?: string | null
+          ultimo_erro?: string | null
+          updated_at?: string
+          whatsapp_enviado_em?: string | null
+        }
+        Update: {
+          created_at?: string
+          dados?: Json
+          destino_whatsapp?: string | null
+          gestao_enviado_em?: string | null
+          id?: string
+          incidente_id?: string
+          relogio?: string
+          tentativas?: number
+          tipo?: string
+          ultima_tentativa_em?: string | null
+          ultimo_erro?: string | null
+          updated_at?: string
+          whatsapp_enviado_em?: string | null
+        }
+        Relationships: []
+      }
+      relogio_vigia: {
+        Row: {
+          ativo: boolean
+          horas_para_lembrete: number
+          minutos_para_alarme: number
+          relogio: string
+          updated_at: string
+          vigiando_desde: string
+        }
+        Insert: {
+          ativo?: boolean
+          horas_para_lembrete?: number
+          minutos_para_alarme?: number
+          relogio: string
+          updated_at?: string
+          vigiando_desde?: string
+        }
+        Update: {
+          ativo?: boolean
+          horas_para_lembrete?: number
+          minutos_para_alarme?: number
+          relogio?: string
+          updated_at?: string
+          vigiando_desde?: string
+        }
+        Relationships: []
+      }
       seat_types: {
         Row: {
           base_capacity: number
@@ -3734,6 +3809,7 @@ export type Database = {
         Args: { _producer_profile_id: string; _user_id: string }
         Returns: boolean
       }
+      json_ou_nulo: { Args: { _texto: string }; Returns: Json }
       ler_segredo: { Args: { _nome: string }; Returns: string }
       lgpd_retention_sweep: { Args: never; Returns: undefined }
       loja_habilitada: { Args: never; Returns: boolean }
@@ -3923,6 +3999,7 @@ export type Database = {
         Returns: Json
       }
       release_seats_for_order: { Args: { _order_id: string }; Returns: number }
+      relogio_do_pix_saude: { Args: { p_minutos?: number }; Returns: Json }
       repasses_esperando: {
         Args: never
         Returns: {
@@ -3997,6 +4074,7 @@ export type Database = {
         Args: { _event_id: string }
         Returns: boolean
       }
+      vigiar_relogio_do_pix: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "cliente" | "produtor" | "admin"
