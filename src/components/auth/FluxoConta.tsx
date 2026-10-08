@@ -96,6 +96,19 @@ const ETAPAS_CADASTRO: Partial<Record<Etapa, { n: number; nome: string }>> = {
 };
 const TOTAL_ETAPAS = 5;
 
+type OpcaoDeCanal = { conta: ContaResumo; canal: Canal; mascarado: string };
+
+/**
+ * O WhatsApp não mandou o código e o servidor disse que a conta tem e-mail
+ * (`podeTentarEmail`): devolve o e-mail DAQUELA conta, para o código ir por lá.
+ * Conta só com WhatsApp devolve `undefined` e a tela mostra o erro, como antes.
+ */
+const emailDaMesmaConta = (e: unknown, lista: OpcaoDeCanal[], indice: number) => {
+  if (!(e instanceof ErroAuthV2)) return undefined;
+  if (!(e.erro.startsWith('whatsapp') || e.erro === 'numero_sem_whatsapp') || !e.extra?.podeTentarEmail) return undefined;
+  return lista.find((o) => o.canal === 'email' && o.conta.indice === indice);
+};
+
 const formatPhone = (value: string) => {
   const n = value.replace(/\D/g, '').slice(0, 11);
   if (n.length <= 2) return n;
@@ -234,7 +247,7 @@ export function FluxoConta({
   // entrar
   const [identificador, setIdentificador] = useState('');
   const [senha, setSenha] = useState('');
-  const [opcoes, setOpcoes] = useState<{ conta: ContaResumo; canal: Canal; mascarado: string }[]>([]);
+  const [opcoes, setOpcoes] = useState<OpcaoDeCanal[]>([]);
   const [contaIndice, setContaIndice] = useState(0);
   const [resetando, setResetando] = useState(false);
 
@@ -339,6 +352,7 @@ export function FluxoConta({
   });
 
   const falhou = (e: unknown) => toast.error(mensagemDoErro(e));
+  const avisarQueFoiPorEmail = () => toast.info('O WhatsApp não respondeu agora. Mandamos o código para o seu e-mail.');
 
   const trocarAba = (nova: AbaConta) => {
     setAba(nova);
@@ -363,7 +377,7 @@ export function FluxoConta({
       const lista = r.contas.flatMap((c) => c.canais.map((k) => ({ conta: c, canal: k.canal, mascarado: k.mascarado })));
       if (lista.length === 0) { toast.error('Essa conta não tem WhatsApp nem e-mail para receber o código.'); return; }
       setOpcoes(lista);
-      await mandarCodigoDeLogin(valor, lista[0].conta.indice, lista[0].canal);
+      await mandarCodigoDeLogin(valor, lista[0].conta.indice, lista[0].canal, lista);
     } catch (e) {
       falhou(e);
     } finally {
@@ -371,17 +385,20 @@ export function FluxoConta({
     }
   };
 
-  const mandarCodigoDeLogin = async (valor: string, indice: number, canalEscolhido: Canal) => {
+  /*
+   * `lista` vem por parâmetro, não do estado: em `entrar` o `setOpcoes` acabou de
+   * ser chamado e `opcoes` ainda é a lista velha deste render (vazia na primeira
+   * tentativa). Lendo o estado, o desvio para o e-mail nunca disparava (OS-204).
+   */
+  const mandarCodigoDeLogin = async (valor: string, indice: number, canalEscolhido: Canal, lista: OpcaoDeCanal[] = opcoes) => {
     try {
       const r = await pedirCodigoLogin(valor, indice, canalEscolhido, senha);
       setContaIndice(indice); setCanal(canalEscolhido); setDesafio(r); setCodigo('');
       setCooldown(60); setEtapa('entrar-codigo');
     } catch (e) {
       // WhatsApp fora do ar e a conta tem e-mail: tenta pelo e-mail sem incomodar.
-      if (e instanceof ErroAuthV2 && (e.erro.startsWith('whatsapp') || e.erro === 'numero_sem_whatsapp') && e.extra?.podeTentarEmail) {
-        const porEmail = opcoes.find((o) => o.canal === 'email');
-        if (porEmail) { toast.error(mensagemDoErro(e)); await mandarCodigoDeLogin(valor, porEmail.conta.indice, 'email'); return; }
-      }
+      const porEmail = emailDaMesmaConta(e, lista, indice);
+      if (porEmail) { avisarQueFoiPorEmail(); await mandarCodigoDeLogin(valor, porEmail.conta.indice, 'email', lista); return; }
       falhou(e);
     }
   };
@@ -396,8 +413,19 @@ export function FluxoConta({
       const lista = r.contas.flatMap((c) => c.canais.map((k) => ({ conta: c, canal: k.canal, mascarado: k.mascarado })));
       if (lista.length === 0) { toast.error('Essa conta não tem WhatsApp nem e-mail para receber o código.'); return; }
       setOpcoes(lista);
-      const env = await pedirCodigoReset(valor, lista[0].conta.indice, lista[0].canal);
-      setResetando(true); setContaIndice(lista[0].conta.indice); setCanal(lista[0].canal);
+      let { conta: { indice }, canal: canalUsado } = lista[0];
+      let env: RespostaEnvio;
+      try {
+        env = await pedirCodigoReset(valor, indice, canalUsado);
+      } catch (e) {
+        // Mesmo desvio do entrar: WhatsApp fora e a conta tem e-mail, vai pelo e-mail.
+        const porEmail = emailDaMesmaConta(e, lista, indice);
+        if (!porEmail) throw e;
+        avisarQueFoiPorEmail();
+        indice = porEmail.conta.indice; canalUsado = 'email';
+        env = await pedirCodigoReset(valor, indice, canalUsado);
+      }
+      setResetando(true); setContaIndice(indice); setCanal(canalUsado);
       setDesafio(env); setCodigo(''); setCooldown(60); setEtapa('entrar-codigo');
     } catch (e) {
       falhou(e);
