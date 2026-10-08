@@ -178,6 +178,9 @@ verify_jwt = false
 [functions.facial-resync]
 verify_jwt = false
 
+[functions.facial-limpar-orfas]
+verify_jwt = false
+
 # Consulta de CPF/CNPJ na API do Marcel para o cadastro de produtor. Público de
 # propósito: quem se cadastra ainda não tem conta, então não há JWT para exigir.
 # A trava é rate limit por IP dentro da função + validação de dígito verificador

@@ -1,4 +1,4 @@
-// redeploy 2026-07-07 — force redeploy
+// redeploy 2026-10-08 — OS-198: apaga a foto facial junto com a conta
 // delete-my-account — direito de eliminação do titular (LGPD art. 18).
 // Só o PRÓPRIO usuário logado se exclui: o alvo é o id do token (nunca do body),
 // então ninguém apaga conta de terceiro. Respeita o princípio "pedido nunca é
@@ -115,6 +115,31 @@ serve(async (req) => {
       target_id: uid,
       metadata: { email_masked: maskEmail(caller.email), at: new Date().toISOString() },
     }).then(({ error }) => { if (error) console.error("[DELETE-ACCOUNT] audit warn:", error.message); });
+
+    // 3b) Apaga a foto facial do bucket privado (OS-198, 08/10/2026). É dado
+    //     biométrico (LGPD art. 11) e o perfil era o único que apontava para ela:
+    //     apagado o perfil sem isto, o arquivo ficava órfão no cofre para sempre.
+    //     Pela API de storage (DELETE em storage.objects tira a linha e deixa o
+    //     arquivo). Vem ANTES do perfil: falhou, a conta fica de pé e a pessoa
+    //     tenta de novo (os passos 1-3 são idempotentes). Arquivo inexistente não
+    //     é erro. O path do perfil só vale se for do próprio titular.
+    const { data: perfilFacial, error: facialReadErr } = await admin
+      .from("profiles")
+      .select("facial_photo_path")
+      .eq("id", uid)
+      .maybeSingle();
+    if (facialReadErr) {
+      console.error("[DELETE-ACCOUNT] facial read error:", facialReadErr.message);
+      return json({ error: "Falha ao conferir a foto facial" }, 500);
+    }
+    const fotos = new Set([`${uid}.jpg`]);
+    const pathDoPerfil = perfilFacial?.facial_photo_path;
+    if (typeof pathDoPerfil === "string" && pathDoPerfil.startsWith(uid)) fotos.add(pathDoPerfil);
+    const { error: facialDelErr } = await admin.storage.from("facial-photos").remove([...fotos]);
+    if (facialDelErr) {
+      console.error("[DELETE-ACCOUNT] facial delete error:", facialDelErr.message);
+      return json({ error: "Falha ao remover a foto facial" }, 500);
+    }
 
     // 4) Apaga o perfil (PII do titular).
     const { error: profErr } = await admin.from("profiles").delete().eq("id", uid);
