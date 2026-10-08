@@ -17,12 +17,18 @@
  * registra o motivo. O e-mail continua saindo pelo caminho de hoje — este aqui
  * é um canal a mais, nunca substitui.
  *
+ * Com a API oficial da Meta ligada (OS-174, ver `_shared/whatsapp.ts`), o
+ * texto do passo 1 não sai: cada ingresso vira um modelo aprovado com o QR no
+ * cabeçalho e evento, data, local e titular no corpo.
+ *
  * Quem entra na fila é decidido no banco (gatilho `on_order_paid_agendar_whatsapp`):
  * só comprador com conta e WhatsApp CONFIRMADO por código.
  */
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import { carregarConfigWhatsApp, enviarTextoWhatsApp, enviarImagemWhatsApp, mascararNumero } from '../_shared/whatsapp.ts';
+import {
+  carregarConfigWhatsApp, enviarTextoWhatsApp, enviarIngressoWhatsApp, mascararNumero, usaApiOficial, type DadosIngresso,
+} from '../_shared/whatsapp.ts';
 import { carregarProdutosDoPedido } from '../_shared/produtosDoPedido.ts';
 
 const corsHeaders = {
@@ -122,6 +128,15 @@ async function montarMensagens(admin: any, orderId: string) {
   const imagens = tickets.map((t, i) => ({
     codigo: t.ticket_code,
     caminho: `${orderId}/${i + 1}-${t.ticket_code.slice(0, 8)}.png`,
+    dados: {
+      nome: nome || 'tudo certo',
+      evento: titulo,
+      quando: quando || 'confira no site',
+      local: local || 'confira no site',
+      posicao: `${i + 1} de ${n}`,
+      titular: t.holder_name || order.customer_name || 'Convidado',
+      codigoCurto: t.ticket_code.slice(0, 8).toUpperCase(),
+    } satisfies DadosIngresso,
     legenda: [
       `🎟️ Ingresso ${i + 1} de ${n} · *${titulo}*`,
       t.lot_id && lotNameById.get(t.lot_id) ? lotNameById.get(t.lot_id) : null,
@@ -149,11 +164,17 @@ async function linkDoQr(admin: any, caminho: string, codigo: string): Promise<st
 
 async function processar(admin: any, e: Entrega): Promise<{ ok: boolean; erro?: string; enviadas: number }> {
   const { texto, imagens } = await montarMensagens(admin, e.order_id);
+  const oficial = usaApiOficial();
+  // Pela API oficial cada ingresso é um modelo aprovado que já traz evento,
+  // data e local; a loja do evento segue só no e-mail.
+  if (oficial && imagens.length === 0) throw new Error('pedido_sem_ingressos_no_modelo');
   const passos: Array<() => Promise<{ ok: boolean; erro?: string }>> = [
-    () => enviarTextoWhatsApp(e.destino, texto, { timeoutMs: 15_000 }),
+    // O passo 0 continua existindo com a API oficial (sem mandar nada), para
+    // `mensagens_enviadas` apontar para o mesmo ingresso nos dois caminhos.
+    () => oficial ? Promise.resolve({ ok: true }) : enviarTextoWhatsApp(e.destino, texto, { timeoutMs: 15_000 }),
     ...imagens.map((img) => async () => {
       const url = await linkDoQr(admin, img.caminho, img.codigo);
-      return enviarImagemWhatsApp(e.destino, url, img.legenda, { timeoutMs: 30_000, fileName: `ingresso-${img.codigo.slice(0, 8)}.png` });
+      return enviarIngressoWhatsApp(e.destino, url, img.dados, img.legenda, { timeoutMs: 30_000, fileName: `ingresso-${img.codigo.slice(0, 8)}.png` });
     }),
   ];
 

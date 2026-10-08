@@ -14,7 +14,7 @@
  *     política: pela API pública ninguém lê nem escreve).
  */
 import { checkRateLimit, type RateLimitResult } from './rateLimit.ts';
-import { enviarTextoWhatsApp, mascararNumero } from './whatsapp.ts';
+import { enviarCodigoWhatsApp, mascararNumero } from './whatsapp.ts';
 import { assuntoCodigo, htmlCodigo } from './emailCodigo.ts';
 import { generateOtpCode } from './otp.ts';
 import { maskEmail } from './pii.ts';
@@ -87,7 +87,8 @@ async function entregar(
   emailPersonalizado?: PedidoDeCodigo['emailPersonalizado'],
 ): Promise<ResultadoEnvio | null> {
   if (canal === 'whatsapp') {
-    const r = await enviarTextoWhatsApp(destino, textoWhatsApp(codigo), { timeoutMs: 8_000 });
+    // API oficial quando configurada (OS-174); senão, o texto pela Evolution.
+    const r = await enviarCodigoWhatsApp(destino, codigo, textoWhatsApp(codigo), { timeoutMs: 8_000 });
     if (r.ok) return null;
     return { ok: false, erro: r.erro as 'whatsapp_indisponivel' | 'whatsapp_recusou' | 'whatsapp_nao_configurado' };
   }
