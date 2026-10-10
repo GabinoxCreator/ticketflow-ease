@@ -73,13 +73,9 @@ async function sha256Hex(texto: string): Promise<string> {
 }
 
 function textoWhatsApp(codigo: string): string {
-  return [
-    `*${codigo}* é o seu código de acesso à FestPag.`,
-    '',
-    `Digite esse número no site para continuar. Ele vale por ${VALIDADE_MIN} minutos.`,
-    '',
-    'Ninguém da FestPag vai pedir esse código para você. Se não foi você que pediu, é só ignorar.',
-  ].join('\n');
+  // Uma linha só (Gabriel, 10/10/2026): mensagem curta parece menos robô
+  // depois da restrição por spam de 07/10.
+  return `Seu código FestPag: *${codigo}*. Vale por ${VALIDADE_MIN} minutos, não passe para ninguém.`;
 }
 
 async function entregar(

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, Ticket, Download, Mail } from 'lucide-react';
+import { CheckCircle2, Ticket, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
@@ -77,18 +77,23 @@ export function CheckoutStepSuccess({
       {/* Loja do evento: código de retirada dos produtos deste pedido. */}
       <RetiradasDoComprador orderId={orderId} />
 
-      {/* Email Notice */}
+      {/* Onde fica o ingresso (10/10/2026): quem só tem WhatsApp na conta não
+          recebe e-mail, e o ingresso não sai mais pelo WhatsApp. */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
         className="flex items-center gap-3 p-4 bg-primary/10 rounded-xl text-left"
       >
-        <Mail className="w-5 h-5 text-primary flex-shrink-0" />
+        <Ticket className="w-5 h-5 text-primary flex-shrink-0" />
         <div>
-          <p className="text-sm font-medium">Confirmação a caminho</p>
+          <p className="text-sm font-medium">
+            {ticketCount > 0 ? 'Seu ingresso está em Meus ingressos' : 'Seu pedido está em Meus ingressos'}
+          </p>
           <p className="text-xs text-muted-foreground">
-            Enviaremos os detalhes para {customerEmail} em instantes
+            {ticketCount > 0
+              ? 'Na entrada, é só abrir e mostrar o QR.'
+              : 'É só entrar na sua conta para ver quando precisar.'}
           </p>
         </div>
       </motion.div>
