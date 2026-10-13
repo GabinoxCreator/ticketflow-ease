@@ -323,3 +323,9 @@ verify_jwt = false
 # logado para reenviar na mão. Nunca pelo navegador do público.
 [functions.aviso-relogio]
 verify_jwt = false
+
+# Carteiro do FaceCashless (OS-209): entrega no WhatsApp o código que a carteira
+# gerou. Quem chama é o backend do FaceCashless, com o segredo da federação no
+# header x-admin-secret. Nunca pelo navegador do público.
+[functions.carteira-codigo-whatsapp]
+verify_jwt = false
