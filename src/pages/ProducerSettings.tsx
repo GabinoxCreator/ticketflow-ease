@@ -23,6 +23,10 @@ import {
   Trash2,
   ImageIcon,
   LineChart,
+  Link2,
+  Copy,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +42,22 @@ import {
   type RespostaPin,
 } from '@/lib/pinRepasse';
 import { PinConfirmDialog } from '@/components/producer/PinConfirmDialog';
+
+// Mesma régua do banco (slug_de_texto): minúsculo, sem acento, sem espaço e sem pontuação.
+function normalizarSlug(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 60);
+}
+
+const MENSAGEM_SLUG: Record<'curto' | 'reservado' | 'ocupado', string> = {
+  curto: 'O endereço precisa ter pelo menos 3 letras ou números.',
+  reservado: 'Esse endereço é usado pelo próprio site. Escolha outro.',
+  ocupado: 'Esse endereço já é de outra produtora. Escolha outro.',
+};
 
 export default function ProducerSettings() {
   const { profile, user, producerProfileId, userRole } = useAuth();
@@ -58,6 +78,11 @@ export default function ProducerSettings() {
   const [document, setDocument] = useState('');
   const [orgEmail, setOrgEmail] = useState('');
   const [orgPhone, setOrgPhone] = useState('');
+
+  // Endereço da página própria (OS-219): festpag.digital/<slug>. Nasce do nome
+  // da produtora no banco; aqui o produtor pode trocar. Vazio = volta ao automático.
+  const [slug, setSlug] = useState('');
+  const [slugSituacao, setSlugSituacao] = useState<'ok' | 'curto' | 'reservado' | 'ocupado' | null>(null);
 
   // Tracking
   const [metaPixelId, setMetaPixelId] = useState('');
@@ -120,6 +145,7 @@ export default function ProducerSettings() {
       setDocument(producerProfile.document || '');
       setOrgEmail(producerProfile.email || '');
       setOrgPhone(producerProfile.phone || '');
+      setSlug(producerProfile.slug || '');
       setMetaPixelId((producerProfile as any).meta_pixel_id || '');
       setTrackingEnabled(!!(producerProfile as any).tracking_enabled);
     }
@@ -133,6 +159,21 @@ export default function ProducerSettings() {
       .then(({ data }) => { if (!cancelado) setCapiConfigurado(data === true); });
     return () => { cancelado = true; };
   }, [effectiveProducerId]);
+
+  const slugSalvo = producerProfile?.slug || '';
+  const slugMudou = !!effectiveProducerId && slug !== slugSalvo;
+
+  // Pergunta ao banco se o endereço novo está livre, meio segundo depois de parar de digitar.
+  useEffect(() => {
+    if (!slugMudou || slug === '') { setSlugSituacao(null); return; }
+    let cancelado = false;
+    const t = setTimeout(() => {
+      supabase
+        .rpc('endereco_produtor_livre' as any, { _slug: slug, _producer_profile_id: effectiveProducerId } as any)
+        .then(({ data }) => { if (!cancelado) setSlugSituacao((data as any) ?? null); });
+    }, 500);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [slug, slugMudou, effectiveProducerId]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -161,6 +202,10 @@ export default function ProducerSettings() {
 
   const handleSaveAll = async () => {
     if (!user?.id) return;
+    if (slugMudou && slugSituacao && slugSituacao !== 'ok') {
+      toast.error(MENSAGEM_SLUG[slugSituacao]);
+      return;
+    }
     if (documentoMudou) {
       if (document.trim() !== '' && !documentoValido(document)) {
         toast.error('Número de CPF ou CNPJ inválido.');
@@ -219,6 +264,8 @@ export default function ProducerSettings() {
               phone: orgPhone || null,
               meta_pixel_id: metaPixelId.trim() || null,
               tracking_enabled: trackingEnabled,
+              // Só vai quando mudou: vazio faz o banco gerar de novo a partir do nome.
+              ...(slugMudou ? { slug: slug || null } : {}),
               } as any)
               .eq('id', effectiveProducerId),
           ),
@@ -415,6 +462,63 @@ export default function ProducerSettings() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Endereço da página própria (OS-219) */}
+                <div className="space-y-2">
+                  <Label htmlFor="slug" className="text-base font-semibold flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-primary" />
+                    Endereço da sua página
+                  </Label>
+                  <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                    <span className="flex items-center px-3 text-sm text-muted-foreground bg-muted border-r border-input select-none">
+                      festpag.digital/
+                    </span>
+                    <input
+                      id="slug"
+                      value={slug}
+                      onChange={(e) => setSlug(normalizarSlug(e.target.value))}
+                      placeholder="nomedasuaprodutora"
+                      className="flex-1 min-w-0 h-11 px-3 text-base bg-transparent outline-none"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  {slugMudou ? (
+                    <p className={`text-xs ${slugSituacao && slugSituacao !== 'ok' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {slug === ''
+                        ? 'Vazio: ao salvar, o endereço volta a ser o nome da produtora.'
+                        : slugSituacao === 'ok'
+                          ? <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> Endereço livre. Salve para valer.</span>
+                          : slugSituacao
+                            ? MENSAGEM_SLUG[slugSituacao]
+                            : 'Conferindo...'}
+                    </p>
+                  ) : slugSalvo ? (
+                    <div className="flex items-center gap-3 text-xs flex-wrap">
+                      <span className="text-muted-foreground">Todos os seus eventos à venda, num link só.</span>
+                      <a
+                        href={`/${slugSalvo}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                      >
+                        <ExternalLink className="h-3 w-3" /> Abrir minha página
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(`https://festpag.digital/${slugSalvo}`)
+                            .then(() => toast.success('Link copiado!'))
+                            .catch(() => toast.error('Não deu para copiar. Selecione o endereço e copie.'));
+                        }}
+                        className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                      >
+                        <Copy className="h-3 w-3" /> Copiar link
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Dados fiscais */}
