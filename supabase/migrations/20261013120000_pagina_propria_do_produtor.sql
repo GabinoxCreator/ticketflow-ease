@@ -24,8 +24,12 @@
 --      ao automático. Trocar o NOME da produtora não muda o endereço (link já
 --      divulgado não pode quebrar).
 --   5. Preenche o endereço de quem já existe (a mais antiga fica sem número).
---   6. `produtor_publico`: a página pública lê marca e logo por aqui. A
---      tabela segue fechada para visitante (tem CPF/CNPJ, e-mail e telefone).
+--   6. Três campos que o produtor preenche nas Configurações para a página
+--      (decisão do Gabriel na caixinha, 13/10): capa, texto "Sobre" e Instagram.
+--      Quem não preencher fica com a capa automática (arte do próximo evento).
+--   7. `produtor_publico`: a página pública lê nome, logo e esses três campos
+--      por aqui. A tabela segue fechada para visitante (tem CPF/CNPJ, e-mail e
+--      telefone).
 --
 -- O QUE NÃO MUDA
 --   Nenhuma tela existente, nenhum pedido, nenhum evento. A página do evento
@@ -33,7 +37,8 @@
 --
 -- COMO VOLTAR ATRÁS
 --   DROP TRIGGER producer_profiles_slug ON public.producer_profiles;
---   ALTER TABLE public.producer_profiles DROP CONSTRAINT producer_profiles_slug_formato;
+--   ALTER TABLE public.producer_profiles DROP CONSTRAINT producer_profiles_slug_formato,
+--     DROP COLUMN pagina_capa_url, DROP COLUMN pagina_sobre, DROP COLUMN pagina_instagram;
 --   DROP FUNCTION public.produtor_publico(text),
 --                 public.endereco_produtor_livre(text, uuid),
 --                 public._producer_profiles_slug(),
@@ -200,17 +205,34 @@ $$;
 REVOKE ALL ON FUNCTION public.endereco_produtor_livre(text, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.endereco_produtor_livre(text, uuid) TO authenticated;
 
--- 7. A página pública lê a produtora por aqui --------------------------------
--- Só o que já aparece em "Realização": nome e logo. Produtora bloqueada pela
--- casa não tem página.
+-- 7. O que o produtor preenche para a página ---------------------------------
+-- Instagram guarda só o nome do perfil (sem @ e sem link); a tela limpa antes.
+ALTER TABLE public.producer_profiles
+  ADD COLUMN IF NOT EXISTS pagina_capa_url text,
+  ADD COLUMN IF NOT EXISTS pagina_sobre text,
+  ADD COLUMN IF NOT EXISTS pagina_instagram text;
+
+ALTER TABLE public.producer_profiles
+  ADD CONSTRAINT producer_profiles_pagina_sobre_tamanho CHECK (pagina_sobre IS NULL OR length(pagina_sobre) <= 1000),
+  ADD CONSTRAINT producer_profiles_pagina_instagram_formato CHECK (pagina_instagram IS NULL OR pagina_instagram ~ '^[A-Za-z0-9._]{1,30}$');
+
+COMMENT ON COLUMN public.producer_profiles.pagina_capa_url IS 'Capa da página pública do produtor. Vazia = arte do próximo evento. OS-219.';
+COMMENT ON COLUMN public.producer_profiles.pagina_sobre IS 'Texto "Sobre" da página pública do produtor (até 1000 letras). OS-219.';
+COMMENT ON COLUMN public.producer_profiles.pagina_instagram IS 'Perfil do Instagram, só o nome (sem @). OS-219.';
+
+-- 8. A página pública lê a produtora por aqui --------------------------------
+-- Só o que é público: nome, logo e o que o produtor escreveu para a página.
+-- Produtora bloqueada pela casa não tem página.
 CREATE OR REPLACE FUNCTION public.produtor_publico(_slug text)
-RETURNS TABLE (id uuid, brand_name text, logo_url text, slug text)
+RETURNS TABLE (id uuid, brand_name text, logo_url text, slug text,
+               pagina_capa_url text, pagina_sobre text, pagina_instagram text)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT p.id, p.brand_name, p.logo_url, p.slug
+  SELECT p.id, p.brand_name, p.logo_url, p.slug,
+         p.pagina_capa_url, p.pagina_sobre, p.pagina_instagram
     FROM public.producer_profiles p
    WHERE p.slug = lower(btrim(_slug))
      AND p.status = 'active'
