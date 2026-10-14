@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Banknote, Settings, LogOut, Activity, ClipboardCheck, Users2, Inbox, Undo2 } from 'lucide-react';
+import { LayoutDashboard, Users, Banknote, Settings, LogOut, Activity, ClipboardCheck, Users2, Inbox, Undo2, FilePlus2 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 const menuItems: { title: string; url: string; icon: typeof LayoutDashboard; section: AdminSection }[] = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard, section: 'dashboard' },
   { title: 'Produtores', url: '/admin/produtores', icon: Users, section: 'produtores' },
+  { title: 'Abertura de eventos', url: '/admin/aberturas', icon: FilePlus2, section: 'produtores' },
   { title: 'Repasses', url: '/admin/repasses', icon: Banknote, section: 'repasses' },
   { title: 'Reembolsos', url: '/admin/reembolsos', icon: Undo2, section: 'repasses' },
   { title: 'Leads', url: '/admin/leads', icon: Inbox, section: 'leads' },

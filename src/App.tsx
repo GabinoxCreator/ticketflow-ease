@@ -52,6 +52,9 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProdutores from "./pages/admin/AdminProdutores";
 import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
+import AdminAberturas from "./pages/admin/AdminAberturas";
+import AdminAberturaDetalhe from "./pages/admin/AdminAberturaDetalhe";
+import AbrirEvento from "./pages/AbrirEvento";
 import AdminEventoDetalhe from "./pages/admin/AdminEventoDetalhe";
 import AdminRepasses from "./pages/admin/AdminRepasses";
 import AdminReembolsos from "./pages/admin/AdminReembolsos";
@@ -116,6 +119,9 @@ const App = () => (
                 {/* Link de transferência de ingresso: PÚBLICA de propósito — quem recebe
                     ainda não tem conta, e é esta tela que pede para ela criar. */}
                 <Route path="/transferencia/:token" element={<TransferenciaIngresso />} />
+                {/* Link de abertura de evento (OS-221): PÚBLICA de propósito, o produtor
+                    ainda não tem conta; a última etapa pede para criar. */}
+                <Route path="/abrir-evento/:token" element={<AbrirEvento />} />
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/meus-ingressos" element={<ProtectedRoute><MeusIngressos /></ProtectedRoute>} />
                 <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
@@ -169,6 +175,8 @@ const App = () => (
                 <Route path="/admin/dashboard" element={<AdminProtectedRoute><SectionProtectedRoute section="dashboard"><AdminDashboard /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/produtores" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminProdutores /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/produtores/:id" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminProdutorDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/aberturas" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminAberturas /></SectionProtectedRoute></AdminProtectedRoute>} />
+                <Route path="/admin/aberturas/:id" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminAberturaDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/eventos/:eventId" element={<AdminProtectedRoute><SectionProtectedRoute section="produtores"><AdminEventoDetalhe /></SectionProtectedRoute></AdminProtectedRoute>} />
                 <Route path="/admin/repasses" element={<AdminProtectedRoute><SectionProtectedRoute section="repasses"><AdminRepasses /></SectionProtectedRoute></AdminProtectedRoute>} />
                 {/* Reembolsos moram na mesma seção dos repasses: é quem cuida do dinheiro que entra e sai. */}
