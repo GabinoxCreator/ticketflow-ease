@@ -10,6 +10,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Login do vendedor dura até o fim do evento (OS-229, decisão do Gabriel em
+// 14/10/2026). Antes vencia em 24h e o totem de ingresso parava a venda na tela
+// de usuário e senha. Fim do evento = dia seguinte ao end_date (ou date), às
+// 23h59 de Brasília (UTC-3, sem horário de verão). Vários eventos: vale o que
+// termina por último. Nunca menos de 24h, então quem não tem evento por vir
+// segue como antes. Desativar o vendedor continua derrubando a sessão na hora
+// (collaboratorSession.ts, ensureCollaboratorActive).
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function sessionExpiresAt(events: Array<{ date?: string | null; end_date?: string | null }>): Date {
+  let expires = Date.now() + DAY_MS;
+  for (const ev of events) {
+    const lastDay = ev.end_date || ev.date;
+    if (!lastDay || !/^\d{4}-\d{2}-\d{2}/.test(lastDay)) continue;
+    // 23:59:59 em Brasília do dia seguinte = 02:59:59 UTC de dois dias depois.
+    const end = Date.parse(`${lastDay.slice(0, 10)}T23:59:59-03:00`) + DAY_MS;
+    if (Number.isFinite(end) && end > expires) expires = end;
+  }
+  return new Date(expires);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -157,6 +178,7 @@ serve(async (req) => {
           title,
           date,
           time,
+          end_date,
           venue,
           city,
           state,
@@ -172,7 +194,9 @@ serve(async (req) => {
 
     // Generate a secure session token
     const sessionToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = sessionExpiresAt(
+      (collaboratorEvents ?? []).map((ce: any) => ce.events).filter(Boolean),
+    );
 
     // Hash the token with SHA-256 (fast, deterministic, no WASM) before storing.
     // Old bcrypt-hashed sessions remain valid via fallback in validateCollaboratorSession.
