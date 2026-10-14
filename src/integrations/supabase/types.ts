@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      aberturas_evento: {
+        Row: {
+          cliente: string
+          created_at: string
+          criada_por: string | null
+          enviada_em: string | null
+          etapa_atual: number
+          event_id: string | null
+          id: string
+          nota_interna: string | null
+          pendencias: Json
+          producer_profile_id: string | null
+          rascunho_criado_em: string | null
+          respostas: Json
+          taxa_percent: number
+          token: string
+          ultima_edicao_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente: string
+          created_at?: string
+          criada_por?: string | null
+          enviada_em?: string | null
+          etapa_atual?: number
+          event_id?: string | null
+          id?: string
+          nota_interna?: string | null
+          pendencias?: Json
+          producer_profile_id?: string | null
+          rascunho_criado_em?: string | null
+          respostas?: Json
+          taxa_percent?: number
+          token?: string
+          ultima_edicao_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente?: string
+          created_at?: string
+          criada_por?: string | null
+          enviada_em?: string | null
+          etapa_atual?: number
+          event_id?: string | null
+          id?: string
+          nota_interna?: string | null
+          pendencias?: Json
+          producer_profile_id?: string | null
+          rascunho_criado_em?: string | null
+          respostas?: Json
+          taxa_percent?: number
+          token?: string
+          ultima_edicao_em?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aberturas_evento_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aberturas_evento_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aceites_legais: {
         Row: {
           aceito_em: string
@@ -2484,6 +2556,9 @@ export type Database = {
           loja_habilitada: boolean
           meta_pixel_id: string | null
           owner_user_id: string
+          pagina_capa_url: string | null
+          pagina_instagram: string | null
+          pagina_sobre: string | null
           phone: string | null
           platform_fee_percent: number
           slug: string | null
@@ -2503,6 +2578,9 @@ export type Database = {
           loja_habilitada?: boolean
           meta_pixel_id?: string | null
           owner_user_id: string
+          pagina_capa_url?: string | null
+          pagina_instagram?: string | null
+          pagina_sobre?: string | null
           phone?: string | null
           platform_fee_percent?: number
           slug?: string | null
@@ -2522,6 +2600,9 @@ export type Database = {
           loja_habilitada?: boolean
           meta_pixel_id?: string | null
           owner_user_id?: string
+          pagina_capa_url?: string | null
+          pagina_instagram?: string | null
+          pagina_sobre?: string | null
           phone?: string | null
           platform_fee_percent?: number
           slug?: string | null
@@ -3434,8 +3515,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _abertura_instante: {
+        Args: { _data: string; _hora: string; _padrao: string }
+        Returns: string
+      }
       _conferir_pin: { Args: { _pin: string; _user_id: string }; Returns: Json }
       _pin_email_da_conta: { Args: { _user_id: string }; Returns: string }
+      abertura_criar_rascunho: {
+        Args: { _abertura_id: string; _producer_profile_id?: string }
+        Returns: string
+      }
+      abertura_enviar: { Args: { _token: string }; Returns: undefined }
+      abertura_ler: { Args: { _token: string }; Returns: Json }
+      abertura_salvar: {
+        Args: {
+          _etapa: number
+          _pendencias: Json
+          _respostas: Json
+          _token: string
+        }
+        Returns: undefined
+      }
+      abertura_token_valido: { Args: { _token: string }; Returns: boolean }
       aceitar_transferencia_ingresso: {
         Args: {
           _cpf_informado: string
@@ -3612,6 +3713,10 @@ export type Database = {
         }[]
       }
       documento_valido: { Args: { _doc: string }; Returns: boolean }
+      endereco_produtor_livre: {
+        Args: { _producer_profile_id: string; _slug: string }
+        Returns: string
+      }
       entregas_whatsapp_reivindicar: {
         Args: { _limite?: number }
         Returns: {
@@ -3662,6 +3767,10 @@ export type Database = {
         Returns: boolean
       }
       gerar_codigo_retirada: { Args: never; Returns: string }
+      gerar_slug_produtor: {
+        Args: { _id: string; _nome: string }
+        Returns: string
+      }
       gestao_reembolso_dar_baixa: {
         Args: {
           p_comprovante_path: string
@@ -3893,6 +4002,18 @@ export type Database = {
           producer_value: number
         }[]
       }
+      produtor_publico: {
+        Args: { _slug: string }
+        Returns: {
+          brand_name: string
+          id: string
+          logo_url: string
+          pagina_capa_url: string
+          pagina_instagram: string
+          pagina_sobre: string
+          slug: string
+        }[]
+      }
       publish_event_with_snapshot: {
         Args: { _event_id: string }
         Returns: Json
@@ -4059,6 +4180,8 @@ export type Database = {
         Args: { _producer_profile_id: string; _token: string }
         Returns: undefined
       }
+      slug_de_texto: { Args: { _texto: string }; Returns: string }
+      slug_produtor_reservado: { Args: { _slug: string }; Returns: boolean }
       slugify: { Args: { _input: string }; Returns: string }
       sweep_expired_event_seat_holds: { Args: never; Returns: number }
       toggle_event_like: {
