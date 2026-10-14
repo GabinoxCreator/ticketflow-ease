@@ -25,6 +25,7 @@ import {
 import { EventLot, LotFormData } from '@/hooks/useEventLots';
 import { useLotSales, lotSalesOf } from '@/hooks/useLotSales';
 import { cn } from '@/lib/utils';
+import { isLotEnded, isLotSoldOut } from '@/lib/lot-availability';
 import { toast } from 'sonner';
 
 // datetime-local não entende ISO com fuso ("2026-10-17T13:00:00+00:00");
@@ -47,12 +48,17 @@ type SituacaoLote =
 const diaMes = (iso: string) =>
   new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
-export const situacaoDoLote = (lot: EventLot, agora: Date = new Date()): SituacaoLote => {
+export const situacaoDoLote = (lot: EventLot, lots: EventLot[] = [], agora: Date = new Date()): SituacaoLote => {
   if (!lot.is_active) return { chave: 'inativo', rotulo: 'Desativado' };
   if (lot.manually_sold_out) return { chave: 'esgotado', rotulo: 'Esgotado' };
 
+  // Encadeado só fica "agendado" enquanto o anterior segura: ativo, com estoque e
+  // dentro da data (OS-227). Esgotou ou encerrou, ele segue para as regras abaixo.
   if (lot.sales_start_type === 'after_lot' && lot.starts_after_lot_id) {
-    return { chave: 'agendado', rotulo: 'Abre após o lote anterior' };
+    const anterior = lots.find((l) => l.id === lot.starts_after_lot_id);
+    if (anterior && anterior.is_active && !isLotSoldOut(anterior) && !isLotEnded(anterior, agora)) {
+      return { chave: 'agendado', rotulo: 'Abre quando o anterior esgotar ou encerrar' };
+    }
   }
   if (lot.start_date && new Date(lot.start_date) > agora) {
     return { chave: 'agendado', rotulo: `Agendado · abre ${diaMes(lot.start_date)}` };
@@ -298,7 +304,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                           <div className="flex items-center gap-2 flex-wrap">
                             <CardTitle className="text-base">{lot.name}</CardTitle>
                             {(() => {
-                              const situacao = situacaoDoLote(lot);
+                              const situacao = situacaoDoLote(lot, lots);
                               return (
                                 <span
                                   className={cn(
@@ -552,7 +558,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                 <SelectContent>
                   <SelectItem value="now">Publicar agora</SelectItem>
                   <SelectItem value="scheduled">Agendar início</SelectItem>
-                  <SelectItem value="after_lot">Após encerrar outro lote</SelectItem>
+                  <SelectItem value="after_lot">Quando outro lote esgotar ou encerrar</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -565,7 +571,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
 
               {formData.sales_start_type === 'after_lot' && lots.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Iniciar após encerrar</Label>
+                  <Label>Abre quando este lote esgotar ou encerrar</Label>
                   <Select value={formData.starts_after_lot_id || ''} onValueChange={(v) => setFormData({ ...formData, starts_after_lot_id: v })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o lote" />

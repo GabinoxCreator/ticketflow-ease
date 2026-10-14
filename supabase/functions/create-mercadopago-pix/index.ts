@@ -147,7 +147,7 @@ serve(async (req) => {
       if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
       // Espelho de src/lib/lot-availability.ts: lote com data de fim vencida não vende,
       // lote agendado não vende antes da hora, lote encadeado não vende enquanto o
-      // anterior não esgotar.
+      // anterior não esgotar nem encerrar pela data (OS-227: o que ocorrer primeiro).
       if (lot.end_date && new Date(lot.end_date) < new Date()) {
         throw new Error(`As vendas do lote "${lot.name}" já encerraram`);
       }
@@ -157,11 +157,12 @@ serve(async (req) => {
       if (lot.sales_start_type === 'after_lot' && lot.starts_after_lot_id) {
         const { data: prev } = await supabaseClient
           .from('event_lots')
-          .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out')
+          .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out, end_date')
           .eq('id', lot.starts_after_lot_id)
           .maybeSingle();
         if (prev && prev.is_active && !prev.manually_sold_out &&
-            prev.sold_quantity + (prev.reserved_quantity || 0) < prev.total_quantity) {
+            prev.sold_quantity + (prev.reserved_quantity || 0) < prev.total_quantity &&
+            !(prev.end_date && new Date(prev.end_date) < new Date())) {
           throw new Error(`Lote "${lot.name}" ainda não está à venda`);
         }
       }

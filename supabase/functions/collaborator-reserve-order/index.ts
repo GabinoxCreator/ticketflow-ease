@@ -6,7 +6,7 @@ import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/co
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 import { resolveFee, computeServiceFee, feeMethodFromPaymentMethod } from "../_shared/eventFee.ts";
-import { encerrou, mensagemDoFechado } from "../_shared/loteAberto.ts";
+import { lotesAnteriores, mensagemDoFechado, porQueFechado } from "../_shared/loteAberto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const lotIds = Array.from(new Set(normalized.map(i => i.lot_id)));
     const { data: lots, error: lotsErr } = await supabase
       .from('event_lots')
-      .select('id, event_id, price, name, end_date, is_active, manually_sold_out')
+      .select('id, event_id, price, name, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id')
       .in('id', lotIds);
     if (lotsErr) {
       console.error('[RESERVE] lots query error:', lotsErr);
@@ -93,15 +93,19 @@ Deno.serve(async (req) => {
     // ou do totem que ficou aberta com a lista velha. Roda ANTES de reservar estoque.
     //  - desativado ou marcado esgotado (OS-119, 05/10/2026): `reserve_lot_quantity`
     //    já recusava, mas a resposta saía "Estoque insuficiente", que não diz o que fazer;
-    //  - data de fim vencida (OS-106): a mesma regra do site.
+    //  - data de fim vencida (OS-106), lote agendado que ainda não abriu e lote
+    //    encadeado cujo anterior ainda segura: a regra inteira do site (OS-228,
+    //    14/10/2026, decisão do Gabriel: totem e maquininha "igual ao site").
     // O errorCode faz a maquininha mostrar "Não é possível vender" (regra), não "Falha".
     const agora = new Date();
+    const anteriores = await lotesAnteriores(supabase, lots || []);
     for (const id of lotIds) {
       const lot: any = lotMap.get(id);
+      const motivo = lot.is_active ? porQueFechado(lot, anteriores.get(lot.starts_after_lot_id), agora) : null;
       const fechado =
         !lot.is_active ? `${mensagemDoFechado(lot.name, 'inativo')}. Atualize a lista de lotes.`
         : lot.manually_sold_out ? `Lote "${lot.name}" esgotado. Atualize a lista de lotes.`
-        : encerrou(lot, agora) ? mensagemDoFechado(lot.name, 'encerrado')
+        : motivo ? `${mensagemDoFechado(lot.name, motivo)}. Atualize a lista de lotes.`
         : null;
       if (fechado) {
         return new Response(JSON.stringify({ error: fechado, errorCode: 'lot_closed', lot_id: id }),

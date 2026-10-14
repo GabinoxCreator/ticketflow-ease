@@ -11,16 +11,16 @@
 //     do produtor dizia "Encerrado" e o site, a maquininha e o totem seguiam
 //     vendendo, porque ninguém lia a data de fim);
 //   - se agendado, a data de início já chegou;
-//   - se encadeado, o lote anterior já esgotou.
+//   - se encadeado, o lote anterior já esgotou OU já encerrou pela data de fim
+//     (OS-227, 14/10/2026: o que ocorrer primeiro).
 // Esgotado por quantidade NÃO entra aqui: quem garante é a reserva de estoque.
 //
 // Quem usa:
 //   - `porQueFechado` (a regra inteira): o carrinho do Marcel, PIX e cartão do
-//     site. As duas edges do Mercado Pago carregam a mesma regra escrita à mão.
-//   - `encerrou` (só a data de fim): a lista e a reserva da maquininha e do
-//     totem, e a venda da portaria. Ali a agenda de início e o encadeamento
-//     nunca valeram, e a decisão do Gabriel (02/10/2026) foi só a data de fim
-//     valer "em todo lugar". Não trocar por `porQueFechado` sem perguntar.
+//     site, e a lista e a reserva da maquininha e do totem (decisão do Gabriel,
+//     14/10/2026, OS-228: "igual ao site"). As duas edges do Mercado Pago
+//     carregam a mesma regra escrita à mão.
+//   - `encerrou` (só a data de fim): a venda da portaria.
 
 /** Campos de `event_lots` que a regra lê. */
 export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id';
@@ -41,6 +41,7 @@ export interface LoteAnterior {
   sold_quantity: number;
   reserved_quantity?: number | null;
   manually_sold_out?: boolean | null;
+  end_date?: string | null;
 }
 
 const esgotado = (l: LoteAnterior) =>
@@ -65,7 +66,7 @@ export function porQueFechado(
   // Anterior que não veio (apagado, ou leitura que falhou) não trava: é o que a
   // vitrine faz, e as edges do Mercado Pago sempre fizeram.
   if (lote.sales_start_type === 'after_lot' && lote.starts_after_lot_id &&
-      anterior && anterior.is_active && !esgotado(anterior)) {
+      anterior && anterior.is_active && !esgotado(anterior) && !encerrou(anterior, agora)) {
     return 'ainda_nao_abriu';
   }
   return null;
@@ -82,10 +83,16 @@ export async function lotesAnteriores(client: any, lotes: LoteDaRegra[]): Promis
   if (ids.length === 0) return mapa;
   const { data } = await client
     .from('event_lots')
-    .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out')
+    .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out, end_date')
     .in('id', ids);
   for (const l of data ?? []) mapa.set(l.id, l);
   return mapa;
+}
+
+/** Nome do lote para quem só vê o nome (totem e maquininha): "Premium · 1º lote". */
+export function nomeComSetor(lote: { name: string; sector_name?: string | null }): string {
+  const setor = (lote.sector_name ?? '').trim();
+  return setor ? `${setor} · ${lote.name}` : lote.name;
 }
 
 /** A frase que o comprador (ou a equipe da portaria) lê quando o lote fechou. */
