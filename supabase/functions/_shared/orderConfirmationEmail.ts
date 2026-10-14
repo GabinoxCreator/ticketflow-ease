@@ -115,6 +115,9 @@ function buildHtml(args: {
   ticketSectionHtml: string;
   productSectionHtml: string;
   productUnits: number;
+  // Cortesia (sale_origin='courtesy'): ninguém pagou nada, então o e-mail não fala
+  // em pagamento nem mostra "Total pago R$ 0,00". O resto (QR, resumo) é igual.
+  isCourtesy: boolean;
 }): string {
   const linkedNote = args.hasUserId
     ? `Acesse seus ingressos a qualquer momento em <a href="https://festpag.digital/meus-ingressos" style="color:#7c3aed;">Meus Ingressos</a>.`
@@ -128,14 +131,16 @@ function buildHtml(args: {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; margin: 0 0 28px 0;">
         <tr>
           <td align="center" bgcolor="#7c3aed" style="background-color: #7c3aed; background-image: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); border-radius: 12px; padding: 28px 20px; color: #ffffff;">
-            <p style="margin: 0 0 6px 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #f3e8ff; font-family: Arial, sans-serif;">Pagamento confirmado</p>
+            <p style="margin: 0 0 6px 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #f3e8ff; font-family: Arial, sans-serif;">${args.isCourtesy ? "Cortesia confirmada" : "Pagamento confirmado"}</p>
             <h1 style="margin: 0; font-size: 24px; color: #ffffff; font-family: Arial, sans-serif;">${args.eventTitle}</h1>
           </td>
         </tr>
       </table>
       <h2 style="color: #1f2937; font-size: 18px;">Olá, ${args.customerName || "tudo certo"}!</h2>
       <p style="color: #4b5563; font-size: 15px; line-height: 1.5;">
-        ${args.qty > 0
+        ${args.isCourtesy
+          ? "Você recebeu uma cortesia para este evento, e seus ingressos já estão garantidos."
+          : args.qty > 0
           ? "Recebemos seu pagamento e seus ingressos já estão garantidos."
           : "Recebemos seu pagamento e a sua compra está garantida."}
       </p>
@@ -148,8 +153,8 @@ function buildHtml(args: {
         ${args.eventVenue ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Local: ${args.eventVenue}</p>` : ""}
         ${args.qty > 0 ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Ingressos: <strong>${args.qty}</strong></p>` : ""}
         ${args.productUnits > 0 ? `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Produtos: <strong>${args.productUnits}</strong></p>` : ""}
-        <p style="margin:4px 0;color:#4b5563;font-size:14px;">Total pago: <strong>${formatBRL(args.total)}</strong></p>
-        <p style="margin:4px 0;color:#10b981;font-size:14px;"><strong>Status: Pago</strong></p>
+        ${args.isCourtesy ? "" : `<p style="margin:4px 0;color:#4b5563;font-size:14px;">Total pago: <strong>${formatBRL(args.total)}</strong></p>`}
+        <p style="margin:4px 0;color:#10b981;font-size:14px;"><strong>Status: ${args.isCourtesy ? "Cortesia" : "Pago"}</strong></p>
       </div>
       <div style="text-align:center;margin:24px 0;">
         <a href="https://festpag.digital/meus-ingressos"
@@ -226,7 +231,7 @@ export async function sendOrderConfirmationEmailSafe(
     // === 2) LOAD ORDER ===
     const { data: order, error: orderErr } = await supabase
       .from("orders")
-      .select("id, status, customer_name, customer_email, total_amount, user_id, event_id")
+      .select("id, status, customer_name, customer_email, total_amount, user_id, event_id, sale_origin")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -308,6 +313,7 @@ export async function sendOrderConfirmationEmailSafe(
         })
       : "";
     const eventTime = event?.time ? String(event.time).slice(0, 5) : "";
+    const isCourtesy = order.sale_origin === "courtesy";
 
     // === 4b) SEÇÃO DO INGRESSO (QR via cid) — BEST-EFFORT ===
     // Se QUALQUER coisa aqui falhar, o e-mail AINDA sai com a confirmação (sem os
@@ -378,6 +384,7 @@ export async function sendOrderConfirmationEmailSafe(
       ticketSectionHtml,
       productSectionHtml: buildProductSection(produtos),
       productUnits: produtos?.unidades ?? 0,
+      isCourtesy,
     });
 
     // === 5) SEND VIA RESEND ===
@@ -390,7 +397,7 @@ export async function sendOrderConfirmationEmailSafe(
     const { data: sent, error: emailError } = await resend.emails.send({
       from: "FestPag <naoresponda@festpag.com.br>",
       to: [order.customer_email],
-      subject: `Pagamento confirmado — ${eventTitle}`,
+      subject: isCourtesy ? `Sua cortesia para ${eventTitle}` : `Pagamento confirmado — ${eventTitle}`,
       html,
       ...(attachments.length > 0 ? { attachments } : {}),
     });

@@ -1,7 +1,8 @@
-// redeploy 2026-08-14T15:29:00Z — cortesia grava customer_cpf (check-in facial)
+// redeploy 2026-10-14T18:45:00Z — modo send_email: cortesia com e-mail e conta (Oktoberfest)
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
+import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +32,10 @@ interface Body {
   holder_phone?: string | null;
   holder_cpf?: string | null;
   note?: string | null;
+  // Cortesia para uma pessoa de verdade (lista do produtor): manda o e-mail com o
+  // QR para holder_email e liga o pedido à conta dela, como a venda manual faz.
+  // Ausente/false = comportamento de sempre (só gera; o botão do painel baixa o PDF).
+  send_email?: boolean;
 }
 
 // CPF é OPCIONAL de propósito: existe cortesia sem pessoa definida (bloco pra
@@ -58,6 +63,8 @@ function validate(b: any): { ok: true; v: Body } | { ok: false; msg: string } {
   if (typeof b.holder_email !== "string" || !/^\S+@\S+\.\S+$/.test(b.holder_email))
     return { ok: false, msg: "holder_email_invalid" };
   if (!parseHolderCpf(b.holder_cpf).ok) return { ok: false, msg: "holder_cpf_invalid" };
+  if (b.send_email !== undefined && typeof b.send_email !== "boolean")
+    return { ok: false, msg: "send_email_invalid" };
   return { ok: true, v: b as Body };
 }
 
@@ -149,12 +156,49 @@ serve(async (req) => {
     // Já validado em validate(); aqui só extraímos os dígitos.
     const cpfParsed = parseHolderCpf(body.holder_cpf);
     const holderCpf = cpfParsed.ok ? cpfParsed.cpf : null;
+    const sendEmail = body.send_email === true;
+
+    // Só no modo e-mail: se a pessoa já tem conta, o ingresso nasce nela (aparece em
+    // Meus Ingressos). Mesma regra da `producer-create-manual-sale`: conta pelo
+    // e-mail, CPF divergente NÃO liga; sem conta no e-mail, liga pelo CPF só se
+    // houver UMA conta com ele. Best-effort: falha aqui nunca derruba a cortesia.
+    let holderUserId: string | null = null;
+    if (sendEmail) {
+      try {
+        const { data: profRaw } = await admin
+          .from("profiles")
+          .select("id, cpf")
+          .eq("email", holderEmail)
+          .maybeSingle();
+        const prof = profRaw as { id: string; cpf: string | null } | null;
+        if (prof) {
+          if (!prof.cpf || prof.cpf === holderCpf) {
+            holderUserId = prof.id;
+          } else {
+            log("holder_link_cpf_mismatch", { profile_id: prof.id });
+          }
+        } else if (holderCpf) {
+          const { data: porCpfRaw } = await admin
+            .from("profiles")
+            .select("id")
+            .eq("cpf", holderCpf)
+            .limit(2);
+          const porCpf = porCpfRaw as Array<{ id: string }> | null;
+          if (porCpf && porCpf.length === 1) {
+            holderUserId = porCpf[0].id;
+            log("holder_link_by_cpf", { profile_id: holderUserId });
+          }
+        }
+      } catch (e) {
+        log("holder_link_lookup_failed", { error: String(e) });
+      }
+    }
 
     const { data: order, error: orderErr } = await admin
       .from("orders")
       .insert({
         event_id: body.event_id,
-        user_id: null,
+        user_id: holderUserId,
         customer_name: holderName,
         customer_email: holderEmail,
         customer_phone: holderPhone,
@@ -183,7 +227,7 @@ serve(async (req) => {
       holder_name: holderName,
       holder_email: holderEmail,
       holder_phone: holderPhone,
-      user_id: null,
+      user_id: holderUserId,
       status: "pending",
     }));
     const { error: tErr } = await admin.from("tickets").insert(ticketRows);
@@ -227,17 +271,37 @@ serve(async (req) => {
         // O CPF em si não vai para o log de auditoria (LGPD) — só se tem ou não,
         // que é o suficiente para saber se aquela cortesia passa no facial.
         has_cpf: Boolean(holderCpf),
+        send_email: sendEmail,
+        linked_user: Boolean(holderUserId),
       },
     });
+
+    // E-mail com o QR (só no modo e-mail). O helper nunca lança e é idempotente
+    // por pedido; a cortesia já está emitida, então falha de e-mail só é relatada.
+    let email: { sent: boolean; reason?: string } | null = null;
+    if (sendEmail) {
+      const r = await sendOrderConfirmationEmailSafe(admin, { orderId: order.id, source: "admin_courtesy" });
+      email = r.ok
+        ? { sent: true }
+        : { sent: false, reason: "skipped" in r && r.skipped ? r.reason : (r as { error?: string }).error ?? "erro" };
+    }
 
     log("ok", {
       order_id: order.id,
       qty: body.quantity,
       lot_id: body.lot_id,
       has_cpf: Boolean(holderCpf),
+      send_email: sendEmail,
+      email_sent: email?.sent ?? null,
     });
 
-    return json({ ok: true, order_id: order.id, tickets: ticketsOut, has_cpf: Boolean(holderCpf) });
+    return json({
+      ok: true,
+      order_id: order.id,
+      tickets: ticketsOut,
+      has_cpf: Boolean(holderCpf),
+      ...(sendEmail ? { email, linked_user: Boolean(holderUserId) } : {}),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log("error", { msg });
