@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { resolveFee } from "../_shared/eventFee.ts";
-import { encerrou } from "../_shared/loteAberto.ts";
+import { lotesAnteriores, nomeComSetor, porQueFechado } from "../_shared/loteAberto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     // 3) Lotes do evento — só ativos e não esgotados manualmente (filtro no DB), ordenados por name.
     const { data: lots, error } = await supabase
       .from('event_lots')
-      .select('id, name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, start_date, end_date')
+      .select('id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id')
       .eq('event_id', event_id)
       .eq('is_active', true)
       .eq('manually_sold_out', false)
@@ -60,14 +60,17 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 4) Regra "à venda no momento" — IDÊNTICA ao ColaboradorVenderModal / door-sale e à
-    //    reserva: dentro da data de fim e available = total - sold - reserved (clamp >= 0).
-    //    A data de fim vale desde 02/10/2026 (OS-106): antes o painel do produtor dizia
-    //    "Encerrado" e a maquininha seguia vendendo. Decisão do Gabriel: a data de fim
-    //    vale em todo lugar. A data de INÍCIO continua sem filtrar aqui, como sempre.
+    // 4) Regra "à venda no momento" — a MESMA do site (`porQueFechado`): data de fim,
+    //    hora de início do lote agendado e lote encadeado que só abre quando o anterior
+    //    esgota ou encerra. Decisão do Gabriel (14/10/2026, OS-228): totem e maquininha
+    //    mostram só o lote que está à venda agora, igual ao site. Antes só a data de fim
+    //    valia aqui (OS-106) e o totem do lançamento do Fogo & Fumaça mostraria os 8
+    //    lotes juntos, inclusive o último, mais caro. A reserva aplica a mesma regra.
+    //    available = total - sold - reserved (clamp >= 0).
     const agora = new Date();
+    const anteriores = await lotesAnteriores(supabase, lots || []);
     const formatted = (lots || [])
-      .filter((l: any) => !encerrou(l, agora))
+      .filter((l: any) => !porQueFechado(l, anteriores.get(l.starts_after_lot_id), agora))
       .map((l: any) => {
         const available = Math.max(
           0,
@@ -75,7 +78,9 @@ Deno.serve(async (req) => {
         );
         return {
           id: l.id,
-          name: l.name,
+          // Totem e maquininha mostram só o nome: com dois setores, "1º lote" aparecia
+          // duas vezes com preços diferentes. O setor vai na frente (OS-228).
+          name: nomeComSetor(l),
           price: l.price,
           original_price: l.original_price,
           total_quantity: l.total_quantity,
@@ -88,7 +93,8 @@ Deno.serve(async (req) => {
           available,
         };
       })
-      .filter((l: any) => l.available > 0);
+      .filter((l: any) => l.available > 0)
+      .sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR'));
 
     // 5) Taxa administrativa do evento (repasse), pros dois métodos — MESMA fonte
     //    (event_fee_overrides) do reserve e das edges online (fallback 10%). Aditivo:

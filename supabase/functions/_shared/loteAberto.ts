@@ -17,11 +17,10 @@
 //
 // Quem usa:
 //   - `porQueFechado` (a regra inteira): o carrinho do Marcel, PIX e cartão do
-//     site. As duas edges do Mercado Pago carregam a mesma regra escrita à mão.
-//   - `encerrou` (só a data de fim): a lista e a reserva da maquininha e do
-//     totem, e a venda da portaria. Ali a agenda de início e o encadeamento
-//     nunca valeram, e a decisão do Gabriel (02/10/2026) foi só a data de fim
-//     valer "em todo lugar". Não trocar por `porQueFechado` sem perguntar.
+//     site, e a lista e a reserva da maquininha e do totem (decisão do Gabriel,
+//     14/10/2026, OS-228: "igual ao site"). As duas edges do Mercado Pago
+//     carregam a mesma regra escrita à mão.
+//   - `encerrou` (só a data de fim): a venda da portaria.
 
 /** Campos de `event_lots` que a regra lê. */
 export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id';
@@ -88,6 +87,12 @@ export async function lotesAnteriores(client: any, lotes: LoteDaRegra[]): Promis
     .in('id', ids);
   for (const l of data ?? []) mapa.set(l.id, l);
   return mapa;
+}
+
+/** Nome do lote para quem só vê o nome (totem e maquininha): "Premium · 1º lote". */
+export function nomeComSetor(lote: { name: string; sector_name?: string | null }): string {
+  const setor = (lote.sector_name ?? '').trim();
+  return setor ? `${setor} · ${lote.name}` : lote.name;
 }
 
 /** A frase que o comprador (ou a equipe da portaria) lê quando o lote fechou. */

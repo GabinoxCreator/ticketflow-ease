@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
+import { nomeComSetor } from "../_shared/loteAberto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,10 +53,11 @@ async function loadIssuedTickets(supabase: any, orderId: string, eventId: string
     const lotIds = Array.from(new Set(tix.map((t) => t.lot_id).filter(Boolean))) as string[];
     const lotNameById = new Map<string, string>();
     if (lotIds.length > 0) {
-      const lotsRes = await supabase.from('event_lots').select('id, name').in('id', lotIds);
+      const lotsRes = await supabase.from('event_lots').select('id, name, sector_name').in('id', lotIds);
       if (lotsRes?.error) console.error('[CONFIRM] loadIssuedTickets lots error:', lotsRes.error);
-      for (const l of (lotsRes?.data || []) as Array<{ id: string; name: string | null }>) {
-        if (l.name != null) lotNameById.set(l.id, l.name);
+      // Setor na frente ("Premium · 1º lote", OS-228): o ingresso impresso tem que dizer o setor.
+      for (const l of (lotsRes?.data || []) as Array<{ id: string; name: string | null; sector_name: string | null }>) {
+        if (l.name != null) lotNameById.set(l.id, nomeComSetor({ name: l.name, sector_name: l.sector_name }));
       }
     }
 
