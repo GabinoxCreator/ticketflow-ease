@@ -134,7 +134,7 @@ export function isBeneficentEvent(
 }
 
 /**
- * Parecer jurídico exibido como PRIMEIRO item do accordion "Políticas do Evento"
+ * Parecer jurídico exibido no fim da página do evento (`EventPolicies`)
  * SOMENTE nos eventos beneficentes (guard isBeneficentEvent). Único ponto de
  * verdade do texto. `body` é texto puro com `\n` — renderizar com
  * whitespace-pre-line, NÃO reformatar.

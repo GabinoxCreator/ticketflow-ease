@@ -30,7 +30,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import { useEventPixel } from '@/hooks/useEventPixel';
-import festpagLogo from '@/assets/logo-festpag.png';
 import { LotCard } from '@/components/event/LotCard';
 import {
   LikeSignupInviteDialog,
@@ -41,6 +40,7 @@ import { getTicketLimitForEvent } from '@/data/eventTicketLimits';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
 import { EventPolicies } from '@/components/event/EventPolicies';
+import { ProdutorDoEvento } from '@/components/event/ProdutorDoEvento';
 import type { SummaryItem } from '@/components/event/EventOrderSummary';
 import { EventCartSheet } from '@/components/event/EventCartSheet';
 import { EventCartMiniBar } from '@/components/event/EventCartMiniBar';
@@ -790,33 +790,9 @@ const EventDetails = () => {
                 </motion.section>
               )}
 
-              {(() => {
-                const producer = (event as any).producer_profiles;
-                const brandName = producer?.brand_name;
-                const logoUrl = producer?.logo_url || festpagLogo;
-                if (!brandName) return null;
-                return (
-                  <motion.section
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="py-2"
-                  >
-                    <h3 className="font-display font-bold text-xl mb-4">Realização</h3>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl border border-border bg-card">
-                      <div className="h-14 w-14 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                        <img src={logoUrl} alt={brandName} className="h-full w-full object-cover" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{brandName}</p>
-                        <p className="text-sm text-muted-foreground">Produtora do evento</p>
-                      </div>
-                    </div>
-                  </motion.section>
-                );
-              })()}
+              <ProdutorDoEvento eventId={event.id} eventTitle={event.title} />
 
-              <EventPolicies beneficentPolicy={beneficentPolicy} />
+              {beneficentPolicy && <EventPolicies beneficentPolicy={beneficentPolicy} />}
             </div>
 
           </div>
