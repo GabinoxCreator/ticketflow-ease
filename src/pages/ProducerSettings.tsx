@@ -23,8 +23,14 @@ import {
   Trash2,
   ImageIcon,
   LineChart,
+  Link2,
+  Copy,
+  ExternalLink,
+  CheckCircle2,
+  Instagram,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import festpagLogo from '@/assets/logo-festpag.png';
@@ -38,6 +44,28 @@ import {
   type RespostaPin,
 } from '@/lib/pinRepasse';
 import { PinConfirmDialog } from '@/components/producer/PinConfirmDialog';
+
+// Mesma régua do banco (slug_de_texto): minúsculo, sem acento, sem espaço e sem pontuação.
+function normalizarSlug(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 60);
+}
+
+// Aceita "@perfil", "perfil" ou o link do Instagram; guarda só o nome do perfil.
+function limparInstagram(texto: string): string {
+  const semLink = texto.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '');
+  return semLink.split(/[/?#\s]/)[0].replace(/[^A-Za-z0-9._]/g, '').slice(0, 30);
+}
+
+const MENSAGEM_SLUG: Record<'curto' | 'reservado' | 'ocupado', string> = {
+  curto: 'O endereço precisa ter pelo menos 3 letras ou números.',
+  reservado: 'Esse endereço é usado pelo próprio site. Escolha outro.',
+  ocupado: 'Esse endereço já é de outra produtora. Escolha outro.',
+};
 
 export default function ProducerSettings() {
   const { profile, user, producerProfileId, userRole } = useAuth();
@@ -58,6 +86,16 @@ export default function ProducerSettings() {
   const [document, setDocument] = useState('');
   const [orgEmail, setOrgEmail] = useState('');
   const [orgPhone, setOrgPhone] = useState('');
+
+  // Endereço da página própria (OS-219): festpag.digital/<slug>. Nasce do nome
+  // da produtora no banco; aqui o produtor pode trocar. Vazio = volta ao automático.
+  const [slug, setSlug] = useState('');
+  const [slugSituacao, setSlugSituacao] = useState<'ok' | 'curto' | 'reservado' | 'ocupado' | null>(null);
+  // O que aparece na página: capa, texto "Sobre" e Instagram (decisão do Gabriel, 13/10).
+  const [capaUrl, setCapaUrl] = useState<string | null>(null);
+  const [sobre, setSobre] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const capaInputRef = useRef<HTMLInputElement>(null);
 
   // Tracking
   const [metaPixelId, setMetaPixelId] = useState('');
@@ -120,6 +158,10 @@ export default function ProducerSettings() {
       setDocument(producerProfile.document || '');
       setOrgEmail(producerProfile.email || '');
       setOrgPhone(producerProfile.phone || '');
+      setSlug(producerProfile.slug || '');
+      setCapaUrl((producerProfile as any).pagina_capa_url || null);
+      setSobre((producerProfile as any).pagina_sobre || '');
+      setInstagram((producerProfile as any).pagina_instagram || '');
       setMetaPixelId((producerProfile as any).meta_pixel_id || '');
       setTrackingEnabled(!!(producerProfile as any).tracking_enabled);
     }
@@ -133,6 +175,37 @@ export default function ProducerSettings() {
       .then(({ data }) => { if (!cancelado) setCapiConfigurado(data === true); });
     return () => { cancelado = true; };
   }, [effectiveProducerId]);
+
+  const slugSalvo = producerProfile?.slug || '';
+  const slugMudou = !!effectiveProducerId && slug !== slugSalvo;
+  const paginaMudou =
+    !!effectiveProducerId &&
+    ((capaUrl || null) !== ((producerProfile as any)?.pagina_capa_url || null) ||
+      (sobre.trim() || null) !== ((producerProfile as any)?.pagina_sobre || null) ||
+      (limparInstagram(instagram) || null) !== ((producerProfile as any)?.pagina_instagram || null));
+
+  // Pergunta ao banco se o endereço novo está livre, meio segundo depois de parar de digitar.
+  useEffect(() => {
+    if (!slugMudou || slug === '') { setSlugSituacao(null); return; }
+    let cancelado = false;
+    const t = setTimeout(() => {
+      supabase
+        .rpc('endereco_produtor_livre' as any, { _slug: slug, _producer_profile_id: effectiveProducerId } as any)
+        .then(({ data }) => { if (!cancelado) setSlugSituacao((data as any) ?? null); });
+    }, 500);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [slug, slugMudou, effectiveProducerId]);
+
+  const handleCapaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadImage(file);
+    if (url) {
+      setCapaUrl(url);
+      toast.success('Capa carregada! Lembre de salvar para confirmar.');
+    }
+    if (capaInputRef.current) capaInputRef.current.value = '';
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -161,6 +234,10 @@ export default function ProducerSettings() {
 
   const handleSaveAll = async () => {
     if (!user?.id) return;
+    if (slugMudou && slugSituacao && slugSituacao !== 'ok') {
+      toast.error(MENSAGEM_SLUG[slugSituacao]);
+      return;
+    }
     if (documentoMudou) {
       if (document.trim() !== '' && !documentoValido(document)) {
         toast.error('Número de CPF ou CNPJ inválido.');
@@ -219,6 +296,17 @@ export default function ProducerSettings() {
               phone: orgPhone || null,
               meta_pixel_id: metaPixelId.trim() || null,
               tracking_enabled: trackingEnabled,
+              // Só vai quando mudou: vazio faz o banco gerar de novo a partir do nome.
+              ...(slugMudou ? { slug: slug || null } : {}),
+              // Os campos da página só vão quando mudaram: quem não mexe neles
+              // salva igual a antes (inclusive se a migration ainda não subiu).
+              ...(paginaMudou
+                ? {
+                    pagina_capa_url: capaUrl,
+                    pagina_sobre: sobre.trim() || null,
+                    pagina_instagram: limparInstagram(instagram) || null,
+                  }
+                : {}),
               } as any)
               .eq('id', effectiveProducerId),
           ),
@@ -413,6 +501,141 @@ export default function ProducerSettings() {
                           <p className="text-xs text-muted-foreground">Produtora do evento</p>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Endereço da página própria (OS-219) */}
+                <div className="space-y-2">
+                  <Label htmlFor="slug" className="text-base font-semibold flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-primary" />
+                    Endereço da sua página
+                  </Label>
+                  <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                    <span className="flex items-center px-3 text-sm text-muted-foreground bg-muted border-r border-input select-none">
+                      festpag.digital/
+                    </span>
+                    <input
+                      id="slug"
+                      value={slug}
+                      onChange={(e) => setSlug(normalizarSlug(e.target.value))}
+                      placeholder="nomedasuaprodutora"
+                      className="flex-1 min-w-0 h-11 px-3 text-base bg-transparent outline-none"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                  {slugMudou ? (
+                    <p className={`text-xs ${slugSituacao && slugSituacao !== 'ok' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {slug === ''
+                        ? 'Vazio: ao salvar, o endereço volta a ser o nome da produtora.'
+                        : slugSituacao === 'ok'
+                          ? <span className="inline-flex items-center gap-1 text-emerald-600"><CheckCircle2 className="h-3 w-3" /> Endereço livre. Salve para valer.</span>
+                          : slugSituacao
+                            ? MENSAGEM_SLUG[slugSituacao]
+                            : 'Conferindo...'}
+                    </p>
+                  ) : slugSalvo ? (
+                    <div className="flex items-center gap-3 text-xs flex-wrap">
+                      <span className="text-muted-foreground">Todos os seus eventos à venda, num link só.</span>
+                      <a
+                        href={`/${slugSalvo}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                      >
+                        <ExternalLink className="h-3 w-3" /> Abrir minha página
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(`https://festpag.digital/${slugSalvo}`)
+                            .then(() => toast.success('Link copiado!'))
+                            .catch(() => toast.error('Não deu para copiar. Selecione o endereço e copie.'));
+                        }}
+                        className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                      >
+                        <Copy className="h-3 w-3" /> Copiar link
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* O que aparece na página (OS-219) */}
+                <div className="space-y-4 p-5 rounded-xl border border-border bg-card">
+                  <div>
+                    <p className="text-sm font-semibold">Sua página</p>
+                    <p className="text-xs text-muted-foreground">
+                      O que aparece em festpag.digital/{slugSalvo || slug || 'seuendereco'}. Tudo opcional.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Capa</Label>
+                    <input
+                      ref={capaInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleCapaUpload}
+                      className="hidden"
+                    />
+                    <div className="relative h-28 sm:h-36 rounded-xl overflow-hidden bg-gradient-to-br from-primary/30 via-primary/10 to-pink-500/20 border border-border">
+                      {capaUrl ? (
+                        <img src={capaUrl} alt="Capa da página" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center px-4 text-center text-xs text-muted-foreground">
+                          Sem capa, a página usa a arte do seu próximo evento.
+                        </div>
+                      )}
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <Loader2 className="h-6 w-6 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => capaInputRef.current?.click()} disabled={isUploading}>
+                        <Upload className="h-3 w-3 mr-1" />
+                        {capaUrl ? 'Trocar capa' : 'Enviar capa'}
+                      </Button>
+                      {capaUrl && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCapaUrl(null)} disabled={isUploading}>
+                          <Trash2 className="h-3 w-3 mr-1" /> Tirar
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Imagem deitada, de preferência 1600 x 500.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sobre">Sobre a produtora</Label>
+                    <Textarea
+                      id="sobre"
+                      value={sobre}
+                      onChange={(e) => setSobre(e.target.value.slice(0, 1000))}
+                      placeholder="Conte em poucas linhas quem vocês são e que tipo de evento fazem."
+                      rows={4}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">{sobre.length}/1000</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="instagram">Instagram</Label>
+                    <div className="flex items-stretch rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                      <span className="flex items-center px-3 text-sm text-muted-foreground bg-muted border-r border-input select-none">
+                        <Instagram className="h-4 w-4 mr-1.5" />@
+                      </span>
+                      <input
+                        id="instagram"
+                        value={instagram}
+                        onChange={(e) => setInstagram(limparInstagram(e.target.value))}
+                        placeholder="suaprodutora"
+                        className="flex-1 min-w-0 h-10 px-3 text-sm bg-transparent outline-none"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
                     </div>
                   </div>
                 </div>

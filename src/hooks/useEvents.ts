@@ -315,16 +315,8 @@ export function useEvent(idOrSlug: string | undefined) {
   });
 }
 
-export function usePublicEvents() {
-  return useQuery({
-    queryKey: ['public-events'],
-    queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
-      // Leitura pública (home): client sem sessão, não espera o refresh de token.
-      // cast `as any`: types.ts é auto-gerado e ainda não conhece `seat_map_public`
-      // nem `is_public` — sem ele o TS estoura em "type instantiation excessively deep".
-      const { data, error } = await (supabasePublic.from('events') as any)
-        .select(`
+// Colunas que a vitrine pública lê (home e página do produtor).
+const SELECT_VITRINE = `
           id, slug, title, description, short_description,
           date, time, end_date, end_time, venue, city, state, address, category, image_url,
           is_hot, status, event_type, fake_scarcity_enabled, fake_scarcity_percentage,
@@ -344,7 +336,18 @@ export function usePublicEvents() {
             end_date,
             starts_after_lot_id
           )
-        `)
+        `;
+
+export function usePublicEvents() {
+  return useQuery({
+    queryKey: ['public-events'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      // Leitura pública (home): client sem sessão, não espera o refresh de token.
+      // cast `as any`: types.ts é auto-gerado e ainda não conhece `seat_map_public`
+      // nem `is_public` — sem ele o TS estoura em "type instantiation excessively deep".
+      const { data, error } = await (supabasePublic.from('events') as any)
+        .select(SELECT_VITRINE)
         .eq('status', 'published')
         // Evento privado (is_public = false) não entra na vitrine: abre só por link direto.
         .eq('is_public', true)
@@ -354,6 +357,45 @@ export function usePublicEvents() {
       if (error) throw error;
       // cast: types.ts é auto-gerado e ainda não tem `seat_map_public`.
       return data as unknown as Event[];
+    },
+  });
+}
+
+// Página pública do produtor (OS-219, 13/10/2026): os eventos de UMA produtora.
+// À venda: a mesma regra da home (publicado, público, de hoje em diante).
+// Já aconteceram: publicados e públicos com data passada, os 12 mais recentes,
+// e quantos são ao todo (vira "N eventos realizados" no topo da página).
+export function usePublicEventsDoProdutor(producerProfileId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['public-events-produtor', producerProfileId],
+    enabled: !!producerProfileId,
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const [aVenda, passados] = await Promise.all([
+        (supabasePublic.from('events') as any)
+          .select(SELECT_VITRINE)
+          .eq('producer_profile_id', producerProfileId)
+          .eq('status', 'published')
+          .eq('is_public', true)
+          .gte('date', today)
+          .order('date', { ascending: true }),
+        (supabasePublic.from('events') as any)
+          .select('id, slug, title, date, time, venue, city, state, image_url', { count: 'exact' })
+          .eq('producer_profile_id', producerProfileId)
+          .eq('status', 'published')
+          .eq('is_public', true)
+          .lt('date', today)
+          .order('date', { ascending: false })
+          .limit(12),
+      ]);
+
+      if (aVenda.error) throw aVenda.error;
+      // A lista do passado é enfeite: se falhar, a página segue com o que está à venda.
+      return {
+        aVenda: (aVenda.data ?? []) as unknown as Event[],
+        passados: (passados.error ? [] : passados.data ?? []) as Pick<Event, 'id' | 'slug' | 'title' | 'date' | 'time' | 'venue' | 'city' | 'state' | 'image_url'>[],
+        totalRealizados: passados.error ? 0 : (passados.count ?? 0),
+      };
     },
   });
 }

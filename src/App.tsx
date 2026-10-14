@@ -41,6 +41,7 @@ import CentralDeAjuda from "./pages/CentralDeAjuda";
 import AreaDoProdutor from "./pages/AreaDoProdutor";
 import ProducerAuth from "./pages/ProducerAuth";
 import ProducerSettings from "./pages/ProducerSettings";
+import ProdutorPublicoPage from "./pages/ProdutorPublico";
 import SeatTypes from "./pages/SeatTypes";
 import ProducerProducts from "./pages/ProducerProducts";
 import Locais from "./pages/Locais";
@@ -182,6 +183,9 @@ const App = () => (
                 <Route path="/lista/:slug" element={<GuestListPublicForm />} />
                 
                 
+                {/* Página própria do produtor (OS-219): festpag.digital/<endereço>. Fica por
+                  * último: toda rota acima ganha dela. Endereço sem dono cai no 404. */}
+                <Route path="/:slugProdutor" element={<ProdutorPublicoPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </div>
