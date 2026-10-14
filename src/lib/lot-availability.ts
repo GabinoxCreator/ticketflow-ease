@@ -34,7 +34,9 @@ export function isLotEnded(lot: LotForAvailability, now: Date = new Date()): boo
  * - está ativo;
  * - a data de fim, se houver, ainda não passou (é o "Encerrado" do painel do produtor);
  * - se agendado ('scheduled'), a data/hora de início já passou;
- * - se encadeado ('after_lot'), o lote anterior já esgotou.
+ * - se encadeado ('after_lot'), o lote anterior já esgotou OU já encerrou pela data
+ *   de fim (OS-227, 14/10/2026: o que ocorrer primeiro; antes só o esgotado abria, e
+ *   um anterior que encerrava pela data deixava o seguinte fechado para sempre).
  * Lote 'scheduled' sem data se comporta como 'now' (não trava venda por dado incompleto).
  */
 export function isLotOpenForSale(
@@ -52,7 +54,7 @@ export function isLotOpenForSale(
 
   if (lot.sales_start_type === 'after_lot' && lot.starts_after_lot_id) {
     const previous = allLots.find((l) => l.id === lot.starts_after_lot_id);
-    if (previous && previous.is_active && !isLotSoldOut(previous)) return false;
+    if (previous && previous.is_active && !isLotSoldOut(previous) && !isLotEnded(previous, now)) return false;
   }
 
   return true;

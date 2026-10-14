@@ -11,7 +11,8 @@
 //     do produtor dizia "Encerrado" e o site, a maquininha e o totem seguiam
 //     vendendo, porque ninguém lia a data de fim);
 //   - se agendado, a data de início já chegou;
-//   - se encadeado, o lote anterior já esgotou.
+//   - se encadeado, o lote anterior já esgotou OU já encerrou pela data de fim
+//     (OS-227, 14/10/2026: o que ocorrer primeiro).
 // Esgotado por quantidade NÃO entra aqui: quem garante é a reserva de estoque.
 //
 // Quem usa:
@@ -41,6 +42,7 @@ export interface LoteAnterior {
   sold_quantity: number;
   reserved_quantity?: number | null;
   manually_sold_out?: boolean | null;
+  end_date?: string | null;
 }
 
 const esgotado = (l: LoteAnterior) =>
@@ -65,7 +67,7 @@ export function porQueFechado(
   // Anterior que não veio (apagado, ou leitura que falhou) não trava: é o que a
   // vitrine faz, e as edges do Mercado Pago sempre fizeram.
   if (lote.sales_start_type === 'after_lot' && lote.starts_after_lot_id &&
-      anterior && anterior.is_active && !esgotado(anterior)) {
+      anterior && anterior.is_active && !esgotado(anterior) && !encerrou(anterior, agora)) {
     return 'ainda_nao_abriu';
   }
   return null;
@@ -82,7 +84,7 @@ export async function lotesAnteriores(client: any, lotes: LoteDaRegra[]): Promis
   if (ids.length === 0) return mapa;
   const { data } = await client
     .from('event_lots')
-    .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out')
+    .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out, end_date')
     .in('id', ids);
   for (const l of data ?? []) mapa.set(l.id, l);
   return mapa;

@@ -731,7 +731,7 @@ export default function CriarEvento() {
                       {[
                         { val: 'now', label: 'Publicar agora' },
                         { val: 'scheduled', label: 'Agendar início' },
-                        ...(index > 0 ? [{ val: 'after_lot', label: 'Após encerrar ingresso' }] : []),
+                        ...(index > 0 ? [{ val: 'after_lot', label: 'Quando outro esgotar ou encerrar' }] : []),
                       ].map((opt) => (
                         <button
                           key={opt.val}
@@ -777,7 +777,7 @@ export default function CriarEvento() {
                   {/* After lot */}
                   {lot.sales_start_type === 'after_lot' && index > 0 && (
                     <div className="space-y-2">
-                      <Label className="text-xs font-medium text-muted-foreground">Iniciar após encerrar:</Label>
+                      <Label className="text-xs font-medium text-muted-foreground">Abre quando este esgotar ou encerrar:</Label>
                       <div className="flex flex-wrap gap-1.5">
                         {lots.filter((l) => l.id !== lot.id).map((l) => (
                           <button
