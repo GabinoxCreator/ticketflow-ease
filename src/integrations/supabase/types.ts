@@ -4002,6 +4002,15 @@ export type Database = {
           producer_value: number
         }[]
       }
+      produtor_do_evento: {
+        Args: { _event_id: string }
+        Returns: {
+          brand_name: string
+          email: string
+          logo_url: string
+          phone: string
+        }[]
+      }
       produtor_publico: {
         Args: { _slug: string }
         Returns: {
