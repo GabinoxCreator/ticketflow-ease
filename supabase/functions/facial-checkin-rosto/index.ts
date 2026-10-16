@@ -23,9 +23,10 @@ import { assinaturaDaFoto, bytesDaFoto, MODELO_ROSTO } from "../_shared/reconhec
 //      que mostra só o primeiro nome na tela e pede o "Sou eu". Quem queima o
 //      ingresso continua sendo a `facial-checkin`, pelo CPF, no 2º passo.
 //
-// A assinatura da foto do cadastro é calculada aqui na primeira vez que ela
-// é precisa e guardada em `facial_descriptors` (128 números, nunca a
-// imagem). As fotos do cadastro não passam por aqui de novo depois disso.
+// A assinatura de cada foto do cadastro é preparada ANTES, pelo modo
+// `preparar` (uma foto por chamada, tarefa do banco a cada 2 minutos), e
+// guardada em `facial_descriptors` (128 números, nunca a imagem). Na porta só
+// se compara. Calcular várias fotos na hora passava do limite da função.
 // A foto que o totem manda vive só nesta chamada: não vai para banco,
 // storage nem log.
 //
@@ -57,10 +58,6 @@ const FACE_MAX_DISTANCE = 0.45;
 // Outra pessoa quase tão perto quanto a melhor = não dá para saber quem é.
 const AMBIGUITY_MARGIN = 0.05;
 
-// Tempo máximo gasto calculando assinaturas de fotos do cadastro que ainda
-// não tinham (a primeira pessoa da noite paga esse custo; as seguintes não).
-// O que não couber fica para a próxima chamada.
-const ORCAMENTO_INDEXAR_MS = 9000;
 
 type Candidato = {
   profile_id: string;
@@ -91,11 +88,76 @@ function primeiroNome(nome: string | null): string {
   return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : "";
 }
 
+// deno-lint-ignore no-explicit-any
+type Supa = any;
+
+/** Prepara a assinatura de UMA foto do cadastro facial que ainda não tem. */
+async function prepararUma(supabase: Supa): Promise<Response> {
+  const t0 = Date.now();
+  const { data, error } = await supabase.rpc("checkin_rostos_a_preparar", { _modelo: MODELO_ROSTO, _limite: 1 });
+  if (error) {
+    log("prepare list failed", { code: error.code });
+    return json({ ok: false, reason: "lookup_failed" }, 503);
+  }
+  const alvo = ((data ?? []) as { profile_id: string; photo_path: string; pendentes: number }[])[0];
+  if (!alvo) return json({ ok: true, preparadas: 0, pendentes: 0 });
+
+  const falhou = async (motivo: string) => {
+    await supabase.from("facial_descriptor_falhas").upsert({
+      profile_id: alvo.profile_id,
+      photo_path: alvo.photo_path,
+      motivo,
+      created_at: new Date().toISOString(),
+    });
+    log("prepare failed", { motivo, ms: Date.now() - t0 });
+    return json({ ok: true, preparadas: 0, falhou: motivo, pendentes: Number(alvo.pendentes) - 1 });
+  };
+
+  const { data: foto, error: dlErr } = await supabase.storage.from(BUCKET).download(alvo.photo_path);
+  if (dlErr || !foto) return await falhou("foto_nao_baixou");
+
+  const assinatura = await assinaturaDaFoto(new Uint8Array(await foto.arrayBuffer()));
+  if (!assinatura.ok) {
+    // Motor fora do ar não é culpa da foto: não marca falha, tenta na próxima.
+    if (assinatura.reason === "engine_failed") return json({ ok: false, reason: "search_failed" }, 502);
+    return await falhou(assinatura.reason);
+  }
+
+  const { error: upErr } = await supabase.from("facial_descriptors").upsert({
+    profile_id: alvo.profile_id,
+    photo_path: alvo.photo_path,
+    modelo: MODELO_ROSTO,
+    descritor: assinatura.descritor,
+    created_at: new Date().toISOString(),
+  });
+  if (upErr) {
+    log("descriptor save failed", { code: upErr.code });
+    return json({ ok: false, reason: "save_failed" }, 500);
+  }
+  log("prepared", { ms: Date.now() - t0, pendentes: Number(alvo.pendentes) - 1 });
+  return json({ ok: true, preparadas: 1, pendentes: Number(alvo.pendentes) - 1, ms: Date.now() - t0 });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  // ---------- 1. Auth (fail-closed) ----------
+  // ---------- 1. Entrada ----------
+  let body: { image_base64?: unknown; event_id?: unknown; preparar?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "invalid_body" }, 400);
+  }
+
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  // ---------- modo preparar: UMA foto do cadastro vira assinatura ----------
+  // Chamado pela tarefa do banco a cada 2 minutos. Não recebe nem devolve
+  // nada pessoal (só contagens), por isso não pede chave.
+  if (body.preparar === true) return await prepararUma(supabase);
+
+  // ---------- 2. Auth (fail-closed) ----------
   const chave = Deno.env.get("TOTEM_CHECKIN_KEY");
   if (!chave) {
     console.error("[FACIAL-CHECKIN-ROSTO] TOTEM_CHECKIN_KEY ausente, recusando");
@@ -103,13 +165,6 @@ Deno.serve(async (req) => {
   }
   if (!secretMatches(req.headers.get("x-api-key"), chave)) return json({ error: "unauthorized" }, 401);
 
-  // ---------- 2. Entrada ----------
-  let body: { image_base64?: unknown; event_id?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "invalid_body" }, 400);
-  }
   const bytes = typeof body.image_base64 === "string" ? bytesDaFoto(body.image_base64) : null;
   if (!bytes) return json({ ok: false, reason: "invalid_image" }, 400);
 
@@ -122,7 +177,6 @@ Deno.serve(async (req) => {
   }
 
   const t0 = Date.now();
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // ---------- 3. O rosto da foto do totem ----------
   const capturado = await assinaturaDaFoto(bytes);
@@ -146,34 +200,9 @@ Deno.serve(async (req) => {
     descritor: c.descritor ? c.descritor.map(Number) : null,
   }));
 
-  // ---------- 5. Assinatura das fotos do cadastro que ainda não tinham ----------
-  let indexados = 0;
-  let semRosto = 0;
-  for (const c of candidatos) {
-    if (c.descritor) continue;
-    if (Date.now() - t0 > ORCAMENTO_INDEXAR_MS) break;
-    const { data: foto, error: dlErr } = await supabase.storage.from(BUCKET).download(c.photo_path);
-    if (dlErr || !foto) {
-      log("photo download failed", { code: (dlErr as { statusCode?: string } | null)?.statusCode ?? null });
-      continue;
-    }
-    const assinatura = await assinaturaDaFoto(new Uint8Array(await foto.arrayBuffer()));
-    if (!assinatura.ok) {
-      if (assinatura.reason === "engine_failed") break;
-      semRosto++;
-      continue;
-    }
-    c.descritor = assinatura.descritor;
-    indexados++;
-    const { error: upErr } = await supabase.from("facial_descriptors").upsert({
-      profile_id: c.profile_id,
-      photo_path: c.photo_path,
-      modelo: MODELO_ROSTO,
-      descritor: assinatura.descritor,
-      created_at: new Date().toISOString(),
-    });
-    if (upErr) log("descriptor save failed", { code: upErr.code });
-  }
+  // As fotos do cadastro sem assinatura ficam de fora desta vez: quem prepara
+  // é o modo `preparar` (uma por chamada). Calcular várias aqui passava do
+  // limite de processamento da função (16/10, primeiro teste no totem).
   const pendentes = candidatos.filter((c) => !c.descritor).length;
 
   // ---------- 6. Comparar ----------
@@ -185,8 +214,6 @@ Deno.serve(async (req) => {
   // Log de calibração: só números, nunca nome nem CPF.
   log("match", {
     candidatos: candidatos.length,
-    indexados_agora: indexados,
-    fotos_sem_rosto: semRosto,
     pendentes,
     melhores: ranking.slice(0, 3).map((r) => Number(r.d.toFixed(3))),
     ms: Date.now() - t0,
