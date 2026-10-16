@@ -6,14 +6,33 @@
  *
  * Quem lê é o Gabriel (decisão dele, 06/10: só ele, por WhatsApp e push).
  * Regra de material da casa: sem travessão.
+ *
+ * OS-240 (16/10/2026): em 15/10, das 20h17 às 21h24, a API do Marcel parou no
+ * lançamento do Fogo & Fumaça e uma compradora tentou 4 vezes sem conseguir. O
+ * push chegou ao Gabriel às 20h35, mas dizia "Relógio do PIX parou", e ele não
+ * entendeu que era venda parada. Quando o motivo é o Marcel não responder, o
+ * aviso agora diz o que isso é para o dono: PAGAMENTO DO SITE FORA, ninguém
+ * consegue pagar, e quantas compras já ficaram sem pagamento e em qual evento.
  */
 
 export type TipoAlarme = 'caiu' | 'ainda' | 'voltou';
+
+/** Compras do site que ficaram sem pagamento durante a queda (só eventos do Marcel). */
+export interface ComprasPerdidas {
+  tentativas: number;
+  /** Pessoas diferentes (quem tenta de novo conta uma vez). */
+  pessoas: number;
+  /** Títulos dos eventos, do que teve mais tentativas para o que teve menos. */
+  eventos: string[];
+}
 
 export interface Alarme {
   id: string;
   tipo: TipoAlarme;
   created_at: string;
+  /** Motivo do 'caiu' que abriu o incidente: no 'voltou' o retrato já está saudável. */
+  motivo_incidente?: string | null;
+  compras?: ComprasPerdidas | null;
   // retrato de `relogio_do_pix_saude` + datas do incidente (ver a migration)
   dados: {
     ultima_boa_em?: string | null;
@@ -83,8 +102,75 @@ function haQuantoTempo(a: Alarme): string {
   return `mais de ${duracao(base)}`;
 }
 
+/** É o Marcel que não responde? Então não é só o PIX: ninguém paga no site. */
+export function pagamentoFora(a: Alarme): boolean {
+  return (a.dados.motivo ?? a.motivo_incidente) === 'marcel_sem_resposta';
+}
+
+/** "1 tentativa de compra" · "4 tentativas de compra (1 pessoa)". */
+function compras(c: ComprasPerdidas): string {
+  const t = c.tentativas === 1 ? '1 tentativa de compra' : `${c.tentativas} tentativas de compra`;
+  if (c.tentativas === 1 || c.pessoas <= 0) return t;
+  return `${t} (${c.pessoas === 1 ? '1 pessoa' : `${c.pessoas} pessoas`})`;
+}
+
+/** "Fogo & Fumaça Festival" · "Fogo e Rodeo" · "Fogo, Rodeo e mais 2 eventos". */
+function ondeFoi(c: ComprasPerdidas): string {
+  const mostrar = c.eventos.slice(0, 2);
+  const resto = c.eventos.length - mostrar.length;
+  if (resto <= 0) return mostrar.join(' e ');
+  return `${mostrar.join(', ')} e mais ${resto === 1 ? '1 evento' : `${resto} eventos`}`;
+}
+
+/** "4 tentativas de compra (1 pessoa) já ficaram sem pagamento: Fogo & Fumaça Festival.", ou null. */
+function linhaCompras(a: Alarme, ja: boolean): string | null {
+  const c = a.compras;
+  if (!c || c.tentativas <= 0) return null;
+  const verbo = c.tentativas === 1 ? 'ficou' : 'ficaram';
+  return `${compras(c)} ${ja ? 'já ' : ''}${verbo} sem pagamento: ${ondeFoi(c)}.`;
+}
+
+/** O aviso de quando o Marcel não responde: venda parada, não "relógio". */
+function whatsAppPagamentoFora(a: Alarme): string {
+  const l: string[] = [];
+  if (a.tipo === 'caiu') {
+    l.push('🚨 *PAGAMENTO DO SITE FORA* (ingressos)');
+    l.push('');
+    l.push(`Há ${haQuantoTempo(a)} o Marcel não responde. Ninguém consegue pagar ingresso no site, nem PIX nem cartão, nos eventos que vendem pelo Marcel.`);
+    const c = linhaCompras(a, true);
+    if (c) l.push(c);
+    l.push('');
+    l.push('👉 Chame o Marcel. Quando voltar, eu aviso aqui.');
+    if (a.dados.ultima_boa_em) l.push(`Último pagamento respondido: ${quandoBR(a.dados.ultima_boa_em)}.`);
+  } else if (a.tipo === 'ainda') {
+    l.push('⏰ *PAGAMENTO DO SITE CONTINUA FORA* (ingressos)');
+    l.push('');
+    l.push(`O Marcel não responde há ${haQuantoTempo(a)}. Ninguém consegue pagar ingresso no site.`);
+    const c = linhaCompras(a, true);
+    if (c) l.push(c);
+    l.push('');
+    l.push('👉 Chame o Marcel.');
+  } else {
+    l.push('✅ *PAGAMENTO DO SITE VOLTOU* (ingressos)');
+    l.push('');
+    const periodo = a.dados.incidente_desde
+      ? `de ${quandoBR(a.dados.incidente_desde)} a ${quandoBR(a.created_at)}`
+      : `voltou em ${quandoBR(a.created_at)}`;
+    l.push(`Ficou ${haQuantoTempo(a)} fora (${periodo}).`);
+    const c = linhaCompras(a, false);
+    if (c) {
+      l.push(c);
+      l.push('Quem tentou e não conseguiu pode ser chamado: peça num chat a lista de quem tentou.');
+    } else {
+      l.push('Ninguém tentou comprar nesse tempo.');
+    }
+  }
+  return l.join('\n');
+}
+
 /** A mensagem do WhatsApp. Entendida na notificação, sem abrir nada. */
 export function montarWhatsApp(a: Alarme): string {
+  if (pagamentoFora(a)) return whatsAppPagamentoFora(a);
   const l: string[] = [];
   if (a.tipo === 'caiu') {
     l.push('🚨 *RELÓGIO DO PIX PAROU* (site de ingressos)');
@@ -118,6 +204,20 @@ export function montarWhatsApp(a: Alarme): string {
 
 /** O push e o sino da gestão: título curto, corpo de uma ou duas frases. */
 export function montarPush(a: Alarme): { titulo: string; mensagem: string } {
+  if (pagamentoFora(a)) {
+    if (a.tipo === 'caiu' || a.tipo === 'ainda') {
+      const c = linhaCompras(a, true);
+      return {
+        titulo: `🚨 Pagamento do site fora há ${haQuantoTempo(a)}`,
+        mensagem: `O Marcel não responde: ninguém consegue pagar ingresso no site (PIX e cartão).${c ? ` ${c}` : ''} Chame o Marcel.`,
+      };
+    }
+    const c = linhaCompras(a, false);
+    return {
+      titulo: `Pagamento do site voltou (ficou ${haQuantoTempo(a)} fora)`,
+      mensagem: c ?? 'Ninguém tentou comprar nesse tempo.',
+    };
+  }
   if (a.tipo === 'caiu') {
     return {
       titulo: `Relógio do PIX parou há ${haQuantoTempo(a)}`,

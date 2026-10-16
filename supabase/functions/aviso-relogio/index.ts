@@ -27,7 +27,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { carregarConfigWhatsApp, enviarTextoWhatsApp, normalizarNumeroBr, mascararNumero } from '../_shared/whatsapp.ts';
 import { avisarGestao } from '../_shared/avisarGestao.ts';
-import { type Alarme, montarWhatsApp, montarPush } from './texto.ts';
+import { type Alarme, type ComprasPerdidas, montarWhatsApp, montarPush, pagamentoFora } from './texto.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,12 +52,57 @@ async function destinosWhatsApp(admin: any): Promise<string[]> {
   return bruto.split(',').map((n) => normalizarNumeroBr(n)).filter((n): n is string => !!n);
 }
 
+/**
+ * Compras do site que ficaram sem pagamento entre `desde` e `ate`, só nos eventos
+ * que cobram pelo Marcel (OS-240). Pedido não pago no meio da queda é quase
+ * sempre alguém que tentou e não conseguiu. Falha aqui não segura o aviso.
+ */
+// deno-lint-ignore no-explicit-any
+async function comprasPerdidas(admin: any, desde: string, ate: string): Promise<ComprasPerdidas | null> {
+  try {
+    const { data: pedidos, error } = await admin
+      .from('orders')
+      .select('event_id, customer_email, customer_phone, user_id')
+      .eq('sale_origin', 'online')
+      .neq('status', 'paid')
+      .gt('total_amount', 0)
+      .gte('created_at', desde)
+      .lte('created_at', ate)
+      .limit(1000);
+    if (error) throw error;
+    if (!pedidos?.length) return { tentativas: 0, pessoas: 0, eventos: [] };
+
+    const ids = [...new Set(pedidos.map((p: { event_id: string }) => p.event_id))];
+    const { data: eventos, error: eEv } = await admin
+      .from('events').select('id, title, payment_provider').in('id', ids);
+    if (eEv) throw eEv;
+    const doMarcel = new Map<string, string>();
+    // deno-lint-ignore no-explicit-any
+    for (const e of eventos ?? []) if ((e as any).payment_provider === 'marcel') doMarcel.set((e as any).id, (e as any).title);
+
+    // deno-lint-ignore no-explicit-any
+    const perdidos = pedidos.filter((p: any) => doMarcel.has(p.event_id));
+    const porEvento = new Map<string, number>();
+    const pessoas = new Set<string>();
+    // deno-lint-ignore no-explicit-any
+    (perdidos as any[]).forEach((p, i) => {
+      porEvento.set(p.event_id, (porEvento.get(p.event_id) ?? 0) + 1);
+      pessoas.add(String(p.user_id ?? p.customer_email ?? p.customer_phone ?? `pedido-${i}`).toLowerCase());
+    });
+    const ordem = [...porEvento.entries()].sort((a, b) => b[1] - a[1]);
+    return { tentativas: perdidos.length, pessoas: pessoas.size, eventos: ordem.map(([id]) => doMarcel.get(id)!) };
+  } catch (e) {
+    log('não consegui contar as compras perdidas (aviso segue sem elas)', { msg: e instanceof Error ? e.message : String(e) });
+    return null;
+  }
+}
+
 /** Manda o alarme pelos canais que ainda não saíram e anota o resultado. */
 // deno-lint-ignore no-explicit-any
 async function avisar(admin: any, alarmeId: string) {
   const { data: linha, error } = await admin
     .from('relogio_alarmes')
-    .select('id, tipo, created_at, dados, whatsapp_enviado_em, gestao_enviado_em')
+    .select('id, incidente_id, tipo, created_at, dados, whatsapp_enviado_em, gestao_enviado_em')
     .eq('id', alarmeId)
     .maybeSingle();
   if (error || !linha) {
@@ -66,6 +111,24 @@ async function avisar(admin: any, alarmeId: string) {
   }
 
   const alarme: Alarme = { id: linha.id, tipo: linha.tipo, created_at: linha.created_at, dados: linha.dados ?? {} };
+
+  // OS-240: no 'ainda' e no 'voltou', o motivo vem do 'caiu' que abriu o incidente.
+  let abertura: { created_at: string; dados: Record<string, unknown> } | null = null;
+  if (linha.incidente_id && linha.incidente_id !== linha.id) {
+    const { data } = await admin
+      .from('relogio_alarmes').select('created_at, dados').eq('id', linha.incidente_id).maybeSingle();
+    abertura = data ?? null;
+    alarme.motivo_incidente = (abertura?.dados?.motivo as string | null | undefined) ?? null;
+  }
+
+  // Quando é o Marcel fora, contar quem tentou comprar desde a última resposta boa.
+  if (pagamentoFora(alarme)) {
+    const desde = (alarme.tipo === 'caiu' ? alarme.dados.ultima_boa_em : alarme.dados.incidente_desde)
+      ?? (abertura?.dados?.ultima_boa_em as string | undefined)
+      ?? abertura?.created_at
+      ?? linha.created_at;
+    alarme.compras = await comprasPerdidas(admin, desde, linha.created_at);
+  }
   const patch: Record<string, unknown> = {};
   const erros: string[] = [];
 
