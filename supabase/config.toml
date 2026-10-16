@@ -166,6 +166,9 @@ verify_jwt = false
 [functions.facial-checkin]
 verify_jwt = false
 
+[functions.facial-checkin-rosto]
+verify_jwt = false
+
 # Consulta da catraca do Marcel (OS-176, 07/10/2026): só leitura, lista por evento
 # quem tem ingresso, quantos e se tem facial. Servidor do Marcel, sem sessão, daí
 # verify_jwt=false; autentica pelo x-api-key == MARCEL_CHECKIN_KEY (fail-closed).
