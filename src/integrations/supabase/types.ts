@@ -1490,6 +1490,38 @@ export type Database = {
           },
         ]
       }
+      facial_descriptors: {
+        Row: {
+          created_at: string
+          descritor: number[]
+          modelo: string
+          photo_path: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          descritor: number[]
+          modelo: string
+          photo_path: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          descritor?: number[]
+          modelo?: string
+          photo_path?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facial_descriptors_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facial_links: {
         Row: {
           canal: string
@@ -3653,6 +3685,16 @@ export type Database = {
         Returns: {
           allowed: boolean
           retry_after_seconds: number
+        }[]
+      }
+      checkin_rostos_candidatos: {
+        Args: { _event_id?: string; _modelo: string }
+        Returns: {
+          cpf: string
+          descritor: number[]
+          nome: string
+          photo_path: string
+          profile_id: string
         }[]
       }
       claim_my_anonymous_likes: {
