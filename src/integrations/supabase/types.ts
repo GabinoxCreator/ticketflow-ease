@@ -1490,6 +1490,35 @@ export type Database = {
           },
         ]
       }
+      facial_descriptor_falhas: {
+        Row: {
+          created_at: string
+          motivo: string
+          photo_path: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          motivo: string
+          photo_path: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          motivo?: string
+          photo_path?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facial_descriptor_falhas_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facial_descriptors: {
         Row: {
           created_at: string
@@ -3685,6 +3714,14 @@ export type Database = {
         Returns: {
           allowed: boolean
           retry_after_seconds: number
+        }[]
+      }
+      checkin_rostos_a_preparar: {
+        Args: { _limite?: number; _modelo: string }
+        Returns: {
+          pendentes: number
+          photo_path: string
+          profile_id: string
         }[]
       }
       checkin_rostos_candidatos: {
