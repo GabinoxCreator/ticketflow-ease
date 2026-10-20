@@ -59,7 +59,7 @@ import {
   type Canal, type ContaResumo, type DadosCadastro, type RespostaEnvio,
 } from '@/lib/authV2';
 import {
-  Eye, EyeOff, Mail, Lock, User, CreditCard, Phone, MessageCircle,
+  Eye, EyeOff, Mail, Lock, User, CreditCard, Phone,
   Loader2, ArrowLeft, ArrowRight, ShieldCheck, Clock, LogIn,
 } from 'lucide-react';
 
@@ -80,34 +80,33 @@ export interface FluxoContaProps {
   abaInicial?: AbaConta;
 }
 
+/*
+ * ── Só e-mail (OS-285, decisão do Gabriel, 20/10/2026) ───────────────────────
+ * O código ia por WhatsApp ou e-mail (pedido da Porcada do Amor). O WhatsApp da
+ * FestPag caiu em 10/10, nenhum código saiu por ele desde então e 6 em 10
+ * contas novas não tinham e-mail: a pessoa digitava a senha, o código não
+ * chegava e a tela voltava para o Entrar. Voltou ao normal: o código vai SÓ
+ * por e-mail. O WhatsApp continua como campo do cadastro (vai para o perfil,
+ * sem confirmação). Conta antiga sem e-mail ganha um na hora de entrar: a
+ * etapa 'entrar-email' pede o e-mail, o código vai para ele e, confirmado, o
+ * servidor grava o e-mail na conta.
+ */
 type Etapa =
   // entrar
-  | 'entrar' | 'entrar-codigo' | 'entrar-senha-nova'
+  | 'entrar' | 'entrar-email' | 'entrar-codigo' | 'entrar-senha-nova'
   // criar conta
-  | 'cpf' | 'canal' | 'contato' | 'cad-codigo' | 'cad-senha' | 'facial' | 'facial-camera';
+  | 'cpf' | 'contato' | 'cad-codigo' | 'cad-senha' | 'facial' | 'facial-camera';
 
 const ETAPAS_CADASTRO: Partial<Record<Etapa, { n: number; nome: string }>> = {
   'cpf': { n: 1, nome: 'Quem é você' },
-  'canal': { n: 2, nome: 'Onde falamos com você' },
-  'contato': { n: 3, nome: 'Confirmação' },
-  'cad-codigo': { n: 3, nome: 'Confirmação' },
-  'cad-senha': { n: 4, nome: 'Sua senha' },
-  'facial': { n: 5, nome: 'Entrada pelo rosto' },
+  'contato': { n: 2, nome: 'Seu contato' },
+  'cad-codigo': { n: 2, nome: 'Seu contato' },
+  'cad-senha': { n: 3, nome: 'Sua senha' },
+  'facial': { n: 4, nome: 'Entrada pelo rosto' },
 };
-const TOTAL_ETAPAS = 5;
+const TOTAL_ETAPAS = 4;
 
-type OpcaoDeCanal = { conta: ContaResumo; canal: Canal; mascarado: string };
-
-/**
- * O WhatsApp não mandou o código e o servidor disse que a conta tem e-mail
- * (`podeTentarEmail`): devolve o e-mail DAQUELA conta, para o código ir por lá.
- * Conta só com WhatsApp devolve `undefined` e a tela mostra o erro, como antes.
- */
-const emailDaMesmaConta = (e: unknown, lista: OpcaoDeCanal[], indice: number) => {
-  if (!(e instanceof ErroAuthV2)) return undefined;
-  if (!(e.erro.startsWith('whatsapp') || e.erro === 'numero_sem_whatsapp') || !e.extra?.podeTentarEmail) return undefined;
-  return lista.find((o) => o.canal === 'email' && o.conta.indice === indice);
-};
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const formatPhone = (value: string) => {
   const n = value.replace(/\D/g, '').slice(0, 11);
@@ -170,21 +169,21 @@ const CampoSenha = ({ valor, mudou, dica, autoComplete, mostrar, alternarMostrar
 /* Mesma regra do `CampoSenha`: fora do componente, senão o campo do código
  * remonta a cada dígito e o `autocomplete="one-time-code"` do celular não pega. */
 const TelaDoCodigo = ({
-  aoConfirmar, rotulo, ehWhats, desafio, codigo, setCodigo, ocupado, cooldown,
-  reenviar, podeTrocarParaEmail, trocarParaEmail,
+  aoConfirmar, rotulo, desafio, codigo, setCodigo, ocupado, cooldown, reenviar,
 }: {
-  aoConfirmar: () => void; rotulo: string; ehWhats: boolean;
+  aoConfirmar: () => void; rotulo: string;
   desafio: RespostaEnvio | null; codigo: string; setCodigo: (v: string) => void;
   ocupado: boolean; cooldown: number; reenviar: () => void;
-  podeTrocarParaEmail: boolean; trocarParaEmail: () => void;
 }) => (
   <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); aoConfirmar(); }}>
-    <div className={cn('mx-auto flex h-14 w-14 items-center justify-center rounded-2xl',
-      ehWhats ? 'bg-emerald-500/15 text-emerald-400' : 'bg-primary/15 text-primary')}>
-      {ehWhats ? <MessageCircle className="h-7 w-7" /> : <Mail className="h-7 w-7" />}
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+      <Mail className="h-7 w-7" />
     </div>
     <p className="text-center text-base text-muted-foreground">
       Mandamos 6 números para <span className="font-semibold text-foreground">{desafio?.destinoMascarado}</span>
+    </p>
+    <p className="text-center text-sm text-muted-foreground">
+      Não achou? Olhe também a caixa de spam ou lixo eletrônico.
     </p>
 
     <div className="flex justify-center">
@@ -211,16 +210,9 @@ const TelaDoCodigo = ({
 
     <BotaoPrincipal onClick={aoConfirmar} label={rotulo} ocupado={ocupado} disabled={codigo.length !== 6} />
 
-    <div className="space-y-1">
-      <Button type="button" variant="ghost" onClick={reenviar} disabled={cooldown > 0 || ocupado} className="w-full h-11 text-sm">
-        {cooldown > 0 ? `Não chegou? Reenviar em ${cooldown}s` : 'Não chegou? Mandar de novo'}
-      </Button>
-      {podeTrocarParaEmail && (
-        <Button type="button" variant="ghost" disabled={ocupado} className="w-full h-11 text-sm gap-2 text-primary" onClick={trocarParaEmail}>
-          <Mail className="h-4 w-4" /> Receber pelo e-mail
-        </Button>
-      )}
-    </div>
+    <Button type="button" variant="ghost" onClick={reenviar} disabled={cooldown > 0 || ocupado} className="w-full h-11 text-sm">
+      {cooldown > 0 ? `Não chegou? Reenviar em ${cooldown}s` : 'Não chegou? Mandar de novo'}
+    </Button>
   </form>
 );
 
@@ -247,13 +239,15 @@ export function FluxoConta({
   // entrar
   const [identificador, setIdentificador] = useState('');
   const [senha, setSenha] = useState('');
-  const [opcoes, setOpcoes] = useState<OpcaoDeCanal[]>([]);
   const [contaIndice, setContaIndice] = useState(0);
   const [resetando, setResetando] = useState(false);
+  /* Conta antiga sem e-mail: o que a pessoa digitou na etapa 'entrar-email'. */
+  const [emailNovo, setEmailNovo] = useState('');
 
   // criar conta
   const [cpf, setCpf] = useState('');
-  const [canal, setCanal] = useState<Canal>('whatsapp');
+  /* O código vai só por e-mail (OS-285); fica como constante para a edge e o tipo. */
+  const canal: Canal = 'email';
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
   const [confirmaSenha, setConfirmaSenha] = useState('');
@@ -337,8 +331,8 @@ export function FluxoConta({
       seguraSaida.current = false;
       setAba(abaInicial); setEtapa(abaInicial === 'cadastro' ? 'cpf' : 'entrar');
       setOcupado(false); setCooldown(0); setMostrarSenha(false);
-      setIdentificador(''); setSenha(''); setOpcoes([]); setContaIndice(0); setResetando(false);
-      setCpf(''); setCanal('whatsapp'); setWhatsapp(''); setEmail(''); setConfirmaSenha('');
+      setIdentificador(''); setSenha(''); setContaIndice(0); setResetando(false); setEmailNovo('');
+      setCpf(''); setWhatsapp(''); setEmail(''); setConfirmaSenha('');
       setPrecisaNome(false); setNome('');
       setDesafio(null); setCodigo('');
     }
@@ -347,12 +341,12 @@ export function FluxoConta({
   const dados = (): DadosCadastro => ({
     cpf,
     ...(precisaNome && nome.trim() ? { nome: nome.trim() } : {}),
-    whatsapp: canal === 'whatsapp' ? whatsapp.replace(/\D/g, '') : null,
-    email: canal === 'email' ? email.trim().toLowerCase() : null,
+    // Os dois vão juntos: o e-mail é provado pelo código; o WhatsApp só é guardado.
+    whatsapp: whatsapp.replace(/\D/g, '') || null,
+    email: email.trim().toLowerCase(),
   });
 
   const falhou = (e: unknown) => toast.error(mensagemDoErro(e));
-  const avisarQueFoiPorEmail = () => toast.info('O WhatsApp não respondeu agora. Mandamos o código para o seu e-mail.');
 
   const trocarAba = (nova: AbaConta) => {
     setAba(nova);
@@ -374,10 +368,21 @@ export function FluxoConta({
         trocarAba('cadastro');
         return;
       }
-      const lista = r.contas.flatMap((c) => c.canais.map((k) => ({ conta: c, canal: k.canal, mascarado: k.mascarado })));
-      if (lista.length === 0) { toast.error('Essa conta não tem WhatsApp nem e-mail para receber o código.'); return; }
-      setOpcoes(lista);
-      await mandarCodigoDeLogin(valor, lista[0].conta.indice, lista[0].canal, lista);
+      // Só o e-mail recebe código. O WhatsApp da conta não conta mais aqui.
+      const lista = r.contas.flatMap((c) => c.canais.filter((k) => k.canal === 'email').map((k) => ({ conta: c, canal: k.canal, mascarado: k.mascarado })));
+      if (lista.length === 0) {
+        /*
+         * Conta sem e-mail (nasceu só com WhatsApp). A senha é conferida no
+         * servidor junto com o pedido do código, então a etapa seguinte só
+         * pede o e-mail; se a senha estiver errada, o erro volta de lá.
+         */
+        // `emailNovo` NÃO é zerado aqui: quem errou a senha e voltou para cá
+        // reencontra o e-mail que já tinha digitado (zera só ao fechar o fluxo).
+        setContaIndice(r.contas[0].indice);
+        setEtapa('entrar-email');
+        return;
+      }
+      await mandarCodigoDeLogin(valor, lista[0].conta.indice);
     } catch (e) {
       falhou(e);
     } finally {
@@ -385,21 +390,40 @@ export function FluxoConta({
     }
   };
 
-  /*
-   * `lista` vem por parâmetro, não do estado: em `entrar` o `setOpcoes` acabou de
-   * ser chamado e `opcoes` ainda é a lista velha deste render (vazia na primeira
-   * tentativa). Lendo o estado, o desvio para o e-mail nunca disparava (OS-204).
-   */
-  const mandarCodigoDeLogin = async (valor: string, indice: number, canalEscolhido: Canal, lista: OpcaoDeCanal[] = opcoes) => {
+  /** Pede o código de login por e-mail. `novo` = e-mail digitado por conta que não tinha um. */
+  const mandarCodigoDeLogin = async (valor: string, indice: number, novo?: string) => {
     try {
-      const r = await pedirCodigoLogin(valor, indice, canalEscolhido, senha);
-      setContaIndice(indice); setCanal(canalEscolhido); setDesafio(r); setCodigo('');
+      const r = await pedirCodigoLogin(valor, indice, 'email', senha, novo);
+      setContaIndice(indice); setDesafio(r); setCodigo('');
       setCooldown(60); setEtapa('entrar-codigo');
     } catch (e) {
-      // WhatsApp fora do ar e a conta tem e-mail: tenta pelo e-mail sem incomodar.
-      const porEmail = emailDaMesmaConta(e, lista, indice);
-      if (porEmail) { avisarQueFoiPorEmail(); await mandarCodigoDeLogin(valor, porEmail.conta.indice, 'email', lista); return; }
+      // O servidor não achou e-mail na conta: pede um, em vez de só reclamar.
+      if (e instanceof ErroAuthV2 && e.erro === 'sem_email' && !novo) { setContaIndice(indice); setEtapa('entrar-email'); return; }
+      /*
+       * Conta sem e-mail: a senha só é conferida junto com o pedido do código,
+       * ou seja, DEPOIS da tela do e-mail. Senha errada (ou conta travada) tem
+       * de voltar para a tela que tem o campo da senha; ficar na do e-mail
+       * faria a pessoa apertar "Mandar o código" de novo e gastar as 5
+       * tentativas sem nunca ver onde errou (achado do revisor, 20/10). O
+       * e-mail digitado fica guardado para a próxima volta.
+       */
+      if (novo && e instanceof ErroAuthV2 && ['senha_incorreta', 'rate_limited', 'rate_limit_unavailable'].includes(e.erro)) {
+        toast.error(mensagemDoErro(e));
+        setEtapa('entrar');
+        return;
+      }
       falhou(e);
+    }
+  };
+
+  const mandarParaEmailNovo = async () => {
+    const valor = emailNovo.trim().toLowerCase();
+    if (!EMAIL_RE.test(valor)) { toast.error('Esse e-mail não parece certo.'); return; }
+    setOcupado(true);
+    try {
+      await mandarCodigoDeLogin(identificador.trim(), contaIndice, valor);
+    } finally {
+      setOcupado(false);
     }
   };
 
@@ -410,22 +434,18 @@ export function FluxoConta({
     try {
       const r = await identificar(valor);
       if (!r.existe) { toast.error('Não achei conta com esse dado.'); return; }
-      const lista = r.contas.flatMap((c) => c.canais.map((k) => ({ conta: c, canal: k.canal, mascarado: k.mascarado })));
-      if (lista.length === 0) { toast.error('Essa conta não tem WhatsApp nem e-mail para receber o código.'); return; }
-      setOpcoes(lista);
-      let { conta: { indice }, canal: canalUsado } = lista[0];
-      let env: RespostaEnvio;
-      try {
-        env = await pedirCodigoReset(valor, indice, canalUsado);
-      } catch (e) {
-        // Mesmo desvio do entrar: WhatsApp fora e a conta tem e-mail, vai pelo e-mail.
-        const porEmail = emailDaMesmaConta(e, lista, indice);
-        if (!porEmail) throw e;
-        avisarQueFoiPorEmail();
-        indice = porEmail.conta.indice; canalUsado = 'email';
-        env = await pedirCodigoReset(valor, indice, canalUsado);
+      const lista = r.contas.flatMap((c) => c.canais.filter((k) => k.canal === 'email').map((k) => ({ conta: c, canal: k.canal, mascarado: k.mascarado })));
+      if (lista.length === 0) {
+        /*
+         * Sem e-mail e sem senha não há como provar que é o dono: aceitar um
+         * e-mail novo aqui abriria a conta para qualquer um. Fica o atendimento.
+         */
+        toast.error('Essa conta ainda não tem e-mail, e sem a senha não dá para recuperar sozinho. Fale com a FestPag pelo WhatsApp (11) 5304-6659.', { duration: 10000 });
+        return;
       }
-      setResetando(true); setContaIndice(indice); setCanal(canalUsado);
+      const { conta: { indice } } = lista[0];
+      const env = await pedirCodigoReset(valor, indice, 'email');
+      setResetando(true); setContaIndice(indice);
       setDesafio(env); setCodigo(''); setCooldown(60); setEtapa('entrar-codigo');
     } catch (e) {
       falhou(e);
@@ -447,6 +467,15 @@ export function FluxoConta({
       if (e instanceof ErroAuthV2 && ['expirado', 'queimado', 'nao_encontrado', 'desafio_nao_confere'].includes(e.erro)) {
         toast.error(mensagemDoErro(e));
         setCodigo(''); setDesafio(null); setCooldown(0); setEtapa('entrar');
+        return;
+      }
+      // O e-mail novo não pôde ser gravado (alguém ficou com ele no meio do
+      // caminho, ou o servidor falhou): o código já foi queimado, então volta
+      // para a tela do e-mail, para trocar e pedir outro, em vez de ficar num
+      // código morto.
+      if (e instanceof ErroAuthV2 && desafio?.emailNovo && ['email_ja_cadastrado', 'nao_trocou_email'].includes(e.erro)) {
+        toast.error(mensagemDoErro(e));
+        setCodigo(''); setDesafio(null); setCooldown(0); setEtapa('entrar-email');
         return;
       }
       falhou(e); setCodigo('');
@@ -485,7 +514,7 @@ export function FluxoConta({
         setIdentificador(''); trocarAba('entrar');
         return;
       }
-      setEtapa('canal');
+      setEtapa('contato');
     } catch (e) {
       falhou(e);
     } finally {
@@ -493,15 +522,11 @@ export function FluxoConta({
     }
   };
 
-  const escolherCanal = (c: Canal) => { setCanal(c); setEtapa('contato'); };
-
   const mandarCodigoDeCadastro = async () => {
-    if (canal === 'whatsapp') {
-      const tel = whatsapp.replace(/\D/g, '');
-      if (tel.length < 10 || tel.length > 11) { toast.error('Celular com DDD, por favor. Exemplo: (17) 99999-9999'); return; }
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      toast.error('Esse e-mail não parece certo.'); return;
-    }
+    if (!EMAIL_RE.test(email.trim())) { toast.error('Esse e-mail não parece certo.'); return; }
+    // O celular é opcional (decisão do Gabriel, 20/10) e só é guardado; se vier, tem de ter DDD.
+    const tel = whatsapp.replace(/\D/g, '');
+    if (tel && (tel.length < 10 || tel.length > 11)) { toast.error('Celular com DDD, por favor. Exemplo: (17) 99999-9999'); return; }
     if (precisaNome) {
       const erro = validarNomePessoa(nome);
       if (erro) { toast.error(erro); return; }
@@ -600,7 +625,8 @@ export function FluxoConta({
         const r = await pedirCodigoReset(identificador.trim(), contaIndice, canal);
         setDesafio(r);
       } else {
-        const r = await pedirCodigoLogin(identificador.trim(), contaIndice, canal, senha);
+        // Conta sem e-mail: o reenvio vai para o e-mail que ela digitou, igual ao primeiro.
+        const r = await pedirCodigoLogin(identificador.trim(), contaIndice, 'email', senha, desafio?.emailNovo ? emailNovo.trim().toLowerCase() : undefined);
         setDesafio(r);
       }
       setCodigo(''); setCooldown(60);
@@ -611,7 +637,7 @@ export function FluxoConta({
       setOcupado(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cooldown, ocupado, aba, resetando, contaIndice, canal, senha, identificador, cpf, whatsapp, email, nome, precisaNome]);
+  }, [cooldown, ocupado, aba, resetando, contaIndice, senha, identificador, cpf, whatsapp, email, nome, precisaNome, emailNovo, desafio]);
 
   /*
    * Seis dígitos completos → envia sozinho. É o que a pessoa espera depois de
@@ -628,10 +654,10 @@ export function FluxoConta({
   // ── Navegação ─────────────────────────────────────────────────────────────
   const voltar = () => {
     switch (etapa) {
-      case 'entrar-codigo': setResetando(false); setDesafio(null); setCodigo(''); setEtapa('entrar'); break;
+      case 'entrar-email': setEtapa('entrar'); break;
+      case 'entrar-codigo': setResetando(false); setDesafio(null); setCodigo(''); setEtapa(desafio?.emailNovo ? 'entrar-email' : 'entrar'); break;
       case 'entrar-senha-nova': setEtapa('entrar-codigo'); break;
-      case 'canal': setEtapa('cpf'); break;
-      case 'contato': setEtapa('canal'); break;
+      case 'contato': setEtapa('cpf'); break;
       case 'cad-codigo': setDesafio(null); setCodigo(''); setEtapa('contato'); break;
       case 'cad-senha': setEtapa('cad-codigo'); break;
       default: onFechar();
@@ -639,7 +665,6 @@ export function FluxoConta({
   };
 
   const passo = ETAPAS_CADASTRO[etapa];
-  const ehWhats = canal === 'whatsapp';
 
   // Os pedaços de tela moram FORA deste componente, de propósito — ver o
   // comentário de `CampoSenha` lá em cima. Aqui ficam só os atalhos de props.
@@ -722,7 +747,32 @@ export function FluxoConta({
                 <BotaoPrincipal onClick={entrar} label="Entrar" ocupado={ocupado} disabled={!identificador.trim() || senha.length < 6} />
 
                 <p className="text-center text-sm text-muted-foreground">
-                  Por segurança, vamos mandar um código de 6 números para confirmar que é você.
+                  Por segurança, vamos mandar um código de 6 números para o seu e-mail.
+                </p>
+              </form>
+            )}
+
+            {/* Conta antiga, sem e-mail: pede um aqui. O servidor confere a senha
+              * junto com o pedido do código e, confirmado, grava o e-mail na conta. */}
+            {etapa === 'entrar-email' && (
+              <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); mandarParaEmailNovo(); }}>
+                <div>
+                  <h2 className="font-display text-2xl font-bold tracking-tight">Falta o seu e-mail</h2>
+                  <p className="mt-1 text-base text-muted-foreground">
+                    A sua conta ainda não tem e-mail. Digite um: mandamos o código de 6 números para ele e ele fica salvo na sua conta.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Seu e-mail</Label>
+                  <div className="relative group">
+                    <Mail className={ICONE} />
+                    <Input autoFocus type="email" inputMode="email" autoComplete="email" placeholder="voce@email.com"
+                      value={emailNovo} onChange={(e) => setEmailNovo(e.target.value)} className={CAMPO} />
+                  </div>
+                </div>
+                <BotaoPrincipal onClick={mandarParaEmailNovo} label="Mandar o código" ocupado={ocupado} disabled={!emailNovo.trim()} />
+                <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" /> É por ele que chegam os seus ingressos.
                 </p>
               </form>
             )}
@@ -731,13 +781,8 @@ export function FluxoConta({
               <TelaDoCodigo
                 aoConfirmar={confirmarEntrada}
                 rotulo={resetando ? 'Continuar' : 'Entrar na minha conta'}
-                ehWhats={ehWhats} desafio={desafio} codigo={codigo} setCodigo={setCodigo}
+                desafio={desafio} codigo={codigo} setCodigo={setCodigo}
                 ocupado={ocupado} cooldown={cooldown} reenviar={reenviar}
-                podeTrocarParaEmail={ehWhats && !!desafio?.podeTentarEmail}
-                trocarParaEmail={() => {
-                  const porEmail = opcoes.find((o) => o.canal === 'email');
-                  if (porEmail) void mandarCodigoDeLogin(identificador.trim(), porEmail.conta.indice, 'email');
-                }}
               />
             )}
 
@@ -817,62 +862,30 @@ export function FluxoConta({
               </form>
             )}
 
-            {etapa === 'canal' && (
-              <div className="space-y-5">
-                <div>
-                  <h2 className="font-display text-2xl font-bold tracking-tight">Como falamos com você?</h2>
-                  <p className="mt-1 text-base text-muted-foreground">É por aqui que chegam o seu código e os seus ingressos.</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => escolherCanal('whatsapp')}
-                    className="flex h-36 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border/60 bg-background/50 p-4 text-center transition-all hover:border-emerald-500 hover:bg-emerald-500/5">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-                      <MessageCircle className="h-6 w-6" />
-                    </span>
-                    <span>
-                      <span className="block font-semibold">WhatsApp</span>
-                      <span className="block text-sm text-muted-foreground">Chega na hora</span>
-                    </span>
-                  </button>
-                  <button type="button" onClick={() => escolherCanal('email')}
-                    className="flex h-36 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-border/60 bg-background/50 p-4 text-center transition-all hover:border-primary hover:bg-primary/5">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                      <Mail className="h-6 w-6" />
-                    </span>
-                    <span>
-                      <span className="block font-semibold">E-mail</span>
-                      <span className="block text-sm text-muted-foreground">Se preferir</span>
-                    </span>
-                  </button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Depois dá para adicionar o outro em <span className="font-medium text-foreground">Minha Conta</span>.
-                </p>
-              </div>
-            )}
-
             {etapa === 'contato' && (
               <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); mandarCodigoDeCadastro(); }}>
                 <div>
-                  <h2 className="font-display text-2xl font-bold tracking-tight">
-                    {ehWhats ? 'Qual é o seu WhatsApp?' : 'Qual é o seu e-mail?'}
-                  </h2>
+                  <h2 className="font-display text-2xl font-bold tracking-tight">Como falamos com você?</h2>
                   <p className="mt-1 text-base text-muted-foreground">
-                    Mandamos um código para confirmar que {ehWhats ? 'o número' : 'o e-mail'} é seu.
+                    Mandamos um código para o e-mail, para confirmar que ele é seu. É por ele que chegam os seus ingressos.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm">{ehWhats ? 'Celular com DDD' : 'E-mail'}</Label>
+                  <Label className="text-sm">E-mail</Label>
                   <div className="relative group">
-                    {ehWhats ? <Phone className={ICONE} /> : <Mail className={ICONE} />}
-                    {ehWhats ? (
-                      <Input autoFocus type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(17) 99999-9999"
-                        value={whatsapp} onChange={(e) => setWhatsapp(formatPhone(e.target.value))} className={CAMPO} />
-                    ) : (
-                      <Input autoFocus type="email" inputMode="email" autoComplete="email" placeholder="voce@email.com"
-                        value={email} onChange={(e) => setEmail(e.target.value)} className={CAMPO} />
-                    )}
+                    <Mail className={ICONE} />
+                    <Input autoFocus type="email" inputMode="email" autoComplete="email" placeholder="voce@email.com"
+                      value={email} onChange={(e) => setEmail(e.target.value)} className={CAMPO} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Celular com DDD (opcional)</Label>
+                  <div className="relative group">
+                    <Phone className={ICONE} />
+                    <Input type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(17) 99999-9999"
+                      value={whatsapp} onChange={(e) => setWhatsapp(formatPhone(e.target.value))} className={CAMPO} />
                   </div>
                 </div>
 
@@ -892,11 +905,7 @@ export function FluxoConta({
                 )}
 
                 <BotaoPrincipal onClick={mandarCodigoDeCadastro} label="Mandar o código" ocupado={ocupado}
-                  disabled={ehWhats ? whatsapp.replace(/\D/g, '').length < 10 : !email.trim()} />
-
-                <Button type="button" variant="ghost" onClick={() => setEtapa('canal')} className="w-full h-11 text-sm">
-                  Prefiro receber por {ehWhats ? 'e-mail' : 'WhatsApp'}
-                </Button>
+                  disabled={!email.trim()} />
               </form>
             )}
 
@@ -904,13 +913,8 @@ export function FluxoConta({
               <TelaDoCodigo
                 aoConfirmar={provarOCanal}
                 rotulo="Confirmar"
-                ehWhats={ehWhats} desafio={desafio} codigo={codigo} setCodigo={setCodigo}
+                desafio={desafio} codigo={codigo} setCodigo={setCodigo}
                 ocupado={ocupado} cooldown={cooldown} reenviar={reenviar}
-                /* No cadastro a pessoa escolheu UM canal. Se o código não chegou pelo
-                 * WhatsApp, o caminho é voltar e escolher o e-mail — não há e-mail
-                 * cadastrado ainda para onde reenviar. */
-                podeTrocarParaEmail={ehWhats}
-                trocarParaEmail={() => { setCanal('email'); setCodigo(''); setDesafio(null); setEtapa('contato'); }}
               />
             )}
 
@@ -918,9 +922,7 @@ export function FluxoConta({
               <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); criarAConta(); }}>
                 <div className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  <span className="text-sm font-semibold text-emerald-400">
-                    {ehWhats ? 'WhatsApp' : 'E-mail'} confirmado
-                  </span>
+                  <span className="text-sm font-semibold text-emerald-400">E-mail confirmado</span>
                 </div>
                 <div>
                   <h2 className="font-display text-2xl font-bold tracking-tight">Crie uma senha</h2>

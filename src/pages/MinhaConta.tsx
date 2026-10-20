@@ -405,7 +405,7 @@ const MinhaConta = () => {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        Para trocar a senha, use o botão <strong>Trocar a senha</strong> na seção "Como falamos com você", logo acima: mandamos um código de 6 números para o seu WhatsApp ou e-mail e você cria a senha nova na hora.
+                        Para trocar a senha, use o botão <strong>Trocar a senha</strong> na seção "Como falamos com você", logo acima: mandamos um código de 6 números para o seu e-mail e você cria a senha nova na hora.
                       </p>
                     </div>
 

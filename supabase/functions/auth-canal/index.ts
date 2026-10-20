@@ -1,6 +1,11 @@
+// redeploy 2026-10-20: código só por e-mail (OS-285)
 /*
- * auth-canal — "Minha conta": confirmar, adicionar ou trocar WhatsApp/e-mail, e
- * trocar a senha, sempre com código (Bloco 2, plano de 09/09/2026).
+ * auth-canal — "Minha conta": confirmar, adicionar ou trocar o e-mail, e trocar
+ * a senha, sempre com código (Bloco 2, plano de 09/09/2026).
+ *
+ * Desde 20/10/2026 (OS-285) o código vai SÓ por e-mail: `canal: 'whatsapp'` no
+ * `pedir` responde `whatsapp_nao_configurado` (erro que a tela já conhece). O WhatsApp é um campo do perfil, editado
+ * no formulário de dados da Minha Conta, sem confirmação. Ver `auth-codigo`.
  *
  * Exige sessão (verify_jwt=true). Duas ações:
  *
@@ -18,7 +23,6 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '../_shared/rateLimit.ts';
-import { carregarConfigWhatsApp, normalizarNumeroBr, numeroTemWhatsApp, mascararNumeroParaTela } from '../_shared/whatsapp.ts';
 import { criarEEnviarCodigo, conferirCodigo, type Canal } from '../_shared/codigoAcesso.ts';
 import { ehEmailInterno } from '../_shared/emailInterno.ts';
 import { buscarContas } from '../_shared/contasV2.ts';
@@ -61,32 +65,25 @@ serve(async (req) => {
 
     if (acao === 'pedir') {
       const canal = body?.canal as Canal;
-      if (canal !== 'whatsapp' && canal !== 'email') return json({ ok: false, erro: 'canal_invalido' }, 400);
+      // Código só por e-mail (OS-285, 20/10/2026): o WhatsApp é um campo do
+      // perfil, sem confirmação. Ver o cabeçalho da `auth-codigo`.
+      if ((canal as string) === 'whatsapp') return json({ ok: false, erro: 'whatsapp_nao_configurado' }, 400);
+      if (canal !== 'email') return json({ ok: false, erro: 'canal_invalido' }, 400);
 
-      let destino: string | null;
-      if (canal === 'whatsapp') {
-        destino = body?.destino ? normalizarNumeroBr(body.destino) : normalizarNumeroBr(perfil.whatsapp);
-        if (!destino) return json({ ok: false, erro: 'whatsapp_invalido' }, 400);
-        await carregarConfigWhatsApp(admin);
-        const tem = await numeroTemWhatsApp(destino);
-        if (tem && !tem.existe) return json({ ok: false, erro: 'numero_sem_whatsapp' }, 400);
-        if (tem?.numero) destino = tem.numero;
-      } else {
-        destino = String(body?.destino ?? perfil.email ?? '').trim().toLowerCase();
-        if (!destino || !EMAIL_RE.test(destino) || ehEmailInterno(destino)) return json({ ok: false, erro: 'email_invalido' }, 400);
-        // E-mail de OUTRA conta não pode virar o desta.
-        const donos = await buscarContas(admin, 'email', destino);
-        if (donos.some((c) => c.user_id !== uid)) return json({ ok: false, erro: 'email_ja_cadastrado' }, 409);
-      }
+      const destino = String(body?.destino ?? perfil.email ?? '').trim().toLowerCase();
+      if (!destino || !EMAIL_RE.test(destino) || ehEmailInterno(destino)) return json({ ok: false, erro: 'email_invalido' }, 400);
+      // E-mail de OUTRA conta não pode virar o desta.
+      const donos = await buscarContas(admin, 'email', destino);
+      if (donos.some((c) => c.user_id !== uid)) return json({ ok: false, erro: 'email_ja_cadastrado' }, 409);
 
       const r = await criarEEnviarCodigo(admin, { proposito: 'canal', canal, destino, userId: uid, nome: perfil.nome_completo, ip });
       if (!r.ok) {
         if (r.erro === 'rate_limited' || r.erro === 'rate_limit_unavailable') return rateLimitResponse(r.rateLimit, corsHeaders);
-        return json({ ok: false, erro: r.erro }, r.erro.startsWith('whatsapp') || r.erro === 'email_nao_enviado' ? 502 : 500);
+        return json({ ok: false, erro: r.erro }, r.erro === 'email_nao_enviado' ? 502 : 500);
       }
       return json({
         ok: true, desafioId: r.desafioId, expiraEm: r.expiraEm, canal,
-        destinoMascarado: canal === 'whatsapp' ? mascararNumeroParaTela(destino) : maskEmail(destino),
+        destinoMascarado: maskEmail(destino),
       });
     }
 

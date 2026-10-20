@@ -1,10 +1,12 @@
 /*
  * "Como falamos com você" — a seção de canais da Minha Conta (Bloco 2, plano 09/09/2026).
  *
- * Mostra o WhatsApp e o e-mail da conta com o estado de cada um (confirmado por
- * código ou não), deixa confirmar, adicionar e trocar — sempre com código —,
- * escolher onde receber os ingressos, e trocar a senha com código (é o único
- * caminho de quem não tem e-mail). Tudo passa pela edge `auth-canal`.
+ * Mostra o WhatsApp e o e-mail da conta. O e-mail se confirma, adiciona e troca
+ * com código; a senha também se troca com código no e-mail. Tudo passa pela
+ * edge `auth-canal`.
+ *
+ * Desde 20/10/2026 (OS-285) o código vai SÓ por e-mail: o WhatsApp é um campo
+ * de contato, editado no formulário de dados acima, sem confirmação por código.
  */
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,11 +104,11 @@ export function CanaisDeContato() {
 
   const tituloDialogo = !modo ? '' : modo.senha
     ? 'Trocar a senha'
-    : modo.canal === 'whatsapp' ? (modo.trocar ? (whatsapp ? 'Trocar o WhatsApp' : 'Adicionar WhatsApp') : 'Confirmar o WhatsApp')
     : (modo.trocar ? (email ? 'Trocar o e-mail' : 'Adicionar e-mail') : 'Confirmar o e-mail');
 
-  const podeSenhaPorCodigo = whatsappOk || emailOk;
-  const canalDaSenha: Canal = whatsappOk && (p.canal_preferido !== 'email' || !emailOk) ? 'whatsapp' : 'email';
+  // Código só por e-mail (OS-285): a senha se troca com código no e-mail confirmado.
+  const podeSenhaPorCodigo = emailOk;
+  const canalDaSenha: Canal = 'email';
 
   return (
     <Card className="border-border/50 bg-card/60 backdrop-blur-xl hover:border-primary/30 transition-colors duration-300">
@@ -126,16 +128,10 @@ export function CanaisDeContato() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">{whatsapp ? formatarTelefone(whatsapp) : 'Nenhum WhatsApp'}</p>
             <p className="text-xs text-muted-foreground">
-              {whatsappOk ? <span className="inline-flex items-center gap-1 text-emerald-600"><Check className="w-3.5 h-3.5" /> Confirmado</span> : whatsapp ? 'Ainda não confirmado' : 'Adicione para receber o código e os ingressos por lá'}
+              {whatsappOk
+                ? <span className="inline-flex items-center gap-1 text-emerald-600"><Check className="w-3.5 h-3.5" /> Confirmado</span>
+                : 'Para contato. Para mudar, edite nos seus dados, logo acima.'}
             </p>
-          </div>
-          <div className="flex gap-2">
-            {whatsapp && !whatsappOk && (
-              <Button size="sm" variant="hero" onClick={() => setModo({ canal: 'whatsapp', trocar: false })}>Confirmar</Button>
-            )}
-            <Button size="sm" variant="outline" onClick={() => { setDestino(''); setModo({ canal: 'whatsapp', trocar: true }); }}>
-              {whatsapp ? 'Trocar' : 'Adicionar'}
-            </Button>
           </div>
         </div>
 
@@ -145,7 +141,7 @@ export function CanaisDeContato() {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium break-all">{email || 'Nenhum e-mail'}</p>
             <p className="text-xs text-muted-foreground">
-              {emailOk ? <span className="inline-flex items-center gap-1 text-emerald-600"><Check className="w-3.5 h-3.5" /> Confirmado</span> : email ? 'Ainda não confirmado por código' : 'Opcional. Se tiver, os ingressos chegam também por aqui'}
+              {emailOk ? <span className="inline-flex items-center gap-1 text-emerald-600"><Check className="w-3.5 h-3.5" /> Confirmado</span> : email ? 'Ainda não confirmado por código' : 'É por ele que chegam o código de acesso e os ingressos'}
             </p>
           </div>
           <div className="flex gap-2">
@@ -181,7 +177,7 @@ export function CanaisDeContato() {
         {/* Senha com código */}
         {podeSenhaPorCodigo && (
           <Button type="button" variant="outline" className="w-full gap-2" onClick={() => setModo({ canal: canalDaSenha, trocar: false, senha: true })}>
-            <KeyRound className="w-4 h-4 text-primary" /> Trocar a senha (com código no {canalDaSenha === 'whatsapp' ? 'WhatsApp' : 'e-mail'})
+            <KeyRound className="w-4 h-4 text-primary" /> Trocar a senha (com código no e-mail)
           </Button>
         )}
       </CardContent>
@@ -199,9 +195,8 @@ export function CanaisDeContato() {
             <div className="space-y-4">
               {modo?.trocar && (
                 <div className="space-y-2">
-                  <Label>{modo.canal === 'whatsapp' ? 'Novo WhatsApp (com DDD)' : 'Novo e-mail'}</Label>
-                  <Input autoFocus type={modo.canal === 'whatsapp' ? 'tel' : 'email'} inputMode={modo.canal === 'whatsapp' ? 'tel' : 'email'}
-                    placeholder={modo.canal === 'whatsapp' ? '(00) 00000-0000' : 'seu@email.com'}
+                  <Label>Novo e-mail</Label>
+                  <Input autoFocus type="email" inputMode="email" placeholder="seu@email.com"
                     value={destino} onChange={(e) => setDestino(e.target.value)} className="h-12 text-base" />
                 </div>
               )}
