@@ -29,6 +29,8 @@ export type RespostaEnvio = {
   canal: Canal;
   destinoMascarado: string;
   podeTentarEmail?: boolean;
+  /** true quando o código foi para um e-mail que ainda não é da conta (OS-285). */
+  emailNovo?: boolean;
   canais?: CanalDaConta[];
 };
 
@@ -51,7 +53,9 @@ async function chamar<T>(fn: string, body: Record<string, unknown>): Promise<T> 
     const ctx = (error as { context?: Response }).context;
     if (ctx && typeof ctx.json === 'function') {
       const corpo = await ctx.clone().json().catch(() => ({}));
-      throw new ErroAuthV2(String(corpo?.erro ?? 'erro'), ctx.status, corpo ?? {});
+      // O rate limit compartilhado responde `{ error }` (sem o "o"), e a tela
+      // mostrava "Não deu certo" em vez de "Muitas tentativas" (visto em 20/10).
+      throw new ErroAuthV2(String(corpo?.erro ?? corpo?.error ?? 'erro'), ctx.status, corpo ?? {});
     }
     throw new ErroAuthV2('rede', 0);
   }
@@ -93,8 +97,14 @@ export function confirmarCadastro(dados: DadosCadastro, canal: Canal, desafioId:
   });
 }
 
-export function pedirCodigoLogin(identificador: string, contaIndice: number, canal: Canal, senha: string) {
-  return chamar<RespostaEnvio>('auth-codigo', { acao: 'pedir_login', identificador, contaIndice, canal, senha });
+/**
+ * `emailNovo`: só para conta que não tem e-mail (nasceu só com WhatsApp). O
+ * código vai para ele e, confirmado, ele vira o e-mail da conta (OS-285).
+ */
+export function pedirCodigoLogin(identificador: string, contaIndice: number, canal: Canal, senha: string, emailNovo?: string) {
+  return chamar<RespostaEnvio>('auth-codigo', {
+    acao: 'pedir_login', identificador, contaIndice, canal, senha, ...(emailNovo ? { emailNovo } : {}),
+  });
 }
 
 export function confirmarLogin(identificador: string, contaIndice: number, desafioId: string, codigo: string, senha: string) {
@@ -151,11 +161,11 @@ export function mensagemDoErro(e: unknown): string {
     email_invalido: 'Esse e-mail não parece certo.',
     sem_contato: 'Informe pelo menos um WhatsApp ou um e-mail.',
     cpf_ja_cadastrado: 'Esse CPF já tem conta. Entre com a senha.',
-    email_ja_cadastrado: 'Esse e-mail já tem conta. Entre com a senha.',
+    email_ja_cadastrado: 'Esse e-mail já está em outra conta. Use outro, ou entre com ele.',
     numero_sem_whatsapp: 'Esse número não tem WhatsApp. Confira ou use o e-mail.',
     whatsapp_indisponivel: 'O WhatsApp está fora do ar agora. Tente pelo e-mail ou daqui a pouco.',
     whatsapp_recusou: 'Não consegui mandar pelo WhatsApp. Tente pelo e-mail ou daqui a pouco.',
-    whatsapp_nao_configurado: 'O envio por WhatsApp ainda não está ligado. Use o e-mail.',
+    whatsapp_nao_configurado: 'O código agora vai só por e-mail.',
     email_nao_enviado: 'Não consegui mandar o e-mail. Tente de novo.',
     resend_nao_configurado: 'O envio de e-mail não está ligado.',
     codigo_invalido: 'Código errado. Confira e tente de novo.',

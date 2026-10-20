@@ -1,29 +1,39 @@
+// redeploy 2026-10-20: código só por e-mail (OS-285)
 /*
  * auth-codigo — cadastro e login com senha + código (plano de 09/09/2026).
  *
  * Seis ações, todas POST com { acao, ... }:
  *
- *   pedir_cadastro     { cpf, nome, whatsapp?, email?, canal }
- *                      → manda o código para o canal escolhido. Ainda NÃO cria conta.
- *   confirmar_cadastro { desafioId, codigo, cpf, nome, whatsapp?, email?, senha }
- *                      → confere o código, cria a conta (com senha) e devolve a sessão.
- *   pedir_login        { identificador, contaIndice?, canal, senha }
+ *   pedir_cadastro     { cpf, nome, whatsapp?, email, canal: 'email' }
+ *                      → manda o código para o e-mail. Ainda NÃO cria conta.
+ *   confirmar_cadastro { desafioId, cpf, nome, whatsapp?, email, senha }
+ *                      → confere a prova, cria a conta (com senha) e devolve a sessão.
+ *   pedir_login        { identificador, contaIndice?, canal: 'email', senha, emailNovo? }
  *                      → confere a SENHA primeiro; só então manda o código.
- *                        (ninguém dispara WhatsApp alheio sem a senha da conta)
+ *                        Conta sem e-mail manda `emailNovo`: o código vai para ele.
  *   confirmar_login    { desafioId, codigo, identificador, contaIndice?, senha }
  *                      → confere o código, confere a senha de novo e devolve a sessão.
- *   pedir_reset        { identificador, contaIndice?, canal }
- *                      → "esqueci a senha": manda o código para um canal DA CONTA.
+ *                        Se o código foi para um `emailNovo`, ele vira o e-mail da conta.
+ *   pedir_reset        { identificador, contaIndice?, canal: 'email' }
+ *                      → "esqueci a senha": manda o código para o e-mail DA CONTA.
  *   confirmar_reset    { desafioId, codigo, identificador, contaIndice?, novaSenha }
  *                      → confere o código, troca a senha e devolve a sessão.
+ *
+ * ── Só e-mail (OS-285, decisão do Gabriel, 20/10/2026) ───────────────────────
+ * O código ia também pelo WhatsApp (pedido da Porcada do Amor, público mais
+ * velho). O número da FestPag caiu em 10/10 e nenhum código saiu por ele desde
+ * então, com 6 em 10 contas novas sem e-mail e sem como entrar. Voltou ao
+ * normal: código SÓ por e-mail. O WhatsApp continua como campo do cadastro
+ * (vai para o perfil, sem código e sem carimbo). `canal: 'whatsapp'` em
+ * qualquer ação responde `whatsapp_nao_configurado` (erro que a tela antiga,
+ * ainda em cache, já sabe tratar: mostra "use o e-mail" e, no login, desvia
+ * sozinha para o e-mail da conta). As contas antigas sem e-mail
+ * (`<cpf>@sem-email.festpag.digital`, metadata `sem_email`) ganham um na hora
+ * de entrar, pelo `emailNovo`.
  *
  * A sessão é a do Supabase (`signInWithPassword` feito AQUI, no servidor): o
  * navegador recebe access_token + refresh_token e chama `setSession`. Nada de
  * token próprio.
- *
- * Quem só tem WhatsApp ganha um e-mail interno no Supabase
- * (`<cpf>@sem-email.festpag.digital`, metadata `sem_email`); o perfil fica com
- * e-mail vazio e nenhum envio vai para lá.
  *
  * Pública (verify_jwt=false): quem chama ainda não tem sessão. Travas: rate limit
  * fail-closed em cada ação (por IP, por destino e por conta na senha), código com
@@ -34,8 +44,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { checkRateLimit, getClientIp, rateLimitResponse } from '../_shared/rateLimit.ts';
 import { validateCPF, unformatCPF } from '../_shared/cpf.ts';
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
-import { carregarConfigWhatsApp, normalizarNumeroBr, numeroTemWhatsApp, mascararNumeroParaTela } from '../_shared/whatsapp.ts';
-import { criarEEnviarCodigo, conferirCodigo, provarCodigo, consumirProva, emailInternoSemEmail, ehEmailInterno, type Canal } from '../_shared/codigoAcesso.ts';
+import { normalizarNumeroBr } from '../_shared/whatsapp.ts';
+import { criarEEnviarCodigo, conferirCodigo, provarCodigo, consumirProva, ehEmailInterno, type Canal } from '../_shared/codigoAcesso.ts';
 import { buscarNomePeloCpf } from '../_shared/docCpf.ts';
 import { classificarIdentificador, resolverContas, buscarContas, canaisDaConta, type Conta } from '../_shared/contasV2.ts';
 import { maskEmail } from '../_shared/pii.ts';
@@ -92,11 +102,15 @@ function lerDadosDeCadastro(body: any) {
   if (body?.whatsapp && !whatsapp) return { erro: json({ ok: false, erro: 'whatsapp_invalido' }, 400) };
   const email = body?.email ? String(body.email).trim().toLowerCase() : null;
   if (email && (!EMAIL_RE.test(email) || ehEmailInterno(email))) return { erro: json({ ok: false, erro: 'email_invalido' }, 400) };
-  if (!whatsapp && !email) return { erro: json({ ok: false, erro: 'sem_contato' }, 400) };
+  // Só o e-mail confirma a conta (OS-285). O WhatsApp é um campo: vai para o
+  // perfil como foi digitado (normalizado), sem código e sem carimbo.
+  // `whatsapp_nao_configurado` de propósito, e não um erro novo: a tela ANTIGA
+  // (em cache até o publish chegar) conhece esse erro, mostra "use o e-mail" e,
+  // no login, desvia sozinha para o e-mail quando vem `podeTentarEmail`.
   const canal = body?.canal as Canal;
-  if (canal !== 'whatsapp' && canal !== 'email') return { erro: json({ ok: false, erro: 'canal_invalido' }, 400) };
-  if (canal === 'whatsapp' && !whatsapp) return { erro: json({ ok: false, erro: 'sem_whatsapp' }, 400) };
-  if (canal === 'email' && !email) return { erro: json({ ok: false, erro: 'sem_email' }, 400) };
+  if (canal === 'whatsapp') return { erro: json({ ok: false, erro: 'whatsapp_nao_configurado', podeTentarEmail: !!email }, 400) };
+  if (canal !== 'email') return { erro: json({ ok: false, erro: 'canal_invalido' }, 400) };
+  if (!email) return { erro: json({ ok: false, erro: 'sem_email' }, 400) };
   return { dados: { cpf, nome, whatsapp, email, canal } };
 }
 
@@ -179,20 +193,9 @@ serve(async (req) => {
         return json({ ok: false, erro: 'nome_necessario', motivo: busca.situacao }, 400);
       }
 
-      let destino = canal === 'whatsapp' ? whatsapp! : email!;
-      if (canal === 'whatsapp') {
-        await carregarConfigWhatsApp(admin);
-        const tem = await numeroTemWhatsApp(destino);
-        if (tem && !tem.existe) return json({ ok: false, erro: 'numero_sem_whatsapp', podeTentarEmail: !!email }, 400);
-        if (tem?.numero) destino = tem.numero; // formato que a Evolution reconhece
-      }
-
+      const destino = email!;
       const r = await criarEEnviarCodigo(admin, { proposito: 'cadastro', canal, destino, cpf, nome: nomeDoTitular, ip });
-      return respostaDeEnvio(r, {
-        canal,
-        destinoMascarado: canal === 'whatsapp' ? mascararNumeroParaTela(destino) : maskEmail(destino),
-        podeTentarEmail: canal === 'whatsapp' && !!email,
-      });
+      return respostaDeEnvio(r, { canal, destinoMascarado: maskEmail(destino) });
     }
 
     /*
@@ -204,7 +207,7 @@ serve(async (req) => {
     if (acao === 'provar_cadastro') {
       const lido = lerDadosDeCadastro(body);
       if (lido.erro) return lido.erro;
-      const { cpf, whatsapp, email, canal } = lido.dados!;
+      const { cpf, email, canal } = lido.dados!;
 
       const c = await provarCodigo(admin, String(body?.desafioId ?? ''), String(body?.codigo ?? ''));
       if (!c.ok) return json({ ok: false, erro: c.erro, tentativasRestantes: c.tentativasRestantes }, 400);
@@ -213,10 +216,7 @@ serve(async (req) => {
       // O desafio tem de ser deste CPF, deste canal e deste destino. O
       // `confirmar_cadastro` confere de novo — de propósito, é a mesma trava
       // nos dois portões.
-      const destinoEsperado = canal === 'whatsapp' ? whatsapp : email;
-      const destinoBate = d.canal === 'whatsapp'
-        ? normalizarNumeroBr(d.destino)?.slice(-8) === normalizarNumeroBr(destinoEsperado)?.slice(-8)
-        : d.destino === destinoEsperado;
+      const destinoBate = d.canal === 'email' && d.destino === email;
       if (d.proposito !== 'cadastro' || d.cpf !== cpf || d.canal !== canal || !destinoBate) {
         return json({ ok: false, erro: 'desafio_nao_confere' }, 400);
       }
@@ -245,10 +245,7 @@ serve(async (req) => {
       const d = c.desafio;
       // O código tem de ser deste CPF, deste canal e deste destino — nada de trocar
       // o número depois de conferir.
-      const destinoEsperado = canal === 'whatsapp' ? whatsapp : email;
-      const destinoBate = d.canal === 'whatsapp'
-        ? normalizarNumeroBr(d.destino)?.slice(-8) === normalizarNumeroBr(destinoEsperado)?.slice(-8)
-        : d.destino === destinoEsperado;
+      const destinoBate = d.canal === 'email' && d.destino === email;
       if (d.proposito !== 'cadastro' || d.cpf !== cpf || d.canal !== canal || !destinoBate) {
         return json({ ok: false, erro: 'desafio_nao_confere' }, 400);
       }
@@ -265,8 +262,9 @@ serve(async (req) => {
       const nomeDaConta = d.nome ?? nome;
       if (!nomeDaConta) return json({ ok: false, erro: 'nome_necessario' }, 400);
 
-      const emailAuth = email ?? emailInternoSemEmail(cpf);
-      const whatsappFinal = canal === 'whatsapp' ? d.destino : whatsapp;
+      // O e-mail é o provado pelo código; o WhatsApp vai como foi digitado (OS-285).
+      const emailAuth = email!;
+      const whatsappFinal = whatsapp;
       const { data: criado, error: erroCriar } = await admin.auth.admin.createUser({
         email: emailAuth,
         password: senha,
@@ -276,7 +274,6 @@ serve(async (req) => {
           cpf,
           whatsapp: whatsappFinal ?? '',
           tipo_conta: 'cliente',
-          ...(email ? {} : { sem_email: 'true' }),
           canal_cadastro: canal,
         },
       });
@@ -287,7 +284,7 @@ serve(async (req) => {
         return json({ ok: false, erro: 'nao_criou_conta' }, 500);
       }
 
-      await carimbarCanal(admin, criado.user.id, canal, canal === 'whatsapp' ? d.destino : null);
+      await carimbarCanal(admin, criado.user.id, 'email');
 
       /*
        * Aceite dos documentos legais (21/09/2026). Gravado AQUI e não pelo gatilho
@@ -322,9 +319,24 @@ serve(async (req) => {
       if ('erro' in achado) return achado.erro;
       const { conta } = achado;
       const canal = body?.canal as Canal;
-      if (canal !== 'whatsapp' && canal !== 'email') return json({ ok: false, erro: 'canal_invalido' }, 400);
-      if (canal === 'whatsapp' && !conta.whatsapp) return json({ ok: false, erro: 'sem_whatsapp' }, 400);
-      if (canal === 'email' && !conta.email) return json({ ok: false, erro: 'sem_email' }, 400);
+      // Erro que a tela antiga conhece: com `podeTentarEmail` ela desvia para o e-mail sozinha.
+      if (canal === 'whatsapp') return json({ ok: false, erro: 'whatsapp_nao_configurado', podeTentarEmail: !!conta.email }, 400);
+      if (canal !== 'email') return json({ ok: false, erro: 'canal_invalido' }, 400);
+
+      /*
+       * Conta sem e-mail (nasceu só com WhatsApp, na Porcada e na Oktoberfest):
+       * a tela pede um e-mail na hora e manda em `emailNovo`. O código vai para
+       * ele e, confirmado no `confirmar_login`, ele vira o e-mail da conta. Até
+       * lá nada muda na conta. Conta que JÁ tem e-mail ignora o `emailNovo`: o
+       * código só vai para um e-mail DA CONTA.
+       */
+      const emailNovo = !conta.email && body?.emailNovo ? String(body.emailNovo).trim().toLowerCase() : null;
+      if (!conta.email && !emailNovo) return json({ ok: false, erro: 'sem_email' }, 400);
+      if (emailNovo) {
+        if (!EMAIL_RE.test(emailNovo) || ehEmailInterno(emailNovo)) return json({ ok: false, erro: 'email_invalido' }, 400);
+        const donos = await buscarContas(admin, 'email', emailNovo);
+        if (donos.some((c) => c.user_id !== conta.user_id)) return json({ ok: false, erro: 'email_ja_cadastrado' }, 409);
+      }
 
       const bloqueio = await limiteDeSenha(admin, conta.user_id, ip);
       if (bloqueio) return bloqueio;
@@ -333,18 +345,12 @@ serve(async (req) => {
       const senha = String(body?.senha ?? '');
       if (!senha || !(await sessaoPorSenha(emailAuth, senha))) return json({ ok: false, erro: 'senha_incorreta' }, 401);
 
-      let destino = canal === 'whatsapp' ? conta.whatsapp! : conta.email!;
-      if (canal === 'whatsapp') {
-        await carregarConfigWhatsApp(admin);
-        const tem = await numeroTemWhatsApp(destino);
-        if (tem && !tem.existe) return json({ ok: false, erro: 'numero_sem_whatsapp', podeTentarEmail: !!conta.email }, 400);
-        if (tem?.numero) destino = tem.numero;
-      }
+      const destino = conta.email ?? emailNovo!;
       const r = await criarEEnviarCodigo(admin, { proposito: 'login', canal, destino, userId: conta.user_id, nome: conta.nome, ip });
       return respostaDeEnvio(r, {
         canal,
-        destinoMascarado: canal === 'whatsapp' ? mascararNumeroParaTela(destino) : maskEmail(destino),
-        podeTentarEmail: canal === 'whatsapp' && !!conta.email,
+        destinoMascarado: maskEmail(destino),
+        emailNovo: !conta.email,
         canais: canaisDaConta(conta),
       });
     }
@@ -362,16 +368,43 @@ serve(async (req) => {
       if (bloqueio) return bloqueio;
       const emailAuth = await emailDeAuth(admin, conta.user_id);
       if (!emailAuth) return json({ ok: false, erro: 'conta_nao_encontrada' }, 404);
-      const sessao = await sessaoPorSenha(emailAuth, String(body?.senha ?? ''));
+      const senha = String(body?.senha ?? '');
+      let sessao = await sessaoPorSenha(emailAuth, senha);
       if (!sessao) return json({ ok: false, erro: 'senha_incorreta' }, 401);
+      if (c.desafio.canal !== 'email') return json({ ok: false, erro: 'desafio_nao_confere' }, 400);
 
-      // Este login provou o canal: carimba (só se ainda não estava carimbado).
+      /*
+       * Conta que não tinha e-mail e acabou de provar um (ver `pedir_login`): o
+       * e-mail vira o da conta, no auth e no perfil. Corrida: outra conta pode
+       * ter ficado com ele entre o pedido e a confirmação, por isso a conferência
+       * repete aqui. A sessão é refeita com o e-mail novo, para o token já nascer
+       * certo; se isso falhar, vale a sessão que já estava na mão.
+       */
+      const destino = String(c.desafio.destino ?? '').trim().toLowerCase();
+      if (!conta.email && EMAIL_RE.test(destino) && !ehEmailInterno(destino)) {
+        const donos = await buscarContas(admin, 'email', destino);
+        if (donos.some((d) => d.user_id !== conta.user_id)) return json({ ok: false, erro: 'email_ja_cadastrado' }, 409);
+        const { data: atual } = await admin.auth.admin.getUserById(conta.user_id);
+        const meta = { ...(atual?.user?.user_metadata ?? {}), sem_email: null };
+        const { error: erroEmail } = await admin.auth.admin.updateUserById(conta.user_id, {
+          email: destino, email_confirm: true, user_metadata: meta,
+        });
+        if (erroEmail) {
+          console.error('[AUTH-CODIGO] não gravou o e-mail novo', erroEmail.message);
+          if (/already|registered|exists/i.test(erroEmail.message)) return json({ ok: false, erro: 'email_ja_cadastrado' }, 409);
+          return json({ ok: false, erro: 'nao_trocou_email' }, 500);
+        }
+        await admin.from('profiles').update({ email: destino }).eq('id', conta.user_id);
+        sessao = (await sessaoPorSenha(destino, senha)) ?? sessao;
+        console.log('[AUTH-CODIGO] e-mail novo gravado na conta');
+      }
+
+      // Este login provou o e-mail: carimba (só se ainda não estava carimbado).
       const { data: perfil } = await admin.from('profiles')
-        .select('whatsapp_confirmado_em, email_confirmado_em').eq('id', conta.user_id).maybeSingle();
-      const jaCarimbado = c.desafio.canal === 'whatsapp' ? !!perfil?.whatsapp_confirmado_em : !!perfil?.email_confirmado_em;
-      if (!jaCarimbado) await carimbarCanal(admin, conta.user_id, c.desafio.canal, c.desafio.canal === 'whatsapp' ? c.desafio.destino : null);
+        .select('email_confirmado_em').eq('id', conta.user_id).maybeSingle();
+      if (!perfil?.email_confirmado_em) await carimbarCanal(admin, conta.user_id, 'email');
 
-      console.log('[AUTH-CODIGO] login por', c.desafio.canal);
+      console.log('[AUTH-CODIGO] login por e-mail');
       return json({ ok: true, sessao, primeiroNome: conta.primeiroNome });
     }
 
@@ -381,25 +414,18 @@ serve(async (req) => {
       if ('erro' in achado) return achado.erro;
       const { conta } = achado;
       const canal = body?.canal as Canal;
-      if (canal !== 'whatsapp' && canal !== 'email') return json({ ok: false, erro: 'canal_invalido' }, 400);
-      if (canal === 'whatsapp' && !conta.whatsapp) return json({ ok: false, erro: 'sem_whatsapp' }, 400);
-      if (canal === 'email' && !conta.email) return json({ ok: false, erro: 'sem_email' }, 400);
+      if (canal === 'whatsapp') return json({ ok: false, erro: 'whatsapp_nao_configurado', podeTentarEmail: !!conta.email }, 400);
+      if (canal !== 'email') return json({ ok: false, erro: 'canal_invalido' }, 400);
+      // Conta sem e-mail não recupera a senha sozinha: sem a senha não há como
+      // provar que é o dono antes de aceitar um e-mail novo. A tela manda falar
+      // com a FestPag.
+      if (!conta.email) return json({ ok: false, erro: 'sem_email' }, 400);
 
-      let destino = canal === 'whatsapp' ? conta.whatsapp! : conta.email!;
-      if (canal === 'whatsapp') {
-        await carregarConfigWhatsApp(admin);
-        const tem = await numeroTemWhatsApp(destino);
-        if (tem && !tem.existe) return json({ ok: false, erro: 'numero_sem_whatsapp', podeTentarEmail: !!conta.email }, 400);
-        if (tem?.numero) destino = tem.numero;
-      }
+      const destino = conta.email;
       // Sem senha aqui, por definição — é ela que a pessoa perdeu. O que segura é o
-      // rate limit por destino/IP do motor e o código só ir para um canal DA CONTA.
+      // rate limit por destino/IP do motor e o código só ir para o e-mail DA CONTA.
       const r = await criarEEnviarCodigo(admin, { proposito: 'reset', canal, destino, userId: conta.user_id, nome: conta.nome, ip });
-      return respostaDeEnvio(r, {
-        canal,
-        destinoMascarado: canal === 'whatsapp' ? mascararNumeroParaTela(destino) : maskEmail(destino),
-        podeTentarEmail: canal === 'whatsapp' && !!conta.email,
-      });
+      return respostaDeEnvio(r, { canal, destinoMascarado: maskEmail(destino) });
     }
 
     if (acao === 'confirmar_reset') {
@@ -418,11 +444,10 @@ serve(async (req) => {
         console.error('[AUTH-CODIGO] reset updateUserById', e.message);
         return json({ ok: false, erro: 'nao_trocou_senha' }, 500);
       }
-      // O código provou o canal: carimba, se ainda não estava.
+      // O código provou o e-mail: carimba, se ainda não estava.
       const { data: perfil } = await admin.from('profiles')
-        .select('whatsapp_confirmado_em, email_confirmado_em').eq('id', conta.user_id).maybeSingle();
-      const jaCarimbado = c.desafio.canal === 'whatsapp' ? !!perfil?.whatsapp_confirmado_em : !!perfil?.email_confirmado_em;
-      if (!jaCarimbado) await carimbarCanal(admin, conta.user_id, c.desafio.canal, c.desafio.canal === 'whatsapp' ? c.desafio.destino : null);
+        .select('email_confirmado_em').eq('id', conta.user_id).maybeSingle();
+      if (!perfil?.email_confirmado_em) await carimbarCanal(admin, conta.user_id, 'email');
 
       const emailAuth = await emailDeAuth(admin, conta.user_id);
       const sessao = emailAuth ? await sessaoPorSenha(emailAuth, novaSenha) : null;
