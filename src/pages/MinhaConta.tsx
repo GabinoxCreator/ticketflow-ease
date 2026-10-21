@@ -111,33 +111,40 @@ const MinhaConta = () => {
     setIsUpdating(true);
     try {
       const cpfDigits = unformatCPF(data.cpf || '');
-      // Tipado como as colunas de `profiles`, e não como Record<string, unknown>:
-      // o cliente do Supabase recusa um objeto genérico no update (era o único
-      // erro de tipo do projeto). Assim um nome de coluna errado é pego aqui.
-      const update: {
-        nome_completo: string;
-        whatsapp: string;
-        cpf?: string;
-      } = {
-        nome_completo: data.nome_completo,
-        whatsapp: data.whatsapp,
-      };
-      // Only set CPF if currently empty in profile, or if it actually changed
-      if (cpfDigits.length === 11) {
-        update.cpf = cpfDigits;
-      }
+      const cpfJaSalvo = !!profile?.cpf && validateCPF(profile.cpf);
 
+      // Nome e WhatsApp vão direto na tabela. O CPF não vai mais junto (OS-267):
+      // o navegador perdeu a escrita do CPF, e o primeiro CPF da conta passa
+      // pela função `definir_meu_cpf`, que só grava em perfil ainda sem CPF.
       const { error } = await supabase
         .from('profiles')
-        .update(update)
+        .update({ nome_completo: data.nome_completo, whatsapp: data.whatsapp })
         .eq('id', user.id);
 
       if (error) throw error;
+
+      if (!cpfJaSalvo && cpfDigits.length === 11) {
+        // A função ainda não está nos tipos gerados (types.ts é do Lovable).
+        const rpcSemTipo = supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: { ok?: boolean; erro?: string } | null; error: { message?: string } | null }>;
+        const { data: r, error: cpfErr } = await rpcSemTipo.call(supabase, 'definir_meu_cpf', { _cpf: cpfDigits });
+        if (cpfErr) throw cpfErr;
+        if (!r?.ok) {
+          if (r?.erro === 'cpf_ja_salvo') throw new Error('O CPF já está salvo. Entre em contato com o suporte se houver erro.');
+          if (r?.erro === 'cpf_invalido') throw new Error('CPF inválido');
+          throw new Error(r?.erro || 'falha ao salvar o CPF');
+        }
+      }
 
       await refreshProfile();
       toast.success('Perfil atualizado com sucesso!');
     } catch (error: any) {
       toast.error(`Erro ao atualizar perfil: ${error.message}`);
+      // O nome pode ter gravado antes de o CPF falhar: recarrega o perfil para a
+      // tela (e o topo) mostrarem o que ficou no banco.
+      try { await refreshProfile(); } catch { /* o aviso de erro já saiu */ }
     } finally {
       setIsUpdating(false);
     }

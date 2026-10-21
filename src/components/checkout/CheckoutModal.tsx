@@ -299,19 +299,23 @@ export function CheckoutModal({
   const handleCpfContinue = async (cpfDigits: string, name: string, email: string) => {
     setCustomerData((prev) => ({ ...prev, cpf: cpfDigits, name, email }));
 
-    // Persist CPF to user's profile if missing/invalid there
+    // Guarda o CPF no perfil se ele ainda não tem um (OS-267: pela função
+    // `definir_meu_cpf`; o navegador não escreve mais o CPF direto na tabela).
+    // Best-effort: o CPF do pedido já está em `customerData`, a compra segue.
     try {
       if (user && validateCPF(cpfDigits)) {
         const profileCpfDigits = unformatCPF(profile?.cpf || '');
         if (!validateCPF(profileCpfDigits)) {
-          const { error: upErr } = await supabase
-            .from('profiles')
-            .update({ cpf: cpfDigits })
-            .eq('id', user.id);
-          if (!upErr) {
+          // A função ainda não está nos tipos gerados (types.ts é do Lovable).
+          const rpcSemTipo = supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: { ok?: boolean; erro?: string } | null; error: { message?: string } | null }>;
+          const { data: r, error: upErr } = await rpcSemTipo.call(supabase, 'definir_meu_cpf', { _cpf: cpfDigits });
+          if (!upErr && r?.ok) {
             await refreshProfile();
           } else {
-            console.warn('Failed to persist CPF to profile:', upErr);
+            console.warn('Failed to persist CPF to profile:', upErr ?? r?.erro);
           }
         }
       }
