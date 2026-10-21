@@ -16,6 +16,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -117,6 +127,11 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   const [sectorChoice, setSectorChoice] = useState<'existing' | 'new'>('new');
   const [sectorSelected, setSectorSelected] = useState<string>('');
   const [sectorNewName, setSectorNewName] = useState<string>('');
+  // A lixeira pergunta antes de apagar (OS-297): antes, um clique apagava o lote na
+  // hora. Lote que já vendeu o banco recusa, e a frase dele aparece no aviso de erro.
+  // O lote fica guardado enquanto a pergunta fecha, para o nome não sumir na animação.
+  const [lotParaExcluir, setLotParaExcluir] = useState<EventLot | null>(null);
+  const [perguntaExcluir, setPerguntaExcluir] = useState(false);
   // Vendidos de verdade (sem cortesia), não o contador de estoque do lote.
   // Sem a contagem (carregando ou falhou) mostra "—", nunca um número errado.
   const { data: vendasPorLote } = useLotSales(lots.map((l) => l.event_id));
@@ -330,7 +345,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(lot)}>
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onDelete(lot.id)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Excluir lote" aria-label="Excluir lote" onClick={() => { setLotParaExcluir(lot); setPerguntaExcluir(true); }}>
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -655,6 +670,27 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={perguntaExcluir} onOpenChange={setPerguntaExcluir}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir o lote "{lotParaExcluir?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (lotParaExcluir) onDelete(lotParaExcluir.id);
+                setPerguntaExcluir(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
