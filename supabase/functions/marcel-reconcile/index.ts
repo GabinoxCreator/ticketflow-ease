@@ -35,6 +35,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { consultarPix, reconciliar, PAGO, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { montarLote, rodadaDoMinuto } from "./fila.ts";
+import { conferirIdSoDestePedido, recusarPromocao } from "../_shared/conferePagamento.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -147,6 +148,30 @@ serve(async (req) => {
 
         resumo.pagos++;
         log('Pago e não confirmado', { orderId: p.id, situacao: p.status, valor: p.total_amount });
+
+        // OS-265: quando a pergunta foi pelo id gravado no pedido (PIX), esse id
+        // não pode estar em OUTRO pedido: um pagamento libera um pedido só. O
+        // Marcel não devolve de quem é o pagamento nem o valor. Pela consulta por
+        // purchaseId (o id do pedido) o próprio Marcel já amarrou o pedido.
+        if (ehPix && p.provider_transaction_id) {
+          const conferencia = await conferirIdSoDestePedido(admin, p.id, String(p.provider_transaction_id));
+          if (!conferencia.ok) {
+            if (conferencia.motivo === 'conferencia_indisponivel') {
+              // Não deu para conferir: tenta na próxima rodada.
+              resumo.indefinidos++;
+            } else {
+              // Análise humana (bandeira + aviso), uma vez só por pedido.
+              await recusarPromocao(admin, {
+                orderId: p.id, situacao: p.status, valor: p.total_amount,
+                source: 'marcel-reconcile', paymentId: String(p.provider_transaction_id),
+                recusa: conferencia, bandeira: true,
+              });
+              resumo.falhas++;
+              log('Promoção recusada: id de pagamento também está em outro pedido', { orderId: p.id, ...conferencia.detalhe });
+            }
+            continue;
+          }
+        }
 
         const r = await applyOrderApproved(admin, {
           orderId: p.id,

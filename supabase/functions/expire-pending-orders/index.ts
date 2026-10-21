@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { checkMarcelPixPaid } from "../_shared/marcelPix.ts";
+import { conferirPagamentoMercadoPago, conferirIdSoDestePedido, recusarPromocao } from "../_shared/conferePagamento.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +24,7 @@ interface OrderRow {
   expires_at: string;
   mp_payment_id: string | null;
   provider_transaction_id: string | null;
+  total_amount: number | string | null;
 }
 
 async function ticketCountsByLot(supabase: any, orderId: string) {
@@ -125,7 +127,7 @@ serve(async (req) => {
     });
   }
 
-  const stats = { scanned: 0, recovered: 0, marcel_recovered: 0, expired: 0, extended: 0, in_process_timeout: 0, skipped: 0, errors: 0 };
+  const stats = { scanned: 0, recovered: 0, marcel_recovered: 0, expired: 0, extended: 0, in_process_timeout: 0, skipped: 0, errors: 0, refused: 0 };
   const startedAt = new Date().toISOString();
 
   try {
@@ -145,8 +147,13 @@ serve(async (req) => {
 
     const { data: candidates, error } = await supabase
       .from('orders')
-      .select('id, created_at, expires_at, mp_payment_id, provider_transaction_id')
+      .select('id, created_at, expires_at, mp_payment_id, provider_transaction_id, total_amount')
       .eq('status', 'pending')
+      // OS-265: pedido com bandeira de análise (pago no provedor, recusado na
+      // conferência) fica pendente até alguém decidir. Sem este filtro ele
+      // ficaria para sempre na frente da fila (os 50 mais antigos) e, com 50
+      // presos, a expiração parava para todo mundo.
+      .is('review_status', null)
       .not('expires_at', 'is', null)
       .lt('expires_at', new Date().toISOString())
       .order('expires_at', { ascending: true })
@@ -169,7 +176,38 @@ serve(async (req) => {
             const payment = await mpRes.json();
             const mpStatus = payment.status;
 
-            if (mpStatus === 'approved') {
+            // OS-265: aprovado só promove se o pagamento é DESTE pedido
+            // (external_reference) e do MESMO valor, como o webhook e a
+            // check-mercadopago-payment. Senão este pedido não foi pago por
+            // esse id: recusa, audita e segue como pedido sem pagamento.
+            const conferencia = mpStatus === 'approved'
+              ? conferirPagamentoMercadoPago(order, payment)
+              : null;
+            if (conferencia && !conferencia.ok) {
+              stats.refused++;
+              log('promotion_refused', { orderId: order.id, paymentId, motivo: conferencia.motivo });
+              // Valor diferente: o pagamento é deste pedido, alguém pagou e não
+              // leva; vai para análise (bandeira). Pagamento de outro pedido
+              // (o próprio Mercado Pago diz): este não foi pago por ele; só
+              // registra e avisa. Nos dois casos o pedido expira no prazo, como
+              // pedido sem pagamento, e sai da fila (não volta a ser recusado).
+              const bandeira = conferencia.motivo === 'valor_diferente';
+              if (!order.provider_transaction_id) {
+                const ok = await applyExpired(supabase, order);
+                if (ok) stats.expired++; else stats.skipped++;
+                await recusarPromocao(supabase, {
+                  orderId: order.id, situacao: ok ? 'expired' : 'pending', valor: order.total_amount,
+                  source: 'expire-pending-orders', paymentId, recusa: conferencia, bandeira,
+                });
+                continue;
+              }
+              // Tem também id do Marcel (não acontece hoje): registra e segue
+              // para a conferência do Marcel abaixo.
+              await recusarPromocao(supabase, {
+                orderId: order.id, situacao: 'pending', valor: order.total_amount,
+                source: 'expire-pending-orders', paymentId, recusa: conferencia, bandeira,
+              });
+            } else if (mpStatus === 'approved') {
               const result = await applyOrderApproved(supabase, {
                 orderId: order.id,
                 mpPaymentId: paymentId,
@@ -207,7 +245,8 @@ serve(async (req) => {
               stats.extended++;
               continue;
             }
-            // rejected / cancelled / refunded → falls through to expired below
+            // rejected / cancelled / refunded (ou aprovado de outro pedido / outro
+            // valor, recusado acima) → falls through to expired below
           } else {
             // Erro transitório do MP → não toca neste pedido nesta rodada
             stats.skipped++;
@@ -234,6 +273,26 @@ serve(async (req) => {
             continue;
           }
           if (marcel.paid) {
+            // OS-265: o Marcel não diz de quem é o pagamento nem o valor; o que
+            // se confere é que este id não está gravado em outro pedido (um
+            // pagamento libera um pedido só). Recusado: NÃO expira (o provedor
+            // diz que está pago) e vai para análise humana (bandeira + aviso, uma
+            // vez só). Com a bandeira, ele sai da fila desta rotina.
+            const conferencia = await conferirIdSoDestePedido(supabase, order.id, String(order.provider_transaction_id));
+            if (!conferencia.ok) {
+              if (conferencia.motivo === 'conferencia_indisponivel') {
+                stats.skipped++;
+              } else {
+                stats.refused++;
+                await recusarPromocao(supabase, {
+                  orderId: order.id, situacao: 'pending', valor: order.total_amount,
+                  source: 'expire-pending-orders[marcel]', paymentId: String(order.provider_transaction_id),
+                  recusa: conferencia, bandeira: true,
+                });
+              }
+              log('marcel_promotion_refused', { orderId: order.id, motivo: conferencia.motivo });
+              continue;
+            }
             await applyOrderApproved(supabase, {
               orderId: order.id,
               mpPaymentId: String(order.provider_transaction_id),

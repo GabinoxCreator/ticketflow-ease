@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { conferirIdSoDestePedido, recusarPromocao } from "../_shared/conferePagamento.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -89,7 +90,7 @@ serve(async (req) => {
 
     const { data: orders, error: ordErr } = await admin
       .from('orders')
-      .select('id, provider_transaction_id')
+      .select('id, status, provider_transaction_id, total_amount')
       .in('event_id', marcelEventIds)
       .eq('payment_method', 'pix')
       .eq('status', 'pending')
@@ -102,6 +103,7 @@ serve(async (req) => {
     logStep('pending found', { count: pending.length });
 
     let confirmed = 0;
+    let refused = 0;
     for (const order of pending) {
       try {
         const resp = await fetch(`${marcelBase}/checkpix`, {
@@ -113,6 +115,23 @@ serve(async (req) => {
         const data = await resp.json();
         const isPaid = data?.aprovado === true || data?.status === 3;
         if (!isPaid) continue;
+
+        // OS-265: um pagamento libera um pedido só. O Marcel não diz de quem é
+        // o pagamento nem o valor; o id gravado aqui não pode estar em outro
+        // pedido. Recusado: análise humana (bandeira + aviso), uma vez só.
+        const conferencia = await conferirIdSoDestePedido(admin, order.id, String(order.provider_transaction_id));
+        if (!conferencia.ok) {
+          if (conferencia.motivo !== 'conferencia_indisponivel') {
+            refused++;
+            await recusarPromocao(admin, {
+              orderId: order.id, situacao: order.status, valor: order.total_amount,
+              source: 'confra-reconcile-pix', paymentId: String(order.provider_transaction_id),
+              recusa: conferencia, bandeira: true,
+            });
+          }
+          logStep('promotion refused', { orderId: order.id, motivo: conferencia.motivo });
+          continue;
+        }
 
         await applyOrderApproved(admin, {
           orderId: order.id,
@@ -126,7 +145,7 @@ serve(async (req) => {
       }
     }
 
-    return json({ ok: true, checked: pending.length, confirmed });
+    return json({ ok: true, checked: pending.length, confirmed, refused });
   } catch (err: any) {
     logStep('ERROR', { message: err?.message });
     return json({ error: err?.message }, 500);

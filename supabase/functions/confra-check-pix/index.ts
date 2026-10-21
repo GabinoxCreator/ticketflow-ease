@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { checkMarcelPixPaid } from "../_shared/marcelPix.ts";
+import { conferirIdSoDestePedido, recusarPromocao } from "../_shared/conferePagamento.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,7 +53,7 @@ serve(async (req) => {
     // Pega o pedido + o transactionId do Marcel
     const { data: order, error: orderErr } = await admin
       .from('orders')
-      .select('id, status, provider_transaction_id')
+      .select('id, status, provider_transaction_id, total_amount')
       .eq('id', orderId)
       .maybeSingle();
 
@@ -77,6 +78,22 @@ serve(async (req) => {
 
     if (!check.paid) {
       return json({ paid: false, status: order.status });
+    }
+
+    // OS-265: um pagamento libera um pedido só. O Marcel não diz de quem é o
+    // pagamento nem o valor; o id gravado aqui não pode estar em outro pedido.
+    const conferencia = await conferirIdSoDestePedido(admin, order.id, String(order.provider_transaction_id));
+    if (!conferencia.ok) {
+      if (conferencia.motivo === 'conferencia_indisponivel') {
+        return json({ paid: false, status: order.status });
+      }
+      await recusarPromocao(admin, {
+        orderId: order.id, situacao: order.status, valor: order.total_amount,
+        source: 'confra-check-pix', paymentId: String(order.provider_transaction_id),
+        recusa: conferencia, bandeira: true,
+      });
+      logStep('promotion refused: payment id also on another order', { orderId, ...conferencia.detalhe });
+      return json({ paid: false, status: order.status, error: 'pagamento_em_conferencia' }, 409);
     }
 
     // Pago — marca pago + emite tickets (reusa a função existente, idempotente)
