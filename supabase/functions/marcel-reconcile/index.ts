@@ -15,13 +15,26 @@
 //   incluindo os já EXPIRADOS no nosso lado. Esse é o caso mais perigoso:
 //   expirou aqui, mas o cliente pagou lá.
 //
+// SÓ COMPRA DO SITE, E NENHUM PEDIDO INVISÍVEL (OS-245, 21/10/2026)
+//   Em 15/10 os testes de R$ 1,12 da maquininha lotaram 39 dos 40 lugares do
+//   lote (que pegava os MAIS ANTIGOS) e a compra real de uma cliente ficou de
+//   fora. Agora entra só `sale_origin = 'online'`: maquininha e totem
+//   (`smartpos`) cobram no SiTef, manual e cortesia nascem pagos; nenhum deles
+//   passa pelo Marcel. E quem cabe no lote sai de `fila.ts`: pendente primeiro,
+//   o resto em rodízio, para nenhum pedido ficar de fora se a fila crescer.
+//
 // Chamada por cron. verify_jwt=false + segredo próprio no header, como o
 // facial-resync: é rotina de servidor, não rota de usuário.
+//
+// ⚠️ O vigia do relógio (`relogio_do_pix_saude`, no banco) lê `ok`,
+// `verificados` e `indefinidos` desta resposta para saber se a rotina e o
+// Marcel estão vivos. Não mudar o sentido desses três campos.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { consultarPix, reconciliar, PAGO, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { montarLote, rodadaDoMinuto } from "./fila.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +44,11 @@ const corsHeaders = {
 // Janela: 48h cobre com folga o PIX (expira em 1h) e o cartão em dúvida por
 // queda de rede. Mais que isso vira varredura de arquivo morto.
 const JANELA_HORAS = 48;
+// Quantos pedidos se pergunta ao Marcel por rodada (uma rodada por minuto).
 const LOTE_MAX = 40;
+// Quantos pedidos em dúvida se lê do banco para montar o lote. O pior caso
+// real (120 dias até 21/10) foi 27 compras do site em dúvida numa janela de 48h.
+const FILA_MAX = 1000;
 
 const log = (step: string, d?: unknown) =>
   console.log(`[MARCEL-RECONCILE] ${step}${d ? ` - ${JSON.stringify(d)}` : ''}`);
@@ -70,7 +87,10 @@ serve(async (req) => {
       .from('events').select('id').eq('payment_provider', 'marcel');
     const idsMarcel = (eventosMarcel || []).map((e: any) => e.id);
     if (idsMarcel.length === 0) {
-      return json({ ok: true, verificados: 0, pagos: 0, promovidos: 0, indefinidos: 0, falhas: 0, confirmados: [] });
+      return json({
+        ok: true, verificados: 0, pagos: 0, promovidos: 0, indefinidos: 0, falhas: 0,
+        na_fila: 0, pendentes: 0, fora_desta_rodada: 0, confirmados: [],
+      });
     }
 
     // ⚠️ ANTES daqui havia um `.not('provider_transaction_id','is',null)`, e ele
@@ -80,21 +100,37 @@ serve(async (req) => {
     // para sempre. É para isso que existe o `/reconcile` por purchaseId — que é o
     // próprio id do pedido — e o `else` lá embaixo já sabia usá-lo, mas nunca era
     // alcançado. Corrigido em 18/08.
+    //
+    // `sale_origin = 'online'` (OS-245): só a compra do site é cobrada pelo
+    // Marcel. Venda da maquininha e do totem, manual e cortesia nunca passaram
+    // por ele, e perguntar por elas só ocupava lugar no lote.
     const { data: pedidos, error } = await admin
       .from('orders')
       .select('id, status, provider_transaction_id, payment_method, total_amount, created_at')
+      .eq('sale_origin', 'online')
       .in('status', ['pending', 'expired', 'failed'])
       .in('event_id', idsMarcel)
       .gte('created_at', desde)
-      .order('created_at', { ascending: true })
-      .limit(LOTE_MAX);
+      // Mais novos primeiro só para a leitura: se um dia a fila passar do teto,
+      // quem fica de fora é o mais antigo, nunca a compra de agora. A ordem de
+      // conferência quem decide é a `fila.ts`.
+      .order('created_at', { ascending: false })
+      .limit(FILA_MAX);
 
     if (error) throw error;
+    if ((pedidos?.length ?? 0) >= FILA_MAX) {
+      log('Fila no teto de leitura: os pedidos em dúvida mais antigos ficaram fora desta rodada', { teto: FILA_MAX });
+    }
 
-    const resumo = { verificados: 0, pagos: 0, promovidos: 0, indefinidos: 0, falhas: 0 };
+    const fila = montarLote(pedidos ?? [], LOTE_MAX, rodadaDoMinuto());
+
+    const resumo = {
+      verificados: 0, pagos: 0, promovidos: 0, indefinidos: 0, falhas: 0,
+      na_fila: fila.naFila, pendentes: fila.pendentes, fora_desta_rodada: fila.foraDestaRodada,
+    };
     const confirmados: string[] = [];
 
-    for (const p of pedidos ?? []) {
+    for (const p of fila.lote) {
       resumo.verificados++;
       try {
         // `/checkpix` é a consulta do PIX. Perguntar por ela o destino de uma
