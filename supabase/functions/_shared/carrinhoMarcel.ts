@@ -15,6 +15,15 @@ import { CAMPOS_DA_REGRA, lotesAnteriores, mensagemDoFechado, porQueFechado, typ
 
 export const DEFAULT_FEE_PERCENT = 10;
 
+/**
+ * Teto de unidades num PEDIDO inteiro (ingresso, produto e o que vem de dentro
+ * de combo, tudo somado). Até a OS-269 o 50 valia por LINHA do carrinho:
+ * repetir o mesmo lote em várias linhas passava do teto e segurava o lote
+ * inteiro por 30 min a cada chamada. O maior pedido de verdade da rota do
+ * Marcel até 21/10 tinha 10 ingressos; a tela deixa no máximo 10 por lote.
+ */
+export const MAX_UNIDADES_POR_PEDIDO = 50;
+
 export interface LinhaCarrinho {
   /** Lote que vale TODAS as noites (passe permanente do rodeio). Falso em
    *  evento comum — é a coluna `covers_all_days`, que só o rodeio preenche. */
@@ -83,6 +92,34 @@ export class CarrinhoInvalido extends Error {
     this.name = 'CarrinhoInvalido';
     this.status = status;
   }
+}
+
+/**
+ * O evento está à venda NESTA rota? Publicado e com o pagamento pelo Marcel.
+ *
+ * Até a OS-269 a cobrança avulsa do Marcel não conferia nada disso: vendia
+ * lote ativo de evento em rascunho (39 lotes assim em 17/10) e evento do
+ * Mercado Pago, pulando as travas de lá. Vazio no provedor conta como Marcel,
+ * igual à tela do checkout (`payment_provider || 'marcel'`).
+ *
+ * Vale também para a cotação: quem só cota um evento que não vende recebe a
+ * mesma recusa de quem tenta pagar.
+ */
+export async function eventoAVendaNoMarcel(
+  client: any,
+  eventId: string,
+): Promise<{ id: string; title: string }> {
+  const { data: event, error } = await client
+    .from('events').select('id, title, status, payment_provider').eq('id', eventId).maybeSingle();
+  if (error) throw new CarrinhoInvalido('Erro ao buscar o evento', 500);
+  if (!event) throw new CarrinhoInvalido('Evento não encontrado', 404);
+  if (event.status !== 'published') {
+    throw new CarrinhoInvalido('Evento não está disponível para vendas', 409);
+  }
+  if ((event.payment_provider || 'marcel') !== 'marcel') {
+    throw new CarrinhoInvalido('Evento não está disponível para vendas', 409);
+  }
+  return { id: event.id, title: event.title };
 }
 
 async function taxaDoEvento(client: any, eventId: string, metodo: 'pix' | 'card') {
@@ -305,10 +342,21 @@ export async function resolverPreco(
     produtos.push(p);
   };
 
+  // O mesmo lote repetido em várias linhas vira UMA linha com a soma. Cada linha
+  // continua sendo conferida (zero, negativo e fração são recusados), e o teto
+  // vale para a soma: repetir o lote não fura mais o limite (OS-269).
+  const somaPorLote = new Map<string, number>();
   for (const item of itensLote) {
     const lot = lots.find((l: any) => l.id === item.lotId);
     if (!lot) throw new CarrinhoInvalido('Lote inválido');
-    linhaDeLote(item.lotId, quantidadeValida(item.quantity, lot.name), null, null);
+    const soma = (somaPorLote.get(lot.id) ?? 0) + quantidadeValida(item.quantity, lot.name);
+    if (soma > MAX_UNIDADES_POR_PEDIDO) {
+      throw new CarrinhoInvalido(`Quantidade acima do permitido para "${lot.name}"`);
+    }
+    somaPorLote.set(lot.id, soma);
+  }
+  for (const [lotId, qty] of somaPorLote) {
+    linhaDeLote(lotId, qty, null, null);
   }
 
   for (const pedido of pedidosProduto) {
@@ -345,6 +393,15 @@ export async function resolverPreco(
     }
   }
 
+  // TETO DO PEDIDO INTEIRO, depois de desmontar os combos: é o que vai ser
+  // reservado de verdade. Antes de reservar qualquer coisa (quem chama só
+  // reserva depois daqui), então recusar não prende estoque.
+  const unidades = linhas.reduce((s, l) => s + l.quantity, 0)
+    + produtos.reduce((s, p) => s + p.quantity, 0);
+  if (unidades > MAX_UNIDADES_POR_PEDIDO) {
+    throw new CarrinhoInvalido(`O pedido passa do limite de ${MAX_UNIDADES_POR_PEDIDO} itens`);
+  }
+
   // CUPOM. Sem isto o cliente aplica o desconto, VÊ o valor abatido na tela e é
   // cobrado o valor cheio — que foi o que aconteceu na primeira versão destas
   // edges. O cupom é revalidado aqui no servidor (ativo, dentro da validade,
@@ -363,10 +420,14 @@ export async function resolverPreco(
         && (!cupom.valid_until || new Date(cupom.valid_until).getTime() > Date.now())
         && (cupom.max_uses == null || cupom.uses_count < cupom.max_uses)) {
       desconto = cupom.discount_type === 'percent'
-        ? (baseDoCupom * Number(cupom.discount_value)) / 100
+        // Percentual vai até 100 (OS-269): o banco aceita qualquer valor acima
+        // de zero, e um cupom de 150% abatia também a taxa administrativa.
+        ? (baseDoCupom * Math.min(Number(cupom.discount_value), 100)) / 100
         // Desconto fixo nunca passa do valor da compra: senão o total fica
         // negativo e a cobrança vira um crédito ao cliente.
         : Math.min(Number(cupom.discount_value), baseDoCupom);
+      // O cupom só abate a face dos ingressos: nunca mais que ela, de nenhum tipo.
+      desconto = Math.min(Math.max(desconto, 0), baseDoCupom);
       // Cupom que não abateu nada (carrinho sem ingresso avulso) não é gasto.
       cupomId = desconto > 0 ? cupom.id : null;
     }
@@ -381,9 +442,12 @@ export async function resolverPreco(
   );
   // Mesma ordem da rota do Mercado Pago: a taxa incide sobre a face, e o
   // desconto entra depois. Inverter mudaria o valor cobrado de todo mundo.
+  // O desconto sai SÓ da face (`max(face − desconto, 0)`), e a taxa vem inteira
+  // por cima: nenhum cupom zera a taxa da casa (OS-269). Com o desconto até a
+  // face, como acima, a conta dá o mesmo número de antes, centavo por centavo.
   const subtotal = Math.max(
     0.01,
-    Math.round((totalFace - desconto + taxaAdministrativa) * 100) / 100,
+    Math.round((Math.max(totalFace - desconto, 0) + taxaAdministrativa) * 100) / 100,
   );
 
   return { linhas, produtos, totalFace, taxaAdministrativa, desconto, cupomId, subtotal };
