@@ -18,7 +18,10 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { criarPix, telefoneParaMarcel, MarcelIndisponivel } from "../_shared/marcel.ts";
-import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace, eventoAVendaNoMarcel } from "../_shared/carrinhoMarcel.ts";
+import { exigirUsuario, MesaInvalida } from "../_shared/mesaMarcel.ts";
+import { limiteDeCobranca } from "../_shared/limiteDeCobranca.ts";
+import { rateLimitResponse } from "../_shared/rateLimit.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 import { semEmailInterno } from '../_shared/emailInterno.ts';
@@ -54,6 +57,12 @@ serve(async (req) => {
   let reservadoProd: { stockId: string; quantity: number }[] = [];
 
   try {
+    // CONTA OBRIGATÓRIA (OS-269). Antes o login era opcional e, sem ele, o PIX
+    // saía com o pedido sem dono e segurando ingresso por 30 minutos. A tela só
+    // abre o pagamento com a pessoa logada, então quem compra pelo site não
+    // muda nada. Mesmo padrão das edges de mesa (`exigirUsuario`).
+    const userId = await exigirUsuario(req);
+
     const body = await req.json();
     const { eventId, items, customerName, customerPhone } = body;
     // Quem só tem WhatsApp tem e-mail interno no Supabase: nunca gravar nem mandar ao gateway.
@@ -68,6 +77,17 @@ serve(async (req) => {
       return json({ error: 'Dados incompletos' }, 400);
     }
 
+    // Publicado e pago pelo Marcel. Antes esta edge lia o status e não usava.
+    const event = await eventoAVendaNoMarcel(admin, eventId);
+
+    // Limite de tentativas por conta e por endereço, antes das outras
+    // conferências: tentativa com dado errado também conta (OS-269).
+    const limite = await limiteDeCobranca(admin, req, userId, 'pix');
+    if (!limite.allowed) {
+      log('Barrado pelo limite de tentativas', { userId, indisponivel: !!limite.unavailable });
+      return rateLimitResponse(limite, corsHeaders);
+    }
+
     // O checkout manda `customerCPF` (maiúsculo) há muito tempo; aceito as duas
     // grafias para não depender de mexer no modal em produção — e porque um
     // campo que chega com nome ligeiramente diferente vira CPF vazio silencioso.
@@ -78,23 +98,6 @@ serve(async (req) => {
     const erroNome = validarNomePessoa(customerName);
     if (erroNome) return json({ error: erroNome }, 400);
     const nomeLimpo = normalizarNomePessoa(customerName);
-
-    // Quem é o comprador: o token, não o corpo da requisição.
-    let userId: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const userClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } },
-      );
-      const { data } = await userClient.auth.getUser();
-      userId = data?.user?.id ?? null;
-    }
-
-    const { data: event } = await admin
-      .from('events').select('id, title, status').eq('id', eventId).maybeSingle();
-    if (!event) return json({ error: 'Evento não encontrado' }, 404);
 
     // PREÇO VEM DO BANCO, pela mesma função que o cartão usa. Manter a conta
     // duplicada aqui foi o que deixou esta edge sem tratar cupom na 1ª versão:
@@ -274,6 +277,10 @@ serve(async (req) => {
     await devolverEstoque(admin, reservado);
     await devolverProdutos(admin, reservadoProd);
 
+    // Sem conta (ou sessão vencida): nada foi reservado nem criado ainda.
+    if (e instanceof MesaInvalida) {
+      return json({ error: e.code, message: 'Entre na sua conta para pagar.' }, e.status);
+    }
     // Carrinho inválido (lote de outro evento, lote inativo, sem estoque) é erro
     // do pedido, não falha do sistema — devolve a mensagem que explica o motivo.
     if (e instanceof CarrinhoInvalido) {

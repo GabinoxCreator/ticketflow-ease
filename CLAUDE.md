@@ -13,6 +13,7 @@ Site de venda de ingressos + painel do colaborador. React + TS (não-strict) + V
 ## Webhook Mercado Pago = única fonte autoritativa de aprovação
 - `mercadopago-webhook`: valida HMAC (x-signature/x-request-id), re-consulta o pagamento na API do MP, valida `transaction_amount` vs `order.total_amount` (tol. 0.01) ANTES de aprovar, deduplica via INSERT em `mp_webhook_events` (23505 = dup); se `applyOrderApproved` falhar, **DELETA a linha de dedupe** p/ o MP reprocessar. Edges de CRIAÇÃO de cobrança (`create-seat-pix`, `charge-seat-card`) NUNCA promovem — só o webhook.
 - `create-mercadopago-preference` está NEUTRALIZADA (retorna 410) — não reativar.
+- **Cobrança nova pelo Mercado Pago DESLIGADA (OS-269, 21/10, decisão do Gabriel):** `create-mercadopago-pix`, `process-card-payment`, `create-seat-pix` e `charge-seat-card` respondem 410 a tudo, no mesmo padrão. Toda venda do site é pela rota do Marcel (Safe2Pay, edges `marcel-*`). Continuam ligadas, para os pedidos antigos do MP: `mercadopago-webhook`, `check-mercadopago-payment`, `expire-pending-orders`, `reconcile-orphan-orders` e `get-mercadopago-public-key`.
 
 ## Edges do colaborador (`collaborator-*`, verify_jwt=false)
 - Auth custom no body (`collaborator_id` + `session_token`): valide com `validateCollaboratorSession()` + `sessionErrorResponse()` de `_shared/collaboratorSession.ts` (transient→503, expirado→401), DEPOIS cheque vínculo em `collaborator_events` p/ o event_id (403 sem vínculo).
