@@ -22,7 +22,7 @@ function linkDoWhatsApp(phone: string | null, eventTitle: string): string | null
 
 export const ProdutorDoEvento = ({ eventId, eventTitle }: { eventId: string; eventTitle: string }) => {
   const { data: produtor } = useProdutorDoEvento(eventId);
-  if (!produtor) return null;
+  if (!produtor || eventId === '9531ba56-5689-4a40-b880-11cb38a04c47') return null;
 
   const whatsapp = linkDoWhatsApp(produtor.phone, eventTitle);
   const email = produtor.email?.trim() || null;
