@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, Plus, Loader2, ShoppingBag } from 'lucide-react';
 import { useDoorSales } from '@/hooks/useDoorSales';
 import { useEventLots } from '@/hooks/useEventLots';
+import { ehLoteEmGrupo } from '@/lib/lote-em-grupo';
 import { exportToCSV } from '@/utils/csvExport';
 
 interface EventDoorSalesTabProps {
@@ -28,7 +29,8 @@ export function EventDoorSalesTab({ eventId }: EventDoorSalesTabProps) {
   const unitPrice = selectedLot ? Number(selectedLot.price) : 0;
   const totalAmount = unitPrice * quantity;
 
-  const activeLots = lots?.filter(l => l.is_active) || [];
+  // Lote em grupo (dupla) só se vende pelo site (OS-317).
+  const activeLots = lots?.filter(l => l.is_active && !ehLoteEmGrupo(l)) || [];
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);

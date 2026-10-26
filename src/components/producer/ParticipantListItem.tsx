@@ -11,6 +11,7 @@ import {
 import { Ticket } from '@/hooks/useEventParticipants';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { precoPorIngresso } from '@/lib/lote-em-grupo';
 
 interface ParticipantListItemProps {
   ticket: Ticket;
@@ -79,7 +80,8 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
           <p className="font-medium">{ticket.lot?.name || 'Lote'}</p>
           {ticket.lot?.price && (
             <p className="text-sm text-muted-foreground">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ticket.lot.price))}
+              {/* Lote em dupla: o preço do lote é o do par; cada ingresso vale a metade (OS-317). */}
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(precoPorIngresso(ticket.lot))}
             </p>
           )}
           {ticket.validated_at && (

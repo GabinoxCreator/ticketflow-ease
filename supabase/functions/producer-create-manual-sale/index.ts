@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
+import { CAMPOS_DO_GRUPO, ehLoteEmGrupo, mensagemSoNoSite } from "../_shared/loteEmGrupo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -156,7 +157,7 @@ serve(async (req) => {
     const lotIds = body.items.map((i) => i.lot_id);
     const { data: lots, error: lotsErr } = await admin
       .from("event_lots")
-      .select("id, name, price, is_active, event_id")
+      .select(`id, name, price, is_active, event_id, ${CAMPOS_DO_GRUPO}`)
       .in("id", lotIds)
       .eq("event_id", body.event_id);
     if (lotsErr || !lots) throw new Error("lots_query_failed");
@@ -167,6 +168,10 @@ serve(async (req) => {
       const lot = lots.find((l: any) => l.id === item.lot_id);
       if (!lot) return json({ ok: false, error: "lot_not_found", code: "lot_not_found", lot_id: item.lot_id }, 200);
       if (!lot.is_active) return json({ ok: false, error: `Lote "${lot.name}" inativo`, code: "lot_inactive", lot_id: lot.id }, 200);
+      // Lote em grupo (dupla) só se vende pelo site (OS-317): aqui sairia 1 ingresso
+      // pelo preço do par.
+      const loteLido: any = lot;
+      if (ehLoteEmGrupo(loteLido)) return json({ ok: false, error: mensagemSoNoSite(loteLido.name), code: "lot_group_site_only", lot_id: loteLido.id }, 200);
       subtotal += Number(lot.price) * item.quantity;
       lineItems.push({ lot_id: lot.id, lot_name: lot.name, quantity: item.quantity, price: Number(lot.price) });
     }

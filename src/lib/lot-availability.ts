@@ -5,6 +5,8 @@
 // Mudou aqui, atualize lá. A portaria, a maquininha e o totem só usam a data de
 // fim (`isLotEnded` aqui, `encerrou` lá).
 
+import { tamanhoDoGrupo } from '@/lib/lote-em-grupo';
+
 export interface LotForAvailability {
   id: string;
   is_active: boolean;
@@ -16,12 +18,17 @@ export interface LotForAvailability {
   sold_quantity: number;
   reserved_quantity?: number | null;
   manually_sold_out?: boolean | null;
+  group_ticket_enabled?: boolean | null;
+  group_ticket_quantity?: number | null;
 }
 
 export function isLotSoldOut(lot: LotForAvailability): boolean {
   if (lot.manually_sold_out) return true;
   const taken = lot.sold_quantity + (lot.reserved_quantity || 0);
-  return taken >= lot.total_quantity;
+  // Lote em grupo (OS-317): sobrar menos que um grupo inteiro é esgotado. Uma
+  // cortesia ou um ingresso devolvido deixaria 1 ingresso solto que ninguém
+  // compra, e o lote seguinte nunca abriria.
+  return lot.total_quantity - taken < tamanhoDoGrupo(lot);
 }
 
 /** A data de fim do lote já passou. Sem data de fim, nunca encerra por data. */

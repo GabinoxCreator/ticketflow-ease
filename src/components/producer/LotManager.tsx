@@ -37,6 +37,7 @@ import { useLotSales, lotSalesOf } from '@/hooks/useLotSales';
 import { cn } from '@/lib/utils';
 import { isLotEnded, isLotSoldOut } from '@/lib/lot-availability';
 import { toast } from 'sonner';
+import { problemaDoGrupo, tamanhoDoGrupo } from '@/lib/lote-em-grupo';
 
 // datetime-local não entende ISO com fuso ("2026-10-17T13:00:00+00:00");
 // converte o valor guardado (UTC) para o formato local do input, e vice-versa.
@@ -233,6 +234,20 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
     }
     if (formData.sales_start_type === 'after_lot' && !formData.starts_after_lot_id) {
       toast.error('Escolha qual lote precisa esgotar antes deste entrar à venda.');
+      return;
+    }
+    // Ingresso em grupo (OS-317): o site desmonta o grupo em ingressos, e o
+    // servidor recusa a venda se o preço não dividir ou a quantidade não fechar.
+    const erroDoGrupo = problemaDoGrupo(formData);
+    if (erroDoGrupo) {
+      toast.error(erroDoGrupo);
+      return;
+    }
+    // Trocar o tamanho do grupo depois de vender mudaria o que já foi pago:
+    // quem comprou 1 ingresso viraria dono de "meia dupla" no relatório.
+    if (editingLot && tamanhoDoGrupo(editingLot) !== tamanhoDoGrupo(formData)
+        && ((editingLot.sold_quantity ?? 0) > 0 || (editingLot.reserved_quantity ?? 0) > 0)) {
+      toast.error('Este lote já tem venda: não dá para ligar, desligar ou mudar o grupo. Crie um lote novo.');
       return;
     }
     // Fim das vendas (opcional). O campo só mostra até o minuto: se o produtor não
@@ -622,6 +637,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                 <div className="space-y-2 pl-6">
                   <Label>Ingressos por compra</Label>
                   <Input type="number" min="2" max="10" value={formData.group_ticket_quantity || 2} onChange={(e) => setFormData({ ...formData, group_ticket_quantity: parseInt(e.target.value) || 2 })} />
+                  <p className="text-xs text-muted-foreground">
+                    O preço do lote é o do grupo inteiro (ex.: 2 ingressos por R$ 70). Cada ingresso sai com seu QR Code.
+                    A quantidade do lote conta ingressos: 50 duplas são 100. Vende só pelo site.
+                  </p>
                 </div>
               )}
             </div>

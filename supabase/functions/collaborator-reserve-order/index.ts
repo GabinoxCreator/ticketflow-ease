@@ -7,6 +7,7 @@ import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-tic
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 import { resolveFee, computeServiceFee, feeMethodFromPaymentMethod } from "../_shared/eventFee.ts";
 import { lotesAnteriores, mensagemDoFechado, porQueFechado } from "../_shared/loteAberto.ts";
+import { CAMPOS_DO_GRUPO, ehLoteEmGrupo, mensagemSoNoSite } from "../_shared/loteEmGrupo.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -72,7 +73,7 @@ Deno.serve(async (req) => {
     const lotIds = Array.from(new Set(normalized.map(i => i.lot_id)));
     const { data: lots, error: lotsErr } = await supabase
       .from('event_lots')
-      .select('id, event_id, price, name, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id')
+      .select(`id, event_id, price, name, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, ${CAMPOS_DO_GRUPO}`)
       .in('id', lotIds);
     if (lotsErr) {
       console.error('[RESERVE] lots query error:', lotsErr);
@@ -105,6 +106,7 @@ Deno.serve(async (req) => {
       const fechado =
         !lot.is_active ? `${mensagemDoFechado(lot.name, 'inativo')}. Atualize a lista de lotes.`
         : lot.manually_sold_out ? `Lote "${lot.name}" esgotado. Atualize a lista de lotes.`
+        : ehLoteEmGrupo(lot) ? `${mensagemSoNoSite(lot.name)}. Atualize a lista de lotes.`
         : motivo ? `${mensagemDoFechado(lot.name, motivo)}. Atualize a lista de lotes.`
         : null;
       if (fechado) {

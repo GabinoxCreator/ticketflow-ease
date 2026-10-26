@@ -40,6 +40,9 @@ export interface IngressoSimulado {
   motivo: string | null;
   valor_ingresso: number;
   valor_taxa: number;
+  /** Lote em grupo (OS-317): quantos ingressos formam a dupla; 1 no lote comum. */
+  grupo?: number;
+  lot_id?: string | null;
 }
 
 export interface SimulacaoDeReembolso {
@@ -137,6 +140,8 @@ export function fraseDoMotivo(codigo?: string | null, limite?: string | null): s
       return `A mesa só pode ser devolvida inteira, e um dos lugares já foi usado ou transferido. ${SUPORTE}`;
     case 'mesa_inteira':
       return 'A mesa só pode ser devolvida inteira: todos os lugares entram juntos no pedido.';
+    case 'grupo_inteiro':
+      return 'A dupla só pode ser devolvida inteira: os ingressos dela entram juntos no pedido.';
     case 'reembolso_em_analise':
       return 'Já existe um pedido de reembolso em análise para esta compra.';
     case 'limite_de_pedidos':

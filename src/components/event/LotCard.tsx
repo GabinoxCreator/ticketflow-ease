@@ -2,6 +2,7 @@ import { AlertCircle, Minus, Plus, BadgeCheck, CreditCard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { gruposDisponiveis, nomeDoGrupo, tamanhoDoGrupo } from '@/lib/lote-em-grupo';
 
 export interface LotCardLot {
   id: string;
@@ -19,6 +20,9 @@ export interface LotCardLot {
   modo_taxa?: string | null;
   /** Teto de parcelas deste lote. */
   max_parcelas?: number | null;
+  /** Lote em grupo (OS-317): o preço é do grupo e cada unidade leva N ingressos. */
+  group_ticket_enabled?: boolean | null;
+  group_ticket_quantity?: number | null;
 }
 
 interface LotCardProps {
@@ -39,7 +43,11 @@ interface LotCardProps {
 
 export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuantity = 10, bloqueioDeSoma = null, nomeCompleto }: LotCardProps) => {
   const nomeParaLeitor = nomeCompleto || lot.name;
-  const available = lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0);
+  // Lote em grupo: a pessoa escolhe GRUPOS e o estoque conta ingressos. O que
+  // está disponível é quantos grupos inteiros ainda cabem (OS-317).
+  const n = tamanhoDoGrupo(lot);
+  const grupo = n > 1 ? nomeDoGrupo(n) : null;
+  const available = gruposDisponiveis(lot.total_quantity - lot.sold_quantity - (lot.reserved_quantity || 0), n);
   const isSoldOut = available === 0 || lot.manually_sold_out === true;
 
   const realPct = lot.total_quantity > 0 ? (lot.sold_quantity / lot.total_quantity) * 100 : 0;
@@ -62,6 +70,11 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <h4 className="font-bold text-base text-foreground">{lot.name}</h4>
+            {grupo && (
+              <Badge variant="secondary" className="text-xs">
+                {grupo}: {n} ingressos
+              </Badge>
+            )}
             {isSoldOut && <Badge variant="secondary" className="text-xs">Esgotado</Badge>}
             {isCritical && (
               <Badge variant="destructive" className="text-xs gap-1">
@@ -111,6 +124,11 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
             )}
             <span className="font-bold text-2xl text-foreground">{formatPrice(lot.price)}</span>
           </div>
+          {grupo && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {n} ingressos por {formatPrice(lot.price)}, cada um com seu QR Code.
+            </p>
+          )}
 
           {showProgress && (
             <div className="mt-3 space-y-1">
@@ -134,7 +152,7 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
           >
             <button
               onClick={() => onQuantityChange(-1)}
-              aria-label={`Remover um ingresso de ${nomeParaLeitor}`}
+              aria-label={grupo ? `Remover ${grupo.toLowerCase()} (${n} ingressos) de ${nomeParaLeitor}` : `Remover um ingresso de ${nomeParaLeitor}`}
               disabled={quantity === 0}
               className={cn(
                 'w-10 h-10 rounded-full border flex items-center justify-center transition-all',
@@ -155,7 +173,7 @@ export const LotCard = ({ lot, quantity, onQuantityChange, formatPrice, maxQuant
             </span>
             <button
               onClick={() => onQuantityChange(1)}
-              aria-label={`Adicionar um ingresso de ${nomeParaLeitor}`}
+              aria-label={grupo ? `Adicionar ${grupo.toLowerCase()} (${n} ingressos) de ${nomeParaLeitor}` : `Adicionar um ingresso de ${nomeParaLeitor}`}
               /* ⚠️ `bloqueioDeSoma` NÃO entra no `disabled`. Botão desabilitado
                  não dispara clique — a pessoa toca e não acontece nada, sem
                  saber por quê. Cinza para avisar, clicável para explicar. */

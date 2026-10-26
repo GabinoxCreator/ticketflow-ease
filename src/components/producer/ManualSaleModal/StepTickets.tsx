@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Minus, Plus, Loader2, Ticket } from 'lucide-react';
 import { useEventLots } from '@/hooks/useEventLots';
 import { supabase } from '@/integrations/supabase/client';
+import { ehLoteEmGrupo } from '@/lib/lote-em-grupo';
 import { toast } from 'sonner';
 
 export interface AppliedCoupon {
@@ -36,7 +37,8 @@ export function StepTickets({ eventId, value, onChange, onBack, onContinue, cour
   const [validating, setValidating] = useState(false);
 
   const activeLots = useMemo(
-    () => (lots ?? []).filter((l) => l.is_active && !l.manually_sold_out),
+    // Lote em grupo (dupla) só se vende pelo site (OS-317).
+    () => (lots ?? []).filter((l) => l.is_active && !l.manually_sold_out && !ehLoteEmGrupo(l)),
     [lots],
   );
 
