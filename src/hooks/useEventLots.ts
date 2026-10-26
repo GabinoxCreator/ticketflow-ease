@@ -165,7 +165,9 @@ export function useEventLots(eventId: string | undefined) {
       toast.success('Lote excluído com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao excluir lote: ${error.message}`);
+      // Lote que já vendeu o banco recusa (OS-297) com a frase de como parar de
+      // vender; são duas frases, e os 4 s padrão do aviso não dão para ler.
+      toast.error(`Erro ao excluir lote: ${error.message}`, { duration: 10000 });
     },
   });
 
