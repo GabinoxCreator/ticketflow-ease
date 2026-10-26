@@ -18,7 +18,7 @@ import { CAMINHOS_LEGAIS, RESUMO_REEMBOLSO } from '@/lib/documentos-legais';
 import {
   TIPOS_DE_CHAVE, brl, desistirDoReembolso, fraseDoIngresso, fraseDoMotivo, quandoBR,
   simularReembolso, solicitarReembolso,
-  type RespostaDoPedido, type SimulacaoDeReembolso, type TipoChavePix,
+  type IngressoSimulado, type RespostaDoPedido, type SimulacaoDeReembolso, type TipoChavePix,
 } from '@/lib/reembolso';
 
 /*
@@ -43,6 +43,26 @@ interface Props {
 
 type Passo = 'carregando' | 'nao_pode' | 'formulario' | 'enviado';
 
+/** A compra é uma dupla só (todos os ingressos do mesmo lote em grupo, e exatamente um grupo). */
+function ehUmaDuplaSo(ingressos: IngressoSimulado[]): boolean {
+  const n = ingressos[0]?.grupo ?? 1;
+  return n > 1 && ingressos.length === n && ingressos.every((i) => i.lot_id === ingressos[0].lot_id);
+}
+
+/** Em cada lote em grupo, a quantidade escolhida fecha em grupos inteiros (a mesma conta do servidor). */
+function duplasInteiras(marcados: IngressoSimulado[]): boolean {
+  const porLote = new Map<string, { n: number; qtd: number }>();
+  for (const i of marcados) {
+    const n = i.grupo ?? 1;
+    if (n <= 1) continue;
+    const k = i.lot_id ?? '';
+    const atual = porLote.get(k) ?? { n, qtd: 0 };
+    atual.qtd += 1;
+    porLote.set(k, atual);
+  }
+  return Array.from(porLote.values()).every((g) => g.qtd % g.n === 0);
+}
+
 export function PedirReembolso({ tickets, onChange }: Props) {
   const orderId = tickets[0]?.order_id;
   const [aberto, setAberto] = useState(false);
@@ -64,6 +84,10 @@ export function PedirReembolso({ tickets, onChange }: Props) {
   const temValido = tickets.some((t) => t.status === 'valid');
 
   const elegiveis = useMemo(() => (sim?.ingressos ?? []).filter((i) => !i.motivo), [sim]);
+  // Lote em grupo (OS-317): a dupla volta inteira. `umaDupla` = a compra é uma
+  // dupla só, então não há o que escolher (como a compra de um ingresso só).
+  const temDupla = elegiveis.some((i) => (i.grupo ?? 1) > 1);
+  const umaDupla = ehUmaDuplaSo(elegiveis);
   const marcados = useMemo(() => elegiveis.filter((i) => escolhidos.includes(i.ticket_id)), [elegiveis, escolhidos]);
   const valorIngressos = marcados.reduce((s, i) => s + Number(i.valor_ingresso), 0);
   const valorTaxa = marcados.reduce((s, i) => s + Number(i.valor_taxa), 0);
@@ -82,8 +106,8 @@ export function PedirReembolso({ tickets, onChange }: Props) {
         setPasso('nao_pode');
         return;
       }
-      // Mesa volta inteira; compra de um ingresso só não tem o que escolher.
-      setEscolhidos(s.mesa || podem.length === 1 ? podem.map((i) => i.ticket_id) : []);
+      // Mesa volta inteira; compra de um ingresso só (ou de uma dupla só) não tem o que escolher.
+      setEscolhidos(s.mesa || podem.length === 1 || ehUmaDuplaSo(podem) ? podem.map((i) => i.ticket_id) : []);
       setPasso('formulario');
     } catch {
       setSim({ permitido: false, motivo: 'erro' });
@@ -99,12 +123,23 @@ export function PedirReembolso({ tickets, onChange }: Props) {
     setTimeout(() => { setChave(''); setMotivo(''); setEscolhidos([]); setResposta(null); }, 300);
   };
 
-  const alternar = (id: string, marcado: boolean) =>
-    setEscolhidos((atual) => (marcado ? [...atual, id] : atual.filter((x) => x !== id)));
+  const alternar = (id: string, marcado: boolean) => {
+    // Ingresso de dupla: se o que sobra daquele lote é exatamente uma dupla,
+    // marcar um marca o par. Com mais de uma dupla no pedido, a pessoa marca
+    // os ingressos e o envio confere que fechou em duplas inteiras.
+    const ing = elegiveis.find((i) => i.ticket_id === id);
+    const n = ing?.grupo ?? 1;
+    const doLote = n > 1 ? elegiveis.filter((i) => i.lot_id === ing?.lot_id).map((i) => i.ticket_id) : [];
+    const ids = n > 1 && doLote.length === n ? doLote : [id];
+    setEscolhidos((atual) => (marcado
+      ? Array.from(new Set([...atual, ...ids]))
+      : atual.filter((x) => !ids.includes(x))));
+  };
 
   const enviar = async () => {
     if (!orderId || !sim) return;
     if (marcados.length === 0) { toast.error(fraseDoMotivo('nenhum_ingresso_escolhido')); return; }
+    if (!duplasInteiras(marcados)) { toast.error(fraseDoMotivo('grupo_inteiro')); return; }
     if (sim.forma === 'pix' && chave.trim().length < 5) { toast.error(fraseDoMotivo('chave_pix_invalida')); return; }
     setEnviando(true);
     try {
@@ -249,7 +284,7 @@ export function PedirReembolso({ tickets, onChange }: Props) {
                   {(sim.ingressos ?? []).map((i) => {
                     const pode = !i.motivo;
                     const marcado = escolhidos.includes(i.ticket_id);
-                    const travado = !pode || !!sim.mesa || elegiveis.length === 1;
+                    const travado = !pode || !!sim.mesa || elegiveis.length === 1 || umaDupla;
                     return (
                       <label
                         key={i.ticket_id}
@@ -275,6 +310,9 @@ export function PedirReembolso({ tickets, onChange }: Props) {
                 </div>
                 {sim.mesa && (
                   <p className="text-[11px] text-muted-foreground">A mesa é devolvida inteira: todos os lugares entram juntos.</p>
+                )}
+                {temDupla && (
+                  <p className="text-[11px] text-muted-foreground">A dupla é devolvida inteira: os ingressos dela entram juntos.</p>
                 )}
               </div>
 

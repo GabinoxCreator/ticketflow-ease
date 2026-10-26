@@ -37,6 +37,7 @@ import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
 import { cn } from '@/lib/utils';
 import { CATEGORIAS_ESCOLHIVEIS, CATEGORIA_PADRAO } from '@/lib/categorias-de-evento';
 import { spWallToInstant } from '@/lib/eventTime';
+import { problemaDoGrupo } from '@/lib/lote-em-grupo';
 
 const states = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -219,6 +220,9 @@ export default function CriarEvento() {
         if (inicio && fim && fim <= inicio) {
           newErrors[`lotEnd_${lot.id}`] = 'O fim das vendas precisa ser depois do início';
         }
+        // Ingresso em grupo (OS-317): preço que divide e quantidade que fecha.
+        const erroDoGrupo = problemaDoGrupo(lot);
+        if (erroDoGrupo) newErrors[`lotGroup_${lot.id}`] = erroDoGrupo;
       }
     }
     setErrors(newErrors);
@@ -852,6 +856,14 @@ export default function CriarEvento() {
                             </button>
                           ))}
                         </div>
+                      )}
+                      {lot.group_ticket_enabled && (
+                        <p className="text-xs text-muted-foreground">
+                          O preço do lote é o do grupo inteiro. A quantidade conta ingressos: 50 duplas são 100. Vende só pelo site.
+                        </p>
+                      )}
+                      {errors[`lotGroup_${lot.id}`] && (
+                        <p className="text-xs text-destructive">{errors[`lotGroup_${lot.id}`]}</p>
                       )}
                     </div>
 

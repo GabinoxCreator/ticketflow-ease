@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { resolveFee } from "../_shared/eventFee.ts";
 import { lotesAnteriores, nomeComSetor, porQueFechado } from "../_shared/loteAberto.ts";
+import { CAMPOS_DO_GRUPO, ehLoteEmGrupo } from "../_shared/loteEmGrupo.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
     // 3) Lotes do evento — só ativos e não esgotados manualmente (filtro no DB), ordenados por name.
     const { data: lots, error } = await supabase
       .from('event_lots')
-      .select('id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id')
+      .select(`id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, ${CAMPOS_DO_GRUPO}`)
       .eq('event_id', event_id)
       .eq('is_active', true)
       .eq('manually_sold_out', false)
@@ -71,6 +72,9 @@ Deno.serve(async (req) => {
     const anteriores = await lotesAnteriores(supabase, lots || []);
     const formatted = (lots || [])
       .filter((l: any) => !porQueFechado(l, anteriores.get(l.starts_after_lot_id), agora))
+      // Lote em grupo (dupla) só se vende pelo site (OS-317): aqui sairia 1 ingresso
+      // pelo preço do par.
+      .filter((l: any) => !ehLoteEmGrupo(l))
       .map((l: any) => {
         const available = Math.max(
           0,

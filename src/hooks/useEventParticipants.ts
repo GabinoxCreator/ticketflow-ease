@@ -18,6 +18,8 @@ export interface Ticket {
   lot?: {
     name: string;
     price: number;
+    group_ticket_enabled?: boolean | null;
+    group_ticket_quantity?: number | null;
   };
   /** Pedido do ingresso (só o estado), para separar tentativa não paga de cancelamento de verdade. */
   order?: { status: string } | null;
@@ -35,7 +37,7 @@ export function useEventParticipants(eventId: string | undefined) {
         .from('tickets')
         .select(`
           *,
-          lot:event_lots(name, price),
+          lot:event_lots(name, price, group_ticket_enabled, group_ticket_quantity),
           order:orders(status)
         `)
         .eq('event_id', eventId)

@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { trackPageView, trackViewContent, trackInitiateCheckout } from '@/lib/metaPixel';
 import { useEventPixel } from '@/hooks/useEventPixel';
 import { LotCard } from '@/components/event/LotCard';
+import { nomeDoGrupo, tamanhoDoGrupo } from '@/lib/lote-em-grupo';
 import {
   LikeSignupInviteDialog,
   shouldShowLikeInvite,
@@ -106,6 +107,10 @@ const EventDetails = () => {
   const eventId: string | undefined = (event as any)?.id;
   const ticketLimit = getTicketLimitForEvent(eventId); // null = sem limite
   const maxPerLot = ticketLimit ?? 10;
+  // O limite por CPF conta INGRESSOS: num lote em dupla, cabem metade de grupos (OS-317).
+  const maxDoLote = (lote: any) => ticketLimit
+    ? Math.floor(ticketLimit / tamanhoDoGrupo(lote))
+    : maxPerLot;
   const { lots, isLoading: lotsLoading } = useEventLots(eventId);
   const [selectedLots, setSelectedLots] = useState<Record<string, number>>({});
   // Produtos e combos da loja do evento que estão no carrinho.
@@ -328,7 +333,7 @@ const EventDetails = () => {
 
     setSelectedLots((prev) => {
       const current = prev[lotId] || 0;
-      const newValue = Math.max(0, Math.min(maxPerLot, current + delta));
+      const newValue = Math.max(0, Math.min(maxDoLote(lote), current + delta));
       if (newValue === 0) {
         const { [lotId]: _, ...rest } = prev;
         return rest;
@@ -363,7 +368,9 @@ const EventDetails = () => {
     return total + (lot?.price || 0) * qty;
   }, 0) + totalDaLoja;
 
-  const totalTickets = Object.values(selectedLots).reduce((sum, qty) => sum + qty, 0);
+  // Ingressos de verdade: a dupla conta 2 (OS-317). É o número que vai para o pixel.
+  const totalTickets = Object.entries(selectedLots).reduce((sum, [lotId, qty]) =>
+    sum + qty * tamanhoDoGrupo(activeLots.find((l) => l.id === lotId) as any), 0);
   // O que está no carrinho, ingresso ou não. É o que abre o carrinho e libera o
   // pagamento: dá para comprar só a camiseta, sem ingresso.
   const totalItens = totalTickets + unidadesDaLoja;
@@ -414,10 +421,14 @@ const EventDetails = () => {
 
   const cartItems: ItemDoCarrinho[] = Object.entries(selectedLots).map(([lotId, quantity]) => {
     const lot = activeLots.find((l) => l.id === lotId);
+    // Lote em grupo: a quantidade é de grupos, e o nome diz quantos ingressos
+    // cada um leva, para o resumo não parecer "2 × Dupla 1" sem explicação.
+    const n = tamanhoDoGrupo(lot as any);
     return {
       lotId,
-      lotName: lot?.name || '',
+      lotName: n > 1 ? `${lot?.name || ''} (${nomeDoGrupo(n).toLowerCase()}: ${n} ingressos)` : (lot?.name || ''),
       quantity,
+      ingressosPorUnidade: n > 1 ? n : undefined,
       price: lot?.price || 0,
       // Vai junto até o pagamento: é o que diz se a taxa entra por cima do
       // preço ou sai de dentro dele.
@@ -739,7 +750,7 @@ const EventDetails = () => {
                             quantity={selectedLots[lot.id] || 0}
                             onQuantityChange={(delta) => handleQuantityChange(lot.id, delta)}
                             formatPrice={formatPrice}
-                            maxQuantity={maxPerLot}
+                            maxQuantity={maxDoLote(lot)}
                             bloqueioDeSoma={
                               podeSomarMaisUm(lot as any, selectedLots, activeLots as any, rotulosDeNoite)?.motivo ?? null
                             }

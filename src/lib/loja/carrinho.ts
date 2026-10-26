@@ -18,6 +18,9 @@ export interface ItemDoCarrinho {
   quantity: number;
   price: number;
   modoTaxa?: string | null;
+  /** Lote em grupo (OS-317): quantos ingressos cada unidade leva (a dupla, 2).
+   *  Só para contar e mostrar; quem desmonta o grupo é o servidor. */
+  ingressosPorUnidade?: number;
   tipo?: 'lot' | 'product' | 'bundle';
   /** Quanto de UMA unidade entra na base da taxa de conveniência. Só o combo
    *  preenche: dentro dele pode haver parte com taxa e parte sem. */
@@ -73,5 +76,5 @@ export function baseDoCupom(itens: ItemDoCarrinho[]): number {
 /** Quantos INGRESSOS há no carrinho (combo conta os que traz dentro é com o
  *  servidor; aqui é só o rótulo "N ingressos" da tela). */
 export function contarIngressos(itens: ItemDoCarrinho[]): number {
-  return itens.filter(ehIngresso).reduce((s, i) => s + i.quantity, 0);
+  return itens.filter(ehIngresso).reduce((s, i) => s + i.quantity * (i.ingressosPorUnidade ?? 1), 0);
 }

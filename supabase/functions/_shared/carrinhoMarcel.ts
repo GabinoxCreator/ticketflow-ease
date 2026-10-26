@@ -12,6 +12,7 @@
 //   produtor recebe mais a taxa administrativa da plataforma.
 
 import { CAMPOS_DA_REGRA, lotesAnteriores, mensagemDoFechado, porQueFechado, type LoteAnterior } from './loteAberto.ts';
+import { CAMPOS_DO_GRUPO, tamanhoDoGrupo } from './loteEmGrupo.ts';
 
 export const DEFAULT_FEE_PERCENT = 10;
 
@@ -83,6 +84,20 @@ export class CarrinhoInvalido extends Error {
     this.name = 'CarrinhoInvalido';
     this.status = status;
   }
+}
+
+/**
+ * Face de cada ingresso do grupo: o preço do grupo dividido por N, em centavos
+ * exatos. Se não dividir (R$ 25,05 em 2), um centavo apareceria ou sumiria
+ * entre o que o comprador paga e o que o produtor recebe: não vende, e o
+ * painel do produtor já recusa esse preço ao salvar.
+ */
+export function faceDoIngressoDoGrupo(lot: { name: string; price: number | string }, n: number): number {
+  const centavos = Math.round(Number(lot.price) * 100);
+  if (!Number.isFinite(centavos) || centavos < 0 || centavos % n !== 0) {
+    throw new CarrinhoInvalido(`O preço de "${lot.name}" não divide entre os ${n} ingressos do grupo`, 500);
+  }
+  return centavos / n / 100;
 }
 
 async function taxaDoEvento(client: any, eventId: string, metodo: 'pix' | 'card') {
@@ -168,7 +183,7 @@ export async function resolverPreco(
   if (lotIds.length > 0) {
     const { data, error } = await client
       .from('event_lots')
-      .select(`id, name, price, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros, ${CAMPOS_DA_REGRA}`)
+      .select(`id, name, price, modo_taxa, covers_all_days, max_parcelas, parcelas_sem_juros, ${CAMPOS_DO_GRUPO}, ${CAMPOS_DA_REGRA}`)
       .in('id', lotIds)
       .eq('event_id', eventId);
     if (error || !data) throw new CarrinhoInvalido('Erro ao buscar lotes', 500);
@@ -308,7 +323,19 @@ export async function resolverPreco(
   for (const item of itensLote) {
     const lot = lots.find((l: any) => l.id === item.lotId);
     if (!lot) throw new CarrinhoInvalido('Lote inválido');
-    linhaDeLote(item.lotId, quantidadeValida(item.quantity, lot.name), null, null);
+    const qty = quantidadeValida(item.quantity, lot.name);
+    // LOTE EM GRUPO (OS-317): a tela pede GRUPOS ("2 duplas"), o preço do lote
+    // é o do grupo inteiro. Aqui o grupo se desmonta em ingressos: 2 duplas de
+    // R$ 70 viram 4 ingressos de R$ 35. Daí para a frente tudo conta ingresso
+    // (estoque, tickets, face do repasse, taxa, reembolso) e nada mais precisa
+    // saber que existiu um par. Antes a chave só existia no painel: quem
+    // pagasse a dupla levava 1 ingresso.
+    const n = tamanhoDoGrupo(lot);
+    if (n > 1) {
+      linhaDeLote(item.lotId, qty * n, faceDoIngressoDoGrupo(lot, n), null);
+    } else {
+      linhaDeLote(item.lotId, qty, null, null);
+    }
   }
 
   for (const pedido of pedidosProduto) {
@@ -336,6 +363,12 @@ export async function resolverPreco(
     for (const it of receita) {
       const unidades = Number(it.quantity) * qty;
       if (it.kind === 'lot') {
+        // Combo já tem o próprio rateio por ingresso; somar o grupo do lote
+        // por cima daria ingresso a mais ou a menos. Não vende, falha alto.
+        const loteDoCombo = lots.find((l: any) => l.id === it.lot_id);
+        if (loteDoCombo && tamanhoDoGrupo(loteDoCombo) > 1) {
+          throw new CarrinhoInvalido(`"${combo.name}" leva um lote em grupo, o que não é aceito`, 500);
+        }
         linhaDeLote(it.lot_id, unidades, Number(it.unit_face_share), combo.id);
       } else {
         const escolha = pedido.escolhas?.[it.event_product_id] ?? null;

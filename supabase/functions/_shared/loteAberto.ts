@@ -22,6 +22,8 @@
 //     carregam a mesma regra escrita à mão.
 //   - `encerrou` (só a data de fim): a venda da portaria.
 
+import { CAMPOS_DO_GRUPO, tamanhoDoGrupo } from './loteEmGrupo.ts';
+
 /** Campos de `event_lots` que a regra lê. */
 export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id';
 
@@ -42,10 +44,16 @@ export interface LoteAnterior {
   reserved_quantity?: number | null;
   manually_sold_out?: boolean | null;
   end_date?: string | null;
+  group_ticket_enabled?: boolean | null;
+  group_ticket_quantity?: number | null;
 }
 
+// Lote em grupo (OS-317): sobrar menos que um grupo inteiro é esgotado. Uma
+// cortesia ou um ingresso devolvido deixaria 1 ingresso solto que ninguém
+// compra, e o lote seguinte nunca abriria. Lote comum: grupo de 1, igual a antes.
 const esgotado = (l: LoteAnterior) =>
-  !!l.manually_sold_out || l.sold_quantity + (l.reserved_quantity || 0) >= l.total_quantity;
+  !!l.manually_sold_out
+  || l.total_quantity - (l.sold_quantity + (l.reserved_quantity || 0)) < tamanhoDoGrupo(l);
 
 /** A data de fim do lote já passou. Sem data de fim, nunca encerra por data. */
 export function encerrou(lote: { end_date?: string | null }, agora: Date = new Date()): boolean {
@@ -83,7 +91,7 @@ export async function lotesAnteriores(client: any, lotes: LoteDaRegra[]): Promis
   if (ids.length === 0) return mapa;
   const { data } = await client
     .from('event_lots')
-    .select('id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out, end_date')
+    .select(`id, is_active, total_quantity, sold_quantity, reserved_quantity, manually_sold_out, end_date, ${CAMPOS_DO_GRUPO}`)
     .in('id', ids);
   for (const l of data ?? []) mapa.set(l.id, l);
   return mapa;
