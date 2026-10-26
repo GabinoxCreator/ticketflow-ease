@@ -19,6 +19,10 @@ const corsHeaders = {
 // (collaboratorSession.ts, ensureCollaboratorActive).
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Hash bcrypt de uma senha que ninguém usa (OS-268): conferido quando o nome não
+// existe, para a resposta demorar o mesmo que a de um nome que existe.
+const FAKE_HASH = '$2a$10$wyahbLYldNy/She/vpcRk.B093UY94p18znPX84bHbIVhTG3avDCS';
+
 function sessionExpiresAt(events: Array<{ date?: string | null; end_date?: string | null }>): Date {
   let expires = Date.now() + DAY_MS;
   for (const ev of events) {
@@ -52,10 +56,20 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Rate limit: PEEK only — don't increment on success.
-    // We consume an attempt only on failed login below.
+    // OS-268 (21/10/2026, varredura OS-262, achado E2). Antes:
+    //  - a trava contava só pelo NOME (10 erros = 15 min fora), também para quem tinha a
+    //    senha certa: quem soubesse o nome trancava a portaria de um cliente de qualquer
+    //    lugar;
+    //  - a tentativa só era contada DEPOIS de conferir a senha (várias em paralelo
+    //    passavam todas);
+    //  - nome repetido em dois produtores dava erro 500 para os dois (maybeSingle).
+    // Agora a trava é por NOME + IP (contada ANTES de conferir a senha, e zerada quando
+    // a senha confere), mais a trava por IP de antes; usuário que não existe gasta o
+    // mesmo tempo de conferência; e nome repetido não derruba ninguém (o nome passou a
+    // ser único no site, migration 20261021170000, e até lá vale a senha que conferir).
+    const uname = String(username).trim().toLowerCase();
     const ip = getClientIp(req);
-    const userBucket = `login:user:${String(username).trim().toLowerCase()}`;
+    const userIpBucket = `login:user:${uname}:ip:${ip}`;
     const ipBucket = `login:ip:${ip}`;
     const USER_MAX = 10;
     const IP_MAX = 20;
@@ -76,27 +90,37 @@ serve(async (req) => {
       return { blocked: false, retry: 0 };
     };
 
-    const peekUser = await peek(userBucket);
-    if (peekUser.blocked) return rateLimitResponse({ allowed: false, retryAfter: peekUser.retry }, corsHeaders);
     const peekIp = await peek(ipBucket);
     if (peekIp.blocked) return rateLimitResponse({ allowed: false, retryAfter: peekIp.retry }, corsHeaders);
 
+    // Conta a tentativa ANTES de conferir a senha (nome + IP). Fail-closed: sem o
+    // contador, 503.
+    const tentativa = await checkRateLimit(supabase, userIpBucket, USER_MAX, WINDOW_S, BLOCK_S);
+    if (!tentativa.allowed) return rateLimitResponse(tentativa, corsHeaders);
+
     const consumeFailure = async () => {
       try {
-        await checkRateLimit(supabase, userBucket, USER_MAX, WINDOW_S, BLOCK_S);
         await checkRateLimit(supabase, ipBucket, IP_MAX, WINDOW_S, BLOCK_S);
       } catch (e) {
         console.error('consumeFailure error', e);
       }
     };
 
-    // Find collaborator by username
-    const { data: collaborator, error: findError } = await supabase
+    const falhou = async () => {
+      await consumeFailure();
+      return new Response(
+        JSON.stringify({ error: 'Usuário ou senha inválidos' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    };
+
+    // Find collaborator by username (pode vir mais de um até a migration subir)
+    const { data: candidatos, error: findError } = await supabase
       .from('collaborators')
       .select('*')
-      .eq('username', username)
+      .eq('username', uname)
       .eq('is_active', true)
-      .maybeSingle();
+      .limit(5);
 
     if (findError) {
       console.error('Error finding collaborator:', findError);
@@ -106,66 +130,77 @@ serve(async (req) => {
       );
     }
 
-    if (!collaborator) {
-      console.log('Collaborator not found or inactive');
-      await consumeFailure();
-      return new Response(
-        JSON.stringify({ error: 'Usuário ou senha inválidos' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Get credentials from separate table
-    const { data: credentials, error: credError } = await supabase
-      .from('collaborator_credentials')
-      .select('password_hash')
-      .eq('collaborator_id', collaborator.id)
-      .maybeSingle();
+    const ids = (candidatos ?? []).map((c: { id: string }) => c.id);
+    let credenciais: Array<{ collaborator_id: string; password_hash: string }> = [];
+    if (ids.length > 0) {
+      const { data: creds, error: credError } = await supabase
+        .from('collaborator_credentials')
+        .select('collaborator_id, password_hash')
+        .in('collaborator_id', ids);
 
-    if (credError) {
-      console.error('Error fetching credentials:', credError);
-      return new Response(
-        JSON.stringify({ error: 'Erro ao verificar credenciais' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (credError) {
+        console.error('Error fetching credentials:', credError);
+        return new Response(
+          JSON.stringify({ error: 'Erro ao verificar credenciais' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      credenciais = creds ?? [];
     }
 
-    if (!credentials) {
-      console.log('No credentials found for collaborator');
-      await consumeFailure();
-      return new Response(
-        JSON.stringify({ error: 'Usuário ou senha inválidos' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (credenciais.length === 0) {
+      // Usuário que não existe (ou sem senha) gasta o mesmo tempo de quem existe,
+      // para o tempo de resposta não dizer quais nomes existem.
+      try { compareSync(password, FAKE_HASH); } catch (_) { /* só o tempo importa */ }
+      console.log('Collaborator not found or inactive');
+      return await falhou();
     }
 
     // Verify password with bcrypt
-    let isValidPassword = false;
-    try {
-      isValidPassword = compareSync(password, credentials.password_hash);
-    } catch (e) {
-      console.error('Error comparing password:', e);
-      // Fallback for legacy base64 passwords - verify and upgrade
-      const legacyHash = btoa(password);
-      if (credentials.password_hash === legacyHash) {
-        // Upgrade to bcrypt hash
-        const newHash = hashSync(password);
-        await supabase
-          .from('collaborator_credentials')
-          .update({ password_hash: newHash, updated_at: new Date().toISOString() })
-          .eq('collaborator_id', collaborator.id);
-        isValidPassword = true;
-        console.log('Upgraded legacy password hash for collaborator:', collaborator.id);
+    const senhaConfere = async (cred: { collaborator_id: string; password_hash: string }) => {
+      try {
+        return compareSync(password, cred.password_hash);
+      } catch (e) {
+        console.error('Error comparing password:', e);
+        // Fallback for legacy base64 passwords - verify and upgrade
+        const legacyHash = btoa(password);
+        if (cred.password_hash === legacyHash) {
+          // Upgrade to bcrypt hash
+          const newHash = hashSync(password);
+          await supabase
+            .from('collaborator_credentials')
+            .update({ password_hash: newHash, updated_at: new Date().toISOString() })
+            .eq('collaborator_id', cred.collaborator_id);
+          console.log('Upgraded legacy password hash for collaborator:', cred.collaborator_id);
+          return true;
+        }
+        return false;
       }
+    };
+
+    const conferem: string[] = [];
+    for (const cred of credenciais) {
+      if (await senhaConfere(cred)) conferem.push(cred.collaborator_id);
     }
 
-    if (!isValidPassword) {
-      console.log('Invalid password');
-      await consumeFailure();
-      return new Response(
-        JSON.stringify({ error: 'Usuário ou senha inválidos' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (conferem.length !== 1) {
+      // 0 = senha errada. 2+ = mesmo nome E mesma senha em dois produtores: não dá para
+      // saber de qual evento é, então recusa como senha errada (antes era 500 para
+      // qualquer nome repetido). Some quando o nome único subir.
+      if (conferem.length > 1) console.error('Nome repetido com a mesma senha:', uname, conferem);
+      else console.log('Invalid password');
+      return await falhou();
+    }
+
+    const collaborator = (candidatos ?? []).find((c: { id: string }) => c.id === conferem[0]);
+
+    // Senha certa: zera a contagem deste nome neste IP (não trava quem entra várias
+    // vezes do mesmo lugar, como as maquininhas de um evento atrás do mesmo roteador).
+    try {
+      await supabase.from('auth_rate_limits').delete().eq('bucket_key', userIpBucket);
+    } catch (e) {
+      console.error('reset rate limit error', e);
     }
 
     // Get events assigned to this collaborator

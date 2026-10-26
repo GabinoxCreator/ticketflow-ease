@@ -2,6 +2,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Quando a edge recusa (status fora de 2xx), o supabase-js devolve só "Edge Function
+// returned a non-2xx status code", em inglês. A frase certa (ex.: "Já existe um
+// colaborador com este username") vem no corpo da resposta: lê de lá (OS-268).
+async function erroDaEdge(error: any): Promise<Error> {
+  try {
+    const corpo = await error?.context?.json?.();
+    if (corpo && typeof corpo.error === 'string' && corpo.error) return new Error(corpo.error);
+  } catch {
+    // sem corpo legível: segue a mensagem de antes
+  }
+  return error instanceof Error ? error : new Error(error?.message || 'Erro inesperado');
+}
+
 export interface Collaborator {
   id: string;
   producer_id: string;
@@ -49,7 +62,7 @@ export function useCollaborators() {
         body: { name, username, password, eventIds },
       });
 
-      if (error) throw error;
+      if (error) throw await erroDaEdge(error);
       if (data.error) throw new Error(data.error);
 
       return data.collaborator;
@@ -78,7 +91,7 @@ export function useCollaborators() {
         body: { id, name, username, password, is_active },
       });
 
-      if (error) throw error;
+      if (error) throw await erroDaEdge(error);
       if (data.error) throw new Error(data.error);
 
       return data.collaborator;

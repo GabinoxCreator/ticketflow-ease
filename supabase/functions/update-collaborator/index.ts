@@ -1,3 +1,6 @@
+// OS-268 (21/10/2026): o nome de login vai em minúsculas e sem espaço nas pontas, e é
+// único no site inteiro (migration 20261021170000). Nome repetido responde a mesma
+// frase da criação, em vez de "Erro interno".
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { hashSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
@@ -71,7 +74,16 @@ serve(async (req) => {
     // Build update object for collaborators table
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name;
-    if (username !== undefined) updateData.username = username;
+    if (username !== undefined) {
+      const normalizado = typeof username === 'string' ? username.trim().toLowerCase() : '';
+      if (!normalizado) {
+        return new Response(
+          JSON.stringify({ error: 'Username não pode ficar vazio' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      updateData.username = normalizado;
+    }
     if (is_active !== undefined) updateData.is_active = is_active;
 
     // Update collaborator data if there are changes
@@ -86,6 +98,12 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error updating collaborator:', error);
+        if (error.code === '23505') {
+          return new Response(
+            JSON.stringify({ error: 'Já existe um colaborador com este username' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         throw error;
       }
       collaborator = data;
