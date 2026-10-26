@@ -50,12 +50,17 @@ serve(async (req) => {
 
     const normalized = code.trim().toUpperCase();
 
+    // Código EXATO (OS-269). Antes era `ilike`, que trata `%` e `_` como curinga
+    // (e o PostgREST ainda troca `*` por `%`): mandar "%" devolvia um cupom do
+    // evento sem saber o código. O cupom é gravado sempre em maiúsculas (a tela do
+    // produtor converte ao criar e ao editar; 23 de 23 assim em 21/10), e o banco
+    // não deixa dois com o mesmo código no evento (índice em `upper(code)`).
     const { data, error } = await supabase
       .from('event_coupons')
       .select('id, code, discount_type, discount_value, max_uses, uses_count, valid_until, is_active')
       .eq('event_id', eventId)
       .eq('is_active', true)
-      .ilike('code', normalized)
+      .eq('code', normalized)
       .maybeSingle();
 
     if (error) throw error;

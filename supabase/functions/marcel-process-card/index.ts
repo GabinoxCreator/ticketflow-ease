@@ -20,7 +20,10 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
-import { resolverPreco, carrinhoAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoPedido, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, carrinhoAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoPedido, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace, eventoAVendaNoMarcel } from "../_shared/carrinhoMarcel.ts";
+import { exigirUsuario, MesaInvalida } from "../_shared/mesaMarcel.ts";
+import { limiteDeCobranca } from "../_shared/limiteDeCobranca.ts";
+import { rateLimitResponse } from "../_shared/rateLimit.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { cobrarCredito, MarcelIndisponivel } from "../_shared/marcel.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
@@ -68,6 +71,13 @@ serve(async (req) => {
   let reservadoProd: { stockId: string; quantity: number }[] = [];
 
   try {
+    // CONTA OBRIGATÓRIA, inclusive para cotar (OS-269). Antes o login era
+    // opcional e, sem ele, a cobrança seguia: o nosso checkout servia para
+    // testar cartão em série. A tela só abre o pagamento com a pessoa logada
+    // (EventDetails abre o login antes), então quem compra pelo site não muda
+    // nada. Mesmo padrão das edges de mesa (`exigirUsuario`).
+    const userId = await exigirUsuario(req);
+
     const body = await req.json();
     const { eventId, items, quote, installments, card, cartaoId, couponId,
             customerName, customerPhone } = body;
@@ -75,6 +85,9 @@ serve(async (req) => {
     const customerEmail = semEmailInterno(body.customerEmail);
 
     if (!eventId) return json({ error: 'Evento obrigatório' }, 400);
+
+    // Publicado e pago pelo Marcel, antes de qualquer conta de preço.
+    const event = await eventoAVendaNoMarcel(admin, eventId);
 
     const preco = await resolverPreco(admin, eventId, items, 'card', couponId,
       { products: body.products, bundles: body.bundles });
@@ -151,6 +164,14 @@ serve(async (req) => {
     }
 
     // ---- Cobrança de verdade ------------------------------------------------
+    // Limite de tentativas por conta e por endereço, ANTES de qualquer outra
+    // conferência: tentativa com dado errado também conta (OS-269).
+    const limite = await limiteDeCobranca(admin, req, userId, 'card');
+    if (!limite.allowed) {
+      log('Barrado pelo limite de tentativas', { userId, indisponivel: !!limite.unavailable });
+      return rateLimitResponse(limite, corsHeaders);
+    }
+
     // O checkout manda `customerCPF` (maiúsculo) há muito tempo; aceito as duas
     // grafias. Um campo que chega com nome ligeiramente diferente viraria CPF
     // vazio em silêncio, e a venda cairia num "CPF inválido" sem explicação.
@@ -176,22 +197,6 @@ serve(async (req) => {
     }
 
     const valorCobrado = escolhida.total_cents / 100;
-
-    let userId: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const userClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } },
-      );
-      const { data } = await userClient.auth.getUser();
-      userId = data?.user?.id ?? null;
-    }
-
-    const { data: event } = await admin
-      .from('events').select('id, title').eq('id', eventId).maybeSingle();
-    if (!event) return json({ error: 'Evento não encontrado' }, 404);
 
     const ticketLimit = getTicketLimitForEvent(eventId);
     if (ticketLimit) {
@@ -420,6 +425,10 @@ serve(async (req) => {
     await devolverEstoque(admin, reservado);
     await devolverProdutos(admin, reservadoProd);
 
+    // Sem conta (ou sessão vencida): nada foi reservado nem criado ainda.
+    if (e instanceof MesaInvalida) {
+      return json({ error: e.code, message: 'Entre na sua conta para pagar.' }, e.status);
+    }
     if (e instanceof CarrinhoInvalido) return json({ error: e.message }, e.status);
     if (e instanceof MarcelIndisponivel) {
       if (orderId) {

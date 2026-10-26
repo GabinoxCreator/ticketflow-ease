@@ -65,9 +65,13 @@ verify_jwt = true
 [functions.update-collaborator]
 verify_jwt = true
 
+# DESLIGADA em 21/10 (OS-269, decisão do Gabriel: só a rota do Marcel/Safe2Pay vende).
+# Responde 410 a tudo, sem gravar e sem chamar o Mercado Pago. Não religar sem ele.
 [functions.process-card-payment]
 verify_jwt = true
 
+# DESLIGADA em 21/10 (OS-269, decisão do Gabriel: só a rota do Marcel/Safe2Pay vende).
+# Responde 410 a tudo, sem gravar e sem chamar o Mercado Pago. Não religar sem ele.
 [functions.create-mercadopago-pix]
 verify_jwt = true
 
@@ -102,9 +106,13 @@ verify_jwt = false
 [functions.collaborator-door-sales-report]
 verify_jwt = false
 
+# DESLIGADA em 21/10 (OS-269, decisão do Gabriel: só a rota do Marcel/Safe2Pay vende).
+# Responde 410 a tudo, sem gravar e sem chamar o Mercado Pago. Não religar sem ele.
 [functions.create-seat-pix]
 verify_jwt = true
 
+# DESLIGADA em 21/10 (OS-269, decisão do Gabriel: só a rota do Marcel/Safe2Pay vende).
+# Responde 410 a tudo, sem gravar e sem chamar o Mercado Pago. Não religar sem ele.
 [functions.charge-seat-card]
 verify_jwt = true
 
@@ -203,6 +211,9 @@ verify_jwt = true
 # modal de login antes do checkout. Aberta, ela deixava qualquer um criar pedidos
 # em massa, e cada pedido RESERVA estoque por 30 min: esgota-se um lote de graça.
 # As rotas equivalentes (create-mercadopago-pix, confra-create-pix) sempre foram true.
+# ⚠️ verify_jwt=true SOZINHO NÃO FECHA: a chave pública do site passa nesse portão.
+# Desde a OS-269 (21/10) a edge exige usuário no código (`exigirUsuario`), confere
+# evento publicado e do Marcel, e limita tentativas (`_shared/limiteDeCobranca.ts`).
 [functions.marcel-create-pix]
 verify_jwt = true
 
@@ -220,6 +231,9 @@ verify_jwt = true
 # FestPag levaria os chargebacks e a marca de origem de fraude.
 # Aceita `quote:true` para cotar as parcelas sem criar nada — necessário porque a API recusa a venda inteira se a
 # parcela ficar abaixo de R$5, e a tela não pode oferecer opção que será negada.
+# ⚠️ verify_jwt=true SOZINHO NÃO FECHA: a chave pública do site passa nesse portão.
+# Desde a OS-269 (21/10) a edge exige usuário no código (`exigirUsuario`, também na
+# cotação), confere evento publicado e do Marcel, e limita tentativas de cobrança.
 [functions.marcel-process-card]
 verify_jwt = true
 
