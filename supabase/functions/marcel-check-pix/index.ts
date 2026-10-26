@@ -19,6 +19,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
 import { consultarPix, reconciliar, PAGO, MarcelIndisponivel } from "../_shared/marcel.ts";
+import { conferirIdSoDestePedido, recusarPromocao } from "../_shared/conferePagamento.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -83,6 +84,30 @@ serve(async (req) => {
       // um erro momentâneo da API não pode matar uma venda que talvez seja paga
       // um minuto depois.
       return json({ paid: false, pago: false, status: status || null });
+    }
+
+    // OS-265: pago pelo id gravado no pedido? Esse id não pode estar em OUTRO
+    // pedido (um pagamento libera um pedido só). O Marcel não devolve de quem é
+    // o pagamento nem o valor, então é isto que dá para conferir. Sem o id, a
+    // consulta foi pelo purchaseId (= este pedido): o próprio Marcel amarrou.
+    if (order.provider_transaction_id) {
+      const conferencia = await conferirIdSoDestePedido(admin, order.id, String(order.provider_transaction_id));
+      if (!conferencia.ok) {
+        if (conferencia.motivo === 'conferencia_indisponivel') {
+          // Não deu para conferir agora: o front continua consultando.
+          return json({ paid: false, pago: false, indefinido: true }, 503);
+        }
+        // Não promove e não diz "pago" para a tela. Vai para análise humana
+        // (bandeira "pago sem entrega" + aviso à gestão), uma vez só: a tela
+        // pergunta de novo a cada 5 s e não regrava nada.
+        await recusarPromocao(admin, {
+          orderId: order.id, situacao: order.status, valor: order.total_amount,
+          source: 'marcel-check-pix', paymentId: String(order.provider_transaction_id),
+          recusa: conferencia, bandeira: true,
+        });
+        log('Promoção recusada: id de pagamento também está em outro pedido', { orderId, ...conferencia.detalhe });
+        return json({ paid: false, pago: false, status, promovido: false, erro: 'pagamento_em_conferencia' }, 409);
+      }
     }
 
     // Pago. A promoção passa pela RPC transacional de sempre — nunca um

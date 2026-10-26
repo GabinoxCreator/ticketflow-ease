@@ -23,6 +23,24 @@ export interface Ticket {
   order?: { status: string } | null;
 }
 
+/** Status que a tela pede → passagem que a função `produtor_mudar_ingresso` aceita. */
+const ACAO_POR_STATUS: Partial<Record<Ticket['status'], string>> = {
+  used: 'validar',
+  valid: 'desfazer_validacao',
+  cancelled: 'cancelar',
+};
+
+/** Recusa da função em português de dono (o código cru fica no console). */
+function mensagemDoErro(bruta: string | undefined): string {
+  const m = bruta ?? '';
+  if (m.includes('ingresso_em_reembolso')) return 'Este ingresso tem um pedido de reembolso em análise e está bloqueado.';
+  if (m.includes('passagem_nao_permitida')) return 'Este ingresso não pode mudar assim (cancelado não volta; pedido não pago não faz check-in).';
+  if (m.includes('ingresso_nao_encontrado')) return 'Ingresso não encontrado neste evento.';
+  if (m.includes('nao_autenticado')) return 'Sua sessão caiu. Entre de novo.';
+  console.error('[produtor_mudar_ingresso]', m);
+  return 'Não deu para mudar o ingresso. Tente de novo.';
+}
+
 export function useEventParticipants(eventId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -54,24 +72,25 @@ export function useEventParticipants(eventId: string | undefined) {
     enabled: !!eventId,
   });
 
+  // O produtor não escreve mais na tabela de ingressos (OS-265): check-in,
+  // desfazer o check-in e cancelar passam pela função da casa, que confere o
+  // dono do evento e só aceita essas três passagens. Ingresso cancelado não volta.
   const updateTicketStatus = useMutation({
     mutationFn: async ({ ticketId, status }: { ticketId: string; status: Ticket['status'] }) => {
-      const updateData: { status: Ticket['status']; validated_at?: string | null } = { status };
-      
-      if (status === 'used') {
-        updateData.validated_at = new Date().toISOString();
-      } else if (status === 'valid') {
-        updateData.validated_at = null;
-      }
+      const acao = ACAO_POR_STATUS[status];
+      if (!acao) throw new Error('Essa mudança não é permitida neste ingresso.');
 
-      const { data, error } = await supabase
-        .from('tickets')
-        .update(updateData)
-        .eq('id', ticketId)
-        .select()
-        .single();
+      // A função ainda não está nos tipos gerados (types.ts é do Lovable).
+      const rpcSemTipo = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+      const { data, error } = await rpcSemTipo.call(supabase, 'produtor_mudar_ingresso', {
+        _ticket_id: ticketId,
+        _acao: acao,
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(mensagemDoErro(error.message));
       return data;
     },
     onSuccess: () => {

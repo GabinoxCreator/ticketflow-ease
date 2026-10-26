@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
+import { conferirPagamentoMercadoPago, recusarPromocao } from "../_shared/conferePagamento.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +25,7 @@ interface OrderRow {
   coupon_id: string | null;
   event_id: string;
   provider_transaction_id: string | null;
+  total_amount: number | string | null;
 }
 
 function extractMpPaymentId(o: OrderRow): string | null {
@@ -71,6 +73,7 @@ serve(async (req) => {
     inventory_corrections: 0,
     paid_tickets_reconciled: 0,
     skipped_outro_provedor: 0,
+    refused: 0,
     errors: 0,
     items: [] as any[],
   };
@@ -167,7 +170,7 @@ serve(async (req) => {
 
     const { data: candidates, error } = await supabase
       .from('orders')
-      .select('id, created_at, expires_at, mp_payment_id, payment_method, coupon_id, event_id, provider_transaction_id')
+      .select('id, created_at, expires_at, mp_payment_id, payment_method, coupon_id, event_id, provider_transaction_id, total_amount')
       .eq('status', 'pending')
       .or(`created_at.lt.${cutoff},expires_at.is.null`)
       .order('created_at', { ascending: true })
@@ -196,11 +199,12 @@ serve(async (req) => {
         item.legacy = isLegacy;
 
         let mpStatus: string | null = null;
+        let payment: any = null;
         if (paymentId) {
           const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
             headers: { Authorization: `Bearer ${mpToken}` },
           });
-          if (mpRes.ok) mpStatus = (await mpRes.json()).status;
+          if (mpRes.ok) { payment = await mpRes.json(); mpStatus = payment.status; }
           else if (mpRes.status === 404) mpStatus = 'not_found';
           else { stats.errors++; item.error = `mp_api_${mpRes.status}`; stats.items.push(item); continue; }
         } else {
@@ -208,7 +212,23 @@ serve(async (req) => {
         }
         item.mp_status = mpStatus;
 
-        if (mpStatus === 'approved') {
+        // OS-265: aprovado só promove se o pagamento é DESTE pedido e do MESMO
+        // valor (como o webhook). Recusado: não promove nem expira aqui; valor
+        // diferente vai para análise (bandeira + aviso), pagamento de outro
+        // pedido só registra e avisa (a expire-pending-orders expira no prazo).
+        const conferencia = mpStatus === 'approved' ? conferirPagamentoMercadoPago(order, payment) : null;
+        if (conferencia && !conferencia.ok) {
+          item.action = `refused_${conferencia.motivo}`;
+          item.conferencia = conferencia.detalhe;
+          if (!dryRun) {
+            await recusarPromocao(supabase, {
+              orderId: order.id, situacao: 'pending', valor: order.total_amount,
+              source: 'reconcile-orphan-orders', paymentId, recusa: conferencia,
+              bandeira: conferencia.motivo === 'valor_diferente',
+            });
+          }
+          stats.refused++;
+        } else if (mpStatus === 'approved') {
           item.action = 'recover_to_paid';
           if (!dryRun) {
             const result = await applyOrderApproved(supabase, {
