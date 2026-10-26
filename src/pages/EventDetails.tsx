@@ -209,7 +209,10 @@ const EventDetails = () => {
     prevTotalRef.current = totalForEffect;
   }, [totalForEffect]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // De qual pixel é esta página (ver src/hooks/useEventPixel.ts).
+  // De qual pixel é esta página (ver src/hooks/useEventPixel.ts). O gancho só
+  // devolve o pixel quando ele é DESTE evento (`eventId` é o `event.id` da
+  // linha acima): ao trocar de evento sem recarregar, vem `null` até a resposta
+  // certa chegar, e nada é disparado com o pixel do produtor anterior.
   const pixelId = useEventPixel(eventId);
 
   useEffect(() => {

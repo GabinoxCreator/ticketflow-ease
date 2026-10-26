@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
+import { trackPageView, trackLead, desligarAutoConfig } from '@/lib/metaPixel';
+import { FESTPAG_PIXEL_ID } from '@/lib/festpagPixel';
 import logoFestpag from '@/assets/brand/logo-gradiente.png';
 import devTotemCardapio from '@/assets/lp3/totem-cardapio.webp';
 import devTotemCheckin from '@/assets/lp3/totem-checkin.webp';
@@ -197,6 +199,19 @@ export default function LandingLp() {
   const pulseRef = useRef<(() => void) | null>(null);
   const contadosRef = useRef<Set<string>>(new Set());
 
+  /* Pixel da CASA (não o do produtor): esta landing é o destino dos nossos
+     anúncios, e sem PageView a Meta não consegue otimizar para visualização da
+     página — foi o que travou a campanha de 24/10. O gate de consentimento é
+     dentro de metaPixel.ts: antes do aceite no banner de cookies nada sai, e o
+     evento fica guardado para o instante do aceite. */
+  useEffect(() => {
+    // Antes de qualquer evento: o pixel da casa não usa os automatismos da
+    // Meta (ver desligarAutoConfig). Sem isso ele dispara sozinho a cada
+    // clique em botão e lê o nome e o telefone deste formulário.
+    desligarAutoConfig(FESTPAG_PIXEL_ID);
+    trackPageView(FESTPAG_PIXEL_ID);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
@@ -220,6 +235,9 @@ export default function LandingLp() {
       });
       if (error) throw error;
       setSuccess(true);
+      /* Lead só depois do servidor aceitar o envio. Sem dado pessoal: a Meta
+         recebe que alguém pediu proposta, não quem pediu. */
+      trackLead(FESTPAG_PIXEL_ID, { content_name: 'LP FestPag' });
     } catch (err) {
       console.error('[lp] submit error', err);
       setErrorMsg('Não foi possível enviar agora. Tente novamente em instantes.');

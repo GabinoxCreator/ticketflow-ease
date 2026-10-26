@@ -34,6 +34,9 @@ const EventMapPage = () => {
 
   // O mapa é uma tela de evento como outra qualquer — antes ela não contava
   // nada para a Meta, e quem chegava por anúncio direto no mapa sumia.
+  // O gancho só devolve o pixel quando ele é do evento que está na tela: na
+  // troca de um evento para outro vem `null`, e o mapa não dispara nada com o
+  // pixel do produtor anterior (OS-306).
   const pixelId = useEventPixel(event?.id);
   useEffect(() => {
     if (!pixelId || !event) return;
