@@ -22,11 +22,16 @@ function linkDoWhatsApp(phone: string | null, eventTitle: string): string | null
 
 export const ProdutorDoEvento = ({ eventId, eventTitle }: { eventId: string; eventTitle: string }) => {
   const { data: produtor } = useProdutorDoEvento(eventId);
-  if (!produtor || eventId === '9531ba56-5689-4a40-b880-11cb38a04c47') return null;
+  if (!produtor) return null;
 
-  const whatsapp = linkDoWhatsApp(produtor.phone, eventTitle);
-  const email = produtor.email?.trim() || null;
+  // Samba do Nobre: mostra o nome da produtora, mas esconde os botões de
+  // WhatsApp e e-mail (pedido do Gabriel em 26/10/2026).
+  const ocultaContatos = eventId === '9531ba56-5689-4a40-b880-11cb38a04c47';
+
+  const whatsapp = ocultaContatos ? null : linkDoWhatsApp(produtor.phone, eventTitle);
+  const email = ocultaContatos ? null : produtor.email?.trim() || null;
   const temContato = !!whatsapp || !!email;
+
 
   return (
     <motion.section
