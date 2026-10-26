@@ -3581,6 +3581,7 @@ export type Database = {
         Returns: string
       }
       _conferir_pin: { Args: { _pin: string; _user_id: string }; Returns: Json }
+      _pedido_so_da_casa: { Args: { _order_id: string }; Returns: boolean }
       _pin_email_da_conta: { Args: { _user_id: string }; Returns: string }
       abertura_criar_rascunho: {
         Args: { _abertura_id: string; _producer_profile_id?: string }
@@ -3611,6 +3612,10 @@ export type Database = {
       }
       admin_attach_payout_receipt: {
         Args: { p_path: string; p_payout_id: string }
+        Returns: Json
+      }
+      admin_corrigir_cpf: {
+        Args: { _cpf: string; _motivo: string; _user_id: string }
         Returns: Json
       }
       admin_list_payouts: {
@@ -3781,6 +3786,7 @@ export type Database = {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
       }
+      definir_meu_cpf: { Args: { _cpf: string }; Returns: Json }
       definir_meu_pin: {
         Args: { _pin_atual?: string; _pin_novo: string }
         Returns: Json
@@ -4089,6 +4095,10 @@ export type Database = {
           logo_url: string
           phone: string
         }[]
+      }
+      produtor_mudar_ingresso: {
+        Args: { _acao: string; _ticket_id: string }
+        Returns: Json
       }
       produtor_publico: {
         Args: { _slug: string }
