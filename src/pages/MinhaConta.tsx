@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard, Trash2 } from 'lucide-react';
+import { User, Mail, MailWarning, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard, Trash2 } from 'lucide-react';
 import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CanaisDeContato } from '@/components/conta/CanaisDeContato';
 import { TEXTOS_CONTA } from '@/components/conta/textos';
+import { ehEmailInterno } from '@/lib/authV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,20 @@ const MinhaConta = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Cada clique no aviso de e-mail abre a confirmação por código, que mora na
+  // seção "Como falamos com você" (OS-303).
+  const [abrirConfirmacao, setAbrirConfirmacao] = useState(0);
+
+  // OS-303: sem nenhum contato confirmado por código, o pedido feito sem conta
+  // (maquininha, venda do produtor, cortesia) não entra sozinho nesta conta
+  // (claim_my_orphan_orders, OS-267). O aviso no topo leva a pessoa a confirmar.
+  const contatos = (profile ?? {}) as {
+    email?: string | null;
+    email_confirmado_em?: string | null;
+    whatsapp_confirmado_em?: string | null;
+  };
+  const semContatoConfirmado = !!profile && !contatos.email_confirmado_em && !contatos.whatsapp_confirmado_em;
+  const temEmailDeVerdade = !!contatos.email && !ehEmailInterno(contatos.email);
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
@@ -226,6 +241,40 @@ const MinhaConta = () => {
             </Card>
           </motion.div>
 
+          {/* OS-303: conta sem nenhum contato confirmado vê o aviso para confirmar o e-mail */}
+          {semContatoConfirmado && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="mb-6"
+            >
+              <Card className="border-amber-500/40 bg-amber-500/10 backdrop-blur-xl" data-aviso="confirmar-email">
+                <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <MailWarning className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground">
+                        {temEmailDeVerdade ? TEXTOS_CONTA.avisoTitulo : TEXTOS_CONTA.avisoTituloSemEmail}
+                      </p>
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                        {temEmailDeVerdade ? TEXTOS_CONTA.avisoComEmail : TEXTOS_CONTA.avisoSemEmail}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="hero"
+                    className="w-full sm:w-auto shrink-0"
+                    onClick={() => setAbrirConfirmacao((n) => n + 1)}
+                  >
+                    {temEmailDeVerdade ? TEXTOS_CONTA.avisoBotaoConfirmar : TEXTOS_CONTA.avisoBotaoAdicionar}
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Two-column grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Profile Section */}
@@ -388,7 +437,7 @@ const MinhaConta = () => {
               transition={{ delay: 0.15 }}
               className="lg:col-span-2"
             >
-              <CanaisDeContato />
+              <CanaisDeContato abrirConfirmacao={abrirConfirmacao} />
             </motion.div>
 
             {/* Security Section */}
