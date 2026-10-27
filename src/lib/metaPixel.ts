@@ -20,6 +20,14 @@
 // Isso não é rastreamento retroativo: é a página em que ele está no momento do
 // aceite. Cada PageView novo ZERA o buffer, então navegação anterior ao aceite
 // morre — de propósito.
+//
+// ⚠️ 26/10/2026 (OS-306) — DOIS PIXELS VIVEM AQUI E NÃO PODEM SE MISTURAR:
+// o pixel do PRODUTOR (a página do evento dele) e o pixel da CASA (a landing
+// comercial da FestPag, `src/lib/festpagPixel.ts`). Numa mesma aba o visitante
+// pode passar pelos dois (landing → página de evento), e `fbq('track', ...)`
+// manda o evento para TODOS os pixels já iniciados: a compra do produtor
+// cairia no Gerenciador da FestPag e o nosso PageView no dele. Por isso todo
+// envio daqui é `trackSingle`, que nomeia o pixel de destino.
 import { hasMarketingConsent, CONSENT_CHANGED_EVENT } from './cookieConsent';
 
 declare global {
@@ -33,6 +41,9 @@ type PixelPayload = Record<string, unknown>;
 type BufferedEvent = { name: string; payload?: PixelPayload; eventId?: string };
 
 const initialized = new Set<string>();
+// Pixels que não podem usar a configuração automática da Meta (ver
+// `desligarAutoConfig`). Consultado na hora do init.
+const semAutoConfig = new Set<string>();
 let scriptInjected = false;
 let consentListenerArmed = false;
 
@@ -60,7 +71,7 @@ function flushPending() {
   const eventos = pendingEvents;
   pendingEvents = [];
   doInit(pixelId);
-  for (const ev of eventos) send(ev);
+  for (const ev of eventos) send(pixelId, ev);
 }
 
 function injectScript() {
@@ -96,6 +107,8 @@ function doInit(pixelId: string) {
   injectScript();
   if (initialized.has(pixelId)) return;
   try {
+    // Tem que vir ANTES do init: depois dele a Meta já ligou os automatismos.
+    if (semAutoConfig.has(pixelId)) window.fbq?.('set', 'autoConfig', false, pixelId);
     window.fbq?.('init', pixelId);
     initialized.add(pixelId);
   } catch (err) {
@@ -105,10 +118,12 @@ function doInit(pixelId: string) {
 
 // `eventId` existe para DEDUPLICAR com a API de Conversões (servidor): quando o
 // mesmo evento chega pelos dois caminhos com o mesmo id, a Meta conta uma vez.
-function send({ name, payload, eventId }: BufferedEvent) {
+// `trackSingle` (e não `track`) porque a aba pode ter mais de um pixel iniciado
+// — ver o aviso da OS-306 no topo deste arquivo.
+function send(pixelId: string, { name, payload, eventId }: BufferedEvent) {
   try {
-    if (eventId) window.fbq?.('track', name, payload ?? {}, { eventID: eventId });
-    else window.fbq?.('track', name, payload ?? {});
+    if (eventId) window.fbq?.('trackSingle', pixelId, name, payload ?? {}, { eventID: eventId });
+    else window.fbq?.('trackSingle', pixelId, name, payload ?? {});
   } catch {
     /* pixel nunca pode derrubar a página */
   }
@@ -130,7 +145,7 @@ function track(pixelId: string | null | undefined, ev: BufferedEvent, novaPagina
   }
 
   doInit(pixelId);
-  send(ev);
+  send(pixelId, ev);
 }
 
 export function initMetaPixel(pixelId: string | null | undefined) {
@@ -146,8 +161,39 @@ export function initMetaPixel(pixelId: string | null | undefined) {
   doInit(pixelId);
 }
 
+// Desliga a "configuração automática" da Meta para UM pixel. Esse pacote faz o
+// pixel agir sozinho: dispara evento em clique de botão (`SubscribedButtonClick`)
+// e lê campos de formulário para casar a pessoa (advanced matching automático).
+//
+// O pixel da casa nasce com isso desligado porque o formulário desta landing
+// tem NOME e TELEFONE: automatismo nenhum pode mandar isso para a Meta (LGPD).
+// Quem decide o que vai é o nosso código, e ele manda só o evento.
+//
+// ⚠️ O que isto NÃO desliga (medido em 26/10 com janela de verdade, OS-306):
+// a Meta continua disparando um PageView sozinha a cada troca de rota sem
+// recarregar, para todo pixel já ligado na aba. Isso não está na nossa mão,
+// é igual antes e depois desta mudança, e vale para os pixels de produtor do
+// mesmo jeito (provado em /taxa e /ajuda, telas sem uma linha nossa de pixel).
+//
+// Chamar ANTES do primeiro evento daquele pixel. Não mexe nos outros pixels:
+// o id vai no próprio comando.
+export function desligarAutoConfig(pixelId: string | null | undefined) {
+  if (!pixelId) return;
+  semAutoConfig.add(pixelId);
+}
+
 export function trackPageView(pixelId: string | null | undefined) {
   track(pixelId, { name: 'PageView' }, true);
+}
+
+// Lead: a pessoa pediu contato (formulário da nossa landing). NUNCA mandar
+// nome, telefone ou e-mail aqui — o visitante autorizou a FestPag a falar com
+// ele, não a Meta a receber os dados dele.
+export function trackLead(
+  pixelId: string | null | undefined,
+  payload?: { content_name?: string },
+) {
+  track(pixelId, { name: 'Lead', payload });
 }
 
 export function trackViewContent(
