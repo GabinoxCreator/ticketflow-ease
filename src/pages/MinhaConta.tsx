@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CanaisDeContato } from '@/components/conta/CanaisDeContato';
+import { TEXTOS_CONTA } from '@/components/conta/textos';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,10 @@ const profileSchema = z.object({
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
+
+// Recado que vai para o cliente do jeito que está escrito, sem o prefixo
+// "Erro ao atualizar perfil:" (OS-322).
+class RecadoParaCliente extends Error {}
 
 const MinhaConta = () => {
   const { user, profile, refreshProfile, signOut } = useAuth();
@@ -134,6 +139,9 @@ const MinhaConta = () => {
         if (!r?.ok) {
           if (r?.erro === 'cpf_ja_salvo') throw new Error('O CPF já está salvo. Entre em contato com o suporte se houver erro.');
           if (r?.erro === 'cpf_invalido') throw new Error('CPF inválido');
+          // OS-302: o CPF já é de outra conta, ou tentativas demais seguidas.
+          if (r?.erro === 'cpf_de_outra_conta') throw new RecadoParaCliente(TEXTOS_CONTA.cpfDeOutraConta);
+          if (r?.erro === 'muitas_tentativas') throw new RecadoParaCliente(TEXTOS_CONTA.cpfMuitasTentativas);
           throw new Error(r?.erro || 'falha ao salvar o CPF');
         }
       }
@@ -141,7 +149,8 @@ const MinhaConta = () => {
       await refreshProfile();
       toast.success('Perfil atualizado com sucesso!');
     } catch (error: any) {
-      toast.error(`Erro ao atualizar perfil: ${error.message}`);
+      if (error instanceof RecadoParaCliente) toast.error(error.message, { duration: 12000 });
+      else toast.error(`Erro ao atualizar perfil: ${error.message}`);
       // O nome pode ter gravado antes de o CPF falhar: recarrega o perfil para a
       // tela (e o topo) mostrarem o que ficou no banco.
       try { await refreshProfile(); } catch { /* o aviso de erro já saiu */ }
