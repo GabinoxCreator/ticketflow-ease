@@ -347,9 +347,26 @@ Deno.serve(async (req) => {
       byOrigin.set(org, { count: ob.count + 1, gross: ob.gross + v });
     }
 
-    // Ingressos emitidos: a contagem que o produtor confere contra a portaria.
-    const { count: ingressos } = await admin
-      .from("tickets").select("id", { count: "exact", head: true }).in("event_id", eventIds);
+    // Ingressos emitidos: a contagem que o produtor confere contra a portaria. Só conta o
+    // ingresso que vale ou já entrou (`valid` e `used`). Antes contava TODOS, cancelado e
+    // pendente inclusive: na VI Oktoberfest a gestão mostrava 439, e os de verdade eram 292
+    // (276 usados + 16 válidos; os 147 cancelados são de pedido que expirou, falhou, foi
+    // cancelado ou reembolsado). OS-328, 27/10/2026. Os cancelados vão à parte, para quem
+    // quiser conferir a diferença. Se a contagem falhar, vai nulo (a tela esconde o número)
+    // em vez de um zero falso, e o resto do fechamento sai normal.
+    const contarIngressos = async (status: string[]) => {
+      const { count, error } = await admin
+        .from("tickets").select("id", { count: "exact", head: true }).in("event_id", eventIds).in("status", status);
+      if (error) {
+        console.error("[GESTAO-SALES-EXPORT] contagem de ingressos", error.message);
+        return null;
+      }
+      return count ?? 0;
+    };
+    const [ingressos, ingressosCancelados] = await Promise.all([
+      contarIngressos(["valid", "used"]),
+      contarIngressos(["cancelled"]),
+    ]);
 
     const pct = (v: number) => (gross > 0 ? round2((v / gross) * 100) : 0);
 
@@ -385,7 +402,8 @@ Deno.serve(async (req) => {
         // repasse — inclui a venda manual. Use `net_to_transfer`.
         net_to_producer: round2(gross - fees),
         average_ticket: pagos.length > 0 ? round2(gross / pagos.length) : 0,
-        tickets_issued: ingressos ?? 0,
+        tickets_issued: ingressos,
+        tickets_cancelled: ingressosCancelados,
         orders_in_window: orders.length,
         orders_not_paid: orders.length - pagos.length,
       },
