@@ -270,6 +270,11 @@ verify_jwt = false
 [functions.gestao-sales-export]
 verify_jwt = false
 
+# Ponte READ-ONLY da aba da Nina na gestão (OS-329): venda do site por dia, todos os
+# eventos, sem dado pessoal. Mesmo token de serviço da gestao-sales-export.
+[functions.gestao-vendas-semana]
+verify_jwt = false
+
 [functions.gestao-reembolso-baixa]
 verify_jwt = false
 
