@@ -176,7 +176,7 @@ const StepDocument: React.FC<StepDocumentProps> = ({
         )}
         {lookup === 'found' && (
           <p className="text-xs text-green-600">
-            ✓ {isPJ ? 'Empresa encontrada' : 'Documento confirmado'} — conferimos para você.
+            ✓ {isPJ ? 'Empresa encontrada na base oficial.' : 'Documento encontrado na base oficial.'}
           </p>
         )}
         {lookup === 'notfound' && (
