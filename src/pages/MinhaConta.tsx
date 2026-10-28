@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard, Trash2 } from 'lucide-react';
+import { User, Mail, MailWarning, Phone, Lock, Save, Loader2, Shield, Sparkles, CreditCard, Trash2 } from 'lucide-react';
 import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import { toast } from 'sonner';
 
@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CanaisDeContato } from '@/components/conta/CanaisDeContato';
+import { TEXTOS_CONTA } from '@/components/conta/textos';
+import { ehEmailInterno } from '@/lib/authV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -35,12 +37,30 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
+// Recado que vai para o cliente do jeito que está escrito, sem o prefixo
+// "Erro ao atualizar perfil:" (OS-322).
+class RecadoParaCliente extends Error {}
+
 const MinhaConta = () => {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Cada clique no aviso de e-mail abre a confirmação por código, que mora na
+  // seção "Como falamos com você" (OS-303).
+  const [abrirConfirmacao, setAbrirConfirmacao] = useState(0);
+
+  // OS-303: sem nenhum contato confirmado por código, o pedido feito sem conta
+  // (maquininha, venda do produtor, cortesia) não entra sozinho nesta conta
+  // (claim_my_orphan_orders, OS-267). O aviso no topo leva a pessoa a confirmar.
+  const contatos = (profile ?? {}) as {
+    email?: string | null;
+    email_confirmado_em?: string | null;
+    whatsapp_confirmado_em?: string | null;
+  };
+  const semContatoConfirmado = !!profile && !contatos.email_confirmado_em && !contatos.whatsapp_confirmado_em;
+  const temEmailDeVerdade = !!contatos.email && !ehEmailInterno(contatos.email);
 
   const handleDeleteAccount = async () => {
     setDeleting(true);
@@ -134,6 +154,9 @@ const MinhaConta = () => {
         if (!r?.ok) {
           if (r?.erro === 'cpf_ja_salvo') throw new Error('O CPF já está salvo. Entre em contato com o suporte se houver erro.');
           if (r?.erro === 'cpf_invalido') throw new Error('CPF inválido');
+          // OS-302: o CPF já é de outra conta, ou tentativas demais seguidas.
+          if (r?.erro === 'cpf_de_outra_conta') throw new RecadoParaCliente(TEXTOS_CONTA.cpfDeOutraConta);
+          if (r?.erro === 'muitas_tentativas') throw new RecadoParaCliente(TEXTOS_CONTA.cpfMuitasTentativas);
           throw new Error(r?.erro || 'falha ao salvar o CPF');
         }
       }
@@ -141,7 +164,8 @@ const MinhaConta = () => {
       await refreshProfile();
       toast.success('Perfil atualizado com sucesso!');
     } catch (error: any) {
-      toast.error(`Erro ao atualizar perfil: ${error.message}`);
+      if (error instanceof RecadoParaCliente) toast.error(error.message, { duration: 12000 });
+      else toast.error(`Erro ao atualizar perfil: ${error.message}`);
       // O nome pode ter gravado antes de o CPF falhar: recarrega o perfil para a
       // tela (e o topo) mostrarem o que ficou no banco.
       try { await refreshProfile(); } catch { /* o aviso de erro já saiu */ }
@@ -216,6 +240,40 @@ const MinhaConta = () => {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* OS-303: conta sem nenhum contato confirmado vê o aviso para confirmar o e-mail */}
+          {semContatoConfirmado && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="mb-6"
+            >
+              <Card className="border-amber-500/40 bg-amber-500/10 backdrop-blur-xl" data-aviso="confirmar-email">
+                <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <MailWarning className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground">
+                        {temEmailDeVerdade ? TEXTOS_CONTA.avisoTitulo : TEXTOS_CONTA.avisoTituloSemEmail}
+                      </p>
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                        {temEmailDeVerdade ? TEXTOS_CONTA.avisoComEmail : TEXTOS_CONTA.avisoSemEmail}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="hero"
+                    className="w-full sm:w-auto shrink-0"
+                    onClick={() => setAbrirConfirmacao((n) => n + 1)}
+                  >
+                    {temEmailDeVerdade ? TEXTOS_CONTA.avisoBotaoConfirmar : TEXTOS_CONTA.avisoBotaoAdicionar}
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Two-column grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -379,7 +437,7 @@ const MinhaConta = () => {
               transition={{ delay: 0.15 }}
               className="lg:col-span-2"
             >
-              <CanaisDeContato />
+              <CanaisDeContato abrirConfirmacao={abrirConfirmacao} />
             </motion.div>
 
             {/* Security Section */}

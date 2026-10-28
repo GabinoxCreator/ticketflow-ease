@@ -7,8 +7,17 @@
  *
  * Desde 20/10/2026 (OS-285) o código vai SÓ por e-mail: o WhatsApp é um campo
  * de contato, editado no formulário de dados acima, sem confirmação por código.
+ *
+ * OS-303 (26/10/2026): o aviso do topo da Minha Conta abre a confirmação do
+ * e-mail daqui (prop `abrirConfirmacao`, que muda a cada clique). E, logo
+ * depois de confirmar um e-mail, a seção já puxa para a conta o pedido sem dono
+ * daquele CPF e e-mail (claim_my_orphan_orders), sem esperar a pessoa abrir
+ * Meus ingressos.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { TEXTOS_CONTA } from '@/components/conta/textos';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,8 +50,9 @@ const formatarTelefone = (raw: string) => {
 
 type Modo = { canal: Canal; trocar: boolean; senha?: boolean } | null;
 
-export function CanaisDeContato() {
+export function CanaisDeContato({ abrirConfirmacao = 0 }: { abrirConfirmacao?: number } = {}) {
   const { profile, refreshProfile } = useAuth();
+  const queryClient = useQueryClient();
   const p = (profile ?? {}) as PerfilV2;
   const whatsapp = p.whatsapp?.replace(/\D/g, '') ?? '';
   const email = p.email && !ehEmailInterno(p.email) ? p.email : '';
@@ -60,6 +70,36 @@ export function CanaisDeContato() {
   const [salvandoPref, setSalvandoPref] = useState(false);
 
   const fechar = () => { setModo(null); setDestino(''); setDesafio(null); setCodigo(''); setNovaSenha(''); setConfirma(''); };
+
+  // OS-303: o aviso do topo pediu para abrir. Com e-mail de verdade ainda não
+  // confirmado, abre "Confirmar o e-mail"; sem e-mail, abre "Adicionar e-mail".
+  useEffect(() => {
+    if (!abrirConfirmacao) return;
+    setDesafio(null); setCodigo(''); setNovaSenha(''); setConfirma('');
+    if (email && !emailOk) setModo({ canal: 'email', trocar: false });
+    else { setDestino(''); setModo({ canal: 'email', trocar: true }); }
+    // Só o clique no aviso abre: o resto entra pelo valor do momento do clique.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrirConfirmacao]);
+
+  // OS-303: e-mail recém-confirmado já casa o pedido sem dono daquele CPF e
+  // e-mail. Devolve quantos pedidos entraram. Acessório: falhar aqui nunca
+  // desfaz a confirmação (Meus ingressos chama a mesma função ao abrir).
+  const puxarPedidosSemDono = async (): Promise<number> => {
+    try {
+      // A função não está nos tipos gerados (types.ts é do Lovable).
+      const rpcSemTipo = supabase.rpc as unknown as (
+        fn: string,
+      ) => Promise<{ data: { orders_claimed?: number } | null; error: unknown }>;
+      const { data, error } = await rpcSemTipo.call(supabase, 'claim_my_orphan_orders');
+      if (error) return 0;
+      const n = Number(data?.orders_claimed ?? 0);
+      if (n > 0) await queryClient.invalidateQueries({ queryKey: ['user-tickets'] });
+      return n;
+    } catch {
+      return 0;
+    }
+  };
 
   const pedir = async () => {
     if (!modo) return;
@@ -83,8 +123,16 @@ export function CanaisDeContato() {
     try {
       await canalConfirmar(desafio.desafioId, codigo, modo?.senha ? novaSenha : undefined);
       await refreshProfile();
+      const eraEmail = !modo?.senha && modo?.canal === 'email';
       toast.success(modo?.senha ? 'Senha nova salva!' : modo?.canal === 'whatsapp' ? 'WhatsApp confirmado!' : 'E-mail confirmado!');
       fechar();
+      // OS-303: a janela do código já fechou; o pedido sem dono vem depois, sem
+      // segurar a pessoa esperando, e só fala se algum pedido entrou.
+      if (eraEmail) {
+        void puxarPedidosSemDono().then((n) => {
+          if (n > 0) toast.success(TEXTOS_CONTA.pedidosQueEntraram(n), { duration: 10000 });
+        });
+      }
     } catch (e) {
       toast.error(mensagemDoErro(e));
       setCodigo('');
