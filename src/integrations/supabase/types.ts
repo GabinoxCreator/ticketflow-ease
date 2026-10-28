@@ -444,6 +444,30 @@ export type Database = {
         }
         Relationships: []
       }
+      conferencias_de_documento: {
+        Row: {
+          criada_em: string
+          documento_hash: string
+          id: string
+          usada_em: string | null
+          usada_por: string | null
+        }
+        Insert: {
+          criada_em?: string
+          documento_hash: string
+          id?: string
+          usada_em?: string | null
+          usada_por?: string | null
+        }
+        Update: {
+          criada_em?: string
+          documento_hash?: string
+          id?: string
+          usada_em?: string | null
+          usada_por?: string | null
+        }
+        Relationships: []
+      }
       credit_rate_versions: {
         Row: {
           adquirente: string
@@ -2610,6 +2634,8 @@ export type Database = {
           brand_name: string
           created_at: string
           document: string | null
+          documento_conferencia: string | null
+          documento_conferencia_em: string | null
           email: string | null
           id: string
           legal_name: string | null
@@ -2632,6 +2658,8 @@ export type Database = {
           brand_name: string
           created_at?: string
           document?: string | null
+          documento_conferencia?: string | null
+          documento_conferencia_em?: string | null
           email?: string | null
           id?: string
           legal_name?: string | null
@@ -2654,6 +2682,8 @@ export type Database = {
           brand_name?: string
           created_at?: string
           document?: string | null
+          documento_conferencia?: string | null
+          documento_conferencia_em?: string | null
           email?: string | null
           id?: string
           legal_name?: string | null
@@ -4192,6 +4222,10 @@ export type Database = {
           _versoes: Json
         }
         Returns: number
+      }
+      registrar_conferencia_de_documento: {
+        Args: { _documento: string }
+        Returns: string
       }
       registrar_convite_facial: {
         Args: { p_evento: string; p_origem?: string }
