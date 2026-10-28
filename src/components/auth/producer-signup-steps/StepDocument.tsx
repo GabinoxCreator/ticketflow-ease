@@ -3,9 +3,10 @@ import { motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CreditCard, User, Building2, ArrowRight, ArrowLeft, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { CreditCard, User, Building2, ArrowRight, ArrowLeft, CheckCircle2, Loader2, AlertCircle, CalendarDays } from 'lucide-react';
 import { formatCPF, validateCPF } from '@/utils/cpfValidator';
 import { formatCNPJ, validateCNPJ } from '@/utils/cnpjValidator';
+import { maskNascimento, nascimentoParaIso, nascimentoCompleto } from '@/lib/nascimento';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { ProducerAccountType } from './StepAccountType';
@@ -17,13 +18,20 @@ import type { ProducerAccountType } from './StepAccountType';
 //   unavailable -> a consulta não respondeu (API fora, timeout, limite). NÃO trava:
 //                  uma queda da API de terceiro não pode impedir todo mundo de se
 //                  cadastrar. Cai no preenchimento manual, como era antes.
+//
+// Pessoa física (OS-339, 28/10/2026): a base oficial passou a exigir a data de
+// nascimento junto do CPF. A consulta só sai com CPF válido E data completa; a data
+// vai só para a consulta, não é gravada.
 type LookupState = 'idle' | 'busy' | 'found' | 'notfound' | 'unavailable';
 
 interface StepDocumentProps {
   accountType: ProducerAccountType;
   document: string;
   fullName: string;
+  /** Data de nascimento dd/mm/aaaa (só pessoa física). */
+  birthDate: string;
   onDocumentChange: (v: string) => void;
+  onBirthDateChange: (v: string) => void;
   onFullNameChange: (v: string) => void;
   /** Ficha da base oficial para este documento (OS-338), ou null. */
   onConferenciaChange?: (id: string | null) => void;
@@ -35,7 +43,9 @@ const StepDocument: React.FC<StepDocumentProps> = ({
   accountType,
   document,
   fullName,
+  birthDate,
   onDocumentChange,
+  onBirthDateChange,
   onFullNameChange,
   onConferenciaChange,
   onBack,
@@ -46,6 +56,11 @@ const StepDocument: React.FC<StepDocumentProps> = ({
   const formatter = isPJ ? formatCNPJ : formatCPF;
   const [docValid, setDocValid] = useState(validator(document));
   const [lookup, setLookup] = useState<LookupState>('idle');
+  // Pessoa física: a data em 'aaaa-mm-dd', ou null enquanto não é uma data de verdade.
+  const birthIso = isPJ ? null : nascimentoParaIso(birthDate);
+  const birthInvalid = !isPJ && nascimentoCompleto(birthDate) && !birthIso;
+  // Pronto para consultar: CPF/CNPJ válido e, na pessoa física, a data também.
+  const readyToQuery = docValid && (isPJ || !!birthIso);
   // Guarda o último documento consultado para não repetir a mesma chamada a cada
   // re-render, e para descartar resposta que chega atrasada depois de o usuário
   // já ter corrigido o número.
@@ -66,21 +81,38 @@ const StepDocument: React.FC<StepDocumentProps> = ({
     if (!nowValid) setLookup('idle');
   };
 
+  const handleBirthChange = (val: string) => {
+    const masked = maskNascimento(val);
+    // Mesma regra do documento: a ficha é da consulta com esta data. Mudou, não vale mais.
+    if (masked !== birthDate) {
+      onConferenciaChange?.(null);
+      lastQueried.current = '';
+    }
+    onBirthDateChange(masked);
+    if (!nascimentoParaIso(masked)) setLookup('idle');
+  };
+
   // Consulta a base oficial assim que o documento fecha o dígito verificador. Documento
   // inválido nunca dispara chamada — o DV filtra antes, de graça.
   useEffect(() => {
     const digits = document.replace(/\D/g, '');
-    if (!docValid || digits === lastQueried.current) return;
+    // A chave da consulta é o documento e, na pessoa física, a data junto.
+    const key = isPJ ? digits : `${digits}|${birthIso ?? ''}`;
+    if (!readyToQuery || key === lastQueried.current) return;
 
-    lastQueried.current = digits;
+    lastQueried.current = key;
     let cancelled = false;
     setLookup('busy');
 
+    const body = isPJ
+      ? { type: 'cnpj', document: digits }
+      : { type: 'cpf', document: digits, birth_date: birthIso };
+
     supabase.functions
-      .invoke('document-lookup', { body: { type: isPJ ? 'cnpj' : 'cpf', document: digits } })
+      .invoke('document-lookup', { body })
       .then(({ data, error }) => {
-        // Resposta atrasada de um número que o usuário já trocou: ignorar.
-        if (cancelled || digits !== lastQueried.current) return;
+        // Resposta atrasada de um número (ou data) que o usuário já trocou: ignorar.
+        if (cancelled || key !== lastQueried.current) return;
 
         // `error` aqui é rede ou status não-2xx (ex.: limite de consultas atingido).
         // Nada disso é culpa de quem está se cadastrando — trata como indisponível.
@@ -99,17 +131,21 @@ const StepDocument: React.FC<StepDocumentProps> = ({
     return () => { cancelled = true; };
     // onFullNameChange é estável (vem do wizard); incluir causaria reconsulta a cada tecla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [document, docValid, isPJ]);
+  }, [document, docValid, isPJ, birthIso, readyToQuery]);
 
   const handleNext = () => {
     if (!docValid) {
       toast.error(isPJ ? 'CNPJ inválido' : 'CPF inválido');
       return;
     }
+    if (!isPJ && !birthIso) {
+      toast.error('Informe sua data de nascimento');
+      return;
+    }
     if (lookup === 'notfound') {
       toast.error(isPJ
         ? 'Este CNPJ não foi encontrado na base oficial. Confira o número.'
-        : 'Este CPF não foi encontrado na base oficial. Confira o número.');
+        : 'Este CPF não foi encontrado na base oficial com esta data de nascimento. Confira os dois.');
       return;
     }
     if (fullName.trim().length < 3) {
@@ -129,6 +165,31 @@ const StepDocument: React.FC<StepDocumentProps> = ({
     ? 'Nome da empresa que aparecerá em recibos e repasses.'
     : 'Use seu nome real para validação e repasses.';
 
+  const lookupMessages = (
+    <>
+      {lookup === 'busy' && (
+        <p className="text-xs text-muted-foreground">Conferindo na base oficial…</p>
+      )}
+      {lookup === 'found' && (
+        <p className="text-xs text-green-600">
+          ✓ {isPJ ? 'Empresa encontrada na base oficial.' : 'Documento encontrado na base oficial.'}
+        </p>
+      )}
+      {lookup === 'notfound' && (
+        <p className="text-xs text-destructive">
+          {isPJ
+            ? 'Não encontramos este CNPJ na base oficial. Confira o número digitado.'
+            : 'Não encontramos este CPF com esta data de nascimento na base oficial. Confira os dois.'}
+        </p>
+      )}
+      {lookup === 'unavailable' && (
+        <p className="text-xs text-muted-foreground">
+          Não conseguimos conferir agora. Pode seguir e preencher {isPJ ? 'a razão social' : 'seu nome'} à mão.
+        </p>
+      )}
+    </>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -141,7 +202,7 @@ const StepDocument: React.FC<StepDocumentProps> = ({
           {isPJ ? 'Dados da empresa' : 'Seus dados'}
         </h3>
         <p className="text-sm text-muted-foreground">
-          {isPJ ? 'Informe o CNPJ e a razão social' : 'Informe seu CPF e nome completo'}
+          {isPJ ? 'Informe o CNPJ e a razão social' : 'Informe seu CPF, data de nascimento e nome completo'}
         </p>
       </div>
 
@@ -171,27 +232,41 @@ const StepDocument: React.FC<StepDocumentProps> = ({
           )}
         </div>
 
-        {lookup === 'busy' && (
-          <p className="text-xs text-muted-foreground">Conferindo na base oficial…</p>
-        )}
-        {lookup === 'found' && (
-          <p className="text-xs text-green-600">
-            ✓ {isPJ ? 'Empresa encontrada na base oficial.' : 'Documento encontrado na base oficial.'}
-          </p>
-        )}
-        {lookup === 'notfound' && (
-          <p className="text-xs text-destructive">
-            Não encontramos este {docLabel} na base oficial. Confira o número digitado.
-          </p>
-        )}
-        {lookup === 'unavailable' && (
-          <p className="text-xs text-muted-foreground">
-            Não conseguimos conferir agora. Pode seguir e preencher {isPJ ? 'a razão social' : 'seu nome'} à mão.
-          </p>
-        )}
+        {isPJ && lookupMessages}
       </div>
 
-      {docValid && lookup !== 'busy' && lookup !== 'notfound' && (
+      {!isPJ && docValid && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="space-y-2"
+        >
+          <Label htmlFor="birthDate">Data de nascimento</Label>
+          <div className="relative">
+            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              id="birthDate"
+              type="text"
+              inputMode="numeric"
+              autoComplete="bday"
+              placeholder="dd/mm/aaaa"
+              value={birthDate}
+              onChange={(e) => handleBirthChange(e.target.value)}
+              className="pl-10"
+              maxLength={10}
+              autoFocus={!birthIso}
+            />
+          </div>
+          {birthInvalid ? (
+            <p className="text-xs text-destructive">Data de nascimento inválida. Use dia/mês/ano.</p>
+          ) : lookup === 'idle' ? (
+            <p className="text-xs text-muted-foreground">Usamos só para conferir o seu CPF na base oficial.</p>
+          ) : null}
+          {lookupMessages}
+        </motion.div>
+      )}
+
+      {readyToQuery && lookup !== 'busy' && lookup !== 'notfound' && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
@@ -221,7 +296,7 @@ const StepDocument: React.FC<StepDocumentProps> = ({
         <Button
           type="button"
           onClick={handleNext}
-          disabled={!docValid || lookup === 'busy' || lookup === 'notfound' || fullName.trim().length < 3}
+          disabled={!readyToQuery || lookup === 'busy' || lookup === 'notfound' || fullName.trim().length < 3}
           variant="hero"
           size="lg"
           className="flex-1"
