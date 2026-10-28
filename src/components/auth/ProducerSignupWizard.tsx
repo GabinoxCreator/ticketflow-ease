@@ -25,6 +25,12 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
   const [accountType, setAccountType] = useState<ProducerAccountType | null>(null);
   const [document, setDocument] = useState('');
   const [fullName, setFullName] = useState('');
+  // Pessoa física (OS-339): a data de nascimento vai só para a consulta do CPF na
+  // base oficial. Fica aqui para não se perder ao voltar de passo; não vai no cadastro.
+  const [birthDate, setBirthDate] = useState('');
+  // Ficha da base oficial para o documento digitado (OS-338). Some quando o
+  // documento muda; sem ela, a produtora nasce com o documento pendente.
+  const [conferencia, setConferencia] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [whatsapp, setWhatsapp] = useState('');
@@ -48,6 +54,7 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
       // morria na tela. Agora a versão de cada documento vai junto e o gatilho do
       // banco grava em `aceites_legais` (21/09/2026).
       aceites: VERSOES_CADASTRO,
+      conferencia_documento: conferencia ?? undefined,
     });
     setSubmitting(false);
 
@@ -86,8 +93,11 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
             accountType={accountType}
             document={document}
             fullName={fullName}
+            birthDate={birthDate}
             onDocumentChange={setDocument}
+            onBirthDateChange={setBirthDate}
             onFullNameChange={setFullName}
+            onConferenciaChange={setConferencia}
             onBack={() => setStep(1)}
             onNext={() => setStep(3)}
           />

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Loader2, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { lerConferencia } from '@/lib/conferenciaDocumento';
 import {
   Select,
   SelectContent,
@@ -96,6 +97,9 @@ const AdminProdutores: React.FC = () => {
                     <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
                       {p.email && <span>{p.email}</span>}
                       {p.document && <span>{p.document}</span>}
+                      {p.document && lerConferencia(p) === 'pendente' && (
+                        <span data-conferencia="pendente" className="text-amber-700 font-medium">documento pendente de conferência</span>
+                      )}
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />

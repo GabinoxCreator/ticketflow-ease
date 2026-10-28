@@ -29,6 +29,10 @@ interface SignUpData {
    * Vai nos metadados porque quem GRAVA o aceite é o gatilho handle_new_user, no
    * banco — o navegador nunca escreve na tabela de aceites (seria forjável). */
   aceites?: Record<string, string>;
+  /* Só o cadastro de PRODUTOR: o número da ficha que a edge document-lookup devolve
+   * quando a base oficial acha o CPF/CNPJ (OS-338). O gatilho do banco usa a ficha
+   * uma vez para marcar que a base oficial encontrou o documento; sem ela, fica pendente. */
+  conferencia_documento?: string;
 }
 
 interface AuthContextType {
@@ -179,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             tipo_conta: data.tipo_conta,
             tipo_pessoa: data.tipo_pessoa,
             aceites: data.aceites,
+            conferencia_documento: data.conferencia_documento,
           },
         },
       });
