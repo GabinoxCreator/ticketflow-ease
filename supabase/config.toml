@@ -278,6 +278,11 @@ verify_jwt = false
 [functions.gestao-reembolso-baixa]
 verify_jwt = false
 
+# Baixa do repasse do produtor dada pela gestão (OS-344): irmã da baixa do reembolso, com
+# o mesmo segredo (x-service-token = GESTAO_BAIXA_TOKEN). Só marca requested → paid.
+[functions.gestao-repasse-baixa]
+verify_jwt = false
+
 # Transferência de ingresso (§4 do framework do Rodeio).
 # O dono inicia e cancela logado — o ingresso é dele, e quem manda é a sessão,
 # nunca um id vindo do navegador.

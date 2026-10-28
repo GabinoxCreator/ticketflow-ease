@@ -187,6 +187,51 @@ async function listarReembolsos(admin: any, status: string | null) {
   return { reembolsos: lista, generated_at: new Date().toISOString() };
 }
 
+// --- Repasses do produtor (OS-344) -----------------------------------------------------
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const STATUS_REPASSE = ["abertos", "requested", "paid", "todos"];
+
+// Comprovante: link temporário (10 min), como no reembolso. Ler o arquivo não muda nada
+// aqui. O caminho no cofre não sai da ponte: a gestão só precisa do link.
+// deno-lint-ignore no-explicit-any
+async function assinarComprovante(admin: any, r: Record<string, any>) {
+  const path = r.comprovante_path;
+  delete r.comprovante_path;
+  r.tem_comprovante = Boolean(path);
+  r.comprovante_url = null;
+  if (!path) return r;
+  const { data } = await admin.storage.from("payout-proofs").createSignedUrl(path, 600);
+  r.comprovante_url = data?.signedUrl ?? null;
+  return r;
+}
+
+// deno-lint-ignore no-explicit-any
+async function listarRepasses(admin: any, status: string | null, payoutId: string | null) {
+  // Um pedido só, com os pedidos de ingresso que formam o valor (o extrato aberto).
+  if (payoutId) {
+    if (!UUID.test(payoutId)) throw new Error("payout_id inválido");
+    const [ext, ped] = await Promise.all([
+      admin.rpc("gestao_repasse_extrato", { p_payout_id: payoutId }),
+      admin.rpc("gestao_repasse_pedidos", { p_payout_id: payoutId }),
+    ]);
+    if (ext.error) throw new Error(`gestao_repasse_extrato: ${ext.error.message}`);
+    if (ped.error) throw new Error(`gestao_repasse_pedidos: ${ped.error.message}`);
+    if (!ext.data) return { repasse: null, pedidos: [], generated_at: new Date().toISOString() };
+    return {
+      repasse: await assinarComprovante(admin, ext.data),
+      pedidos: ped.data ?? [],
+      generated_at: new Date().toISOString(),
+    };
+  }
+
+  const filtro = status && STATUS_REPASSE.includes(status) ? status : "todos";
+  const { data, error } = await admin.rpc("gestao_repasses", { p_status: filtro });
+  if (error) throw new Error(`gestao_repasses: ${error.message}`);
+  const lista = (data ?? []) as Record<string, any>[];
+  await Promise.all(lista.map((r) => assinarComprovante(admin, r)));
+  return { repasses: lista, generated_at: new Date().toISOString() };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -208,6 +253,17 @@ Deno.serve(async (req) => {
     // leitura: a baixa pela gestão entra pela porta separada `gestao-reembolso-baixa` (OS-112).
     if (url.searchParams.get("list") === "reembolsos") {
       return json(await listarReembolsos(admin, url.searchParams.get("status")));
+    }
+
+    // Repasses do produtor (OS-344): a aba Pagamentos da gestão mostra os pedidos de
+    // repasse daqui junto com os fechamentos do totem, cada um com o extrato (base na hora
+    // do pedido − já pago = o pedido) e a conta PIX conferida. Só leitura: a conta mora nas
+    // funções `gestao_repasses` / `gestao_repasse_pedidos` (só service role), e a baixa
+    // entra pela porta separada `gestao-repasse-baixa`.
+    if (url.searchParams.get("list") === "repasses") {
+      const payoutId = url.searchParams.get("payout_id");
+      if (payoutId && !UUID.test(payoutId)) return fail("input", "payout_id inválido", 400);
+      return json(await listarRepasses(admin, url.searchParams.get("status"), payoutId));
     }
 
     // Leads da landing (/lp), OS-151: o CRM da gestão traz quem preencheu o formulário.
