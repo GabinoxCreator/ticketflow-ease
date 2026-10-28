@@ -295,6 +295,9 @@ Deno.serve(async (req) => {
         .select("id, event_id, created_at, total_amount, service_fee_amount, discount_amount, status, payment_method, manual_payment_method, sale_origin, customer_name, mp_payment_id")
         .in("event_id", eventIds)
         .order("created_at", { ascending: true })
+        // Desempate pelo id: dois pedidos no mesmo instante na virada da página podiam
+        // vir repetidos (um) e sumidos (o outro) (OS-334).
+        .order("id", { ascending: true })
         .range(page * 1000, page * 1000 + 999);
       if (from) q = q.gte("created_at", from);
       if (to) q = q.lte("created_at", to);
@@ -354,14 +357,33 @@ Deno.serve(async (req) => {
     // cancelado ou reembolsado). OS-328, 27/10/2026. Os cancelados vão à parte, para quem
     // quiser conferir a diferença. Se a contagem falhar, vai nulo (a tela esconde o número)
     // em vez de um zero falso, e o resto do fechamento sai normal.
+    //
+    // Com período De/Até (OS-334, 28/10/2026), conta só os ingressos dos pedidos do período,
+    // o mesmo recorte de Pedidos e Faturamento. Antes contava todos os eventos do produtor
+    // desde sempre, e com produtor de vários eventos o número misturava. Vai pelo pedido, não
+    // pela data do ingresso, para bater com os pedidos da tela até no segundo da virada do dia.
+    // Lotes de 100 ids para a URL não passar do limite, 10 lotes por vez para não abrir
+    // centenas de consultas juntas num produtor grande.
+    const pedidosDoRecorte = from || to ? [...new Set(orders.map((o) => o.id))] : null;
+    const lotes: string[][] = [];
+    for (let i = 0; pedidosDoRecorte && i < pedidosDoRecorte.length; i += 100) lotes.push(pedidosDoRecorte.slice(i, i + 100));
     const contarIngressos = async (status: string[]) => {
-      const { count, error } = await admin
-        .from("tickets").select("id", { count: "exact", head: true }).in("event_id", eventIds).in("status", status);
-      if (error) {
-        console.error("[GESTAO-SALES-EXPORT] contagem de ingressos", error.message);
+      const contar = (ids: { coluna: "event_id" | "order_id"; valores: string[] }) =>
+        admin.from("tickets").select("id", { count: "exact", head: true }).in(ids.coluna, ids.valores).in("status", status);
+      const respostas = [];
+      if (pedidosDoRecorte) {
+        for (let i = 0; i < lotes.length; i += 10) {
+          respostas.push(...await Promise.all(lotes.slice(i, i + 10).map((l) => contar({ coluna: "order_id", valores: l }))));
+        }
+      } else {
+        respostas.push(await contar({ coluna: "event_id", valores: eventIds }));
+      }
+      const erro = respostas.find((r) => r.error)?.error;
+      if (erro) {
+        console.error("[GESTAO-SALES-EXPORT] contagem de ingressos", erro.message);
         return null;
       }
-      return count ?? 0;
+      return respostas.reduce((soma, r) => soma + (r.count ?? 0), 0);
     };
     const [ingressos, ingressosCancelados] = await Promise.all([
       contarIngressos(["valid", "used"]),
