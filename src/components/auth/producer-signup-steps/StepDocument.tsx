@@ -186,7 +186,7 @@ const StepDocument: React.FC<StepDocumentProps> = ({
         )}
         {lookup === 'unavailable' && (
           <p className="text-xs text-muted-foreground">
-            Não conseguimos conferir agora — pode seguir e preencher {isPJ ? 'a razão social' : 'seu nome'} à mão.
+            Não conseguimos conferir agora. Pode seguir e preencher {isPJ ? 'a razão social' : 'seu nome'} à mão.
           </p>
         )}
       </div>
