@@ -25,6 +25,8 @@ interface StepDocumentProps {
   fullName: string;
   onDocumentChange: (v: string) => void;
   onFullNameChange: (v: string) => void;
+  /** Ficha da base oficial para este documento (OS-338), ou null. */
+  onConferenciaChange?: (id: string | null) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -35,6 +37,7 @@ const StepDocument: React.FC<StepDocumentProps> = ({
   fullName,
   onDocumentChange,
   onFullNameChange,
+  onConferenciaChange,
   onBack,
   onNext,
 }) => {
@@ -50,6 +53,13 @@ const StepDocument: React.FC<StepDocumentProps> = ({
 
   const handleDocChange = (val: string) => {
     const formatted = formatter(val);
+    // A ficha é do documento consultado: mudou o número, ela não vale mais. E a
+    // consulta é esquecida junto: quem apaga um dígito e digita de novo (volta ao
+    // mesmo número) consulta outra vez e ganha ficha nova (revisão 2 da OS-338).
+    if (formatted.replace(/\D/g, '') !== document.replace(/\D/g, '')) {
+      onConferenciaChange?.(null);
+      lastQueried.current = '';
+    }
     onDocumentChange(formatted);
     const nowValid = validator(formatted);
     setDocValid(nowValid);
@@ -78,6 +88,7 @@ const StepDocument: React.FC<StepDocumentProps> = ({
 
         if (data?.ok && data?.data?.legal_name) {
           onFullNameChange(data.data.legal_name);
+          onConferenciaChange?.(typeof data.conferencia === 'string' ? data.conferencia : null);
           setLookup('found');
           return;
         }

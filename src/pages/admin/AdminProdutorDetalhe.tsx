@@ -17,6 +17,7 @@ import { Loader2, ArrowLeft, CheckCircle, Ban, Pause, Calendar, Banknote, Messag
 import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatEventDate, formatInSaoPaulo } from '@/lib/eventTime';
+import { lerConferencia, TEXTO_CONFERENCIA } from '@/lib/conferenciaDocumento';
 
 
 const statusColors: Record<string, string> = {
@@ -152,6 +153,18 @@ const AdminProdutorDetalhe: React.FC = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Documento</p>
                   <p className="font-medium">{produtor.document || '—'}</p>
+                  {produtor.document && (() => {
+                    // OS-338: se o documento foi encontrado na base oficial no cadastro.
+                    const c = lerConferencia(produtor);
+                    return (
+                      <p
+                        data-conferencia={c ?? 'antes'}
+                        className={`text-xs mt-0.5 ${c === 'pendente' ? 'text-amber-700 font-medium' : c ? 'text-emerald-700' : 'text-muted-foreground'}`}
+                      >
+                        {TEXTO_CONFERENCIA[c ?? 'antes']}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>

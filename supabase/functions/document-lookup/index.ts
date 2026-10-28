@@ -21,6 +21,17 @@
 //   · Minimização: o CNPJ do Marcel devolve endereço completo, CNAE etc. Devolvemos APENAS
 //     os campos que o formulário realmente usa. Campo sem uso concreto não é coletado.
 //   · Falha da API nunca trava o cadastro: devolve ok:false e a pessoa digita na mão.
+//
+// FICHA DE CONFERÊNCIA (OS-338, 28/10/2026)
+//   Quando a base ACHA o documento, a resposta leva também `conferencia`: o número de
+//   uma ficha gravada no banco (`registrar_conferencia_de_documento`, só service_role),
+//   que a tela manda no cadastro. É ela que diz ao banco que a base oficial ENCONTROU
+//   aquele documento (não que ele é de quem se cadastra: esta consulta é pública):
+//   sem ficha (chamada direta, que pula a tela), a produtora nasce com o documento
+//   "pendente de conferência". A ficha vale 2 horas e serve uma vez (o banco guarda o
+//   sha256 do documento, sem segredo, numa tabela que só a casa lê). Se gravar a ficha
+//   falhar, a resposta sai igual à de antes, sem `conferencia` (a produtora fica
+//   pendente).
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -51,6 +62,22 @@ const json = (body: unknown, status = 200) =>
 // Só os 3 últimos dígitos vão para o log — o bastante para casar com um relato de suporte
 // ("terminava em 456"), longe de identificar alguém.
 const tail = (digits: string) => digits.length >= 3 ? `***${digits.slice(-3)}` : '***';
+
+// Ficha de conferência (OS-338). Nunca lança: sem ficha, a resposta sai como antes.
+// deno-lint-ignore no-explicit-any
+async function gravarFicha(supabase: any, digits: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc('registrar_conferencia_de_documento', { _documento: digits });
+    if (error || typeof data !== 'string') {
+      console.warn('[document-lookup] ficha de conferência não gravada', tail(digits));
+      return null;
+    }
+    return data;
+  } catch (_) {
+    console.warn('[document-lookup] ficha de conferência não gravada', tail(digits));
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -112,7 +139,8 @@ serve(async (req) => {
         if (!name) return json({ ok: false, reason: 'not_found' });
         // Só o nome. A API devolve nascimento; o cadastro de produtor não tem esse campo
         // nem usa a data para nada, então não passa daqui.
-        return json({ ok: true, type: 'cpf', data: { legal_name: name } });
+        const conferencia = await gravarFicha(supabase, digits);
+        return json({ ok: true, type: 'cpf', data: { legal_name: name }, ...(conferencia ? { conferencia } : {}) });
       }
 
       const d = data?.data ?? {};
@@ -120,6 +148,7 @@ serve(async (req) => {
       if (!legalName) return json({ ok: false, reason: 'not_found' });
 
       const phone = d?.telefones?.[0];
+      const conferencia = await gravarFicha(supabase, digits);
       return json({
         ok: true,
         type: 'cnpj',
@@ -130,6 +159,7 @@ serve(async (req) => {
             ? d.correioEletronico.trim().toLowerCase() : null,
           contact_phone: phone?.ddd && phone?.numero ? `${phone.ddd}${phone.numero}` : null,
         },
+        ...(conferencia ? { conferencia } : {}),
       });
     } catch (_) {
       // Timeout, rede fora ou JSON inesperado. Silencioso de propósito: o catch não pode

@@ -25,6 +25,9 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
   const [accountType, setAccountType] = useState<ProducerAccountType | null>(null);
   const [document, setDocument] = useState('');
   const [fullName, setFullName] = useState('');
+  // Ficha da base oficial para o documento digitado (OS-338). Some quando o
+  // documento muda; sem ela, a produtora nasce com o documento pendente.
+  const [conferencia, setConferencia] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [whatsapp, setWhatsapp] = useState('');
@@ -48,6 +51,7 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
       // morria na tela. Agora a versão de cada documento vai junto e o gatilho do
       // banco grava em `aceites_legais` (21/09/2026).
       aceites: VERSOES_CADASTRO,
+      conferencia_documento: conferencia ?? undefined,
     });
     setSubmitting(false);
 
@@ -88,6 +92,7 @@ const ProducerSignupWizard: React.FC<ProducerSignupWizardProps> = ({ onSwitchToL
             fullName={fullName}
             onDocumentChange={setDocument}
             onFullNameChange={setFullName}
+            onConferenciaChange={setConferencia}
             onBack={() => setStep(1)}
             onNext={() => setStep(3)}
           />
