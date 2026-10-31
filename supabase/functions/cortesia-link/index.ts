@@ -26,6 +26,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { sendOrderConfirmationEmailSafe } from "../_shared/orderConfirmationEmail.ts";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "../_shared/rateLimit.ts";
 import { validateCPF } from "../_shared/cpf.ts";
+import { htmlAcompanhante, assuntoAcompanhante } from "./emailAcompanhante.ts";
 
 // Ator do sistema nas auditorias (mesmo das outras edges).
 const SYSTEM_ACTOR = "95628c4a-8040-44ed-83c5-d6a5b8793926";
@@ -73,7 +74,7 @@ async function carregar(admin: any, slug: string) {
 
   const { data: lt } = await admin
     .from("event_lots")
-    .select("id, name, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, price")
+    .select("id, name, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, price, retirada_max_por_cpf")
     .eq("event_id", evento.id)
     .eq("retirada_publica", true)
     .eq("is_active", true)
@@ -83,6 +84,7 @@ async function carregar(admin: any, slug: string) {
   const lote = lt as {
     id: string; name: string; total_quantity: number | null; sold_quantity: number | null;
     reserved_quantity: number | null; is_active: boolean; manually_sold_out: boolean | null; price: number | null;
+    retirada_max_por_cpf: number | null;
   } | null;
   if (!lote || !lote.is_active) return null;
   // Lote com preço nunca sai de graça por aqui: produtor usa "Cortesia" com preço cheio
@@ -111,7 +113,10 @@ serve(async (req) => {
   let pedidoCriado: string | null = null;
 
   try {
-    const body = await req.json().catch(() => null) as { acao?: string; slug?: string } | null;
+    const body = await req.json().catch(() => null) as {
+      acao?: string; slug?: string;
+      acompanhante?: { nome?: string; cpf?: string; email?: string } | null;
+    } | null;
     const acao = body?.acao === "retirar" ? "retirar" : "info";
     const slug = typeof body?.slug === "string" ? body.slug.trim().toLowerCase() : "";
     if (!slug) return json({ ok: false, code: "slug_required" });
@@ -146,8 +151,11 @@ serve(async (req) => {
       imagem: evento.image_url,
     };
 
+    // Quantos ingressos cada CPF leva pelo link, contando o do acompanhante (OS-357).
+    const maxPorCpf = Math.max(1, Math.min(2, Number(lote.retirada_max_por_cpf ?? 1)));
+
     if (acao === "info") {
-      return json({ ok: true, evento: infoEvento, esgotado, restam });
+      return json({ ok: true, evento: infoEvento, esgotado, restam, max_por_cpf: maxPorCpf });
     }
 
     // ---------------------------------------------------------------- retirar
@@ -189,6 +197,21 @@ serve(async (req) => {
     if (!email) return json({ ok: false, code: "sem_email" });
     const nome = (perfil?.nome_completo ?? "").trim() || email.split("@")[0];
 
+    // Acompanhante (OS-357): o 2º ingresso nasce no CPF, no nome e no e-mail dele, e ele
+    // recebe o link para criar a conta e cadastrar a facial. Só no lote que permite 2.
+    let acompanhante: { nome: string; cpf: string; email: string } | null = null;
+    if (body?.acompanhante) {
+      if (maxPorCpf < 2) return json({ ok: false, code: "sem_acompanhante" });
+      const aNome = String(body.acompanhante.nome ?? "").trim().replace(/\s+/g, " ");
+      const aCpf = String(body.acompanhante.cpf ?? "").replace(/\D/g, "");
+      const aEmail = String(body.acompanhante.email ?? "").trim().toLowerCase();
+      if (aNome.length < 3 || aNome.length > 120) return json({ ok: false, code: "acompanhante_nome" });
+      if (!validateCPF(aCpf)) return json({ ok: false, code: "acompanhante_cpf" });
+      if (aCpf === cpf) return json({ ok: false, code: "acompanhante_mesmo_cpf" });
+      if (!EMAIL_RE.test(aEmail) || aEmail.length > 200) return json({ ok: false, code: "acompanhante_email" });
+      acompanhante = { nome: aNome, cpf: aCpf, email: aEmail };
+    }
+
     // Já retirou? Devolve o mesmo pedido, nunca um segundo ingresso. O `user_id` entra na
     // conta de propósito: quando isto foi escrito o CPF do perfil era editável pelo dono (hoje a
     // OS-267 trava), e casar só por CPF deixaria alguém digitar o CPF de um convidado e sair com o QR DELE (o
@@ -211,20 +234,47 @@ serve(async (req) => {
       // Pedido preso em `pending` (falha na emissão) não vira QR na tela: ele não passa
       // na portaria, e mostrar o código seria pior do que dizer que deu errado.
       if (ja.status !== "paid") return json({ ok: false, code: "retirada_incompleta" });
-      const ingressos = await listarIngressos(admin, ja.id);
+      const todosJa = await listarIngressos(admin, ja.id);
+      const ingressos = paraATela(todosJa.filter((t) => !t.holder_cpf || t.holder_cpf === cpf));
+      const doAcomp = todosJa.find((t) => t.holder_cpf && t.holder_cpf !== cpf);
+      // O link do acompanhante foi aberto? (o envio do e-mail não fica gravado; o link, sim)
+      let linkAberto = false;
+      if (doAcomp) {
+        const { data: tr } = await admin.from("ticket_transfers").select("id").eq("ticket_id", doAcomp.id).limit(1);
+        linkAberto = (tr ?? []).length > 0;
+      }
       log("ja_retirou", { order_id: ja.id });
-      return json({ ok: true, repetido: true, order_id: ja.id, ingressos, evento: infoEvento });
+      return json({
+        ok: true, repetido: true, order_id: ja.id, ingressos, evento: infoEvento,
+        acompanhante: doAcomp ? { email: mascararEmail(doAcomp.holder_email ?? ""), enviado: linkAberto } : null,
+        // Pediu acompanhante agora, mas a retirada já tinha sido feita só para ela.
+        acompanhante_nao_incluido: Boolean(body?.acompanhante) && !doAcomp,
+      });
     }
 
+    // Um CPF, um ingresso de link no evento, como quem retira OU como acompanhante. Sem
+    // isto, quem já foi apontado como acompanhante retirava outro no próprio CPF (e o
+    // rosto dele queimaria os dois), e um CPF podia ser acompanhante de duas pessoas.
+    if (await cpfJaTemIngresso(admin, evento.id, cpf)) return json({ ok: false, code: "ja_e_acompanhante" });
+    if (acompanhante && (
+      await cpfJaTemIngresso(admin, evento.id, acompanhante.cpf)
+      || await cpfJaRetirou(admin, evento.id, acompanhante.cpf)
+    )) {
+      return json({ ok: false, code: "acompanhante_ja_tem" });
+    }
+
+    const qtd = acompanhante ? 2 : 1;
     if (esgotado) return json({ ok: false, code: "esgotado" });
+    // Sobrou uma vaga e a pessoa pediu duas: ela ainda pode retirar só a dela.
+    if (restam !== null && restam < qtd) return json({ ok: false, code: "so_resta_um" });
 
     const { data: reserveOk, error: rErr } = await admin.rpc("reserve_lot_quantity", {
       _lot_id: lote.id,
-      _qty: 1,
+      _qty: qtd,
     });
     if (rErr) throw new Error("reserve_failed:" + rErr.message);
     if (!reserveOk) return json({ ok: false, code: "esgotado" });
-    reservado = 1;
+    reservado = qtd;
     loteReservado = lote.id;
 
     const { data: order, error: orderErr } = await admin
@@ -261,14 +311,14 @@ serve(async (req) => {
       // Índice único da migration 20261030140000: duas chamadas do mesmo CPF ao mesmo tempo.
       // A que perdeu devolve a reserva e manda a pessoa recarregar.
       log("corrida_mesmo_cpf", { cpf_final: cpf.slice(-3) });
-      await devolverReserva(admin, lote.id, 1);
+      await devolverReserva(admin, lote.id, qtd);
       reservado = 0;
       return json({ ok: false, code: "ja_retirou_agora" });
     }
     if (orderErr || !order) throw new Error("order_insert_failed:" + (orderErr?.message ?? "sem_linha"));
     pedidoCriado = order.id;
 
-    const { error: tErr } = await admin.from("tickets").insert({
+    const ingressosNovos: Array<Record<string, unknown>> = [{
       order_id: order.id,
       event_id: evento.id,
       lot_id: lote.id,
@@ -277,7 +327,32 @@ serve(async (req) => {
       holder_phone: (perfil?.whatsapp ?? "").replace(/\D/g, "") || null,
       user_id: user.id,
       status: "pending",
-    });
+    }];
+    // O do acompanhante já nasce DELE (titular = CPF dele): é por esse CPF que a portaria
+    // pela facial o reconhece. Fica na conta de quem retirou até ele aceitar pelo link.
+    if (acompanhante) {
+      ingressosNovos.push({
+        order_id: order.id,
+        event_id: evento.id,
+        lot_id: lote.id,
+        holder_name: acompanhante.nome,
+        holder_email: acompanhante.email,
+        holder_cpf: acompanhante.cpf,
+        user_id: user.id,
+        status: "pending",
+      });
+    }
+    const { error: tErr } = await admin.from("tickets").insert(ingressosNovos);
+    if (tErr && (tErr as { code?: string }).code === "23505") {
+      // Trava do banco (migration 20261031160000): o CPF de quem retira ou do acompanhante
+      // já tem ingresso grátis neste evento (corrida com outra retirada, ou transferência).
+      log("um_por_cpf_banco", { order_id: order.id });
+      const desfez = await desfazerPedido(admin, order.id);
+      if (desfez) await devolverReserva(admin, lote.id, qtd);
+      reservado = 0;
+      pedidoCriado = null;
+      return json({ ok: false, code: acompanhante ? "acompanhante_ja_tem" : "ja_e_acompanhante" });
+    }
     if (tErr) throw new Error("tickets_insert_failed:" + tErr.message);
 
     const { data: applyData, error: applyErr } = await admin.rpc("apply_order_approved", {
@@ -295,7 +370,7 @@ serve(async (req) => {
         erro: applyErr?.message ?? JSON.stringify(applyData),
       });
       const desfez = await desfazerPedido(admin, order.id);
-      if (desfez) await devolverReserva(admin, lote.id, 1);
+      if (desfez) await devolverReserva(admin, lote.id, qtd);
       else log("pedido_ja_nao_estava_pendente", { order_id: order.id });
       reservado = 0;
       pedidoCriado = null;
@@ -321,7 +396,19 @@ serve(async (req) => {
       facial_sincronizada: Boolean((perfil as { facial_synced_at?: string | null } | null)?.facial_synced_at),
     });
 
-    const ingressos = await listarIngressos(admin, order.id);
+    const todos = await listarIngressos(admin, order.id);
+    const ingressos = paraATela(todos.filter((t) => !t.holder_cpf || t.holder_cpf === cpf));
+
+    // Link do acompanhante. Falha aqui não desfaz a retirada: o ingresso dele já existe no
+    // CPF dele, e a casa reenvia pelo `ticket_transfers` (token e e-mail guardados).
+    let acompanhanteInfo: { email: string; enviado: boolean } | null = null;
+    if (acompanhante) {
+      const dele = todos.find((t) => t.holder_cpf === acompanhante!.cpf);
+      const enviado = dele
+        ? await abrirLinkDoAcompanhante(admin, { ticketId: dele.id, eventoId: evento.id, eventoTitulo: evento.title, eventoData: evento.date, deUserId: user.id, deNome: nome, para: acompanhante })
+        : false;
+      acompanhanteInfo = { email: mascararEmail(acompanhante.email), enviado };
+    }
 
     // E-mail com o QR. Nunca derruba a retirada: o ingresso já está na conta e na tela.
     let emailEnviado = false;
@@ -332,8 +419,8 @@ serve(async (req) => {
       log("email_falhou", { error: String(e) });
     }
 
-    log("ok", { order_id: order.id, com_facial: Boolean(perfil?.facial_photo_path), email: emailEnviado });
-    return json({ ok: true, order_id: order.id, ingressos, evento: infoEvento, email_enviado: emailEnviado });
+    log("ok", { order_id: order.id, com_facial: Boolean(perfil?.facial_photo_path), email: emailEnviado, acompanhante: Boolean(acompanhante) });
+    return json({ ok: true, order_id: order.id, ingressos, evento: infoEvento, email_enviado: emailEnviado, acompanhante: acompanhanteInfo });
   } catch (e) {
     // Desfaz o que ficou pela metade. Sem isto, um tropeço entre o pedido e a emissão
     // (o insert dos ingressos, por exemplo) deixava um pedido `pending` que nunca expira
@@ -404,8 +491,104 @@ async function auditar(admin: any, action: string, orderId: string, metadata: un
 async function listarIngressos(admin: any, orderId: string) {
   const { data } = await admin
     .from("tickets")
-    .select("id, ticket_code, holder_name, status")
+    .select("id, ticket_code, holder_name, holder_cpf, holder_email, status")
     .eq("order_id", orderId)
     .order("created_at", { ascending: true });
-  return (data ?? []) as Array<{ id: string; ticket_code: string; holder_name: string; status: string }>;
+  // O CPF e o e-mail do titular servem só para separar o ingresso de quem retirou do
+  // ingresso do acompanhante: saem da resposta antes de ir para a tela.
+  return ((data ?? []) as Array<{
+    id: string; ticket_code: string; holder_name: string; holder_cpf: string | null;
+    holder_email: string | null; status: string;
+  }>);
+}
+
+/** O que vai para a tela: sem CPF nem e-mail do titular. */
+function paraATela(ts: Array<{ id: string; ticket_code: string; holder_name: string; status: string }>) {
+  return ts.map(({ id, ticket_code, holder_name, status }) => ({ id, ticket_code, holder_name, status }));
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function mascararEmail(email: string): string {
+  const [u, d] = email.split("@");
+  if (!u || !d) return "";
+  return `${u.slice(0, 2)}***@${d}`;
+}
+
+/**
+ * Este CPF já é titular de um ingresso GRÁTIS vivo do evento (de acompanhante ou recebido
+ * por transferência)? Mesmo critério do gatilho `trg_um_ingresso_gratis_por_cpf`: só ingresso
+ * de pedido do link e pedido vivo. Cortesia do produtor ou ingresso pago no mesmo CPF não
+ * impedem retirar o grátis.
+ */
+async function cpfJaTemIngresso(admin: any, eventId: string, cpf: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from("tickets")
+    .select("id, orders!inner(status, retirada_por_link)")
+    .eq("event_id", eventId)
+    .eq("holder_cpf", cpf)
+    .in("status", ["valid", "pending"])
+    .eq("orders.retirada_por_link", true)
+    .in("orders.status", ["paid", "pending"])
+    .limit(1);
+  if (error) throw new Error("consulta_titular:" + error.message);
+  return (data ?? []).length > 0;
+}
+
+/** Este CPF já retirou pelo link neste evento? */
+async function cpfJaRetirou(admin: any, eventId: string, cpf: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from("orders")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("retirada_por_link", true)
+    .eq("customer_cpf", cpf)
+    .in("status", ["paid", "pending"])
+    .limit(1);
+  if (error) throw new Error("consulta_retirada:" + error.message);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Abre a transferência do ingresso do acompanhante e manda o link por e-mail. É a
+ * transferência de sempre (`/transferencia/<token>`, aceite pela RPC que confere o CPF),
+ * gravada direto porque a RPC de início recusa ingresso cujo titular já é o destinatário,
+ * e com prazo até o dia seguinte ao evento (a de sempre vale 24 h). Nunca lança.
+ */
+async function abrirLinkDoAcompanhante(admin: any, o: {
+  ticketId: string; eventoId: string; eventoTitulo: string; eventoData: string;
+  deUserId: string; deNome: string; para: { nome: string; cpf: string; email: string };
+}): Promise<boolean> {
+  try {
+    const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+    const expira = new Date(`${o.eventoData}T23:59:00-03:00`);
+    expira.setDate(expira.getDate() + 1);
+    const { data: tr, error } = await admin.from("ticket_transfers").insert({
+      ticket_id: o.ticketId, event_id: o.eventoId, from_user_id: o.deUserId,
+      from_holder_name: o.deNome, to_cpf: o.para.cpf, to_email: o.para.email,
+      token, expires_at: expira.toISOString(),
+    }).select("id").single();
+    if (error || !tr) { log("transferencia_acompanhante_falhou", { error: error?.message }); return false; }
+    await admin.from("audit_logs").insert({
+      actor_id: o.deUserId, action: "ticket_transfer_started", target_type: "ticket", target_id: o.ticketId,
+      metadata: { transfer_id: tr.id, to_cpf_final: o.para.cpf.slice(-3), origem: "acompanhante_cortesia_link" },
+    }).then(() => {}, () => {});
+
+    const chave = Deno.env.get("RESEND_API_KEY");
+    if (!chave) { log("resend_nao_configurado", {}); return false; }
+    const base = (Deno.env.get("SITE_PUBLIC_URL") || "https://festpag.digital").replace(/\/+$/, "");
+    const url = `${base}/transferencia/${token}`;
+    const Resend = (await import("https://esm.sh/resend@2.0.0")).Resend;
+    const { error: eErr } = await new Resend(chave).emails.send({
+      from: "FestPag <naoresponda@festpag.com.br>",
+      to: [o.para.email],
+      subject: assuntoAcompanhante(o.eventoTitulo),
+      html: htmlAcompanhante({ nomeAcompanhante: o.para.nome, quemRetirou: o.deNome, evento: o.eventoTitulo, url }),
+    });
+    if (eErr) { log("email_acompanhante_falhou", { error: String(eErr?.message ?? eErr) }); return false; }
+    return true;
+  } catch (e) {
+    log("link_acompanhante_falhou", { error: String(e) });
+    return false;
+  }
 }

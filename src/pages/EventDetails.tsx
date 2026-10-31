@@ -703,7 +703,9 @@ const EventDetails = () => {
                   <div className="flex flex-wrap items-center gap-3">
                     <h2 className="font-display font-bold text-xl">Ingressos</h2>
                     <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                      1 por CPF
+                      {Number((loteRetirada as { retirada_max_por_cpf?: number }).retirada_max_por_cpf ?? 1) >= 2
+                        ? 'Você + 1 acompanhante'
+                        : '1 por CPF'}
                     </span>
                   </div>
                   <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl overflow-hidden shadow-lg shadow-primary/5">

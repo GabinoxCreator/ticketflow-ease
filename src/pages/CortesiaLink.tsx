@@ -5,9 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   Loader2, Calendar, MapPin, ScanFace, Ticket, CheckCircle2, AlertCircle,
-  UserRound, ShieldCheck, Mail,
+  UserRound, ShieldCheck, Mail, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { formatCPF, validateCPF } from '@/utils/cpfValidator';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FluxoConta } from '@/components/auth/FluxoConta';
@@ -67,6 +70,15 @@ const MENSAGEM_ERRO: Record<string, string> = {
   retirada_incompleta: 'A sua retirada ficou pela metade. Tente de novo em alguns minutos.',
   erro_interno: 'Não deu para retirar agora. Tente de novo em instantes.',
   muitas_tentativas: 'Você tentou várias vezes seguidas. Espere uns 10 minutos e volte a este link.',
+  // Acompanhante (OS-357)
+  sem_acompanhante: 'Este evento libera um ingresso por pessoa. Peça para o seu acompanhante retirar o dele.',
+  acompanhante_nome: 'Confira o nome do seu acompanhante.',
+  acompanhante_cpf: 'O CPF do acompanhante não é válido. Confira os números.',
+  acompanhante_mesmo_cpf: 'O CPF do acompanhante é o seu. Informe o CPF da outra pessoa.',
+  acompanhante_email: 'Confira o e-mail do seu acompanhante.',
+  acompanhante_ja_tem: 'O seu acompanhante já tem ingresso deste evento. Retire só o seu.',
+  so_resta_um: 'Só sobrou um ingresso gratuito. Dá para retirar o seu: escolha "Só eu".',
+  ja_e_acompanhante: 'Alguém já retirou um ingresso no seu CPF para este evento. Procure o e-mail com o link para pegar o seu.',
 };
 /** Erro em que mandar a pessoa ao perfil resolve. */
 const LEVA_AO_PERFIL = new Set(['sem_cpf', 'sem_email']);
@@ -79,6 +91,17 @@ export default function CortesiaLink() {
   const [etapa, setEtapa] = useState<Etapa>('carregando');
   const [evento, setEvento] = useState<EventoInfo | null>(null);
   const [esgotado, setEsgotado] = useState(false);
+  // Acompanhante (OS-357): só aparece no lote que libera 2 por CPF.
+  const [maxPorCpf, setMaxPorCpf] = useState(1);
+  const [comAcompanhante, setComAcompanhante] = useState(false);
+  const [aNome, setANome] = useState('');
+  const [aCpf, setACpf] = useState('');
+  const [aEmail, setAEmail] = useState('');
+  // O que vai na retirada. Ref porque a retirada é chamada de vários pontos (depois da
+  // conta, depois da facial) e precisa do valor confirmado no convite.
+  const acompanhanteRef = useRef<{ nome: string; cpf: string; email: string } | null>(null);
+  const [acompanhanteEnviado, setAcompanhanteEnviado] = useState<{ email: string; enviado: boolean } | null>(null);
+  const [acompanhanteFora, setAcompanhanteFora] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [codigoErro, setCodigoErro] = useState<string | null>(null);
   const [ingressos, setIngressos] = useState<IngressoEmitido[]>([]);
@@ -91,7 +114,7 @@ export default function CortesiaLink() {
 
   const chamar = useCallback(async (acao: 'info' | 'retirar') => {
     const { data, error } = await supabase.functions.invoke('cortesia-link', {
-      body: { acao, slug },
+      body: { acao, slug, ...(acao === 'retirar' && acompanhanteRef.current ? { acompanhante: acompanhanteRef.current } : {}) },
     });
     // O `invoke` lança em resposta não 2xx e guarda a resposta em error.context. O único
     // caso que chega assim é o limite de tentativas (429); os outros voltam 200 com `code`.
@@ -101,8 +124,10 @@ export default function CortesiaLink() {
       throw error;
     }
     return data as {
-      ok: boolean; code?: string; evento?: EventoInfo; esgotado?: boolean;
+      ok: boolean; code?: string; evento?: EventoInfo; esgotado?: boolean; max_por_cpf?: number;
       ingressos?: IngressoEmitido[]; email_enviado?: boolean; repetido?: boolean;
+      acompanhante?: { email: string; enviado: boolean } | null;
+      acompanhante_nao_incluido?: boolean;
     };
   }, [slug]);
 
@@ -121,6 +146,7 @@ export default function CortesiaLink() {
         }
         setEvento(r.evento);
         setEsgotado(Boolean(r.esgotado));
+        setMaxPorCpf(Number(r.max_por_cpf ?? 1));
         setEtapa('convite');
       } catch {
         if (!vivo) return;
@@ -163,6 +189,8 @@ export default function CortesiaLink() {
       setIngressos(r.ingressos ?? []);
       setEmailEnviado(Boolean(r.email_enviado));
       setJaTinha(Boolean(r.repetido));
+      setAcompanhanteEnviado(r.acompanhante ?? null);
+      setAcompanhanteFora(Boolean(r.acompanhante_nao_incluido));
       setEtapa('pronto');
     } catch {
       setCodigoErro('erro_interno');
@@ -204,6 +232,19 @@ export default function CortesiaLink() {
   }, [etapa]);
 
   const comecar = () => {
+    // Confere o acompanhante aqui, antes da conta e da facial: errar o CPF dele só depois
+    // de tudo isso faria a pessoa voltar ao começo.
+    if (comAcompanhante) {
+      const nome = aNome.trim().replace(/\s+/g, ' ');
+      const cpfA = aCpf.replace(/\D/g, '');
+      const email = aEmail.trim().toLowerCase();
+      if (nome.length < 3) { toast.error(MENSAGEM_ERRO.acompanhante_nome); return; }
+      if (!validateCPF(cpfA)) { toast.error(MENSAGEM_ERRO.acompanhante_cpf); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error(MENSAGEM_ERRO.acompanhante_email); return; }
+      acompanhanteRef.current = { nome, cpf: cpfA, email };
+    } else {
+      acompanhanteRef.current = null;
+    }
     if (!user) { setEtapa('conta'); return; }
     if (temFacial === null) { void retirar(); return; }  // ainda não sei: a edge decide
     if (!temFacial) { setEtapa('facial'); return; }
@@ -298,6 +339,46 @@ export default function CortesiaLink() {
                 </ol>
               </div>
 
+              {!esgotado && maxPorCpf >= 2 && (
+                <div className="rounded-2xl border border-border/60 bg-card/60 p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    <p className="font-semibold text-sm">Vai levar alguém?</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[{ v: false, t: 'Só eu' }, { v: true, t: 'Eu e um acompanhante' }].map(({ v, t }) => (
+                      <button key={t} type="button" aria-pressed={comAcompanhante === v} onClick={() => setComAcompanhante(v)}
+                        className={`rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${comAcompanhante === v ? 'border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'border-border bg-background text-foreground'}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  {comAcompanhante && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        O ingresso dele sai no CPF dele. Ele recebe um e-mail para criar a conta e
+                        cadastrar a facial, que é o que libera a entrada dele no dia.
+                      </p>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="a-nome">Nome do acompanhante</Label>
+                        <Input id="a-nome" autoComplete="off" placeholder="Como está no documento"
+                          value={aNome} onChange={(e) => setANome(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="a-cpf">CPF do acompanhante</Label>
+                        <Input id="a-cpf" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00"
+                          value={aCpf} onChange={(e) => setACpf(formatCPF(e.target.value))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="a-email">E-mail do acompanhante</Label>
+                        <Input id="a-email" type="email" inputMode="email" autoComplete="off" placeholder="email@exemplo.com"
+                          value={aEmail} onChange={(e) => setAEmail(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {esgotado ? (
                 <div className="rounded-2xl border border-border/60 bg-card/60 p-5 text-center space-y-2">
                   <AlertCircle className="h-6 w-6 text-muted-foreground mx-auto" />
@@ -379,6 +460,27 @@ export default function CortesiaLink() {
                   </p>
                 )}
               </div>
+
+              {acompanhanteFora && (
+                <div className="rounded-2xl border border-border/60 bg-card/60 p-5 flex gap-3">
+                  <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    A sua retirada já tinha sido feita só para você. O seu acompanhante pode retirar o
+                    dele aqui mesmo, com a conta e o CPF dele.
+                  </p>
+                </div>
+              )}
+
+              {acompanhanteEnviado && (
+                <div className="rounded-2xl border border-border/60 bg-card/60 p-5 flex gap-3">
+                  <Users className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {acompanhanteEnviado.enviado
+                      ? <>O ingresso do seu acompanhante foi para <strong>{acompanhanteEnviado.email}</strong>. Ele cria a conta e cadastra a facial pelo link do e-mail.</>
+                      : <>O ingresso do seu acompanhante já está no CPF dele, mas o e-mail não saiu agora. Fale com a organização do evento para reenviar o link.</>}
+                  </p>
+                </div>
+              )}
 
               {ingressos.map((t) => (
                 <div key={t.id} className="rounded-2xl border border-border/60 bg-card p-6 text-center space-y-3">
