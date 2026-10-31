@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, QrCode, Loader2, Tag, X, CheckCircle2, ArrowRight, Calendar, MapPin, Sparkles, Ticket, Info, AlertCircle } from 'lucide-react';
 import { PassePermanenteDialog } from './PassePermanenteDialog';
@@ -15,6 +15,7 @@ import { AvisoTaxaNaoReembolsavel } from '@/components/legal/AvisoTaxaNaoReembol
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 
 import { baseDoCupom } from '@/lib/loja/carrinho';
+import { lerCupomDoLink, esquecerCupomDoLink } from '@/lib/cupomDoLink';
 
 interface CartItem {
   lotId: string;
@@ -46,6 +47,9 @@ interface CheckoutStepPaymentProps {
   /** O aceite do passe. Sem ele, o pagamento não abre. */
   passeAceito?: boolean;
   onPasseAceitoChange?: (v: boolean) => void;
+  /** O pagamento está aberto. Ao fechar, o modal ainda anima a saída com este
+   *  passo montado: a resposta do cupom do link que chega nesse meio é ignorada. */
+  aberto?: boolean;
 }
 
 export function CheckoutStepPayment({
@@ -64,6 +68,7 @@ export function CheckoutStepPayment({
   temPassePermanente = false,
   passeAceito = false,
   onPasseAceitoChange,
+  aberto = true,
 }: CheckoutStepPaymentProps) {
   const [couponInput, setCouponInput] = useState('');
   const [validating, setValidating] = useState(false);
@@ -88,15 +93,24 @@ export function CheckoutStepPayment({
   const serviceFee = computeFee(baseDaTaxa(items), feePercent, feeFixed);
   const finalAmount = Math.max(0, totalAmount - (appliedCoupon?.discountAmount || 0) + serviceFee);
 
-  const handleApplyCoupon = async () => {
-    if (!couponInput.trim()) return;
+  // `codigoDoLink`: o código veio do link do evento (OS-358), não foi digitado.
+  // Cupom do link que não vale é esquecido depois do aviso, para o aviso não
+  // voltar a cada abertura do pagamento.
+  const handleApplyCoupon = async (codigoDoLink?: string) => {
+    const codigo = (codigoDoLink ?? couponInput).trim();
+    if (!codigo) return;
     setValidating(true);
     try {
       const { data, error } = await supabase.functions.invoke('validate-coupon', {
-        body: { eventId, code: couponInput.trim() },
+        body: { eventId, code: codigo },
       });
       if (error) throw error;
+      // A pessoa fechou ou voltou do pagamento enquanto o cupom do link era
+      // conferido: o desconto seria do carrinho de antes. A próxima abertura
+      // confere de novo, com o carrinho certo.
+      if (codigoDoLink && (!montado.current || !abertoRef.current)) return;
       if (!data?.valid) {
+        if (codigoDoLink) esquecerCupomDoLink(eventId);
         toast.error(data?.message || 'Cupom inválido');
         return;
       }
@@ -104,6 +118,7 @@ export function CheckoutStepPayment({
       // (mesma regra do servidor). Em carrinho só de ingresso, é o total.
       const base = baseDoCupom(items);
       if (base <= 0) {
+        if (codigoDoLink) return; // carrinho só da loja: o cupom do link espera a compra de ingresso
         toast.error('Este cupom vale para ingressos, e o seu carrinho só tem itens da loja.');
         return;
       }
@@ -121,11 +136,37 @@ export function CheckoutStepPayment({
       toast.success(`Cupom ${data.code} aplicado!`);
       setCouponInput('');
     } catch (e: any) {
-      toast.error(e.message || 'Erro ao validar cupom');
+      // Falha de rede no cupom do link: sem aviso (a pessoa não digitou nada);
+      // o código fica guardado e é tentado de novo na próxima abertura.
+      if (!codigoDoLink) toast.error(e.message || 'Erro ao validar cupom');
     } finally {
       setValidating(false);
     }
   };
+
+  // Cupom do link: tenta uma vez por abertura do pagamento, se nenhum cupom
+  // está aplicado. Tirar no X esquece o do link (ver o botão abaixo). Enquanto
+  // a conferência roda, PIX e cartão esperam: tocar antes geraria o pedido sem
+  // o desconto que a pessoa veio buscar.
+  const [aplicandoDoLink, setAplicandoDoLink] = useState(
+    () => !appliedCoupon && !!eventId && !!lerCupomDoLink(eventId),
+  );
+  const tentouCupomDoLink = useRef(false);
+  const montado = useRef(true);
+  const abertoRef = useRef(aberto);
+  abertoRef.current = aberto;
+  useEffect(() => {
+    montado.current = true;
+    return () => { montado.current = false; };
+  }, []);
+  useEffect(() => {
+    if (tentouCupomDoLink.current || appliedCoupon || !eventId) return;
+    tentouCupomDoLink.current = true;
+    const codigo = lerCupomDoLink(eventId);
+    if (!codigo) return setAplicandoDoLink(false);
+    handleApplyCoupon(codigo).finally(() => setAplicandoDoLink(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
   const caixaAceiteRef = useRef<HTMLLabelElement>(null);
   /** Pisca a caixa do aceite quando o comprador tenta pagar sem marcar. */
@@ -133,7 +174,7 @@ export function CheckoutStepPayment({
   const [detalhesAbertos, setDetalhesAbertos] = useState(false);
 
   const handleSelect = (method: 'pix' | 'card') => {
-    if (isProcessing || selecting) return;
+    if (isProcessing || selecting || aplicandoDoLink) return;
 
     // ⚠️ Antes, os botões de pagamento ficavam DESABILITADOS sem o aceite — e
     // botão desabilitado não responde a clique: a pessoa tocava e não acontecia
@@ -205,7 +246,12 @@ export function CheckoutStepPayment({
 
         {/* Cupom */}
         <div className="relative pt-3 border-t border-border/50">
-          {appliedCoupon ? (
+          {aplicandoDoLink && !appliedCoupon ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-3 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Aplicando o seu cupom...
+            </div>
+          ) : appliedCoupon ? (
             <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border border-emerald-500/30 px-3 py-2.5 shadow-inner">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
@@ -220,7 +266,7 @@ export function CheckoutStepPayment({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 rounded-full hover:bg-emerald-500/20"
-                onClick={() => onApplyCoupon(null)}
+                onClick={() => { esquecerCupomDoLink(eventId); onApplyCoupon(null); }}
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -239,7 +285,7 @@ export function CheckoutStepPayment({
               </div>
               <Button
                 variant="outline"
-                onClick={handleApplyCoupon}
+                onClick={() => handleApplyCoupon()}
                 disabled={!couponInput.trim() || validating}
                 className="h-11 px-4 border-border/60 hover:border-primary/60"
               >
@@ -349,14 +395,14 @@ export function CheckoutStepPayment({
 
         <button
           onClick={() => handleSelect('pix')}
-          disabled={isProcessing}
+          disabled={isProcessing || aplicandoDoLink}
           className={cn(
             'group relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 text-left overflow-hidden',
             'border-border/60 bg-card/60 backdrop-blur',
             'hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5',
             'active:scale-[0.98]',
             selecting === 'pix' && 'border-primary/80 bg-primary/5 shadow-lg shadow-primary/15',
-            isProcessing && 'opacity-50 cursor-not-allowed'
+            (isProcessing || aplicandoDoLink) && 'opacity-50 cursor-not-allowed'
           )}
         >
           <div className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-sm">
@@ -379,14 +425,14 @@ export function CheckoutStepPayment({
 
         <button
           onClick={() => handleSelect('card')}
-          disabled={isProcessing}
+          disabled={isProcessing || aplicandoDoLink}
           className={cn(
             'group relative w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300 text-left',
             'border-border/60 bg-card/60 backdrop-blur',
             'hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5',
             'active:scale-[0.98]',
             selecting === 'card' && 'border-primary/80 bg-primary/5 shadow-lg shadow-primary/15',
-            isProcessing && 'opacity-50 cursor-not-allowed'
+            (isProcessing || aplicandoDoLink) && 'opacity-50 cursor-not-allowed'
           )}
         >
           <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 shadow-inner flex-shrink-0">

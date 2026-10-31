@@ -177,7 +177,7 @@ export default function EventDashboard() {
         </TabsContent>
 
         <TabsContent value="coupons">
-          <EventCouponsTab eventId={event.id} />
+          <EventCouponsTab eventId={event.id} eventSlug={event.slug ?? null} />
         </TabsContent>
       </Tabs>
     </ProducerLayout>
