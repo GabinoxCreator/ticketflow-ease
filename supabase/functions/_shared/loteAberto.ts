@@ -14,6 +14,8 @@
 //   - se encadeado, o lote anterior já esgotou OU já encerrou pela data de fim
 //     (OS-227, 14/10/2026: o que ocorrer primeiro).
 // Esgotado por quantidade NÃO entra aqui: quem garante é a reserva de estoque.
+// Lote de RETIRADA PÚBLICA (OS-313) nunca vende por aqui: ele é do link de cortesia,
+// onde valem a trava de um por pessoa, o cadastro e o convite da facial.
 //
 // Quem usa:
 //   - `porQueFechado` (a regra inteira): o carrinho do Marcel, PIX e cartão do
@@ -25,12 +27,13 @@
 import { CAMPOS_DO_GRUPO, tamanhoDoGrupo } from './loteEmGrupo.ts';
 
 /** Campos de `event_lots` que a regra lê. */
-export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id';
+export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica';
 
-export type LoteFechado = 'inativo' | 'encerrado' | 'ainda_nao_abriu';
+export type LoteFechado = 'inativo' | 'encerrado' | 'ainda_nao_abriu' | 'so_pelo_link';
 
 export interface LoteDaRegra {
   is_active: boolean | null;
+  retirada_publica?: boolean | null;
   sales_start_type?: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -67,6 +70,7 @@ export function porQueFechado(
   agora: Date = new Date(),
 ): LoteFechado | null {
   if (!lote.is_active) return 'inativo';
+  if (lote.retirada_publica) return 'so_pelo_link';
   if (encerrou(lote, agora)) return 'encerrado';
   if (lote.sales_start_type === 'scheduled' && lote.start_date && new Date(lote.start_date) > agora) {
     return 'ainda_nao_abriu';
@@ -107,5 +111,6 @@ export function nomeComSetor(lote: { name: string; sector_name?: string | null }
 export function mensagemDoFechado(nome: string, motivo: LoteFechado): string {
   if (motivo === 'encerrado') return `As vendas do lote "${nome}" já encerraram`;
   if (motivo === 'ainda_nao_abriu') return `Lote "${nome}" ainda não está à venda`;
+  if (motivo === 'so_pelo_link') return `Lote "${nome}" só sai pelo link de cortesia`;
   return `Lote "${nome}" não está à venda`;
 }

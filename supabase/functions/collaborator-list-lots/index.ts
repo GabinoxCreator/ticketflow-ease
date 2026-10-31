@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // 3) Lotes do evento — só ativos e não esgotados manualmente (filtro no DB), ordenados por name.
     const { data: lots, error } = await supabase
       .from('event_lots')
-      .select(`id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, ${CAMPOS_DO_GRUPO}`)
+      .select(`id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica, ${CAMPOS_DO_GRUPO}`)
       .eq('event_id', event_id)
       .eq('is_active', true)
       .eq('manually_sold_out', false)

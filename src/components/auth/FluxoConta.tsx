@@ -78,6 +78,12 @@ export interface FluxoContaProps {
    * "ir para pagamento" quase sempre não tem conta ainda (ordem do Gabriel).
    */
   abaInicial?: AbaConta;
+  /**
+   * true = quem chama cuida da facial (link de cortesia, OS-313, onde ela é
+   * obrigatória). O cadastro termina na senha, sem o convite "opcional" daqui:
+   * senão a pessoa lia "é opcional" e via o convite duas vezes seguidas.
+   */
+  semFacial?: boolean;
 }
 
 /*
@@ -217,7 +223,7 @@ const TelaDoCodigo = ({
 );
 
 export function FluxoConta({
-  ativo = true, onFechar, onAuthenticated, embutido = false, abaInicial = 'entrar',
+  ativo = true, onFechar, onAuthenticated, embutido = false, abaInicial = 'entrar', semFacial = false,
 }: FluxoContaProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -230,7 +236,7 @@ export function FluxoConta({
    * mandar a pessoa embora.
    */
   const [etapa, setEtapa] = useState<Etapa>(
-    cadastroEmCurso() ? 'facial' : abaInicial === 'cadastro' ? 'cpf' : 'entrar',
+    cadastroEmCurso() && !semFacial ? 'facial' : abaInicial === 'cadastro' ? 'cpf' : 'entrar',
   );
   const [ocupado, setOcupado] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -578,6 +584,15 @@ export function FluxoConta({
     setOcupado(true);
     try {
       const r = await confirmarCadastro(dados(), canal, desafio.desafioId, senha);
+      // Quem chama cuida da facial: a conta nasce e a saída é explícita, sem o convite daqui.
+      if (semFacial) {
+        seguraSaida.current = true;
+        await entrarComSessao(r.sessao);
+        seguraSaida.current = false;
+        toast.success('Conta criada!');
+        onAuthenticated();
+        return;
+      }
       /*
        * Antes de a sessão chegar: segura a saída, senão o convite da facial nem
        * aparece. São duas travas na memória do componente e uma fora dele — a de

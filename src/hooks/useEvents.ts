@@ -55,6 +55,8 @@ export interface Event {
     start_date?: string | null;
     end_date?: string | null;
     starts_after_lot_id?: string | null;
+    /** Lote que só sai pelo link de cortesia (OS-313): nunca aparece à venda. */
+    retirada_publica?: boolean | null;
   }>;
   /** Receita no valor de face (sem taxa, sem juro, sem cortesia). null = o cálculo falhou. */
   paid_revenue?: number | null;
@@ -334,7 +336,8 @@ const SELECT_VITRINE = `
             sales_start_type,
             start_date,
             end_date,
-            starts_after_lot_id
+            starts_after_lot_id,
+            retirada_publica
           )
         `;
 

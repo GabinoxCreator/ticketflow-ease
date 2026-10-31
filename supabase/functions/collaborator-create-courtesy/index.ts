@@ -80,12 +80,15 @@ Deno.serve(async (req) => {
     // 3) Lote (nome para o papel, e a conferência de que é do evento certo)
     const { data: lot, error: lotErr } = await supabase
       .from('event_lots')
-      .select('id, name, event_id, is_active')
+      .select('id, name, event_id, is_active, retirada_publica')
       .eq('id', lot_id)
       .eq('event_id', event_id)
       .maybeSingle();
     if (lotErr || !lot) return json({ error: 'Lote não encontrado neste evento' }, 404);
     if (!lot.is_active) return json({ error: 'Lote inativo' }, 400);
+    // Lote do link de cortesia (OS-313) não vende por aqui: ele só sai pela página do
+    // convidado, onde valem a trava de um por pessoa, o CPF conferido e a facial.
+    if (lot.retirada_publica) return json({ error: 'Este lote só sai pelo link de cortesia' }, 400);
 
     const { data: evento } = await supabase
       .from('events').select('title').eq('id', event_id).maybeSingle();

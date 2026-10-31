@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     const lotIds = Array.from(new Set(normalized.map(i => i.lot_id)));
     const { data: lots, error: lotsErr } = await supabase
       .from('event_lots')
-      .select(`id, event_id, price, name, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, ${CAMPOS_DO_GRUPO}`)
+      .select(`id, event_id, price, name, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica, ${CAMPOS_DO_GRUPO}`)
       .in('id', lotIds);
     if (lotsErr) {
       console.error('[RESERVE] lots query error:', lotsErr);

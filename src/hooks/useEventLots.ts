@@ -25,6 +25,8 @@ export interface EventLot {
   group_ticket_quantity: number;
   sales_start_type: string;
   starts_after_lot_id: string | null;
+  /** Lote que só sai pelo link de cortesia (OS-313): fora da venda normal. */
+  retirada_publica?: boolean | null;
   manually_sold_out: boolean;
 }
 
