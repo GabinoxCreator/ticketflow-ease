@@ -1,11 +1,11 @@
-// Lista de alunos do evento (OS-346, Balé da Bruna).
+// Lista de alunos do evento (OS-346, Balé da Bruna; modelo novo na OS-365).
 //
-// Evento com lista só vende poltrona para quem informa o CPF e a data de
-// nascimento de uma criança da lista. Quem confere é o banco
-// (`aluno_conferir`), que devolve só o primeiro nome da criança, quantos
-// convites restam e um PASSE: é o passe que o navegador guarda, nunca o CPF nem
-// o nascimento da criança. A trava de verdade mora no servidor
-// (`hold_seats_aluno` e `create_seat_order`); esta tela só conduz a família.
+// Evento com lista só vende poltrona para quem informa o CPF de um aluno da
+// lista, e só na sessão em que o aluno dança. Quem confere é o banco
+// (`aluno_conferir`), que devolve só o primeiro nome, as sessões do aluno,
+// quantos convites restam e um PASSE: é o passe que o navegador guarda, nunca o
+// CPF. A trava de verdade mora no servidor (`hold_seats_aluno` e
+// `create_seat_order`); esta tela só conduz a família.
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
@@ -16,14 +16,18 @@ export interface SessaoDaLista {
   title: string;
   date: string;
   time: string | null;
+  /** Número da sessão na lista (1 = 1ª sessão). */
+  sessao: number;
 }
 
 export interface InfoDaLista {
   tem_lista: boolean;
   lista_id?: string;
   limite_por_aluno?: number;
-  abre_lote1_em?: string;
-  abre_lote2_em?: string;
+  /** A venda abre para toda a lista neste instante. */
+  abre_em?: string;
+  /** Número da sessão DESTE evento na lista. */
+  sessao?: number;
   sessoes?: SessaoDaLista[];
 }
 
@@ -32,6 +36,8 @@ export interface AlunoConferido {
   vale_ate: string;
   lista_id: string;
   primeiro_nome: string;
+  /** Sessões em que o aluno dança (só nelas ele compra). */
+  sessoes: number[];
   limite: number;
   usados: number;
   restantes: number;
@@ -92,17 +98,22 @@ export function esquecerAluno(listaId: string | undefined) {
   try { sessionStorage.removeItem(chave(listaId)); } catch { /* nada */ }
 }
 
-/** Confere a criança no banco. Precisa de conta logada. */
+/** As sessões da lista em que este aluno dança (as outras ele não compra). */
+export function sessoesDoAluno(lista: InfoDaLista | undefined, aluno: AlunoConferido | null): SessaoDaLista[] {
+  if (!aluno) return [];
+  const dele = new Set(aluno.sessoes ?? []);
+  return (lista?.sessoes ?? []).filter((s) => dele.has(s.sessao));
+}
+
+/** Confere o aluno no banco pelo CPF. Precisa de conta logada. */
 export async function conferirAluno(
   eventId: string,
   cpfDigitos: string,
-  nascimentoIso: string,
 ): Promise<{ ok: true; aluno: AlunoConferido } | { ok: false; motivo: RecusaDaConferencia; tenteDeNovoEm?: string }> {
   const rpc = supabase.rpc as unknown as RpcSemTipo;
   const { data, error } = await rpc.call(supabase, 'aluno_conferir', {
     _event_id: eventId,
     _cpf: cpfDigitos,
-    _nascimento: nascimentoIso,
   });
   if (error || !data) return { ok: false, motivo: 'falha' };
   const r = data as Record<string, unknown>;

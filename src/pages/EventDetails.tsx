@@ -44,6 +44,7 @@ import {
 import { getTicketLimitForEvent } from '@/data/eventTicketLimits';
 import { PriceAndShareBar } from '@/components/event/PriceAndShareBar';
 import { MesaReservaCTA } from '@/components/event/MesaReservaCTA';
+import { ComoFuncionaDaLista } from '@/components/event/ComoFuncionaDaLista';
 import { EventPolicies } from '@/components/event/EventPolicies';
 import { ProdutorDoEvento } from '@/components/event/ProdutorDoEvento';
 import type { SummaryItem } from '@/components/event/EventOrderSummary';
@@ -710,6 +711,11 @@ const EventDetails = () => {
                   description={(event as any).mesa_reserva_description}
                   seatNoun={(event as any).seat_noun}
                 />
+              )}
+
+              {/* Evento com lista de alunos (OS-365): o passo a passo da compra. */}
+              {!isEventFinished && hasMap && eventId && (
+                <ComoFuncionaDaLista eventId={eventId} eventSlugOrId={event.slug ?? event.id} mapSnapshot={(event as any).map_snapshot} />
               )}
 
               {loteRetirada && event.slug && (

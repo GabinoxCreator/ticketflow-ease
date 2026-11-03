@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Loader2, Ticket } from 'lucide-react';
+import { AlertCircle, Loader2, Pencil, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventSeats, type EventSeatRow } from '@/hooks/useEventSeats';
-import { useSeatHold, MENSAGEM_DA_TRAVA } from '@/hooks/useSeatHold';
+import { useSeatHold, MENSAGEM_DA_TRAVA, readStoredOrderId } from '@/hooks/useSeatHold';
 import { SeatMapRenderer } from '@/components/seated/SeatMapRenderer';
 import { SelectionPanel } from '@/components/seated/SelectionPanel';
 import { SeatDetailModal } from '@/components/seated/SeatDetailModal';
@@ -51,10 +52,11 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   const [authOpen, setAuthOpen] = useState(false);
   const [modalSeatId, setModalSeatId] = useState<string | null>(null);
 
-  // ---- Lista de alunos (OS-346) ----
-  // Evento com lista: antes do mapa vem a tela do aluno (CPF + nascimento), e
-  // no mapa a família escolhe várias poltronas de uma vez, até o que resta da
-  // criança. Quem trava de verdade é o servidor (hold_seats_aluno).
+  // ---- Lista de alunos (OS-346; modelo novo na OS-365) ----
+  // Evento com lista: antes do mapa vem a tela do aluno (CPF), e no mapa a
+  // família escolhe várias poltronas de uma vez, até o que resta do aluno, só
+  // na sessão em que ele dança. Quem trava de verdade é o servidor
+  // (hold_seats_aluno).
   const { data: lista, isLoading: listaLoading } = useListaDoEvento(eventId);
   const temLista = !!lista?.tem_lista;
   const [aluno, setAluno] = useState<AlunoConferido | null>(null);
@@ -70,12 +72,18 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   }, [aviso]);
   const location = useLocation();
 
+  /** O aluno dança nesta sessão? (Se não, a entrada mostra a sessão certa.) */
+  const dancaNesta = useCallback(
+    (a: AlunoConferido | null) => !!a && (lista?.sessao == null || (a.sessoes ?? []).includes(lista.sessao)),
+    [lista?.sessao],
+  );
+
   useEffect(() => {
     if (!lista?.lista_id) return;
     const guardado = lerAluno(lista.lista_id);
     setAluno(guardado);
-    setEtapa(guardado ? 'mapa' : 'entrada');
-  }, [lista?.lista_id]);
+    setEtapa(dancaNesta(guardado) ? 'mapa' : 'entrada');
+  }, [lista?.lista_id, dancaNesta]);
 
   /** Atualiza quantos convites restam (depois de uma compra, de outra aba). */
   const atualizarAluno = useCallback(async (): Promise<AlunoConferido | null> => {
@@ -105,6 +113,8 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
     if (codigo === 'aluno_obrigatorio') { trocarAlunoRef.current?.(null); toast.info(MENSAGEM_DA_TRAVA.aluno_obrigatorio); return; }
     if (codigo === 'seats_unavailable') { setAviso('Alguém escolheu uma dessas poltronas antes de você. Escolha outra.'); return; }
     const atual = await atualizarAluno();
+    // Sessão em que o aluno não dança: a entrada mostra qual é a dele.
+    if (codigo === 'sessao_do_aluno') { setEscolhidas([]); setEtapa('entrada'); return; }
     if (codigo === 'limite_do_aluno') {
       const n = atual?.restantes ?? 0;
       setAviso(n > 0 ? `Este aluno tem ${n} ${n === 1 ? 'convite' : 'convites'} para usar.` : MENSAGEM_DA_TRAVA.limite_do_aluno);
@@ -137,6 +147,36 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   }, [lista?.lista_id]);
   const trocarAlunoRef = useRef(trocarAluno);
   trocarAlunoRef.current = trocarAluno;
+
+  // Reserva já feita e ainda sem pagamento gerado: dá para mexer nela. Com PIX
+  // ou cartão começado (pedido guardado), a reserva é do pagamento: só segue.
+  const pagamentoComecado = !!hold && !!readStoredOrderId(eventId);
+  const [soltando, setSoltando] = useState(false);
+  const queryClient = useQueryClient();
+  /** Solta a reserva e volta à escolha, com as mesmas poltronas marcadas. */
+  const mudarPoltronas = useCallback(async () => {
+    if (!hold || pagamentoComecado) return;
+    const antes = hold.seatIds;
+    setSoltando(true);
+    // Enquanto solta, as poltronas da própria família não são "outra família".
+    reservandoRef.current = true;
+    try {
+      await releaseCurrent();
+      queryClient.setQueryData<EventSeatRow[] | undefined>(['event-seats', eventId], (prev) =>
+        prev?.map((x) => (antes.includes(x.id) ? { ...x, status: 'available' as const, hold_expires_at: null } : x)));
+      setEscolhidas(antes);
+      await atualizarAluno();
+    } finally {
+      reservandoRef.current = false;
+      setSoltando(false);
+    }
+  }, [hold, pagamentoComecado, releaseCurrent, queryClient, eventId, atualizarAluno]);
+  /** "Trocar sessão ou aluno": com reserva solta, a poltrona volta para a venda. */
+  const irParaEntrada = useCallback(async () => {
+    if (hold && !pagamentoComecado) { await releaseCurrent(); await atualizarAluno(); }
+    setEscolhidas([]);
+    setEtapa('entrada');
+  }, [hold, pagamentoComecado, releaseCurrent, atualizarAluno]);
 
   /**
    * Link direto para uma unidade: `?unidade=C007`.
@@ -220,7 +260,10 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       // indisponível no mapa público (não clicável, mesma aparência de sold).
       if (seat.status === 'manual') return 'sold';
       if (seat.status === 'sold') return 'sold';
-      if (seat.status === 'blocked') return 'blocked';
+      // Lista de alunos: poltrona fora da venda (as fileiras que a escola
+      // guarda no 1º dia) aparece "Em uso", como se outra família estivesse
+      // comprando (pedido da escola, decisão do Gabriel em 03/11/2026).
+      if (seat.status === 'blocked') return temLista ? 'held-other' : 'blocked';
       // Lista de alunos: as poltronas escolhidas (ainda não seguradas) aparecem
       // como "sua escolha" enquanto continuarem livres.
       if (escolhidasSet.has(seat.id) && seat.status === 'available') return 'selected-mine';
@@ -238,7 +281,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       }
       return 'available';
     },
-    [user, myHoldSeatIds, idsDoPacote, escolhidasSet]
+    [user, myHoldSeatIds, idsDoPacote, escolhidasSet, temLista]
   );
 
   // Escolhida que outra família levou (o mapa atualiza ao vivo) sai da escolha.
@@ -300,9 +343,6 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       if (s.color && s.seat_type_name && s.status === 'available') itens.set(s.seat_type_name, s.color);
     }
     const saida = [...itens].map(([label, color]) => ({ label, color }));
-    if ((seats ?? []).some((s) => s.status === 'blocked')) {
-      saida.push({ label: 'Fora da venda', color: 'hsl(var(--muted))' });
-    }
     const objetos = ((event.map_snapshot as { map_objects?: { text_content?: string | null }[] })?.map_objects ?? []);
     if (objetos.some((o) => o.text_content === '♿')) {
       saida.push({ label: '♿ Espaço para cadeirante', color: '#2563EB' });
@@ -395,6 +435,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
         </Helmet>
         <EntradaDoAluno
           eventId={eventId}
+          evento={event}
           lista={lista!}
           aluno={aluno}
           onAluno={trocarAluno}
@@ -480,17 +521,19 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
                 <p className="font-semibold truncate">Convites de {aluno.primeiro_nome}</p>
                 <p className="text-xs text-muted-foreground truncate">
                   {aluno.liberado || new Date(aluno.abre_em).getTime() <= Date.now()
-                    ? `Restam ${aluno.restantes} de ${aluno.limite} · somando as duas sessões`
+                    ? `Restam ${aluno.restantes} de ${aluno.limite}${(aluno.sessoes ?? []).length > 1 ? ' · somando as duas sessões' : ''}`
                     : `A venda para este aluno abre em ${quandoAbre(aluno.abre_em)}`}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setEtapa('entrada')}
-                className="text-xs text-primary hover:underline shrink-0"
-              >
-                Trocar sessão ou aluno
-              </button>
+              {!pagamentoComecado && (
+                <button
+                  type="button"
+                  onClick={() => void irParaEntrada()}
+                  className="text-xs text-primary hover:underline shrink-0"
+                >
+                  Trocar sessão ou aluno
+                </button>
+              )}
             </div>
           )}
           {seatsLoading ? (
@@ -529,12 +572,23 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
           {temLista && aluno && (
             <div className="lg:hidden shrink-0 border-t border-border bg-card px-3 py-3">
               {hold ? (
-                <Button
-                  variant="hero" size="lg" className="w-full"
-                  onClick={() => goToSeatCheckout(navigate, markProceeding, eventId)}
-                >
-                  <Ticket className="w-4 h-4 mr-2" /> Ir para pagamento
-                </Button>
+                <div className="flex flex-col-reverse gap-2">
+                  {!pagamentoComecado && (
+                    <Button
+                      variant="outline" size="lg" className="w-full"
+                      disabled={soltando}
+                      onClick={() => void mudarPoltronas()}
+                    >
+                      {soltando ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Pencil className="w-4 h-4 mr-2" /> Mudar poltronas</>}
+                    </Button>
+                  )}
+                  <Button
+                    variant="hero" size="lg" className="w-full"
+                    onClick={() => goToSeatCheckout(navigate, markProceeding, eventId)}
+                  >
+                    <Ticket className="w-4 h-4 mr-2" /> Ir para pagamento
+                  </Button>
+                </div>
               ) : (
                 <div className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
@@ -569,7 +623,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
                 <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Convites de</p>
                 <h3 className="font-display font-semibold text-lg">{aluno.primeiro_nome}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Restam {aluno.restantes} de {aluno.limite}, somando as duas sessões.
+                  Restam {aluno.restantes} de {aluno.limite}{(aluno.sessoes ?? []).length > 1 ? ', somando as duas sessões' : ''}.
                 </p>
               </div>
               {escolhidas.length ? (
