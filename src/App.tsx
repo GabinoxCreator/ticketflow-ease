@@ -34,6 +34,7 @@ import ColaboradorEventos from "./pages/colaborador/ColaboradorEventos";
 import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
 import GuestListPublicForm from "./pages/GuestListPublicForm";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import FacialPeloLink from "./pages/FacialPeloLink";
 import EntendaATaxa from "./pages/EntendaATaxa";
 import TermosDeUso from "./pages/TermosDeUso";
 import PoliticaReembolso from "./pages/PoliticaReembolso";
@@ -108,6 +109,10 @@ const App = () => (
                     Auditar logs e remover após confirmar 0 hits recentes. */}
                 <Route path="/checkout/sucesso" element={<CheckoutSuccess />} />
                 <Route path="/login" element={<Auth />} />
+                {/* Código de uso único (QR na tela do computador ou link no WhatsApp) para
+                    tirar a foto do rosto pelo celular (OS-343). Só é gerado com a chave da
+                    facial obrigatória ligada (`src/lib/facialObrigatoria.ts`). */}
+                <Route path="/facial/:token" element={<FacialPeloLink />} />
                 <Route path="/reset-password" element={<Navigate to="/login?mode=forgot" replace />} />
                 <Route path="/privacidade" element={<PoliticaPrivacidade />} />
                 <Route path="/taxa" element={<EntendaATaxa />} />

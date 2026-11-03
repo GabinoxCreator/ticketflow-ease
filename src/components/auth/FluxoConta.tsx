@@ -14,6 +14,13 @@
  *               4. senha
  *               5. facial — OPCIONAL
  *
+ *               OS-343 (29/10/2026): a etapa 5 tem uma segunda forma, OBRIGATÓRIA,
+ *               atrás de uma chave que nasce DESLIGADA (`src/lib/facialObrigatoria.ts`).
+ *               Desligada, tudo aqui funciona como sempre. Ligada: idade antes
+ *               do rosto, sem "Agora não", celular por QR ou WhatsApp, e a conta
+ *               nova que ficou sem rosto passa pela mesma etapa na próxima compra
+ *               (`FacialObrigatoria`, `useFacialPendente`).
+ *
  * As duas moram em ABAS, lado a lado, e a aba não some no meio do caminho.
  *
  * Três decisões que vieram de erro, e que é bom não desfazer sem saber:
@@ -36,6 +43,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,6 +57,9 @@ import { validarNomePessoa } from '@/lib/nomePessoa';
 import BarraDeEtapas from '@/components/auth/BarraDeEtapas';
 import FacialInviteModal from '@/components/auth/FacialInviteModal';
 import FacialCaptureFullscreen from '@/components/auth/FacialCaptureFullscreen';
+import FacialObrigatoria, { type FimDaFacial } from '@/components/auth/FacialObrigatoria';
+import { facialObrigatoria } from '@/lib/facialObrigatoria';
+import { useFacialPendente, chaveFacialPendente } from '@/hooks/useFacialPendente';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 import { marcarCadastroEmCurso, cadastroEmCurso, limparCadastroEmCurso } from '@/lib/cadastroEmCurso';
 import { registrarConviteFacial } from '@/lib/conviteFacialLog';
@@ -221,6 +232,18 @@ export function FluxoConta({
 }: FluxoContaProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  /*
+   * OS-343: a chave da facial obrigatória. Desligada (o padrão), `obrigatoria` é
+   * false, `useFacialPendente` não consulta nada e este componente é o de sempre.
+   * Ligada, na COMPRA (modal; a página /login e o aceite de ingresso ficam de
+   * fora), a conta nova que ficou sem rosto passa pela etapa do rosto antes de
+   * seguir para o pagamento (decisão do chat de 28/10, na ficha da OS-343).
+   */
+  const obrigatoria = facialObrigatoria();
+  const facialPend = useFacialPendente();
+  const cobraFacialNaCompra = obrigatoria && !embutido;
 
   const [aba, setAba] = useState<AbaConta>(cadastroEmCurso() ? 'cadastro' : abaInicial);
   /*
@@ -296,9 +319,25 @@ export function FluxoConta({
    */
   const etapaDeCadastroComSessao = etapa === 'cad-senha' || etapa === 'facial' || etapa === 'facial-camera';
 
+  /* Com a chave ligada, ninguém sai sozinho enquanto não se sabe se a conta deve o rosto. */
+  const seguraPelaFacial = cobraFacialNaCompra && (facialPend.pendente || facialPend.carregando);
+
   useEffect(() => {
-    if (user && ativo && !seguraSaida.current && !etapaDeCadastroComSessao && !cadastroEmCurso()) onAuthenticated();
-  }, [user, ativo, onAuthenticated, etapaDeCadastroComSessao]);
+    if (user && ativo && !seguraSaida.current && !etapaDeCadastroComSessao && !cadastroEmCurso() && !seguraPelaFacial) onAuthenticated();
+  }, [user, ativo, onAuthenticated, etapaDeCadastroComSessao, seguraPelaFacial]);
+
+  /*
+   * OS-343, chave ligada: conta nova sem rosto que entrou (ou já estava logada)
+   * pela compra vai para a etapa do rosto, pelo mesmo caminho do cadastro. As
+   * três travas de saída sobem juntas, como no fim do cadastro.
+   */
+  useEffect(() => {
+    if (!cobraFacialNaCompra || !ativo || !user || !facialPend.pendente) return;
+    if (etapa === 'facial' || etapa === 'facial-camera') return;
+    marcarCadastroEmCurso();
+    seguraSaida.current = true;
+    setEtapa('facial');
+  }, [cobraFacialNaCompra, ativo, user, facialPend.pendente, etapa]);
 
   /* Na página o fluxo está embutido num cartão; no modal, veio da compra. */
   const origemDoConvite = embutido ? 'login' : 'compra';
@@ -587,7 +626,7 @@ export function FluxoConta({
       seguraSaida.current = true;
       setEtapa('facial');
       await entrarComSessao(r.sessao);
-      toast.success('Conta criada! Falta só uma coisa, e é opcional.');
+      toast.success(obrigatoria ? 'Conta criada! Falta só uma etapa.' : 'Conta criada! Falta só uma coisa, e é opcional.');
     } catch (e) {
       seguraSaida.current = false;
       limparCadastroEmCurso();
@@ -606,8 +645,20 @@ export function FluxoConta({
    * A saída do fim do cadastro é sempre explícita: "Agora não" ou fim da
    * captura. É aqui que as três travas caem, juntas e de propósito.
    */
-  const terminar = (motivo: 'recusado' | 'concluido') => {
-    registrarConviteFacial(motivo, origemDoConvite);
+  const terminar = (motivo: 'recusado' | FimDaFacial) => {
+    if (motivo === 'recusado' || motivo === 'concluido') {
+      registrarConviteFacial(motivo, origemDoConvite);
+    } else {
+      // OS-343, chave ligada: menor, "não consigo" ou idade não conferida.
+      registrarConviteFacial('recusado', `${origemDoConvite}:${motivo}`);
+    }
+    if (obrigatoria && user?.id) {
+      /* A página que abriu o modal relê a pendência: rosto feito, não pede de novo. */
+      if (motivo === 'concluido') {
+        queryClient.setQueryData(chaveFacialPendente(user.id), (v: { temFacial: boolean; cpf: string | null } | undefined) => (v ? { ...v, temFacial: true } : v));
+      }
+      void queryClient.invalidateQueries({ queryKey: chaveFacialPendente(user.id) });
+    }
     limparCadastroEmCurso();
     seguraSaida.current = false;
     onAuthenticated();
@@ -679,10 +730,15 @@ export function FluxoConta({
       {/* Cabeçalho */}
       <div className={cn('border-b border-border/50', !embutido && isMobile ? 'sticky top-0 z-10 bg-card/95 backdrop-blur-xl px-4 pt-4 pb-4' : 'px-6 pt-5 pb-4')}>
         <div className="grid grid-cols-[40px_1fr_40px] items-center gap-2">
-          <button type="button" onClick={voltar} aria-label="Voltar"
-            className="h-10 w-10 inline-flex items-center justify-center rounded-full text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          {/* Chave ligada: da etapa do rosto não se "volta" (seria o pular de antes). */}
+          {obrigatoria && etapa === 'facial' ? (
+            <div aria-hidden className="h-10 w-10" />
+          ) : (
+            <button type="button" onClick={voltar} aria-label="Voltar"
+              className="h-10 w-10 inline-flex items-center justify-center rounded-full text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <div aria-hidden />
           <div aria-hidden className="h-10 w-10" />
         </div>
@@ -946,8 +1002,13 @@ export function FluxoConta({
               </form>
             )}
 
-            {etapa === 'facial' && (
+            {etapa === 'facial' && !obrigatoria && (
               <FacialInviteModal onActivate={() => setEtapa('facial-camera')} onSkip={() => terminar('recusado')} />
+            )}
+
+            {/* OS-343: chave ligada. Idade, rosto sem "Agora não", celular, e a saída de quem não consegue. */}
+            {etapa === 'facial' && obrigatoria && (
+              <FacialObrigatoria cpf={cpf || facialPend.cpf} onFim={(motivo) => terminar(motivo)} />
             )}
 
           </motion.div>

@@ -15,12 +15,24 @@
 // não é novo — mas a validade curta é o que o mantém do tamanho de sempre.
 //
 // verify_jwt=false porque a ação `abrir` acontece no celular, ANTES de existir
-// sessão. A ação `enviar` valida o usuário na mão, pelo header.
+// sessão. As ações `enviar` e `gerar` validam o usuário na mão, pelo header.
+//
+// OS-343 (29/10/2026): ação nova `gerar`. O WhatsApp da casa ficou fora de 10/10
+// em diante, e uma saída que dependa só dele trava o cadastro. `gerar` devolve o
+// endereço com o token para o PRÓPRIO computador logado mostrar como QR Code; as
+// regras são as mesmas do link no WhatsApp (15 minutos, um uso, um link vivo por
+// conta). Quem chama já tem a sessão da conta, então o QR não abre nada que o
+// computador já não abra. E `enviar` passou a conferir número e configuração do
+// WhatsApp ANTES de queimar o link anterior: com o WhatsApp fora, pedir o link
+// não mata mais o QR que está na tela.
+// Só é chamada com a chave da facial obrigatória ligada no site
+// (`src/lib/facialObrigatoria.ts`); desligada, nada no site chama esta edge.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import {
   carregarConfigWhatsApp, enviarTextoWhatsApp,
   mascararNumeroParaTela, mascararNumero,
 } from '../_shared/whatsapp.ts';
+import { checkRateLimit, rateLimitResponse } from '../_shared/rateLimit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +47,14 @@ const json = (body: unknown, status = 200) =>
 
 const SITE = 'https://festpag.digital';
 const VALIDADE_MIN = 15;
+
+// OS-343: limite de pedidos de link (QR ou WhatsApp) por conta. Uma pessoa honesta
+// pede 1 a 3 (o código venceu, quis pelo WhatsApp). 10 em 15 minutos cobre isso e
+// impede usar a edge para disparar mensagem em série no WhatsApp da própria conta.
+// Fail-closed, como as outras: rate limit fora do ar = 503, nunca libera.
+const RL_MAX = 10;
+const RL_JANELA_S = 15 * 60;
+const RL_BLOQUEIO_S = 15 * 60;
 
 const admin = () =>
   createClient(
@@ -73,8 +93,8 @@ Deno.serve(async (req) => {
   const db = admin();
   const acao = String(corpo?.acao ?? '');
 
-  // ── enviar: o computador pede o link ──────────────────────────────────────
-  if (acao === 'enviar') {
+  // ── enviar (WhatsApp) ou gerar (QR na tela): o computador pede o link ─────
+  if (acao === 'enviar' || acao === 'gerar') {
     const auth = req.headers.get('Authorization') ?? '';
     const jwt = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     if (!jwt) return json({ ok: false, erro: 'sem_sessao' }, 401);
@@ -82,6 +102,9 @@ Deno.serve(async (req) => {
     const { data: dono, error: erroDono } = await db.auth.getUser(jwt);
     if (erroDono || !dono?.user) return json({ ok: false, erro: 'sessao_invalida' }, 401);
     const userId = dono.user.id;
+
+    const rl = await checkRateLimit(db, `faciallink:${userId}`, RL_MAX, RL_JANELA_S, RL_BLOQUEIO_S);
+    if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
 
     const { data: perfil } = await db
       .from('profiles')
@@ -93,30 +116,41 @@ Deno.serve(async (req) => {
     if (perfil?.facial_photo_path) return json({ ok: true, jaTem: true });
 
     const numero = String(perfil?.whatsapp ?? '').replace(/\D/g, '');
-    if (numero.length < 10) return json({ ok: false, erro: 'sem_whatsapp' }, 400);
     const numeroCompleto = numero.startsWith('55') ? numero : `55${numero}`;
+    if (acao === 'enviar') {
+      if (numero.length < 10) return json({ ok: false, erro: 'sem_whatsapp' }, 400);
+      if (!(await carregarConfigWhatsApp(db))) {
+        return json({ ok: false, erro: 'whatsapp_nao_configurado' }, 502);
+      }
+    }
 
-    // Um link de cada vez: pedir outro queima os anteriores.
-    await db.from('facial_links')
-      .update({ usado_em: new Date().toISOString() })
-      .eq('user_id', userId)
-      .is('usado_em', null);
-
+    // Um link de cada vez. OS-343: o novo nasce PRIMEIRO e só depois os outros
+    // daquela conta são queimados (todos menos o novo). Com dois pedidos ao mesmo
+    // tempo, cada um queima o do outro: no pior caso nenhum fica vivo (a pessoa
+    // pede outro), e nunca ficam dois vivos. Queimar antes e criar depois, como era,
+    // deixava dois vivos quando os pedidos se cruzavam.
     const token = novoToken();
     const expira = new Date(Date.now() + VALIDADE_MIN * 60_000).toISOString();
-    const { error: erroInsert } = await db.from('facial_links').insert({
+    const { data: novo, error: erroInsert } = await db.from('facial_links').insert({
       user_id: userId,
       token_hash: await hash(token),
       expira_em: expira,
-      canal: 'whatsapp',
-    });
-    if (erroInsert) {
-      console.error('[FACIAL-LINK] insert falhou:', erroInsert.message);
+      canal: acao === 'gerar' ? 'qr' : 'whatsapp',
+    }).select('id').single();
+    if (erroInsert || !novo?.id) {
+      console.error('[FACIAL-LINK] insert falhou:', erroInsert?.message);
       return json({ ok: false, erro: 'falha_ao_gerar' }, 500);
     }
+    await db.from('facial_links')
+      .update({ usado_em: new Date().toISOString() })
+      .eq('user_id', userId)
+      .is('usado_em', null)
+      .neq('id', novo.id);
 
-    if (!(await carregarConfigWhatsApp(db))) {
-      return json({ ok: false, erro: 'whatsapp_nao_configurado' }, 502);
+    if (acao === 'gerar') {
+      // O token volta só para quem já está logado nesta conta; nunca é logado.
+      console.log('[FACIAL-LINK] código gerado para a tela');
+      return json({ ok: true, url: `${SITE}/facial/${token}`, expiraEm: expira });
     }
 
     const texto =

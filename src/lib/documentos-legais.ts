@@ -9,6 +9,8 @@
  * se a data não mudar, os aceites novos continuam apontando para o texto velho.
  */
 
+import { diaDoCorte } from '@/lib/facialObrigatoria';
+
 export type DocumentoLegal = 'termos' | 'privacidade' | 'reembolso';
 
 /** Data da última atualização de cada documento, no formato do banco (AAAA-MM-DD). */
@@ -16,8 +18,13 @@ export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
   termos: '2026-04-14',
   /* 01/10/2026: a política dizia "não guardamos a sua foto" e guardamos desde
    * sempre. Corrigido, mais o compartilhamento com o fornecedor facial, a foto
-   * na lista de dados coletados e o prazo em que ela fica. */
-  privacidade: '2026-10-01',
+   * na lista de dados coletados e o prazo em que ela fica.
+   *
+   * OS-343: com a chave da facial obrigatória LIGADA (`src/lib/facialObrigatoria.ts`)
+   * a Política mostra outro texto (seções 2, 5, 7, 11 e 12), e a versão passa a
+   * ser o DIA DO CORTE, sozinha: ligar a chave e mudar a versão é o mesmo gesto.
+   * Desligada, continua '2026-10-01'. */
+  privacidade: diaDoCorte() ?? '2026-10-01',
   reembolso: '2026-09-30',
 };
 

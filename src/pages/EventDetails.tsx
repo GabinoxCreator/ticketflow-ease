@@ -66,6 +66,7 @@ import { getInstrucoesDoEvento } from '@/data/instrucoesDoEvento';
 import { LojaDoEvento } from '@/components/event/LojaDoEvento';
 import { useVitrineDaLoja } from '@/hooks/useVitrineDaLoja';
 import { ehLinhaDaLoja, type ItemDoCarrinho } from '@/lib/loja/carrinho';
+import { useFacialPendente } from '@/hooks/useFacialPendente';
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -125,6 +126,9 @@ const EventDetails = () => {
   const [likeCount, setLikeCount] = useState(0);
   const [isLikeInviteOpen, setIsLikeInviteOpen] = useState(false);
   const { user } = useAuth();
+  /* OS-343: com a chave da facial obrigatória LIGADA, conta nova sem rosto passa pela
+   * etapa do rosto (o mesmo modal da conta) antes de pagar. Desligada, sempre false. */
+  const facialPend = useFacialPendente();
 
   // O mapa tem interruptor PRÓPRIO, separado do status do evento: dá para estar
   // publicado vendendo ingresso com o camarote ainda fora do ar (Rodeo, 26/08).
@@ -408,7 +412,7 @@ const EventDetails = () => {
       toast.error('Selecione pelo menos um ingresso');
       return;
     }
-    if (!user) {
+    if (!user || facialPend.pendente) {
       setIsAuthModalOpen(true);
     } else {
       fireInitiateCheckout();

@@ -3,8 +3,22 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { IDENTIDADE_FESTPAG } from '@/lib/identidade-festpag';
 import { dataPorExtenso } from '@/lib/documentos-legais';
+import { facialObrigatoria } from '@/lib/facialObrigatoria';
 
+/*
+ * OS-343: esta página tem DOIS textos nas seções 2, 5, 7, 11 e 12. Com a chave da
+ * facial obrigatória desligada (o padrão), vale o texto de 01/10/2026, sem
+ * mudança nenhuma. Ligada (`src/lib/facialObrigatoria.ts`), vale o texto da
+ * facial na criação da conta, e a data de atualização passa a ser o dia do corte.
+ * ⚠️ O TEXTO LIGADO NÃO VALE COMO ESTÁ (decisão do Gabriel, 30/10/2026: "Política
+ * depois do advogado"). Ele é um rascunho com a base do art. 11, II, "g"; antes de
+ * ligar a chave, é refeito com a base legal e a alternativa que o advogado indicar,
+ * e aprovado pelo Gabriel. A chave não liga sem isso, nem pela decisão escrita.
+ */
 export default function PoliticaPrivacidade() {
+  const obrigatoria = facialObrigatoria();
+  /* Com a chave ligada, a versão É o dia do corte (documentos-legais.ts). */
+  const desdeQuando = dataPorExtenso('privacidade');
   return (
     <>
       <Helmet>
@@ -51,7 +65,14 @@ export default function PoliticaPrivacidade() {
                   <li>CPF;</li>
                   <li>e-mail;</li>
                   <li>telefone;</li>
-                  <li><strong>foto do rosto</strong>, somente de quem opta pelo reconhecimento facial (dado sensível, tratado conforme a seção 7).</li>
+                  {obrigatoria ? (
+                    <>
+                      <li>data de nascimento, pedida na criação da conta para saber se a pessoa tem 18 anos ou mais (seções 7 e 12);</li>
+                      <li><strong>foto do rosto</strong>, de quem cria a conta a partir de {desdeQuando} e tem 18 anos ou mais, salvo quem não consegue fazer a foto (dado sensível, tratado conforme a seção 7).</li>
+                    </>
+                  ) : (
+                    <li><strong>foto do rosto</strong>, somente de quem opta pelo reconhecimento facial (dado sensível, tratado conforme a seção 7).</li>
+                  )}
                 </ul>
                 <p>Esses dados são utilizados para cadastro, compra de ingressos, identificação do titular da compra, comunicação sobre pedidos, suporte e segurança da operação.</p>
 
@@ -122,7 +143,14 @@ export default function PoliticaPrivacidade() {
                   <li><strong>Com parceiros de pagamento:</strong> atualmente a <strong>Safe2Pay</strong> e, em eventos anteriores à migração, o <strong>Mercado Pago</strong>, para processar cobranças, confirmações, estornos, repasses e rotinas financeiras.</li>
                   <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend), a <strong>Meta/Facebook</strong> e o <strong>Google</strong> (Tag Manager), estes dois últimos apenas quando você autoriza cookies de marketing (ver seção 6), para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
                   <li><strong>Com fornecedores de comunicação:</strong> serviços de envio de e-mail e de mensagens por WhatsApp, usados para mandar o seu ingresso, o código de acesso à conta e avisos sobre a sua compra.</li>
-                  <li><strong>Com o fornecedor de reconhecimento facial:</strong> somente se você tiver cadastrado o seu rosto. Ele recebe a sua foto e os dados que identificam a sua conta (CPF, e-mail e telefone), para confirmar que é você na entrada do evento e na compra pelo rosto nos totens. Detalhes na seção 7.</li>
+                  {obrigatoria ? (
+                    <>
+                      <li><strong>Com o fornecedor de reconhecimento facial:</strong> somente se você tiver cadastrado o seu rosto. Ele recebe a sua foto e os dados que identificam a sua conta (CPF, e-mail e telefone), para confirmar que é você na entrada do evento. Detalhes na seção 7.</li>
+                      <li><strong>Com o serviço de consulta de CPF:</strong> na criação da conta, o seu CPF e a sua data de nascimento são conferidos numa base de documentos mantida por parceiro, para buscar o nome que vai no ingresso e conferir a idade.</li>
+                    </>
+                  ) : (
+                    <li><strong>Com o fornecedor de reconhecimento facial:</strong> somente se você tiver cadastrado o seu rosto. Ele recebe a sua foto e os dados que identificam a sua conta (CPF, e-mail e telefone), para confirmar que é você na entrada do evento e na compra pelo rosto nos totens. Detalhes na seção 7.</li>
+                  )}
                   <li><strong>Para cumprimento de obrigação legal, regulatória ou ordem de autoridade competente:</strong> quando necessário para atender à legislação aplicável ou proteger direitos da FestPag, dos usuários e de terceiros.</li>
                 </ul>
               </section>
@@ -145,14 +173,32 @@ export default function PoliticaPrivacidade() {
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">7. Câmera, QR Code e reconhecimento facial</h2>
                 <p>A plataforma pode solicitar acesso à câmera do dispositivo para ler o QR Code do ingresso durante a validação e o check-in.</p>
-                <p><strong>Reconhecimento facial (opcional).</strong> A FestPag oferece a entrada por reconhecimento facial como <strong>alternativa</strong> ao QR Code e, nos nossos totens de autoatendimento, a compra pelo rosto. É <strong>totalmente opcional</strong>: quem não quiser usar entra com o ingresso e paga pelos meios tradicionais.</p>
-                <ul className="list-disc pl-6 space-y-1">
-                  <li><strong>É dado pessoal sensível</strong> (art. 11 da LGPD) e só é tratado mediante <strong>consentimento específico e destacado</strong>, pedido na hora do cadastro do rosto.</li>
-                  <li><strong>Para que serve:</strong> confirmar que quem chega na portaria é a pessoa do ingresso e, nos totens, autorizar a compra pelo rosto. Não usamos o rosto para publicidade, perfilamento, vigilância nem qualquer outra finalidade.</li>
-                  <li><strong>Onde a sua foto fica.</strong> A imagem é guardada em <strong>área privada</strong> da plataforma, vinculada à sua conta e acessível apenas aos sistemas que fazem essa conferência. Ela não é pública, não aparece para outras pessoas e não é entregue ao produtor do evento.</li>
-                  <li><strong>Com quem ela é compartilhada.</strong> A conferência é feita por fornecedor especializado de reconhecimento facial, que recebe a sua foto junto com os dados que identificam a sua conta (CPF, e-mail e telefone) e pode tratá-los <strong>fora do Brasil</strong> (ver transferência internacional na seção 6).</li>
-                  <li><strong>Você pode revogar</strong> o consentimento a qualquer momento pelo canal da seção 14, e pedir a exclusão do seu cadastro facial. Feita a exclusão, a sua entrada no evento passa a ser pelo QR Code do ingresso.</li>
-                </ul>
+                {obrigatoria ? (
+                  <>
+                    <p><strong>Reconhecimento facial na criação da conta.</strong> Desde {desdeQuando}, cadastrar o rosto faz parte da criação da conta de comprador na FestPag. É o que confirma que quem entra no evento é a pessoa do ingresso. Contas criadas antes dessa data continuam valendo sem cadastro facial.</p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>É dado pessoal sensível</strong> (art. 11 da LGPD). Como o cadastro do rosto passou a fazer parte da conta, ele é tratado para a <strong>prevenção à fraude e a segurança do titular na identificação e autenticação</strong> (art. 11, II, "g"), e você é informado de forma destacada, na própria tela, antes da foto.</li>
+                      <li><strong>Para que serve:</strong> só para confirmar que é você na entrada do evento. Não usamos o rosto para publicidade, perfilamento, vigilância nem qualquer outra finalidade.</li>
+                      <li><strong>Pagar com o rosto é outra coisa.</strong> O pagamento pelo rosto nos totens é opcional, tem autorização própria, pedida à parte, e pode ser revogado a qualquer momento sem afetar a sua conta nem os seus ingressos.</li>
+                      <li><strong>Quem não faz a foto.</strong> Menores de 18 anos não cadastram o rosto: pedimos a data de nascimento, que é declarada por você, e a conferimos com o CPF quando a base de consulta responde. Quem não consegue fazer a foto (sem câmera, sem celular ou por qualquer outro motivo) segue sem ela. Nos dois casos, a entrada no evento é pelo QR Code do ingresso.</li>
+                      <li><strong>Sem câmera no computador?</strong> Dá para terminar pelo celular: a tela mostra um QR Code (ou mandamos um link para o WhatsApp informado por você) que vale 15 minutos e só pode ser usado uma vez.</li>
+                      <li><strong>Onde a sua foto fica.</strong> A imagem é guardada em <strong>área privada</strong> da plataforma, vinculada à sua conta e acessível apenas aos sistemas que fazem essa conferência. Ela não é pública, não aparece para outras pessoas e não é entregue ao produtor do evento.</li>
+                      <li><strong>Com quem ela é compartilhada.</strong> A conferência é feita por fornecedor especializado de reconhecimento facial, que recebe a sua foto junto com os dados que identificam a sua conta (CPF, e-mail e telefone) e pode tratá-los <strong>fora do Brasil</strong> (ver transferência internacional na seção 6).</li>
+                      <li><strong>Exclusão.</strong> Você pode pedir a exclusão do seu cadastro facial a qualquer momento pelo canal da seção 14. Feita a exclusão, a sua entrada no evento passa a ser pelo QR Code do ingresso, e a sua conta e os seus ingressos continuam valendo.</li>
+                    </ul>
+                  </>
+                ) : (
+                  <>
+                    <p><strong>Reconhecimento facial (opcional).</strong> A FestPag oferece a entrada por reconhecimento facial como <strong>alternativa</strong> ao QR Code e, nos nossos totens de autoatendimento, a compra pelo rosto. É <strong>totalmente opcional</strong>: quem não quiser usar entra com o ingresso e paga pelos meios tradicionais.</p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>É dado pessoal sensível</strong> (art. 11 da LGPD) e só é tratado mediante <strong>consentimento específico e destacado</strong>, pedido na hora do cadastro do rosto.</li>
+                      <li><strong>Para que serve:</strong> confirmar que quem chega na portaria é a pessoa do ingresso e, nos totens, autorizar a compra pelo rosto. Não usamos o rosto para publicidade, perfilamento, vigilância nem qualquer outra finalidade.</li>
+                      <li><strong>Onde a sua foto fica.</strong> A imagem é guardada em <strong>área privada</strong> da plataforma, vinculada à sua conta e acessível apenas aos sistemas que fazem essa conferência. Ela não é pública, não aparece para outras pessoas e não é entregue ao produtor do evento.</li>
+                      <li><strong>Com quem ela é compartilhada.</strong> A conferência é feita por fornecedor especializado de reconhecimento facial, que recebe a sua foto junto com os dados que identificam a sua conta (CPF, e-mail e telefone) e pode tratá-los <strong>fora do Brasil</strong> (ver transferência internacional na seção 6).</li>
+                      <li><strong>Você pode revogar</strong> o consentimento a qualquer momento pelo canal da seção 14, e pedir a exclusão do seu cadastro facial. Feita a exclusão, a sua entrada no evento passa a ser pelo QR Code do ingresso.</li>
+                    </ul>
+                  </>
+                )}
               </section>
 
               {/* 8 */}
@@ -204,7 +250,14 @@ export default function PoliticaPrivacidade() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Execução de contrato:</strong> cadastro, compra, emissão e entrega de ingressos, check-in e suporte.</li>
                   <li><strong>Cumprimento de obrigação legal:</strong> guarda de registros fiscais e financeiros das transações.</li>
-                  <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta, Google Tag Manager), eventuais comunicações promocionais e o <strong>reconhecimento facial</strong>, que, por ser dado sensível, tem consentimento específico e destacado (art. 11). Todos revogáveis a qualquer momento.</li>
+                  {obrigatoria ? (
+                    <>
+                      <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta, Google Tag Manager), eventuais comunicações promocionais e o <strong>pagamento pelo rosto</strong> nos totens, que tem autorização própria e destacada (art. 11, I). Todos revogáveis a qualquer momento.</li>
+                      <li><strong>Prevenção à fraude e segurança do titular (art. 11, II, "g"):</strong> o <strong>cadastro do rosto</strong> na criação da conta, usado só para confirmar a identidade na entrada do evento. Detalhes na seção 7.</li>
+                    </>
+                  ) : (
+                    <li><strong>Consentimento:</strong> cookies de marketing (Pixel da Meta, Google Tag Manager), eventuais comunicações promocionais e o <strong>reconhecimento facial</strong>, que, por ser dado sensível, tem consentimento específico e destacado (art. 11). Todos revogáveis a qualquer momento.</li>
+                  )}
                   <li><strong>Legítimo interesse:</strong> segurança da plataforma, prevenção a fraudes e melhoria do serviço, sempre respeitando seus direitos e expectativas.</li>
                 </ul>
               </section>
@@ -212,6 +265,9 @@ export default function PoliticaPrivacidade() {
               {/* 12 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">12. Menores de idade</h2>
+                {obrigatoria && (
+                  <p>Na criação da conta pedimos a data de nascimento, que é declarada por você, e a conferimos com o CPF quando a base de consulta responde. <strong>Menores de 18 anos não cadastram o rosto</strong>: a entrada deles no evento é pelo QR Code do ingresso.</p>
+                )}
                 <p>Caso a FestPag venha a tratar dados de menores de idade em situações específicas relacionadas a eventos, esse tratamento deverá observar a legislação aplicável e as medidas cabíveis para proteção adequada dos titulares.</p>
               </section>
 

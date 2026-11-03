@@ -53,6 +53,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { validateCNPJ, unformatCNPJ } from "../_shared/cnpj.ts";
 import { getClientIp, checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { nascimentoConfere } from "../_shared/nascimentoConfere.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,6 +81,22 @@ const NASCIMENTO_NA_CONSULTA = {
     return `${dia}/${mes}/${ano}`;
   },
 };
+
+// OS-343: a chamada traz o login de uma conta de verdade? A chave pública (anônima)
+// também chega como "Bearer", então não basta ter o cabeçalho: o token tem de ser de
+// um usuário. Qualquer falha na conferência vale "não": a resposta fica como antes.
+// deno-lint-ignore no-explicit-any
+async function chamadaDeUsuarioLogado(supabase: any, req: Request): Promise<boolean> {
+  const auth = req.headers.get('Authorization') ?? '';
+  const jwt = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!jwt) return false;
+  try {
+    const { data, error } = await supabase.auth.getUser(jwt);
+    return !error && !!data?.user?.id;
+  } catch (_) {
+    return false;
+  }
+}
 
 // 'aaaa-mm-dd' de uma data que existe, não é futura e não é antes de 1900.
 function nascimentoValido(iso: string): boolean {
@@ -259,8 +276,21 @@ serve(async (req) => {
         if (!name) return json({ ok: false, reason: 'unavailable' });
         // Só o nome. A API devolve nascimento; a data que a pessoa digitou serviu só
         // para a consulta e não passa daqui.
+        // OS-343: quando a data veio E quem pergunta está logado numa conta (a etapa
+        // do rosto do comprador), a resposta diz também se a data BATE com a da base
+        // (`nascimento_confere`: true, false, ou null quando a base não devolveu data).
+        // Sem login (o cadastro de produtor, ou qualquer um com a chave pública), a
+        // resposta fica exatamente como antes: a página é pública e não pode virar um
+        // "confere CPF com data de nascimento" para quem quiser. A data da base nunca
+        // sai daqui.
+        const comConferencia = nascimento ? await chamadaDeUsuarioLogado(supabase, req) : false;
+        const confere = comConferencia ? nascimentoConfere(data, nascimento!) : null;
         const conferencia = await gravarFicha(supabase, digits);
-        return json({ ok: true, type: 'cpf', data: { legal_name: name }, ...(conferencia ? { conferencia } : {}) });
+        return json({
+          ok: true, type: 'cpf', data: { legal_name: name },
+          ...(comConferencia ? { nascimento_confere: confere } : {}),
+          ...(conferencia ? { conferencia } : {}),
+        });
       }
 
       const d = data?.data ?? {};

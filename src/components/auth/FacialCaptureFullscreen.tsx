@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Loader2, RefreshCw, ScanFace, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -23,6 +24,15 @@ interface FacialCaptureFullscreenProps {
   onDone: () => void;
   // fechou/pulou -> equivale ao "Agora não" do convite
   onSkip: () => void;
+  // OS-343: com a chave da facial obrigatória LIGADA (`src/lib/facialObrigatoria.ts`)
+  // esta tela não oferece mais "pular": as três saídas viram "Voltar", e quem
+  // chama decide para onde (o convite, que tem o caminho pelo celular e, depois
+  // de uma tentativa, o "não consigo"). Desligada (o padrão), nada muda.
+  obrigatoria?: boolean;
+  // OS-343: quem manda a foto. Padrão: o cliente do site (a sessão do navegador).
+  // A página do celular (`/facial/:token`) passa um cliente PRÓPRIO, só em memória,
+  // para nunca tocar na sessão que o navegador já tenha.
+  cliente?: SupabaseClient;
 }
 
 // ESM + wasm do MediaPipe direto do CDN (sem dependência nova no bundle). Import
@@ -82,7 +92,7 @@ async function readEdgeError(error: unknown): Promise<string | null> {
   }
 }
 
-const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDone, onSkip }) => {
+const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDone, onSkip, obrigatoria = false, cliente }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<MpFaceDetector | null>(null);
@@ -260,7 +270,7 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
     if (!photo) return;
     setStage('sending');
     try {
-      const { data, error } = await supabase.functions.invoke('facial-enroll', {
+      const { data, error } = await (cliente ?? supabase).functions.invoke('facial-enroll', {
         body: { photo_base64: photo },
       });
       // Em status != 2xx o supabase-js entrega um erro genérico ("non-2xx status")
@@ -301,8 +311,17 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
   // então `inset-0` volta a ser a viewport. Só a árvore de renderização muda: o
   // componente continua filho do wizard em estado/props, então onDone/onSkip
   // seguem iguais.
+  //
+  // ⚠️ `pointer-events-auto` NO PORTAL (OS-343, 29/10/2026): dentro do modal da
+  // compra (AuthModalV2, um Dialog do Radix), o Radix põe `pointer-events: none`
+  // no <body> enquanto o modal está aberto, e este portal mora no <body>, FORA do
+  // conteúdo do modal. Resultado: nenhum botão desta tela respondia ao toque na
+  // compra ("Tirar foto", "Agora não", o X). O banco mostrava isso desde 29/09:
+  // 352 convites mostrados na compra e ZERO rostos concluídos por ela, contra 26
+  // pela página /login (sem modal). Para o Radix o portal continua "dentro" do
+  // modal (o evento sobe pela árvore do React), então tocar aqui não fecha nada.
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-white">
+    <div className="pointer-events-auto fixed inset-0 z-[100] flex flex-col bg-neutral-950 text-white">
       {/* topo */}
       <div className="relative z-20 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-3">
         <div className="flex items-center gap-2 text-sm font-medium">
@@ -383,7 +402,7 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
             <p className="text-sm text-white/80">{cameraError}</p>
             <Button type="button" variant="secondary" size="lg" onClick={handleClose}>
-              Continuar sem facial
+              {obrigatoria ? 'Voltar' : 'Continuar sem facial'}
             </Button>
           </div>
         )}
@@ -453,7 +472,7 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
               onClick={handleClose}
               className="w-full text-sm text-white/60 transition-colors hover:text-white"
             >
-              Agora não
+              {obrigatoria ? 'Voltar' : 'Agora não'}
             </button>
           </>
         )}
@@ -485,7 +504,7 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
               onClick={handleClose}
               className="w-full text-sm text-white/60 transition-colors hover:text-white"
             >
-              Pular por enquanto
+              {obrigatoria ? 'Voltar' : 'Pular por enquanto'}
             </button>
           </>
         )}
