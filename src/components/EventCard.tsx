@@ -100,12 +100,19 @@ const EventCard = ({ event, index = 0 }: EventCardProps) => {
 
             {/* Price */}
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">A partir de</p>
-                <p className="font-display font-bold text-xl text-primary">
-                  {formatPrice(event.minPrice)}
-                </p>
-              </div>
+              {event.gratuito ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Ingresso</p>
+                  <p className="font-display font-bold text-xl text-primary">Gratuito</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-muted-foreground">A partir de</p>
+                  <p className="font-display font-bold text-xl text-primary">
+                    {formatPrice(event.minPrice)}
+                  </p>
+                </div>
+              )}
               <div className="px-4 py-2 bg-secondary rounded-lg text-sm font-medium text-secondary-foreground group-hover:bg-gradient-to-r group-hover:from-[hsl(250,85%,60%)] group-hover:to-[hsl(330,85%,60%)] group-hover:text-primary-foreground transition-all">
                 Ver Ingressos
               </div>

@@ -131,7 +131,12 @@ function ProximoEvento({ evento }: { evento: EventData }) {
             </span>
           </p>
           <div className="mt-auto flex items-end justify-between gap-4 pt-2">
-            {evento.minPrice > 0 ? (
+            {evento.gratuito ? (
+              <div>
+                <p className="text-xs text-muted-foreground">Ingresso</p>
+                <p className="font-display text-2xl font-bold text-primary">Gratuito</p>
+              </div>
+            ) : evento.minPrice > 0 ? (
               <div>
                 <p className="text-xs text-muted-foreground">A partir de</p>
                 <p className="font-display text-2xl font-bold text-primary">{preco(evento.minPrice)}</p>

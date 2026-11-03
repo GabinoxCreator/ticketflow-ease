@@ -16,6 +16,8 @@ export interface EventData {
   imageUrl: string;
   minPrice: number;
   maxPrice: number;
+  /** Só ingresso de R$ 0 à venda: o cartão diz "Ingresso gratuito" (OS-366). */
+  gratuito?: boolean;
   totalTickets: number;
   soldTickets: number;
   isHot: boolean;
