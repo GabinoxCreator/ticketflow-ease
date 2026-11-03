@@ -1,9 +1,13 @@
-import { useState } from 'react';
-import { CalendarDays, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useQueries } from '@tanstack/react-query';
+import { CalendarDays, ExternalLink, Layers, Sparkles } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { EventListItem } from '@/components/producer/EventListItem';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEvents } from '@/hooks/useEvents';
+import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { tituloSemSessao, type InfoDaLista } from '@/hooks/useListaDeAlunos';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,9 +62,72 @@ function EmptyState({
   );
 }
 
+type EventoDaLista = NonNullable<ReturnType<typeof useEvents>['events']>[number];
+
+/** Sessões de uma mesma lista de alunos (o Balé: duas sessões, uma página). */
+function GrupoDeSessoes({ info, sessoes, onDelete }: {
+  info: InfoDaLista;
+  sessoes: EventoDaLista[];
+  onDelete: (id: string) => void;
+}) {
+  const titulo = info.pagina_titulo || tituloSemSessao(sessoes[0]?.title ?? '');
+  return (
+    <div className="rounded-2xl border border-primary/20 bg-primary/[0.03] p-3 md:p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="min-w-0">
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <Layers className="w-3.5 h-3.5" /> Um evento, {sessoes.length} sessões
+          </p>
+          <h3 className="font-display text-lg font-bold truncate">{titulo}</h3>
+        </div>
+        {info.pagina_slug && (
+          <Link
+            to={`/evento/${info.pagina_slug}`}
+            target="_blank"
+            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+          >
+            Ver a página <ExternalLink className="w-3.5 h-3.5" />
+          </Link>
+        )}
+      </div>
+      {sessoes.map((event) => (
+        <EventListItem key={event.id} event={event} onDelete={onDelete} />
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardEventos() {
   const { events, activeEvents, pastEvents, draftEvents, isLoading, deleteEvent } = useEvents();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Evento com mapa pode ser sessão de uma lista de alunos: as sessões da mesma
+  // lista aparecem juntas, como um evento só (ajuste da Doca 347).
+  const comMapa = useMemo(
+    () => (events ?? []).filter((e: any) => e.event_type === 'mesa' || e.event_type === 'hibrido'),
+    [events],
+  );
+  const listas = useQueries({
+    queries: comMapa.map((e) => ({
+      queryKey: ['lista-alunos', e.id],
+      staleTime: 60_000,
+      retry: 1,
+      queryFn: async (): Promise<InfoDaLista> => {
+        const { data, error } = await (supabasePublic as any).rpc('evento_lista_info', { _event_id: e.id });
+        if (error) throw error;
+        return (data as InfoDaLista) ?? { tem_lista: false };
+      },
+    })),
+  });
+  const listaDoEvento = useMemo(() => {
+    const m = new Map<string, InfoDaLista>();
+    comMapa.forEach((e, i) => {
+      const info = listas[i]?.data;
+      if (info?.tem_lista && info.lista_id) m.set(e.id, info);
+    });
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comMapa, listas.map((q) => q.dataUpdatedAt).join(',')]);
 
   const handleDelete = (id: string) => setDeleteId(id);
 
@@ -90,16 +157,41 @@ export default function DashboardEventos() {
       return <EmptyState title={emptyTitle} message={emptyMessage} />;
     }
 
+    // Sessões da mesma lista entram juntas, no lugar da primeira delas.
+    const jaNoGrupo = new Set<string>();
     return (
       <div className="space-y-4">
-        {eventList.map((event) => (
-          <EventListItem key={event.id} event={event} onDelete={handleDelete} />
-        ))}
+        {eventList.map((event) => {
+          if (jaNoGrupo.has(event.id)) return null;
+          const info = listaDoEvento.get(event.id);
+          // Na ordem da sessão (as duas nascem com o mesmo created_at).
+          const numero = (id: string) => info?.sessoes?.find((x) => x.event_id === id)?.sessao ?? 99;
+          const sessoes = info
+            ? eventList.filter((e) => listaDoEvento.get(e.id)?.lista_id === info.lista_id)
+                .sort((a, b) => numero(a.id) - numero(b.id))
+            : [];
+          if (info && sessoes.length > 1) {
+            sessoes.forEach((e) => jaNoGrupo.add(e.id));
+            return <GrupoDeSessoes key={`lista-${info.lista_id}`} info={info} sessoes={sessoes} onDelete={handleDelete} />;
+          }
+          return <EventListItem key={event.id} event={event} onDelete={handleDelete} />;
+        })}
       </div>
     );
   };
 
-  const totalCount = events?.length || 0;
+  // As sessões de uma lista contam como um evento só.
+  const contar = (lista: typeof events) => {
+    const vistas = new Set<string>();
+    let n = 0;
+    for (const e of lista ?? []) {
+      const l = listaDoEvento.get(e.id)?.lista_id;
+      if (l) { if (vistas.has(l)) continue; vistas.add(l); }
+      n += 1;
+    }
+    return n;
+  };
+  const totalCount = contar(events);
 
   return (
     <ProducerLayout>
@@ -134,21 +226,21 @@ export default function DashboardEventos() {
               className="min-w-0 text-[11px] sm:text-sm py-2 px-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary/20 data-[state=active]:to-accent/20 data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-primary/30"
             >
               <span className="truncate">Ativos</span>
-              <span className="block sm:inline sm:ml-1.5 opacity-70">({activeEvents.length})</span>
+              <span className="block sm:inline sm:ml-1.5 opacity-70">({contar(activeEvents)})</span>
             </TabsTrigger>
             <TabsTrigger
               value="drafts"
               className="min-w-0 text-[11px] sm:text-sm py-2 px-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary/20 data-[state=active]:to-accent/20 data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-primary/30"
             >
               <span className="truncate">Rascunhos</span>
-              <span className="block sm:inline sm:ml-1.5 opacity-70">({draftEvents.length})</span>
+              <span className="block sm:inline sm:ml-1.5 opacity-70">({contar(draftEvents)})</span>
             </TabsTrigger>
             <TabsTrigger
               value="past"
               className="min-w-0 text-[11px] sm:text-sm py-2 px-1.5 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary/20 data-[state=active]:to-accent/20 data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-primary/30"
             >
               <span className="truncate">Passados</span>
-              <span className="block sm:inline sm:ml-1.5 opacity-70">({pastEvents.length})</span>
+              <span className="block sm:inline sm:ml-1.5 opacity-70">({contar(pastEvents)})</span>
             </TabsTrigger>
             <TabsTrigger
               value="all"

@@ -3,6 +3,8 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { Loader2, ArrowLeft, Minus, Plus, Maximize2, Minimize2 } from 'lucide-react';
 import { useEvent } from '@/hooks/useEvents';
 import EventDetailsSeated from './EventDetailsSeated';
+import { EntradaDaPagina } from '@/components/seated/EntradaDaPagina';
+import type { PaginaDaLista } from '@/hooks/useListaDeAlunos';
 import { Button } from '@/components/ui/button';
 import { formatEventDate } from '@/lib/eventTime';
 import { useEventPixel } from '@/hooks/useEventPixel';
@@ -71,6 +73,19 @@ const EventMapPage = () => {
   }
 
   if (!event) return <Navigate to="/" replace />;
+
+  // Página única de uma lista de alunos (Balé): o CPF do aluno leva ao mapa da
+  // sessão dele; este link não tem mapa próprio.
+  const pagina = (event as any)._pagina as PaginaDaLista | undefined;
+  if (pagina) {
+    return (
+      <EntradaDaPagina
+        eventId={event.id}
+        evento={{ ...event, title: pagina.titulo || event.title, slug: pagina.slug }}
+        pagina={pagina}
+      />
+    );
+  }
 
   const assentosNoMapa = ((event as any).map_snapshot?.seats?.length ?? 0) as number;
   const grande = assentosNoMapa > MAPA_GRANDE;

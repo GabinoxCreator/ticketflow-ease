@@ -28,7 +28,19 @@ export interface InfoDaLista {
   abre_em?: string;
   /** Número da sessão DESTE evento na lista. */
   sessao?: number;
+  /** A página única das sessões (link e título), quando a lista tem uma. */
+  pagina_slug?: string | null;
+  pagina_titulo?: string | null;
   sessoes?: SessaoDaLista[];
+}
+
+/** A página única de uma lista: um link só para as sessões (ajuste da Doca 347). */
+export interface PaginaDaLista {
+  lista_id: string;
+  slug: string;
+  titulo: string | null;
+  /** A 1ª sessão publicada: é ela que dá capa, local e descrição à página. */
+  event_id: string;
 }
 
 export interface AlunoConferido {
@@ -51,7 +63,7 @@ export type RecusaDaConferencia = 'nao_encontrado' | 'muitas_tentativas' | 'sem_
 type RpcSemTipo = (
   fn: string,
   args: Record<string, unknown>,
-) => Promise<{ data: unknown; error: { message?: string } | null }>;
+) => Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
 
 /** Se o evento tem lista de alunos, e os horários e sessões dela. Sem dado de pessoa. */
 export function useListaDoEvento(eventId: string | undefined) {
@@ -68,6 +80,23 @@ export function useListaDoEvento(eventId: string | undefined) {
       return (data as InfoDaLista) ?? { tem_lista: false };
     },
   });
+}
+
+/** Do link da página para a lista e a 1ª sessão. Link que não é de página: null. */
+export async function buscarPaginaDaLista(slug: string): Promise<PaginaDaLista | null> {
+  const rpc = supabasePublic.rpc as unknown as RpcSemTipo;
+  const { data, error } = await rpc.call(supabasePublic, 'lista_pela_pagina', { _slug: slug });
+  // Antes da migration a função não existe (PGRST202): o link só não é página.
+  // Qualquer outro erro (tempo esgotado, 5xx às 8h da abertura) sobe, para o
+  // react-query tentar de novo em vez de guardar "não é página".
+  if (error) {
+    if (error.code === 'PGRST202') return null;
+    throw new Error(error.message || 'lista_pela_pagina');
+  }
+  if (!data) return null;
+  const r = data as Record<string, unknown>;
+  if (r.tem_pagina !== true || !r.event_id || !r.slug) return null;
+  return r as unknown as PaginaDaLista;
 }
 
 const chave = (listaId: string) => `festpag:aluno:${listaId}`;
@@ -120,6 +149,12 @@ export async function conferirAluno(
   if (r.ok === true) return { ok: true, aluno: r as unknown as AlunoConferido };
   const motivo = (r.motivo as RecusaDaConferencia) ?? 'falha';
   return { ok: false, motivo, tenteDeNovoEm: (r.tente_de_novo_em as string) ?? undefined };
+}
+
+/** "Alice através da Dança · 1ª sessão" -> "Alice através da Dança". */
+export function tituloSemSessao(t: string): string {
+  const i = t.lastIndexOf(' · ');
+  return i > 0 && /sessão$/i.test(t) ? t.slice(0, i) : t;
 }
 
 /** "09/11 às 8h" no relógio de Brasília. */
