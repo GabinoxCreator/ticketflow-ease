@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
+import { buscarPaginaDaLista } from '@/hooks/useListaDeAlunos';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getEventEndInstant } from '@/lib/eventTime';
@@ -295,7 +296,21 @@ export function useEvent(idOrSlug: string | undefined) {
       let { data, error } = await lookup(supabasePublic);
       if (error) throw error;
 
-      // 2) Não achou? Pode ser evento em RASCUNHO. A política pública de
+      // 2) Não é link de evento publicado: pode ser a página única de uma lista de alunos
+      // (o Balé: um link só para as duas sessões). A página mostra a 1ª sessão
+      // com o título da página, e `_pagina` avisa as telas de que é a página.
+      // Vem antes da releitura autenticada (que pode esperar o token): o link de
+      // uma página nunca é de evento, nem em rascunho (o gatilho de link reserva).
+      if (!data && !isUuid) {
+        const pagina = await buscarPaginaDaLista(idOrSlug);
+        if (pagina) {
+          const daPagina = await supabasePublic.from('events').select(select).eq('id', pagina.event_id).maybeSingle();
+          if (daPagina.error) throw daPagina.error;
+          if (daPagina.data) data = { ...(daPagina.data as any), _pagina: pagina };
+        }
+      }
+
+      // 3) Não achou? Pode ser evento em RASCUNHO. A política pública de
       // `events` só enxerga status='published'; o dono (producer_id = auth.uid())
       // e o admin só aparecem pelo client AUTENTICADO. Sem esta segunda tentativa,
       // o próprio produtor levava "Evento não encontrado" no painel e na tela de

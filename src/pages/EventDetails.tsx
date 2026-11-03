@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import { cupomDaUrl, guardarCupomDoLink } from '@/lib/cupomDoLink';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
@@ -21,6 +21,7 @@ import Footer from '@/components/Footer';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
+import { tituloSemSessao, useListaDoEvento, type PaginaDaLista } from '@/hooks/useListaDeAlunos';
 import { getEventEndInstant, horaCurta } from '@/lib/eventTime';
 import { isLotOpenForSale } from '@/lib/lot-availability';
 import { safeRandomUUID } from '@/lib/uuid';
@@ -109,7 +110,19 @@ function semRepetirOGrupo(nomeDoLote: string, tituloDoGrupo: string): string {
 
 const EventDetails = () => {
   const { id: slugOrId } = useParams<{ id: string }>();
-  const { data: event, isLoading: eventLoading } = useEvent(slugOrId);
+  const { data: eventoLido, isLoading: eventLoading } = useEvent(slugOrId);
+  // Página única de uma lista de alunos (Balé, ajuste da Doca 347): o link da
+  // página abre a 1ª sessão com o título da página, e os links de cada sessão
+  // levam para ela (lá embaixo, depois dos hooks).
+  const pagina = (eventoLido as any)?._pagina as PaginaDaLista | undefined;
+  const comMapa = (eventoLido as any)?.event_type === 'mesa' || (eventoLido as any)?.event_type === 'hibrido';
+  const { data: listaDoEvento } = useListaDoEvento(comMapa ? (eventoLido as any)?.id : undefined);
+  const event = useMemo(
+    () => (pagina && eventoLido
+      ? { ...eventoLido, title: pagina.titulo || tituloSemSessao(eventoLido.title), slug: pagina.slug }
+      : eventoLido),
+    [eventoLido, pagina],
+  );
   const eventId: string | undefined = (event as any)?.id;
   const ticketLimit = getTicketLimitForEvent(eventId); // null = sem limite
   const maxPerLot = ticketLimit ?? 10;
@@ -280,6 +293,15 @@ const EventDetails = () => {
   // A loja só existe na rota do Marcel: é onde o servidor sabe cobrar produto.
   // Também ANTES dos returns (é hook). Falha de leitura vira loja vazia.
   const { data: loja } = useVitrineDaLoja(eventId, (event as any)?.payment_provider === 'marcel');
+
+  const paginaDaSessao = !pagina && (event as any)?.status === 'published' && listaDoEvento?.pagina_slug
+    && listaDoEvento.pagina_slug !== slugOrId && listaDoEvento.pagina_slug !== (event as any)?.slug
+    ? listaDoEvento.pagina_slug : null;
+  const horariosDaPagina = pagina && (listaDoEvento?.sessoes?.length ?? 0) > 1
+    ? listaDoEvento!.sessoes!.map((s) => `${s.sessao}ª sessão ${horaCurta(s.time)}`).join(' · ')
+    : null;
+
+  if (paginaDaSessao) return <Navigate to={`/evento/${paginaDaSessao}${window.location.search}`} replace />;
 
   if (isLoading) {
     return (
@@ -633,10 +655,13 @@ const EventDetails = () => {
                       <Calendar className="w-4 h-4 shrink-0" />
                       <span className="text-sm capitalize break-words">{formatDate(event.date)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 shrink-0" />
-                      <span className="text-sm">{horaCurta(event.time)}</span>
-                    </div>
+                    {/* Na página única, sem a lista carregada não se mostra só o horário da 1ª sessão. */}
+                    {(!pagina || horariosDaPagina) && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 shrink-0" />
+                        <span className="text-sm">{horariosDaPagina ?? horaCurta(event.time)}</span>
+                      </div>
+                    )}
                   </div>
 
                   {!isEventFinished && (
@@ -710,6 +735,7 @@ const EventDetails = () => {
                   eventSlugOrId={event.slug ?? event.id}
                   description={(event as any).mesa_reserva_description}
                   seatNoun={(event as any).seat_noun}
+                  variasSessoes={!!pagina}
                 />
               )}
 

@@ -24,7 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import { horaCurta } from '@/lib/eventTime';
 import {
-  conferirAluno, guardarAluno, quandoAbre, sessoesDoAluno,
+  conferirAluno, guardarAluno, quandoAbre, sessoesDoAluno, tituloSemSessao,
   type AlunoConferido, type InfoDaLista, type SessaoDaLista,
 } from '@/hooks/useListaDeAlunos';
 
@@ -46,6 +46,9 @@ interface Props {
   onAluno: (a: AlunoConferido | null) => void;
   /** A família escolheu a sessão em que já está: mostra o mapa. */
   onSessaoAtual: () => void;
+  /** Entrada da página única (um link para as sessões): não há sessão "deste
+   *  link", e o toque na sessão sempre leva ao mapa dela. */
+  naPagina?: boolean;
 }
 
 const CHAVE_COMO_FUNCIONA = 'festpag:como-funciona-lista';
@@ -53,12 +56,6 @@ const CHAVE_COMO_FUNCIONA = 'festpag:como-funciona-lista';
 function diaMes(date: string | undefined): string {
   const [, mes, dia] = (date ?? '').split('-');
   return dia && mes ? `${dia}/${mes}` : '';
-}
-
-/** "Alice através da Dança · 1ª sessão" -> "Alice através da Dança". */
-function tituloSemSessao(t: string): string {
-  const i = t.lastIndexOf(' · ');
-  return i > 0 && /sessão$/i.test(t) ? t.slice(0, i) : t;
 }
 
 const PASSOS = ['CPF', 'Sessão', 'Poltronas', 'Pagamento'] as const;
@@ -148,7 +145,7 @@ function ComoFunciona({ aberto, onFechar, limite }: { aberto: boolean; onFechar:
   );
 }
 
-export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessaoAtual }: Props) {
+export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessaoAtual, naPagina = false }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [cpf, setCpf] = useState('');
@@ -162,10 +159,10 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
   const limite = lista.limite_por_aluno ?? 4;
   // Só as sessões em que o aluno dança; a deste link pode não ser uma delas.
   const permitidas = sessoesDoAluno(lista, aluno);
-  const sessaoErrada = !!aluno && lista.sessao != null && !(aluno.sessoes ?? []).includes(lista.sessao);
+  const sessaoErrada = !naPagina && !!aluno && lista.sessao != null && !(aluno.sessoes ?? []).includes(lista.sessao);
   const numeros = (aluno?.sessoes ?? []).slice().sort((a, b) => a - b);
   const sessoes = lista.sessoes ?? [];
-  const titulo = tituloSemSessao(sessoes[0]?.title ?? evento.title);
+  const titulo = lista.pagina_titulo || tituloSemSessao(sessoes[0]?.title ?? evento.title);
   const dia = diaMes(sessoes[0]?.date);
   const cidade = evento.city && evento.state ? `${evento.city}/${evento.state}` : evento.city;
   const local = [evento.venue, cidade].filter(Boolean).join(' · ');
@@ -223,7 +220,7 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
   }, [user, conferirAoEntrar]);
 
   const escolherSessao = (s: SessaoDaLista) => {
-    if (s.event_id === eventId) { onSessaoAtual(); return; }
+    if (!naPagina && s.event_id === eventId) { onSessaoAtual(); return; }
     navigate(`/evento/${s.slug ?? s.event_id}/mapa`);
   };
 
@@ -244,7 +241,7 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => navigate(`/evento/${evento.slug ?? eventId}`)}
+            onClick={() => navigate(`/evento/${lista.pagina_slug || evento.slug || eventId}`)}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
             aria-label="Voltar"
           >

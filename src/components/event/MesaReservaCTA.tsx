@@ -12,14 +12,18 @@ interface Props {
   description?: string | null;
   /** Como o produtor chama o produto: "mesa" (padrão) ou "camarote". */
   seatNoun?: string | null;
+  /** Página única de várias sessões: `eventId` é só a 1ª, então "Esgotado"
+   *  diria a verdade de uma sessão para quem é de outra. O mapa de cada sessão
+   *  mostra o que está livre nela. */
+  variasSessoes?: boolean;
 }
 
-export const MesaReservaCTA = ({ eventId, eventSlugOrId, description, seatNoun }: Props) => {
+export const MesaReservaCTA = ({ eventId, eventSlugOrId, description, seatNoun, variasSessoes = false }: Props) => {
   const { data: sectors, isLoading } = useEventSeatAvailability(eventId);
   const v = vocabularioAssento(seatNoun);
 
   const totalAvailable = (sectors ?? []).reduce((a, s) => a + s.available, 0);
-  const allSoldOut = !isLoading && (sectors?.length ?? 0) > 0 && totalAvailable === 0;
+  const allSoldOut = !variasSessoes && !isLoading && (sectors?.length ?? 0) > 0 && totalAvailable === 0;
 
   return (
     <motion.section
