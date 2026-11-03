@@ -41,13 +41,15 @@ export interface HoldOpcoes {
   onErro?: (codigo: string) => void;
 }
 
-/** Recusas da trava por aluno (OS-346). O servidor manda o código; a tela, o texto. */
-export const CODIGOS_DA_TRAVA = ['aluno_obrigatorio', 'limite_do_aluno', 'venda_nao_abriu'] as const;
+/** Recusas da trava por aluno (OS-346, OS-365). O servidor manda o código; a tela, o texto. */
+export const CODIGOS_DA_TRAVA = ['aluno_obrigatorio', 'limite_do_aluno', 'venda_nao_abriu', 'sessao_do_aluno'] as const;
 export type CodigoDaTrava = (typeof CODIGOS_DA_TRAVA)[number];
 export const MENSAGEM_DA_TRAVA: Record<CodigoDaTrava, string> = {
-  aluno_obrigatorio: 'Informe de novo o CPF e a data de nascimento do aluno.',
+  aluno_obrigatorio: 'Informe de novo o CPF do aluno.',
   limite_do_aluno: 'Os convites deste aluno já foram usados. Os que você já comprou estão em Meus Ingressos.',
   venda_nao_abriu: 'A venda para este aluno ainda não abriu.',
+  // Só aparece sem `onErro`; no mapa do balé o recado tem o nome e a sessão.
+  sessao_do_aluno: 'Os convites deste aluno são para a sessão em que dança.',
 };
 
 export function useSeatHold(eventId: string | undefined, userId: string | undefined) {
@@ -240,10 +242,13 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
     return () => {
       const cur = holdRef.current;
       if (!isProceedingRef.current && cur && eventId) {
-        supabase.rpc('release_seats', {
+        // `.then` é o que dispara: sem ele o construtor do supabase não manda
+        // nada, e a poltrona ficava presa no servidor enquanto a tela já tinha
+        // esquecido a reserva (OS-365; no balé, contava nos 4 do aluno).
+        void supabase.rpc('release_seats', {
           _event_id: eventId,
           _hold_token: cur.token,
-        });
+        }).then(() => undefined);
         sessionStorage.removeItem(storageKey(eventId));
       }
     };

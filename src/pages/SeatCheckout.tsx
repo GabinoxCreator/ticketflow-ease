@@ -34,9 +34,10 @@ import { SeatOrderSummary } from '@/components/checkout/SeatOrderSummary';
 import { validateCPF } from '@/utils/cpfValidator';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
-import { AvisoTaxaNaoReembolsavel } from '@/components/legal/AvisoTaxaNaoReembolsavel';
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 import { useFacialPendente } from '@/hooks/useFacialPendente';
+import { useListaDoEvento, lerAluno } from '@/hooks/useListaDeAlunos';
+import { horaCurta } from '@/lib/eventTime';
 
 
 type Step = 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
@@ -57,6 +58,8 @@ interface EventSummary {
   payment_provider: string | null;
   slug: string | null;
   date: string;
+  time?: string | null;
+  image_url?: string | null;
   venue: string;
   city: string;
   state: string;
@@ -127,6 +130,11 @@ export default function SeatCheckout() {
   const [step, setStep] = useState<Step | null>(null);
 
   const [event, setEvent] = useState<EventSummary | null>(null);
+  // Lista de alunos (OS-365): a faixa de cima mostra de quem são os convites.
+  const { data: listaDoEvento } = useListaDoEvento(eventId);
+  const temLista = !!listaDoEvento?.tem_lista;
+  const alunoDaLista = useMemo(() => (temLista ? lerAluno(listaDoEvento?.lista_id) : null), [temLista, listaDoEvento?.lista_id]);
+  const sessaoDaLista = (listaDoEvento?.sessoes ?? []).find((x) => x.event_id === eventId) ?? null;
   // Default 'marcel' desde 08/09/2026: todo evento nasce na rota do Marcel
   // (default da coluna) e os eventos futuros foram virados. Só evento passado
   // ainda diz 'mercadopago', e esse não vende mais.
@@ -158,7 +166,7 @@ export default function SeatCheckout() {
       setLoadingEvent(true);
       const { data: ev } = await supabase
         .from('events')
-        .select('id, title, slug, date, venue, city, state, payment_provider, seat_noun')
+        .select('id, title, slug, date, time, venue, city, state, payment_provider, seat_noun, image_url')
         .eq('id', eventId)
         .maybeSingle();
       if (ev) setEvent(ev as EventSummary);
@@ -329,8 +337,20 @@ export default function SeatCheckout() {
         },
       });
       if (error) {
+        // Resposta 4xx/5xx: o `invoke` deixa `data` vazio e o código vem no
+        // corpo. Sem ler o corpo, "reserva expirou" e "poltrona tomada" (409)
+        // viravam "Não foi possível processar" (OS-365).
         const corpo = await corpoDoErroDaEdge(error);
-        if (ehTravaDoAluno(corpo?.error)) { handleTravaDoAluno(corpo.error); return; }
+        const codigo = corpo?.error;
+        if (ehTravaDoAluno(codigo)) { handleTravaDoAluno(codigo); return; }
+        if (typeof codigo === 'string' && HONEST_HOLD_ERRORS.has(codigo)) {
+          handleHoldErrorRedirect(codigo);
+          return;
+        }
+        if (codigo === 'invalid_cpf' && typeof corpo?.message === 'string') {
+          toast.error(corpo.message);
+          return;
+        }
         throw error;
       }
       if (data?.error) {
@@ -532,15 +552,50 @@ export default function SeatCheckout() {
         <Header />
         <main className="pt-24 pb-16 max-w-2xl mx-auto px-4">
           <div className="flex items-center justify-between mb-4 gap-3">
+            {/* Evento com lista e pagamento já começado (PIX gerado, cartão em
+              * análise): sem "Voltar ao mapa". Voltando, a família perdia o QR e
+              * a reserva ficava presa ao pedido por 15 min (revisão da OS-365). */}
+            {temLista && (orderId || step === 'pix' || step === 'awaiting') ? <span /> : (
             <button
               type="button"
-              onClick={() => navigate(`/evento/${eventId}`)}
+              onClick={() => {
+                // Evento com lista: volta ao mapa COM a reserva (lá dá para
+                // mudar as poltronas ou seguir para o pagamento).
+                if (temLista) { markProceeding(); navigate(`/evento/${event.slug ?? eventId}/mapa`); return; }
+                navigate(`/evento/${eventId}`);
+              }}
               className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Voltar ao mapa
             </button>
+            )}
             {hold && !isTerminalStep && <ReservedPill expiresAt={hold.expiresAt} />}
           </div>
+
+          {/* Lista de alunos (OS-365): de quem são os convites e para qual sessão. */}
+          {temLista && alunoDaLista && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative mb-4 overflow-hidden rounded-2xl bg-[#0b0a1a] text-white"
+            >
+              {event.image_url && (
+                <div className="absolute inset-0 bg-cover bg-center opacity-35 blur-md scale-110" style={{ backgroundImage: `url(${event.image_url})` }} aria-hidden="true" />
+              )}
+              <div className="relative flex items-center gap-3 p-3">
+                {event.image_url && (
+                  <img src={event.image_url} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover ring-1 ring-white/20" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65">Convites de</p>
+                  <p className="font-display text-lg font-bold leading-tight text-amber-100 truncate">{alunoDaLista.primeiro_nome}</p>
+                  <p className="text-xs text-white/75 truncate">
+                    {sessaoDaLista ? `${sessaoDaLista.sessao}ª sessão · ` : ''}{event.date.split('-').reverse().slice(0, 2).join('/')}{event.time ? ` · ${horaCurta(event.time)}` : ''}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           <div className="rounded-2xl border border-border bg-card p-5 mb-5">
             {/* No momento de digitar cartão ou ler o QR, a conta já foi conferida:
@@ -631,7 +686,7 @@ export default function SeatCheckout() {
                       <p className="font-display font-bold text-lg leading-tight">
                         {isStartingPix ? 'Gerando PIX...' : 'Pagar com PIX'}
                       </p>
-                      <p className="text-sm text-white/85 mt-0.5">Aprovação na hora · sem taxas extras</p>
+                      <p className="text-sm text-white/85 mt-0.5">Aprovação na hora</p>
                     </div>
                     <ArrowRight className="w-5 h-5 text-white/80 group-hover:translate-x-1 transition-transform flex-shrink-0" aria-hidden="true" />
                   </div>
@@ -662,7 +717,9 @@ export default function SeatCheckout() {
 
                 {/* Mesmo aviso do checkout de ingresso (21/09/2026) — mesa e
                   * camarote passam pelas mesmas regras. */}
-                {serviceFee > 0 && <AvisoTaxaNaoReembolsavel />}
+                {/* O aviso de que a taxa não volta saiu da tela de pagamento por
+                  * decisão do Gabriel (03/11/2026, OS-365); a regra segue na
+                  * Política de Reembolso, aceita logo abaixo. */}
                 <AvisoDeAceite acao="Ao concluir a compra" documentos={['termos', 'reembolso']} className="pt-1" />
               </motion.div>
             )}
