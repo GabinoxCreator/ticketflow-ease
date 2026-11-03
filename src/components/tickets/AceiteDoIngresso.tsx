@@ -35,6 +35,9 @@ interface Props {
   /** Executa o aceite. Recebe os dados já validados. */
   onAceitar: (dados: { cpf: string; nome?: string; telefone?: string }) => Promise<void>;
   processando: boolean;
+  /** Evento com entrada pela facial (OS-357): quem chama pede a facial, obrigatória; o
+   *  cadastro termina na senha, sem o convite "opcional" do FluxoConta. */
+  semFacial?: boolean;
 }
 
 const formatCpf = (v: string) =>
@@ -43,7 +46,7 @@ const formatCpf = (v: string) =>
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
-export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceitar, processando }: Props) {
+export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceitar, processando, semFacial = false }: Props) {
   const [etapa, setEtapa] = useState<Etapa>('cpf');
   const [cpf, setCpf] = useState('');
   // O FluxoConta avisa "autenticado" pelo estado do usuário; uma sessão que já
@@ -128,7 +131,7 @@ export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceit
                   : 'Crie a sua conta — pode ser só com o WhatsApp — e o ingresso entra nela na hora.'}
               </p>
               <div className="rounded-2xl border border-border/50 bg-card/60 overflow-hidden">
-                <FluxoConta embutido onFechar={() => setEtapa('cpf')} onAuthenticated={aceitarAgora} />
+                <FluxoConta embutido semFacial={semFacial} onFechar={() => setEtapa('cpf')} onAuthenticated={aceitarAgora} />
               </div>
               {processando && (
                 <p className="text-sm text-muted-foreground text-center inline-flex items-center justify-center gap-2 w-full">

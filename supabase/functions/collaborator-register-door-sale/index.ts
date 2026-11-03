@@ -55,7 +55,7 @@ serve(async (req) => {
 
     const { data: lot } = await supabase
       .from('event_lots')
-      .select(`id, event_id, price, total_quantity, sold_quantity, reserved_quantity, is_active, name, end_date, ${CAMPOS_DO_GRUPO}`)
+      .select(`id, event_id, price, total_quantity, sold_quantity, reserved_quantity, is_active, name, end_date, retirada_publica, ${CAMPOS_DO_GRUPO}`)
       .eq('id', lot_id)
       .maybeSingle();
     if (!lot || lot.event_id !== event_id) {
@@ -70,6 +70,12 @@ serve(async (req) => {
     // pelo preço do par.
     if (ehLoteEmGrupo(lot)) {
       return new Response(JSON.stringify({ error: mensagemSoNoSite(lot.name) }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // Lote do link de cortesia (OS-313) não vende por aqui: ele só sai pela página do
+    // convidado, onde valem a trava de um por pessoa, o CPF conferido e a facial.
+    if (lot.retirada_publica) {
+      return new Response(JSON.stringify({ error: mensagemDoFechado(lot.name, 'so_pelo_link') }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     // Data de fim vencida não vende (OS-106): a mesma regra do site e da maquininha.

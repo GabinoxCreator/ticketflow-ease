@@ -25,6 +25,7 @@ import Financeiro from "./pages/Financeiro";
 import FinanceiroEvento from "./pages/FinanceiroEvento";
 import MeusIngressos from "./pages/MeusIngressos";
 import TransferenciaIngresso from "./pages/TransferenciaIngresso";
+import CortesiaLink from "./pages/CortesiaLink";
 import PedidoStatus from "./pages/PedidoStatus";
 import SeatCheckout from "./pages/SeatCheckout";
 import MinhaConta from "./pages/MinhaConta";
@@ -124,6 +125,11 @@ const App = () => (
                 {/* Link de transferência de ingresso: PÚBLICA de propósito — quem recebe
                     ainda não tem conta, e é esta tela que pede para ela criar. */}
                 <Route path="/transferencia/:token" element={<TransferenciaIngresso />} />
+                {/* Link de cortesia do evento (OS-313): PÚBLICA de propósito, o convidado
+                    chega sem conta, e é esta tela que cria a conta, cadastra o rosto e
+                    entrega o ingresso. Liga-se num evento ligando `retirada_publica` num
+                    lote de preço zero (só a casa liga; o gatilho do banco recusa o resto). */}
+                <Route path="/cortesia/:slug" element={<CortesiaLink />} />
                 {/* Link de abertura de evento (OS-221): PÚBLICA de propósito, o produtor
                     ainda não tem conta; a última etapa pede para criar. */}
                 <Route path="/abrir-evento/:token" element={<AbrirEvento />} />

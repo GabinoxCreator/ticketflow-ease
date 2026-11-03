@@ -66,9 +66,13 @@ serve(async (req) => {
       .maybeSingle();
 
     let loteNome: string | null = null;
+    // Ingresso de lote de retirada pública (OS-356/357): a entrada é pela facial, então a
+    // tela pede a facial logo depois do aceite.
+    let exigeFacial = false;
     if (tk?.lot_id) {
-      const { data: lot } = await admin.from('event_lots').select('name').eq('id', tk.lot_id).maybeSingle();
+      const { data: lot } = await admin.from('event_lots').select('name, retirada_publica').eq('id', tk.lot_id).maybeSingle();
       loteNome = lot?.name ?? null;
+      exigeFacial = lot?.retirada_publica === true;
     }
 
     // Já existe conta com este CPF?
@@ -113,6 +117,7 @@ serve(async (req) => {
         local: ev.venue, cidade: ev.city, estado: ev.state, imagem: ev.image_url,
       } : null,
       ingresso: { lote: loteNome, assento: tk?.seat_label ?? null },
+      exigeFacial,
     });
 
   } catch (e) {

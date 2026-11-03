@@ -278,6 +278,11 @@ verify_jwt = false
 [functions.gestao-reembolso-baixa]
 verify_jwt = false
 
+# Baixa do repasse do produtor dada pela gestão (OS-344): irmã da baixa do reembolso, com
+# o mesmo segredo (x-service-token = GESTAO_BAIXA_TOKEN). Só marca requested → paid.
+[functions.gestao-repasse-baixa]
+verify_jwt = false
+
 # Transferência de ingresso (§4 do framework do Rodeio).
 # O dono inicia e cancela logado — o ingresso é dele, e quem manda é a sessão,
 # nunca um id vindo do navegador.
@@ -350,4 +355,11 @@ verify_jwt = false
 # gerou. Quem chama é o backend do FaceCashless, com o segredo da federação no
 # header x-admin-secret. Nunca pelo navegador do público.
 [functions.carteira-codigo-whatsapp]
+verify_jwt = false
+
+# Retirada de cortesia pelo link público do evento (OS-313, Apresenta Summit).
+# verify_jwt=false porque a página também responde SEM ninguém logado (ação `info`,
+# que só mostra o evento); a ação `retirar` exige o JWT do próprio convidado, lido
+# dentro da função. Nunca emite ingresso para quem não tem sessão.
+[functions.cortesia-link]
 verify_jwt = false

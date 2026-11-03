@@ -29,6 +29,27 @@ interface HoldRpcResult {
   expires_at: string;
 }
 
+type RpcSemTipo = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message?: string } | null }>;
+
+export interface HoldOpcoes {
+  /** Passe da criança conferida (evento com lista de alunos, OS-346). */
+  passe?: string;
+  /** Recebe o código da recusa (`limite_do_aluno`, `venda_nao_abriu`, ...). */
+  onErro?: (codigo: string) => void;
+}
+
+/** Recusas da trava por aluno (OS-346). O servidor manda o código; a tela, o texto. */
+export const CODIGOS_DA_TRAVA = ['aluno_obrigatorio', 'limite_do_aluno', 'venda_nao_abriu'] as const;
+export type CodigoDaTrava = (typeof CODIGOS_DA_TRAVA)[number];
+export const MENSAGEM_DA_TRAVA: Record<CodigoDaTrava, string> = {
+  aluno_obrigatorio: 'Informe de novo o CPF e a data de nascimento do aluno.',
+  limite_do_aluno: 'Os convites deste aluno já foram usados. Os que você já comprou estão em Meus Ingressos.',
+  venda_nao_abriu: 'A venda para este aluno ainda não abriu.',
+};
+
 export function useSeatHold(eventId: string | undefined, userId: string | undefined) {
   const queryClient = useQueryClient();
   const [hold, setHold] = useState<HoldState | null>(null);
@@ -91,17 +112,35 @@ export function useSeatHold(eventId: string | undefined, userId: string | undefi
     async (
       seatIds: string[],
       initialAddons?: Record<string, number>,
+      opcoes?: HoldOpcoes,
     ): Promise<HoldState | null> => {
       if (!eventId || !seatIds.length) return null;
-      const { data, error } = await supabase.rpc('hold_seats', {
-        _event_id: eventId,
-        _seat_ids: seatIds,
-      });
+      // Evento com lista de alunos (OS-346): quem segura é a hold_seats_aluno,
+      // com o passe da criança conferida. A hold_seats de sempre recusa esse
+      // evento no servidor.
+      const { data, error } = opcoes?.passe
+        ? await (supabase.rpc as unknown as RpcSemTipo).call(supabase, 'hold_seats_aluno', {
+            _event_id: eventId,
+            _seat_ids: seatIds,
+            _passe: opcoes.passe,
+          })
+        : await supabase.rpc('hold_seats', {
+            _event_id: eventId,
+            _seat_ids: seatIds,
+          });
       if (error) {
         const msg = error.message || '';
-        if (msg.includes('seats_unavailable')) {
-          toast.error('Alguém pegou esses assentos antes de você');
+        const codigoDaTrava = CODIGOS_DA_TRAVA.find((c) => msg.includes(c));
+        // Com `onErro`, quem mostra o recado é a tela que chamou (no mapa do
+        // balé ele aparece na própria tela, sem cobrir a faixa do aluno).
+        if (codigoDaTrava) {
+          if (!opcoes?.onErro) toast.error(MENSAGEM_DA_TRAVA[codigoDaTrava]);
           queryClient.invalidateQueries({ queryKey: ['event-seats', eventId] });
+          opcoes?.onErro?.(codigoDaTrava);
+        } else if (msg.includes('seats_unavailable')) {
+          if (!opcoes?.onErro) toast.error('Alguém pegou esses assentos antes de você');
+          queryClient.invalidateQueries({ queryKey: ['event-seats', eventId] });
+          opcoes?.onErro?.('seats_unavailable');
         } else if (msg.includes('not_authenticated')) {
           toast.error('Faça login para reservar assentos');
         } else {

@@ -110,27 +110,47 @@ serve(async (req) => {
     );
 
     // ---------- 3. Ingressos do CPF ----------
-    // customer_cpf é gravado só com dígitos em todos os caminhos de venda
-    // (create-mercadopago-pix, process-card-payment, collaborator-reserve-order…),
-    // então o match é exato — mesmo critério do _shared/event-ticket-limits.
+    // O dono do ingresso é o TITULAR (`tickets.holder_cpf`) quando ele está gravado: o
+    // ingresso do acompanhante (OS-357) e o transferido e aceito. Sem titular, vale quem
+    // comprou (`orders.customer_cpf`). Antes só se olhava quem comprou, e o ingresso
+    // passado a outra pessoa queimava com o rosto de quem comprou e barrava o titular.
+    // Os dois CPFs são gravados só com dígitos, então o match é exato.
     // !inner: só ingresso de pedido PAGO conta. 'valid' e 'used' vêm juntos pra
     // distinguir "nunca teve" de "já entrou".
-    let query = supabase
+    const SELECT_INGRESSO = "id, event_id, status, holder_name, created_at, events(id,title), orders!inner(customer_cpf,status)";
+    let porTitular = supabase
       .from("tickets")
-      .select("id, event_id, status, holder_name, created_at, events(id,title), orders!inner(customer_cpf,status)")
+      .select(SELECT_INGRESSO)
       .in("status", ["valid", "used"])
+      .eq("holder_cpf", cpfDigits)
+      .eq("orders.status", "paid");
+    let porComprador = supabase
+      .from("tickets")
+      .select(SELECT_INGRESSO)
+      .in("status", ["valid", "used"])
+      .is("holder_cpf", null) // nenhum ingresso tem titular vazio (conferido 31/10)
       .eq("orders.customer_cpf", cpfDigits)
-      .eq("orders.status", "paid")
-      .order("created_at", { ascending: true });
-    if (eventId) query = query.eq("event_id", eventId);
+      .eq("orders.status", "paid");
+    if (eventId) {
+      porTitular = porTitular.eq("event_id", eventId);
+      porComprador = porComprador.eq("event_id", eventId);
+    }
 
-    const { data: rows, error: ticketsErr } = await query;
+    const [rTitular, rComprador] = await Promise.all([porTitular, porComprador]);
+    const ticketsErr = rTitular.error ?? rComprador.error;
     if (ticketsErr) {
       console.error("[FACIAL-CHECKIN] lookup error", { cpf: cpfLog, event_id: eventId, error: ticketsErr });
       return json({ error: "internal_error" }, 503);
     }
 
-    const tickets = (rows ?? []) as unknown as TicketRow[];
+    // Junta sem repetir (o mesmo ingresso pode ter titular = comprador) e mantém a ordem
+    // de antes: o mais antigo primeiro.
+    const porId = new Map<string, TicketRow>();
+    for (const t of [...(rTitular.data ?? []), ...(rComprador.data ?? [])] as unknown as TicketRow[]) {
+      porId.set(t.id, t);
+    }
+    const tickets = Array.from(porId.values())
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
     if (tickets.length === 0) {
       console.log("[FACIAL-CHECKIN] sem ingresso", { cpf: cpfLog, event_id: eventId });
       return semIngresso("sem_ingresso");

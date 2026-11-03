@@ -157,7 +157,7 @@ serve(async (req) => {
     const lotIds = body.items.map((i) => i.lot_id);
     const { data: lots, error: lotsErr } = await admin
       .from("event_lots")
-      .select(`id, name, price, is_active, event_id, ${CAMPOS_DO_GRUPO}`)
+      .select(`id, name, price, is_active, event_id, retirada_publica, ${CAMPOS_DO_GRUPO}`)
       .in("id", lotIds)
       .eq("event_id", body.event_id);
     if (lotsErr || !lots) throw new Error("lots_query_failed");
@@ -172,6 +172,8 @@ serve(async (req) => {
       // pelo preço do par.
       const loteLido: any = lot;
       if (ehLoteEmGrupo(loteLido)) return json({ ok: false, error: mensagemSoNoSite(loteLido.name), code: "lot_group_site_only", lot_id: loteLido.id }, 200);
+      // Lote do link de cortesia (OS-313) não vende nem vira cortesia manual por aqui.
+      if (lot.retirada_publica) return json({ ok: false, error: `Lote "${lot.name}" só sai pelo link de cortesia`, code: "lot_so_pelo_link", lot_id: lot.id }, 200);
       subtotal += Number(lot.price) * item.quantity;
       lineItems.push({ lot_id: lot.id, lot_name: lot.name, quantity: item.quantity, price: Number(lot.price) });
     }

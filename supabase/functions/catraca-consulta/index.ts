@@ -9,7 +9,8 @@
 // continua sendo só a `facial-checkin` (e as portas do colaborador e do parceiro).
 //
 // Mesmo critério da `facial-checkin`, para as duas portas nunca discordarem:
-// ingresso conta pelo `orders.customer_cpf` (dígitos) de pedido `paid`, status
+// ingresso conta pelo CPF do TITULAR (`tickets.holder_cpf`, o acompanhante e o
+// transferido, OS-357) e, sem titular, pelo `orders.customer_cpf` (dígitos), de pedido `paid`, status
 // `valid` ou `used`; ingresso com reembolso em análise não conta como válido (o
 // banco recusa a baixa dele).
 //
@@ -45,6 +46,8 @@ type TicketRow = {
   id: string;
   status: string;
   created_at: string;
+  holder_cpf: string | null;
+  holder_name: string | null;
   orders: { customer_cpf: string | null; customer_name: string | null; user_id: string | null } | null;
 };
 
@@ -124,25 +127,34 @@ serve(async (req) => {
     const janela = Array.isArray(janelaRows) ? janelaRows[0] : janelaRows;
 
     // ---------- 4. Ingressos do evento (paginado) ----------
+    // Com CPF no filtro, são duas buscas (titular, ou comprador de ingresso sem titular),
+    // a mesma regra da `facial-checkin`; sem filtro, uma só e o agrupamento decide.
     const tickets: TicketRow[] = [];
-    for (let de = 0; ; de += PAGINA) {
-      let q = supabase
-        .from("tickets")
-        .select("id, status, created_at, orders!inner(customer_cpf, customer_name, user_id, status)")
-        .eq("event_id", eventId)
-        .in("status", ["valid", "used"])
-        .eq("orders.status", "paid")
-        .order("id", { ascending: true })
-        .range(de, de + PAGINA - 1);
-      if (cpfFiltro) q = q.eq("orders.customer_cpf", cpfFiltro);
-      const { data, error } = await q;
-      if (error) {
-        console.error("[CATRACA-CONSULTA] ingressos", { event_id: eventId, error });
-        return json({ error: "internal_error" }, 503);
+    const filtros: Array<(q: any) => any> = cpfFiltro
+      ? [
+        (q) => q.eq("holder_cpf", cpfFiltro),
+        (q) => q.is("holder_cpf", null).eq("orders.customer_cpf", cpfFiltro),
+      ]
+      : [(q) => q];
+    for (const filtrar of filtros) {
+      for (let de = 0; ; de += PAGINA) {
+        const q = filtrar(supabase
+          .from("tickets")
+          .select("id, status, created_at, holder_cpf, holder_name, orders!inner(customer_cpf, customer_name, user_id, status)")
+          .eq("event_id", eventId)
+          .in("status", ["valid", "used"])
+          .eq("orders.status", "paid"))
+          .order("id", { ascending: true })
+          .range(de, de + PAGINA - 1);
+        const { data, error } = await q;
+        if (error) {
+          console.error("[CATRACA-CONSULTA] ingressos", { event_id: eventId, error });
+          return json({ error: "internal_error" }, 503);
+        }
+        const pagina = (data ?? []) as unknown as TicketRow[];
+        tickets.push(...pagina);
+        if (pagina.length < PAGINA) break;
       }
-      const pagina = (data ?? []) as unknown as TicketRow[];
-      tickets.push(...pagina);
-      if (pagina.length < PAGINA) break;
     }
 
     // ---------- 5. Reembolso em análise (não conta como válido) ----------
@@ -168,7 +180,9 @@ serve(async (req) => {
     const porCpf = new Map<string, Pessoa & { _nomeEm: string; _users: Set<string> }>();
     let semCpf = 0;
     for (const t of tickets) {
-      const cpf = unformatCPF(t.orders?.customer_cpf ?? "");
+      // Dono do ingresso: o titular, se houver; senão quem comprou (OS-357).
+      const temTitular = unformatCPF(t.holder_cpf ?? "").length === 11;
+      const cpf = temTitular ? unformatCPF(t.holder_cpf ?? "") : unformatCPF(t.orders?.customer_cpf ?? "");
       if (cpf.length !== 11) {
         semCpf++;
         continue;
@@ -192,12 +206,14 @@ serve(async (req) => {
       else if (emReembolso.has(t.id)) p.ingressos_em_reembolso++;
       else p.ingressos_validos++;
       // Nome do pedido mais recente do CPF (é o que a pessoa digitou por último).
-      const nome = t.orders?.customer_name?.trim();
+      const nome = (temTitular ? t.holder_name : t.orders?.customer_name)?.trim();
       if (nome && t.created_at >= p._nomeEm) {
         p.nome = nome;
         p._nomeEm = t.created_at;
       }
-      if (t.orders?.user_id) p._users.add(t.orders.user_id);
+      // A conta do pedido é de quem comprou: só serve para achar a facial de quem não tem
+      // titular. O titular é achado pelo CPF do perfil.
+      if (!temTitular && t.orders?.user_id) p._users.add(t.orders.user_id);
     }
 
     // ---------- 7. Tem facial? ----------

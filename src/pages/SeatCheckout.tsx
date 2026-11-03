@@ -22,7 +22,8 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSeatHold, type HoldState, readStoredOrderId, writeStoredOrderId, clearStoredOrderId } from '@/hooks/useSeatHold';
+import { useSeatHold, type HoldState, readStoredOrderId, writeStoredOrderId, clearStoredOrderId, CODIGOS_DA_TRAVA, type CodigoDaTrava } from '@/hooks/useSeatHold';
+import { corpoDoErroDaEdge } from '@/lib/corpoDoErroDaEdge';
 import { HoldCountdown } from '@/components/seated/HoldCountdown';
 import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { CheckoutStepCPF } from '@/components/checkout/CheckoutStepCPF';
@@ -73,6 +74,9 @@ interface SeatSummary {
 }
 
 const HONEST_HOLD_ERRORS = new Set(['hold_expired', 'seat_not_held', 'seat_not_found']);
+/** Recusa da trava da lista de alunos (OS-346), vinda da edge com 409. */
+const ehTravaDoAluno = (c: unknown): c is CodigoDaTrava =>
+  typeof c === 'string' && (CODIGOS_DA_TRAVA as readonly string[]).includes(c);
 
 function ReservedPill({ expiresAt }: { expiresAt: string }) {
   const [ms, setMs] = useState(() => new Date(expiresAt).getTime() - Date.now());
@@ -272,6 +276,22 @@ export default function SeatCheckout() {
     navigate(`/evento/${eventId}`, { replace: true });
   }, [clearLocalHold, navigate, eventId]);
 
+  // Lista de alunos (OS-346): o servidor recusou na hora de pagar (os convites
+  // da criança acabaram em outra aba, o lote não abriu, ou a reserva não era de
+  // uma criança da lista). Solta a reserva e volta ao mapa, que mostra o
+  // recado certo (quantos convites restam). Soltar é seguro mesmo com um PIX
+  // já gerado: o `release_seats` do banco não solta poltrona de pedido vivo.
+  // O pedido guardado (se houver) fica, para a tela seguir acompanhando.
+  const handleTravaDoAluno = useCallback((code: CodigoDaTrava) => {
+    if (eventId && hold?.token) {
+      // `.then` é o que dispara: o construtor do supabase sem then/await não
+      // manda nada (a prova de tela da revisão 1 pegou isso).
+      void supabase.rpc('release_seats', { _event_id: eventId, _hold_token: hold.token }).then(() => undefined);
+    }
+    clearLocalHold();
+    navigate(`/evento/${eventId}/mapa`, { replace: true, state: { recusaDaTrava: code } });
+  }, [clearLocalHold, navigate, eventId, hold?.token]);
+
   const handlePaymentFailedGeneric = useCallback(() => {
     toast.error('Não foi possível processar. Tente novamente.');
   }, []);
@@ -308,7 +328,11 @@ export default function SeatCheckout() {
           deviceId: (window as any).MP_DEVICE_SESSION_ID || null,
         },
       });
-      if (error) throw error;
+      if (error) {
+        const corpo = await corpoDoErroDaEdge(error);
+        if (ehTravaDoAluno(corpo?.error)) { handleTravaDoAluno(corpo.error); return; }
+        throw error;
+      }
       if (data?.error) {
         if (HONEST_HOLD_ERRORS.has(data.error)) {
           handleHoldErrorRedirect(data.error);
@@ -345,7 +369,7 @@ export default function SeatCheckout() {
       pixRequestInFlightRef.current = false;
       setIsStartingPix(false);
     }
-  }, [hold, eventId, customer, seatPayload, isMarcel, updateHoldExpiresAt, handleHoldErrorRedirect, handleProviderUnreachable, handlePaymentFailedGeneric]);
+  }, [hold, eventId, customer, seatPayload, isMarcel, updateHoldExpiresAt, handleHoldErrorRedirect, handleProviderUnreachable, handlePaymentFailedGeneric, handleTravaDoAluno]);
 
   // ----- Detector único (PIX + cartão). Fonte da verdade: webhook gravou orders.status='paid'.
   // Tentativa 1: edge check-mercadopago-payment (faz cross-validation valor+ext_ref).
@@ -690,6 +714,10 @@ export default function SeatCheckout() {
                     navigate(`/evento/${eventId}`, { replace: true });
                   }}
                   onError={(message) => {
+                    if (ehTravaDoAluno(message)) {
+                      handleTravaDoAluno(message);
+                      return;
+                    }
                     if (HONEST_HOLD_ERRORS.has(message)) {
                       handleHoldErrorRedirect(message);
                       return;

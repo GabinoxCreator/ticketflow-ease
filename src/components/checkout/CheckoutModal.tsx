@@ -470,6 +470,7 @@ export function CheckoutModal({
                 paymentProvider={paymentProvider}
                 appliedCoupon={appliedCoupon}
                 onApplyCoupon={setAppliedCoupon}
+                aberto={isOpen}
                 isProcessing={isProcessing}
                 onSelectPayment={handlePaymentSelect}
                 temPassePermanente={temPassePermanente}
