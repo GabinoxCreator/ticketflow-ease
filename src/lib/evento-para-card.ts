@@ -20,6 +20,12 @@ export function eventoParaCard(event: Event): EventData {
   const prices = activeLots.map((lot: any) => lot.price);
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+  // Gratuito (OS-366, 03/11/2026): nenhum lote pago vivo (aberto ou a abrir,
+  // não encerrado) e ao menos um lote vivo de R$ 0. O cartão diz "Ingresso
+  // gratuito" em vez de "a partir de R$ 0,00". Evento sem lote vivo nenhum não
+  // é gratuito: segue como antes.
+  const vivos = lots.filter((lot: any) => lot.is_active && !isLotEnded(lot));
+  const gratuito = vivos.length > 0 && !vivos.some((lot: any) => lot.price > 0);
   const totalTickets = lots.reduce((acc: number, lot: any) => acc + lot.total_quantity, 0);
   const soldTickets = lots.reduce((acc: number, lot: any) => acc + lot.sold_quantity, 0);
 
@@ -39,6 +45,7 @@ export function eventoParaCard(event: Event): EventData {
     imageUrl: event.image_url || 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
     minPrice,
     maxPrice,
+    gratuito,
     totalTickets,
     soldTickets,
     isHot: event.is_hot || false,
