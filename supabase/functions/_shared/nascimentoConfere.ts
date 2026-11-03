@@ -7,7 +7,9 @@
 // edge; a resposta diz só confere (true), não confere (false) ou não deu para saber
 // (null: a base não devolveu data, ou devolveu num formato que não reconhecemos).
 //
-// Formatos aceitos do lado da base: 'dd/mm/aaaa', 'aaaa-mm-dd' e 'aaaa-mm-ddThh:mm...'.
+// Formatos aceitos do lado da base: 'dd/mm/aaaa', 'aaaa-mm-dd', 'aaaa-mm-ddThh:mm...' e
+// 'ddmmaaaa' (8 dígitos, o formato da Consulta CPF v3 da Receita/Serpro, que a base do
+// Marcel passa a consultar: `{"ni","nome","situacao":{...},"nascimento":"14111970"}`).
 // Nomes aceitos do campo: `nascimento`, `dataNascimento` e `data_nascimento`.
 // A digitada chega sempre em 'aaaa-mm-dd' (a edge já conferiu).
 
@@ -17,6 +19,10 @@ function paraIso(valor: unknown): string | null {
   if (t.length >= 10 && t[4] === '-' && t[7] === '-') {
     const iso = t.slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+  }
+  if (/^\d{8}$/.test(t)) {
+    const iso = `${t.slice(4, 8)}-${t.slice(2, 4)}-${t.slice(0, 2)}`;
+    return iso;
   }
   if (t.length === 10 && t[2] === '/' && t[5] === '/') {
     const [dia, mes, ano] = t.split('/');

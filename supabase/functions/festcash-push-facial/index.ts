@@ -16,6 +16,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 //
 // A foto NÃO é devolvida a ninguém: ela sai do cofre, atravessa em memória e
 // vai direto para a carteira. Nunca vira URL, nunca entra em resposta.
+//
+// SÓ COM AUTORIZAÇÃO DE PAGAR (OS-343, caminho D, 03/11/2026): levar a foto à
+// carteira é para PAGAR com o rosto, finalidade que o parecer de 02/10 manda manter
+// sempre opcional, com consentimento próprio. A foto da facial OBRIGATÓRIA (só para
+// a entrada) fica marcada `app_metadata.facial_finalidade = 'entrada'` pelo
+// `facial-enroll` e NÃO passa daqui (`motivo: sem_autorizacao_de_pagamento`). Quem
+// cadastrou pelo convite com a caixa marcada ("check-in e pagamentos"), antes ou
+// depois da obrigatória, segue passando: sem a marca 'entrada', vale o carimbo.
 // ============================================================
 
 const corsHeaders = {
@@ -113,6 +121,21 @@ Deno.serve(async (req) => {
     }
     if (!p.facial_photo_path) {
       resultados.push({ ...marcador, ok: false, motivo: "sem_foto" });
+      continue;
+    }
+    // Foto só da entrada (a obrigatória) não autoriza pagar com o rosto. Sem
+    // conseguir ler a conta, também não passa: na dúvida, a foto fica.
+    let finalidade: unknown = undefined;
+    try {
+      const { data: conta, error: contaErr } = await supabase.auth.admin.getUserById(p.id);
+      if (contaErr || !conta?.user) throw new Error("conta");
+      finalidade = (conta.user.app_metadata as Record<string, unknown> | undefined)?.facial_finalidade;
+    } catch (_) {
+      resultados.push({ ...marcador, ok: false, motivo: "conta_ilegivel" });
+      continue;
+    }
+    if (finalidade === "entrada") {
+      resultados.push({ ...marcador, ok: false, motivo: "sem_autorizacao_de_pagamento" });
       continue;
     }
     if (!p.cpf) {

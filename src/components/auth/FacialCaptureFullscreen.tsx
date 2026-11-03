@@ -28,6 +28,10 @@ interface FacialCaptureFullscreenProps {
   // esta tela não oferece mais "pular": as três saídas viram "Voltar", e quem
   // chama decide para onde (o convite, que tem o caminho pelo celular e, depois
   // de uma tentativa, o "não consigo"). Desligada (o padrão), nada muda.
+  // Caminho D (03/11/2026): é também a FINALIDADE da foto que vai ao servidor.
+  // Obrigatória = 'entrada' (só a portaria; não autoriza pagar com o rosto).
+  // Sem ela = 'entrada_e_pagamento' (o convite com a caixa marcada, cujo texto
+  // autoriza "check-in e pagamentos").
   obrigatoria?: boolean;
   // OS-343: quem manda a foto. Padrão: o cliente do site (a sessão do navegador).
   // A página do celular (`/facial/:token`) passa um cliente PRÓPRIO, só em memória,
@@ -271,7 +275,7 @@ const FacialCaptureFullscreen: React.FC<FacialCaptureFullscreenProps> = ({ onDon
     setStage('sending');
     try {
       const { data, error } = await (cliente ?? supabase).functions.invoke('facial-enroll', {
-        body: { photo_base64: photo },
+        body: { photo_base64: photo, finalidade: obrigatoria ? 'entrada' : 'entrada_e_pagamento' },
       });
       // Em status != 2xx o supabase-js entrega um erro genérico ("non-2xx status")
       // e guarda a resposta em error.context — é lá que está o nosso { error }

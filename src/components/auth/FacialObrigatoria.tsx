@@ -6,12 +6,23 @@
  * com "Agora não" e a caixa de autorização), e nada daqui é montado.
  *
  * O caminho, nesta ordem:
+ *   0. CPF (revisão 1 da fase 2, 03/11): conta ANTIGA sem CPF no perfil ouviria a
+ *      pergunta da data em toda compra e nunca faria a facial (sem CPF não há como
+ *      conferir na base). Antes da data, a mesma tela pede o CPF e grava pelo caminho
+ *      que já existe (`definir_meu_cpf`, o mesmo do checkout e da Minha Conta). CPF
+ *      com dígito errado fica barrado no próprio campo. Qualquer falha da gravação
+ *      (CPF de outra conta, muitas tentativas, perfil não achado, rede) NÃO prende a
+ *      pessoa: vai para a saída "Não conseguimos conferir a sua idade" (já aprovada),
+ *      a compra segue sem foto e a próxima compra pede de novo (revisão 2).
  *   1. IDADE. Menor de 18 não faz facial (decisão de 28/10/2026, seguindo o
  *      parecer de 02/10). A data é conferida com o CPF na base de documentos
  *      (edge `document-lookup`, a mesma do cadastro de produtor): bateu, segue;
- *      a base não respondeu, vale a data digitada (queda de terceiro não trava
- *      ninguém); a base disse duas vezes que não bate, o rosto NÃO é coletado e
- *      a entrada é pelo QR (na dúvida, não se coleta dado sensível).
+ *      a base disse duas vezes que não bate, ou não respondeu, o rosto NÃO é
+ *      coletado agora e a entrada é pelo QR (na dúvida, não se coleta dado
+ *      sensível; a compra segue normal). Caminho D, 03/11/2026: a idade tem de
+ *      ser CONFERIDA, não só declarada (ECA Digital), e quem garante é o servidor:
+ *      a `document-lookup` marca a conta e o `facial-enroll` recusa a foto da
+ *      entrada sem a marca. Até 03/11 a base fora valia a data digitada.
  *   2. CONVITE, sem "Agora não": tirar a foto aqui, ou, sem câmera neste
  *      aparelho, terminar pelo celular (QR na tela ou link no WhatsApp).
  *   3. QUEM NÃO CONSEGUE (decisão de 28/10/2026): segue sem a foto, com aviso, e
@@ -34,6 +45,7 @@ import { supabase } from '@/integrations/supabase/client';
 import FacialCaptureFullscreen from '@/components/auth/FacialCaptureFullscreen';
 import FacialPorCelular from '@/components/auth/FacialPorCelular';
 import { marcarCadastroEmCurso } from '@/lib/cadastroEmCurso';
+import { formatCPF, unformatCPF, validateCPF } from '@/utils/cpfValidator';
 import {
   idadeEm, nascimentoDigitado, type MetaDaFacial, type SaidaDaFacial,
 } from '@/lib/facialObrigatoria';
@@ -62,6 +74,9 @@ const mascaraData = (v: string) => {
   return `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4)}`;
 };
 
+/* O recado do CPF com dígito errado: o mesmo do cadastro (FluxoConta). */
+const CPF_NAO_PARECE_CERTO = 'Esse CPF não parece certo. Confira os números.';
+
 const AVISO_SEM: Record<SaidaDaFacial, { titulo: string; texto: string }> = {
   menor: {
     titulo: 'Sem foto para menores de 18 anos',
@@ -82,8 +97,12 @@ export default function FacialObrigatoria({ cpf, onFim }: Props) {
   const isMobile = useIsMobile();
   const meta = (user?.user_metadata ?? {}) as MetaDaFacial;
 
-  /* Data já informada (e não recusada pela base): pula direto para o convite. */
-  const jaTemIdade = !!meta.nascimento && meta.nascimento_conferido !== 'nao_confere' && idadeEm(meta.nascimento) >= 18;
+  /* Data já CONFERIDA pela base e maior de 18: pula direto para o convite. A tela
+   * só usa isto para o caminho (o `user_metadata` é da própria pessoa); se a marca
+   * do servidor não existir, o `facial-enroll` recusa a foto (aviso "Não
+   * conseguimos conferir a sua idade"), a tela da câmera fica na prévia, e a pessoa
+   * sai pelo "Voltar" para o convite, onde o "Não consigo fazer a foto" aparece. */
+  const jaTemIdade = !!meta.nascimento && meta.nascimento_conferido === 'base' && idadeEm(meta.nascimento) >= 18;
   const [passo, setPasso] = useState<Passo>(jaTemIdade ? 'convite' : 'idade');
   /* Quem já disse "não consigo" numa compra anterior vê a saída desde o início. */
   const [tentou, setTentou] = useState(meta.facial_saida === 'nao_consegue');
@@ -94,15 +113,56 @@ export default function FacialObrigatoria({ cpf, onFim }: Props) {
   const [conferindo, setConferindo] = useState(false);
   const [naoBateu, setNaoBateu] = useState(0);
   const [cpfDaConta, setCpfDaConta] = useState<string | null>(cpf ?? null);
+  /* Já se sabe se a conta tem CPF? (lido do perfil, ou veio de quem chamou) */
+  const [cpfLido, setCpfLido] = useState<boolean>(!!cpf);
+  const [cpfNovo, setCpfNovo] = useState('');
+  const [erroCpf, setErroCpf] = useState<string | null>(null);
 
   /* A trava "cadastro em curso" (10 min) é renovada a cada passo desta etapa. */
   useEffect(() => { marcarCadastroEmCurso(); }, [passo]);
 
+  const lerCpfDoPerfil = async (): Promise<string | null> => {
+    if (!user?.id) return null;
+    const { data: p } = await supabase.from('profiles').select('cpf').eq('id', user.id).maybeSingle();
+    return p?.cpf ? String(p.cpf) : null;
+  };
+
   useEffect(() => {
-    if (cpfDaConta || !user?.id) return;
-    void supabase.from('profiles').select('cpf').eq('id', user.id).maybeSingle()
-      .then(({ data: p }) => { if (p?.cpf) setCpfDaConta(String(p.cpf)); });
+    if (cpfDaConta) { setCpfLido(true); return; }
+    if (!user?.id) return;
+    let vivo = true;
+    void lerCpfDoPerfil()
+      .then((c) => { if (vivo && c) setCpfDaConta(c); })
+      .catch(() => { /* sem leitura: a tela pede o CPF */ })
+      .finally(() => { if (vivo) setCpfLido(true); });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cpfDaConta, user?.id]);
+
+  /* Conta (antiga) sem CPF válido no perfil: a tela da idade pede o CPF antes. */
+  const precisaCpf = cpfLido && !validateCPF(unformatCPF(cpfDaConta ?? ''));
+
+  /* Grava o primeiro CPF da conta pelo caminho de sempre. Devolve o CPF que vale
+   * para a conferência, ou null quando não deu para gravar (qualquer motivo). */
+  const salvarCpf = async (digitos: string): Promise<string | null> => {
+    try {
+      const rpcSemTipo = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: { ok?: boolean; erro?: string } | null; error: { message?: string } | null }>;
+      const { data: r, error } = await rpcSemTipo.call(supabase, 'definir_meu_cpf', { _cpf: digitos });
+      if (error) return null;
+      if (r?.ok) return digitos;
+      if (r?.erro === 'cpf_ja_salvo') {
+        // O perfil já tinha CPF (a leitura de antes falhou): vale o que está salvo.
+        const salvo = await lerCpfDoPerfil().catch(() => null);
+        if (salvo && validateCPF(unformatCPF(salvo))) return unformatCPF(salvo);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   /* Grava nos metadados da conta. Falhar aqui não trava a pessoa. */
   const guardar = async (dados: MetaDaFacial) => {
@@ -110,19 +170,34 @@ export default function FacialObrigatoria({ cpf, onFim }: Props) {
   };
 
   const seguirDaIdade = async () => {
+    let doc = unformatCPF(cpfDaConta ?? '');
+    if (precisaCpf) {
+      if (!validateCPF(cpfNovo)) { setErroCpf(CPF_NAO_PARECE_CERTO); return; }
+      setErroCpf(null);
+    }
     const iso = nascimentoDigitado(data);
     if (!iso) { setErroData('Essa data não parece certa. Use dia, mês e ano, por exemplo 25/03/1998.'); return; }
     setErroData(null);
     setConferindo(true);
     try {
       const agora = new Date().toISOString();
+      if (precisaCpf) {
+        const valido = await salvarCpf(cpfNovo);
+        if (!valido) {
+          // Sem CPF gravado não há conferência: a mesma saída da base fora do ar.
+          await guardar({ nascimento: iso, nascimento_conferido: 'digitada', facial_saida: 'idade_nao_conferida', facial_saida_em: agora });
+          setSaida('idade_nao_conferida'); setPasso('sem');
+          return;
+        }
+        doc = valido;
+        setCpfDaConta(valido);
+      }
       if (idadeEm(iso) < 18) {
         await guardar({ nascimento: iso, nascimento_conferido: 'digitada', facial_saida: 'menor', facial_saida_em: agora });
         setSaida('menor'); setPasso('sem');
         return;
       }
       let conferido: 'base' | 'digitada' | 'nao_confere' = 'digitada';
-      const doc = (cpfDaConta ?? '').replace(/\D/g, '');
       if (doc.length === 11) {
         try {
           const { data: r } = await supabase.functions.invoke('document-lookup', {
@@ -134,7 +209,14 @@ export default function FacialObrigatoria({ cpf, onFim }: Props) {
           if (r?.ok === true) {
             conferido = r?.nascimento_confere === true ? 'base' : r?.nascimento_confere === false ? 'nao_confere' : 'digitada';
           } else if (r?.reason === 'not_found') conferido = 'nao_confere';
-        } catch { /* base fora: vale a data digitada */ }
+        } catch { /* base fora: a idade não foi conferida */ }
+      }
+      /* Caminho D (03/11): sem a base confirmar, não se coleta o rosto agora. A
+       * compra segue, a entrada é pelo QR e a próxima compra pede de novo. */
+      if (conferido === 'digitada') {
+        await guardar({ nascimento: iso, nascimento_conferido: 'digitada', facial_saida: 'idade_nao_conferida', facial_saida_em: agora });
+        setSaida('idade_nao_conferida'); setPasso('sem');
+        return;
       }
       if (conferido === 'nao_confere') {
         const vezes = naoBateu + 1;
@@ -186,14 +268,23 @@ export default function FacialObrigatoria({ cpf, onFim }: Props) {
               </p>
             </div>
           </div>
+          {precisaCpf && (
+            <div className="space-y-2">
+              <Label className="text-sm" htmlFor="cpf-facial">CPF</Label>
+              <Input id="cpf-facial" autoFocus inputMode="numeric" autoComplete="off" placeholder="000.000.000-00"
+                value={formatCPF(cpfNovo)} onChange={(e) => { setCpfNovo(e.target.value.replace(/\D/g, '').slice(0, 11)); setErroCpf(null); }}
+                className="h-14 text-base bg-background/50 tabular-nums" />
+              {erroCpf && <p className="text-sm text-destructive">{erroCpf}</p>}
+            </div>
+          )}
           <div className="space-y-2">
             <Label className="text-sm" htmlFor="nascimento-facial">Data de nascimento</Label>
-            <Input id="nascimento-facial" autoFocus inputMode="numeric" autoComplete="bday" placeholder="dd/mm/aaaa"
+            <Input id="nascimento-facial" autoFocus={!precisaCpf} inputMode="numeric" autoComplete="bday" placeholder="dd/mm/aaaa"
               value={data} onChange={(e) => { setData(mascaraData(e.target.value)); setErroData(null); }}
               className="h-14 text-base bg-background/50 tabular-nums" />
             {erroData && <p className="text-sm text-destructive">{erroData}</p>}
           </div>
-          <Button type="submit" variant="hero" size="lg" className="w-full h-14 text-base gap-2" disabled={conferindo || data.length !== 10}>
+          <Button type="submit" variant="hero" size="lg" className="w-full h-14 text-base gap-2" disabled={conferindo || !cpfLido || data.length !== 10 || (precisaCpf && cpfNovo.length !== 11)}>
             {conferindo ? <><Loader2 className="h-5 w-5 animate-spin" />Conferindo...</> : <>Continuar <ArrowRight className="h-5 w-5" /></>}
           </Button>
         </form>
