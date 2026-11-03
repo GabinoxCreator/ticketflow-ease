@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { CartaoMarcelForm, CobrancaEmDuvidaError, type CotacaoMarcel, type DadosDoCartao } from './CartaoMarcelForm';
 import { corpoDoErroDaEdge } from '@/lib/corpoDoErroDaEdge';
+import { CODIGOS_DA_TRAVA, MENSAGEM_DA_TRAVA, type CodigoDaTrava } from '@/hooks/useSeatHold';
 
 /*
  * Cartão do checkout de MESA/CAMAROTE, pela rota do Marcel.
@@ -76,6 +77,12 @@ export function SeatCheckoutCardMarcel({
     // livre para tentar de novo. Agora o formulário trava o Pagar, mostra o aviso
     // fixo e leva ao acompanhamento desta mesma tela (`onInProcess`).
     const corpo = error ? await corpoDoErroDaEdge(error) : data;
+    // Trava da lista de alunos (OS-346): a tela de pagamento solta a reserva e
+    // volta ao mapa com o recado; o formulário mostra o mesmo texto.
+    if (typeof corpo?.error === 'string' && (CODIGOS_DA_TRAVA as readonly string[]).includes(corpo.error)) {
+      onError(corpo.error);
+      throw new Error(MENSAGEM_DA_TRAVA[corpo.error as CodigoDaTrava]);
+    }
     if (corpo?.orderId
         && (corpo?.status === 'paid_pending_review' || corpo?.error === 'payment_provider_unreachable')) {
       throw new CobrancaEmDuvidaError('Pagamento em verificação.', String(corpo.orderId));

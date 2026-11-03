@@ -11,6 +11,11 @@ import { trackPageView, trackViewContent } from '@/lib/metaPixel';
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2;
 const ZOOM_STEP = 0.1;
+// Teatro (OS-346, 427 poltronas): no celular o mapa inteiro deixa cada poltrona
+// com uns 7 px. Mapa grande aproxima até 6x, de meio em meio.
+const MAPA_GRANDE = 150;
+const ZOOM_MAX_GRANDE = 6;
+const ZOOM_STEP_GRANDE = 0.5;
 
 const formatShortDate = (dateString: string, time?: string | null) => {
   const dm = formatEventDate(dateString, { day: '2-digit', month: '2-digit' });
@@ -67,6 +72,11 @@ const EventMapPage = () => {
 
   if (!event) return <Navigate to="/" replace />;
 
+  const assentosNoMapa = ((event as any).map_snapshot?.seats?.length ?? 0) as number;
+  const grande = assentosNoMapa > MAPA_GRANDE;
+  const zoomMax = grande ? ZOOM_MAX_GRANDE : ZOOM_MAX;
+  const zoomStep = grande ? ZOOM_STEP_GRANDE : ZOOM_STEP;
+
   // Mesma regra da página do evento — inclusive o interruptor do mapa. Quem
   // guardou este link não pode entrar por uma porta que a outra tela fechou.
   const hasMap =
@@ -111,7 +121,7 @@ const EventMapPage = () => {
             variant="ghost"
             className="h-9 w-9"
             disabled={zoom <= ZOOM_MIN + 0.001}
-            onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+            onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - zoomStep).toFixed(2)))}
             aria-label="Diminuir zoom"
           >
             <Minus className="w-4 h-4" />
@@ -129,8 +139,8 @@ const EventMapPage = () => {
             size="icon"
             variant="ghost"
             className="h-9 w-9"
-            disabled={zoom >= ZOOM_MAX - 0.001}
-            onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+            disabled={zoom >= zoomMax - 0.001}
+            onClick={() => setZoom((z) => Math.min(zoomMax, +(z + zoomStep).toFixed(2)))}
             aria-label="Aumentar zoom"
           >
             <Plus className="w-4 h-4" />

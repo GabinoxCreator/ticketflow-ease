@@ -33,7 +33,10 @@ export const MesaReservaCTA = ({ eventId, eventSlugOrId, description, seatNoun }
           <MapPin className="w-5 h-5 text-primary" />
         </div>
         <div className="min-w-0">
-          <h3 className="font-display font-bold text-lg sm:text-xl">Reserve seu {v.Singular}</h3>
+          {/* "Reserve seu Mesa" era o texto de qualquer evento de mesa: o
+              possessivo segue o gênero do item (sua mesa, sua poltrona, seu
+              camarote). */}
+          <h3 className="font-display font-bold text-lg sm:text-xl">Reserve {v.genero === 'a' ? 'sua' : 'seu'} {v.singular}</h3>
           <p className="text-sm text-muted-foreground break-words">
             {description?.trim() || `Escolha ${v.artigo} ${v.singular} diretamente no mapa do local.`}
           </p>

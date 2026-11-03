@@ -38,6 +38,13 @@ interface Props {
   onToggleSeat: (seatId: string) => void;
   zoom?: number;
   fillHeight?: boolean;
+  /**
+   * Mapa grande (teatro, OS-346): o arraste pode começar em cima de uma
+   * poltrona. Com centenas delas, quase todo toque cai numa, e o mapa não
+   * andava. Toque parado continua escolhendo a poltrona; só o arraste (mais de
+   * 6 px) vira movimento e não escolhe nada.
+   */
+  arrastarSobreAssentos?: boolean;
 }
 
 const PADDING = 24;
@@ -53,6 +60,7 @@ export function SeatMapRenderer({
   onToggleSeat,
   zoom = 1,
   fillHeight = false,
+  arrastarSobreAssentos = false,
 }: Props) {
   const bg = snapshot.table_map?.background_color || 'hsl(var(--card))';
 
@@ -158,12 +166,20 @@ export function SeatMapRenderer({
   const canPan = maxPanX > 0.5 || maxPanY > 0.5;
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number; moved: boolean } | null>(null);
 
+  // Arraste que andou: o clique que o navegador manda no fim não escolhe poltrona.
+  const engolirCliqueRef = useRef(false);
+
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!canPan) return;
-    // Só inicia pan se o alvo for o próprio svg (background), não um seat.
-    if (e.target !== e.currentTarget) return;
+    const noFundo = e.target === e.currentTarget;
+    // Só inicia pan se o alvo for o próprio svg (background), não um seat;
+    // a não ser no mapa grande, onde o arraste também começa numa poltrona.
+    if (!noFundo && !arrastarSobreAssentos) return;
+    engolirCliqueRef.current = false;
     dragRef.current = { x: e.clientX, y: e.clientY, panX: clampedPanX, panY: clampedPanY, moved: false };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // Em cima de poltrona, a captura só vem quando o dedo anda: capturar já no
+    // toque mandaria o clique para o fundo, e a poltrona não seria escolhida.
+    if (noFundo) e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const d = dragRef.current;
@@ -171,13 +187,29 @@ export function SeatMapRenderer({
     const scale = Math.min(size.w / vbW, size.h / vbH);
     const dxUnits = (e.clientX - d.x) / scale;
     const dyUnits = (e.clientY - d.y) / scale;
-    if (Math.abs(e.clientX - d.x) > 3 || Math.abs(e.clientY - d.y) > 3) d.moved = true;
+    const limiar = arrastarSobreAssentos ? 6 : 3;
+    if (!d.moved && (Math.abs(e.clientX - d.x) > limiar || Math.abs(e.clientY - d.y) > limiar)) {
+      d.moved = true;
+      if (arrastarSobreAssentos) {
+        engolirCliqueRef.current = true;
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+      }
+    }
+    // Mapa grande: só anda depois do limiar (toque parado escolhe a poltrona).
+    if (!d.moved && arrastarSobreAssentos) return;
     setPan({ x: d.panX - dxUnits, y: d.panY - dyUnits });
   };
   const onPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (dragRef.current) {
       try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
       dragRef.current = null;
+    }
+  };
+  const onClickCapture = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (engolirCliqueRef.current) {
+      engolirCliqueRef.current = false;
+      e.stopPropagation();
+      e.preventDefault();
     }
   };
 
@@ -200,6 +232,7 @@ export function SeatMapRenderer({
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onClickCapture={onClickCapture}
         >
           {sortedObjects.map((obj) => {
             const w = obj.width ?? 50;

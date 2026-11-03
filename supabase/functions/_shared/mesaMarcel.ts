@@ -53,6 +53,12 @@ export function traduzirErroDeAssento(bruto: string): {
   kind: 'honest' | 'manipulation' | 'already_in_progress' | 'unknown';
 } {
   const m = (bruto || '').toLowerCase();
+  // Trava da lista de alunos (OS-346): a reserva não é de uma criança da lista,
+  // os convites dela acabaram, ou o lote dela ainda não abriu. É recusa
+  // honesta (409 com o código): a tela sabe o que dizer à família.
+  if (m.includes('aluno_obrigatorio')) return { code: 'aluno_obrigatorio', kind: 'honest' };
+  if (m.includes('limite_do_aluno')) return { code: 'limite_do_aluno', kind: 'honest' };
+  if (m.includes('venda_nao_abriu')) return { code: 'venda_nao_abriu', kind: 'honest' };
   if (m.includes('hold_expired')) return { code: 'hold_expired', kind: 'honest' };
   if (m.includes('seat_not_held')) return { code: 'seat_not_held', kind: 'honest' };
   if (m.includes('seat_not_found')) return { code: 'seat_not_found', kind: 'honest' };

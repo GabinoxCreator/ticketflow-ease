@@ -1,18 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, Loader2, Ticket } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { AuthModalV2 } from '@/components/auth/AuthModalV2';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEventSeats, type EventSeatRow } from '@/hooks/useEventSeats';
-import { useSeatHold } from '@/hooks/useSeatHold';
+import { useSeatHold, MENSAGEM_DA_TRAVA } from '@/hooks/useSeatHold';
 import { SeatMapRenderer } from '@/components/seated/SeatMapRenderer';
 import { SelectionPanel } from '@/components/seated/SelectionPanel';
 import { SeatDetailModal } from '@/components/seated/SeatDetailModal';
 import { goToSeatCheckout } from '@/lib/seatCheckoutNav';
 import type { VStatus } from '@/components/seated/SeatNode';
 import { vocabularioAssento } from '@/lib/vocabularioAssento';
+import { supabase } from '@/integrations/supabase/client';
+import { EntradaDoAluno } from '@/components/seated/EntradaDoAluno';
+import {
+  useListaDoEvento, lerAluno, guardarAluno, esquecerAluno, quandoAbre,
+  type AlunoConferido,
+} from '@/hooks/useListaDeAlunos';
+
+/** Mapa grande (teatro): arrastar começa em cima das poltronas também. */
+const MAPA_GRANDE = 150;
+
+const formatarPreco = (v: number) =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 interface Props {
   event: any;
@@ -37,6 +50,93 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
   const [isHolding, setIsHolding] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [modalSeatId, setModalSeatId] = useState<string | null>(null);
+
+  // ---- Lista de alunos (OS-346) ----
+  // Evento com lista: antes do mapa vem a tela do aluno (CPF + nascimento), e
+  // no mapa a família escolhe várias poltronas de uma vez, até o que resta da
+  // criança. Quem trava de verdade é o servidor (hold_seats_aluno).
+  const { data: lista, isLoading: listaLoading } = useListaDoEvento(eventId);
+  const temLista = !!lista?.tem_lista;
+  const [aluno, setAluno] = useState<AlunoConferido | null>(null);
+  const [etapa, setEtapa] = useState<'entrada' | 'mapa'>('entrada');
+  const [escolhidas, setEscolhidas] = useState<string[]>([]);
+  // Recado da trava NA TELA (não em aviso flutuante: no celular o aviso do topo
+  // cobria a faixa "Convites de..." e o "Trocar sessão ou aluno").
+  const [aviso, setAviso] = useState<string | null>(null);
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), 7000);
+    return () => clearTimeout(t);
+  }, [aviso]);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!lista?.lista_id) return;
+    const guardado = lerAluno(lista.lista_id);
+    setAluno(guardado);
+    setEtapa(guardado ? 'mapa' : 'entrada');
+  }, [lista?.lista_id]);
+
+  /** Atualiza quantos convites restam (depois de uma compra, de outra aba). */
+  const atualizarAluno = useCallback(async (): Promise<AlunoConferido | null> => {
+    if (!aluno?.passe || !user) return null;
+    const rpc = supabase.rpc as unknown as (
+      fn: string, args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: unknown }>;
+    const { data, error } = await rpc.call(supabase, 'aluno_pelo_passe', { _passe: aluno.passe });
+    if (error || !data) return null;
+    const r = data as Record<string, unknown>;
+    if (r.ok === true) {
+      const novo = r as unknown as AlunoConferido;
+      guardarAluno(novo);
+      setAluno(novo);
+      return novo;
+    }
+    esquecerAluno(lista?.lista_id);
+    setAluno(null);
+    setEscolhidas([]);
+    setEtapa('entrada');
+    toast.info(MENSAGEM_DA_TRAVA.aluno_obrigatorio);
+    return null;
+  }, [aluno?.passe, user, lista?.lista_id]);
+
+  /** O recado de uma recusa do servidor, com o número real de convites. */
+  const recadoDaRecusa = useCallback(async (codigo: string) => {
+    if (codigo === 'aluno_obrigatorio') { trocarAlunoRef.current?.(null); toast.info(MENSAGEM_DA_TRAVA.aluno_obrigatorio); return; }
+    if (codigo === 'seats_unavailable') { setAviso('Alguém escolheu uma dessas poltronas antes de você. Escolha outra.'); return; }
+    const atual = await atualizarAluno();
+    if (codigo === 'limite_do_aluno') {
+      const n = atual?.restantes ?? 0;
+      setAviso(n > 0 ? `Este aluno tem ${n} ${n === 1 ? 'convite' : 'convites'} para usar.` : MENSAGEM_DA_TRAVA.limite_do_aluno);
+    } else if (codigo === 'venda_nao_abriu') {
+      setAviso(atual?.abre_em ? `A venda para este aluno abre em ${quandoAbre(atual.abre_em)}.` : MENSAGEM_DA_TRAVA.venda_nao_abriu);
+    }
+  }, [atualizarAluno]);
+
+  // Recusa que veio da tela de pagamento (o pagamento manda o código para cá).
+  const recusaDoPagamento = (location.state as { recusaDaTrava?: string } | null)?.recusaDaTrava;
+  const recusaMostradaRef = useRef(false);
+
+  useEffect(() => {
+    if (!(temLista && etapa === 'mapa')) return;
+    if (recusaDoPagamento && !recusaMostradaRef.current) {
+      recusaMostradaRef.current = true;
+      void recadoDaRecusa(recusaDoPagamento);
+      return;
+    }
+    void atualizarAluno();
+    // Só ao entrar no mapa: o resto do tempo quem manda é a recusa do servidor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [temLista, etapa]);
+
+  const trocarAluno = useCallback((novo: AlunoConferido | null) => {
+    if (!novo) esquecerAluno(lista?.lista_id);
+    setAluno(novo);
+    setEscolhidas([]);
+    setEtapa('entrada');
+  }, [lista?.lista_id]);
+  const trocarAlunoRef = useRef(trocarAluno);
+  trocarAlunoRef.current = trocarAluno;
 
   /**
    * Link direto para uma unidade: `?unidade=C007`.
@@ -105,6 +205,8 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
     [unidadesDoPacote],
   );
 
+  const escolhidasSet = useMemo(() => new Set(escolhidas), [escolhidas]);
+
   const resolveVisualStatus = useCallback(
     (seat: EventSeatRow): VStatus => {
       // Link de pacote: as unidades combinadas nascem MARCADAS no mapa. Sem
@@ -119,6 +221,9 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       if (seat.status === 'manual') return 'sold';
       if (seat.status === 'sold') return 'sold';
       if (seat.status === 'blocked') return 'blocked';
+      // Lista de alunos: as poltronas escolhidas (ainda não seguradas) aparecem
+      // como "sua escolha" enquanto continuarem livres.
+      if (escolhidasSet.has(seat.id) && seat.status === 'available') return 'selected-mine';
       if (seat.status === 'held') {
         const stillValid =
           seat.hold_expires_at && new Date(seat.hold_expires_at).getTime() > Date.now();
@@ -133,19 +238,102 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       }
       return 'available';
     },
-    [user, myHoldSeatIds, idsDoPacote]
+    [user, myHoldSeatIds, idsDoPacote, escolhidasSet]
   );
+
+  // Escolhida que outra família levou (o mapa atualiza ao vivo) sai da escolha.
+  // Durante a própria reserva o mapa marca as poltronas como seguradas antes de
+  // a escolha ser limpa: isso não é "outra família".
+  const reservandoRef = useRef(false);
+  useEffect(() => {
+    if (reservandoRef.current || !escolhidas.length || !seats?.length) return;
+    const livres = escolhidas.filter((id) => seats.find((s) => s.id === id)?.status === 'available');
+    if (livres.length !== escolhidas.length) {
+      setEscolhidas(livres);
+      setAviso('Uma poltrona que você escolheu acabou de ser reservada por outra família.');
+    }
+  }, [seats, escolhidas]);
 
   const handleToggleSeat = useCallback(
     (seatId: string) => {
       if (hold) return; // já tem reserva ativa, não abre modal
       const seat = (seats ?? []).find((s) => s.id === seatId);
       if (!seat) return;
+      if (temLista) {
+        // Lista de alunos: toque escolhe/desfaz, até o que resta da criança.
+        if (escolhidasSet.has(seatId)) {
+          setEscolhidas((prev) => prev.filter((id) => id !== seatId));
+          return;
+        }
+        if (resolveVisualStatus(seat) !== 'available') return;
+        const restantes = aluno?.restantes ?? 0;
+        if (escolhidas.length >= restantes) {
+          setAviso(restantes > 0
+            ? `Este aluno tem ${restantes} ${restantes === 1 ? 'convite' : 'convites'} para usar.`
+            : 'Os convites deste aluno já foram usados.');
+          return;
+        }
+        setEscolhidas((prev) => [...prev, seatId]);
+        return;
+      }
       if (resolveVisualStatus(seat) !== 'available') return;
       setModalSeatId(seatId);
     },
-    [seats, resolveVisualStatus, hold]
+    [seats, resolveVisualStatus, hold, temLista, escolhidasSet, escolhidas.length, aluno?.restantes]
   );
+
+  const totalEscolhido = useMemo(
+    () => escolhidas.reduce((soma, id) => soma + Number((seats ?? []).find((s) => s.id === id)?.base_price ?? 0), 0),
+    [escolhidas, seats],
+  );
+
+  const rotulosDasEscolhidas = useMemo(
+    () => escolhidas.map((id) => (seats ?? []).find((s) => s.id === id)).map((s) => s?.label ?? s?.code).join(' · '),
+    [escolhidas, seats],
+  );
+
+  /** Lista de alunos: tipos de poltrona com cor própria, fora da venda e cadeirante. */
+  const legendaExtra = useMemo(() => {
+    if (!temLista) return [] as { label: string; color: string }[];
+    const itens = new Map<string, string>();
+    for (const s of seats ?? []) {
+      if (s.color && s.seat_type_name && s.status === 'available') itens.set(s.seat_type_name, s.color);
+    }
+    const saida = [...itens].map(([label, color]) => ({ label, color }));
+    if ((seats ?? []).some((s) => s.status === 'blocked')) {
+      saida.push({ label: 'Fora da venda', color: 'hsl(var(--muted))' });
+    }
+    const objetos = ((event.map_snapshot as { map_objects?: { text_content?: string | null }[] })?.map_objects ?? []);
+    if (objetos.some((o) => o.text_content === '♿')) {
+      saida.push({ label: '♿ Espaço para cadeirante', color: '#2563EB' });
+    }
+    return saida;
+  }, [temLista, seats, event.map_snapshot]);
+
+  const reservarEscolhidas = useCallback(async () => {
+    if (!user) { setAuthOpen(true); return; }
+    if (!aluno || !escolhidas.length) return;
+    // Antes do horário do lote a tela NÃO barra pelo relógio do celular: quem
+    // decide é o servidor (`venda_nao_abriu`), e a tela mostra o que ele disser.
+    setAviso(null);
+    setIsHolding(true);
+    reservandoRef.current = true;
+    try {
+      const result = await holdSelected(escolhidas, undefined, {
+        passe: aluno.passe,
+        onErro: (codigo) => {
+          if (codigo === 'limite_do_aluno' || codigo === 'seats_unavailable') setEscolhidas([]);
+          void recadoDaRecusa(codigo);
+        },
+      });
+      if (!result) return;
+      setEscolhidas([]);
+      goToSeatCheckout(navigate, markProceeding, eventId);
+    } finally {
+      reservandoRef.current = false;
+      setIsHolding(false);
+    }
+  }, [user, aluno, escolhidas, holdSelected, recadoDaRecusa, navigate, markProceeding, eventId]);
 
   const modalSeat = useMemo(
     () => (seats ?? []).find((s) => s.id === modalSeatId) ?? null,
@@ -198,6 +386,31 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
       setIsHolding(false);
     }
   }, [user, pacoteDisponivel, unidadesDoPacote, holdSelected, navigate, markProceeding, eventId]);
+
+  if (temLista && etapa === 'entrada') {
+    return (
+      <>
+        <Helmet>
+          <title>{event.title} - Convites - FestPag</title>
+        </Helmet>
+        <EntradaDoAluno
+          eventId={eventId}
+          lista={lista!}
+          aluno={aluno}
+          onAluno={trocarAluno}
+          onSessaoAtual={() => setEtapa('mapa')}
+        />
+      </>
+    );
+  }
+
+  if (listaLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!event.map_snapshot) {
     return (
@@ -261,6 +474,25 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
 
       <div className="grid lg:grid-cols-[1fr_360px] lg:grid-rows-[minmax(0,1fr)] gap-0 h-full min-h-0">
         <div className="min-w-0 min-h-0 h-full flex flex-col">
+          {temLista && aluno && (
+            <div className="flex items-center gap-3 px-3 py-2 border-b border-border bg-card/80 text-sm shrink-0">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">Convites de {aluno.primeiro_nome}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {aluno.liberado || new Date(aluno.abre_em).getTime() <= Date.now()
+                    ? `Restam ${aluno.restantes} de ${aluno.limite} · somando as duas sessões`
+                    : `A venda para este aluno abre em ${quandoAbre(aluno.abre_em)}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEtapa('entrada')}
+                className="text-xs text-primary hover:underline shrink-0"
+              >
+                Trocar sessão ou aluno
+              </button>
+            </div>
+          )}
           {seatsLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -274,19 +506,105 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
                 onToggleSeat={handleToggleSeat}
                 zoom={zoom}
                 fillHeight
+                arrastarSobreAssentos={(seats?.length ?? 0) > MAPA_GRANDE}
               />
+            </div>
+          )}
+          {temLista && aviso && (
+            <div role="status" className="shrink-0 px-3 py-2 text-sm font-medium border-t border-amber-500/30 bg-amber-500/10 text-foreground">
+              {aviso}
             </div>
           )}
           <div className="flex flex-wrap gap-3 px-3 py-2 text-xs text-muted-foreground border-t border-border bg-card/60 shrink-0">
 
             <Legend color="hsl(var(--seat-available))" label="Disponível" />
-            <Legend color="hsl(var(--seat-selected))" label="Sua reserva" />
+            <Legend color="hsl(var(--seat-selected))" label={temLista ? 'Sua escolha' : 'Sua reserva'} />
             <Legend color="hsl(var(--seat-held))" label="Em uso" />
             <Legend color="hsl(var(--seat-sold))" label="Vendido" />
+            {temLista && legendaExtra.map((l) => <Legend key={l.label} color={l.color} label={l.label} />)}
           </div>
+
+          {/* Celular: a escolha fica numa barra fixa embaixo do mapa (o painel
+              lateral só existe na tela grande). */}
+          {temLista && aluno && (
+            <div className="lg:hidden shrink-0 border-t border-border bg-card px-3 py-3">
+              {hold ? (
+                <Button
+                  variant="hero" size="lg" className="w-full"
+                  onClick={() => goToSeatCheckout(navigate, markProceeding, eventId)}
+                >
+                  <Ticket className="w-4 h-4 mr-2" /> Ir para pagamento
+                </Button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">
+                      {escolhidas.length
+                        ? `${escolhidas.length} ${escolhidas.length === 1 ? 'poltrona' : 'poltronas'} · ${formatarPreco(totalEscolhido)}`
+                        : 'Toque nas poltronas livres'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {escolhidas.length
+                        ? rotulosDasEscolhidas
+                        : `Até ${aluno.restantes} para ${aluno.primeiro_nome} · use + para aproximar`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="hero" size="lg" className="shrink-0"
+                    disabled={!escolhidas.length || isHolding}
+                    onClick={reservarEscolhidas}
+                  >
+                    {isHolding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reservar'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <aside className="border-t lg:border-t-0 lg:border-l border-border bg-background overflow-y-auto p-4 min-h-0">
+        <aside className={`border-t lg:border-t-0 lg:border-l border-border bg-background overflow-y-auto p-4 min-h-0 ${temLista ? 'hidden lg:block' : ''}`}>
+          {temLista && aluno && !hold ? (
+            <div className="bg-card rounded-2xl border border-border p-5 sticky top-4 space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Convites de</p>
+                <h3 className="font-display font-semibold text-lg">{aluno.primeiro_nome}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Restam {aluno.restantes} de {aluno.limite}, somando as duas sessões.
+                </p>
+              </div>
+              {escolhidas.length ? (
+                <ul className="space-y-1.5 text-sm">
+                  {escolhidas.map((id) => {
+                    const s = (seats ?? []).find((x) => x.id === id);
+                    return (
+                      <li key={id} className="flex justify-between gap-3">
+                        <span className="truncate">{s?.label ?? s?.code}{s?.seat_type_name ? ` · ${s.seat_type_name}` : ''}</span>
+                        <span className="tabular-nums text-muted-foreground">{formatarPreco(Number(s?.base_price ?? 0))}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Toque nas poltronas livres no mapa (até {aluno.restantes}).
+                </p>
+              )}
+              <Button
+                variant="hero" size="lg" className="w-full"
+                disabled={!escolhidas.length || isHolding}
+                onClick={reservarEscolhidas}
+              >
+                {isHolding
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reservando…</>
+                  : escolhidas.length
+                    ? `Reservar ${escolhidas.length} ${escolhidas.length === 1 ? 'poltrona' : 'poltronas'} · ${formatarPreco(totalEscolhido)}`
+                    : 'Reservar'}
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                A reserva segura as poltronas por 10 minutos enquanto você paga. A taxa de serviço aparece no pagamento.
+              </p>
+            </div>
+          ) : (
           <SelectionPanel
             seatNoun={event.seat_noun}
             unidadesDoPacote={unidadesDoPacote}
@@ -298,6 +616,7 @@ const EventDetailsSeated = ({ event, zoom = 1 }: Props) => {
             setSeatAddon={setSeatAddon}
             markProceeding={markProceeding}
           />
+          )}
         </aside>
       </div>
 
