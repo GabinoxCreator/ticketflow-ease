@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, Tag, Percent, DollarSign } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Percent, DollarSign, Link2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEventCoupons, type EventCoupon } from '@/hooks/useEventCoupons';
 import { CouponDialog } from '@/components/producer/CouponDialog';
 import { AvisoCupomLoteSubsidiado } from './AvisoCupomLoteSubsidiado';
+import { linkDoCupom } from '@/lib/cupomDoLink';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-interface Props { eventId: string; }
+interface Props { eventId: string; eventSlug?: string | null; }
 
-export function EventCouponsTab({ eventId }: Props) {
+export function EventCouponsTab({ eventId, eventSlug }: Props) {
   const { coupons, isLoading, createCoupon, updateCoupon, deleteCoupon } = useEventCoupons(eventId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EventCoupon | null>(null);
@@ -21,6 +23,17 @@ export function EventCouponsTab({ eventId }: Props) {
 
   const formatDate = (s: string) =>
     new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  // Link do cupom (OS-358): quem entra por ele já paga com o cupom aplicado.
+  const copiarLink = async (codigo: string) => {
+    const link = linkDoCupom(eventSlug || eventId, codigo);
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link do cupom copiado', { description: link });
+    } catch {
+      toast.message('Copie o link do cupom', { description: link });
+    }
+  };
 
   if (isLoading) return <Skeleton className="h-48 w-full" />;
 
@@ -71,6 +84,9 @@ export function EventCouponsTab({ eventId }: Props) {
                     {c.valid_until && ` · até ${formatDate(c.valid_until)}`}
                   </p>
                 </div>
+                <Button variant="ghost" size="icon" title="Copiar link do cupom" aria-label="Copiar link do cupom" onClick={() => copiarLink(c.code)}>
+                  <Link2 className="w-4 h-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setDialogOpen(true); }}>
                   <Pencil className="w-4 h-4" />
                 </Button>

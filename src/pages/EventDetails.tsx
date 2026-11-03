@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useParams, Link } from 'react-router-dom';
+import { cupomDaUrl, guardarCupomDoLink } from '@/lib/cupomDoLink';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import {
@@ -141,6 +142,20 @@ const EventDetails = () => {
   // Hook no topo (antes dos early returns) p/ não quebrar a ordem dos hooks.
   const { data: donationProgress, isLoading: donationProgressLoading } =
     useDonationProgress(event?.slug, isBeneficentEvent(event));
+
+  // Link do cupom (OS-358): `?cupom=JULIA10` fica guardado por evento até o
+  // pagamento, que o aplica sozinho (passando pelo login, se for o caso).
+  useEffect(() => {
+    if (!eventId) return;
+    const codigo = cupomDaUrl(window.location.search);
+    if (!codigo) return;
+    guardarCupomDoLink(eventId, codigo);
+    // Tira o ?cupom da barra: recarregar a página não traz de volta o cupom que
+    // a pessoa tirou no X. O estado do roteador vai junto, intacto.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('cupom');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [eventId]);
 
   // Hardening #7: leitura e toggle do like passam por RPC (a tabela não é mais
   // acessível direto — o DELETE aberto deixava apagar curtida alheia em massa).
