@@ -151,6 +151,154 @@ export type Database = {
         }
         Relationships: []
       }
+      alunos_lista: {
+        Row: {
+          anonimizado_em: string | null
+          cpf: string | null
+          criado_em: string
+          danca_nas_duas: boolean
+          id: string
+          lista_id: string
+          nascimento: string | null
+          nome: string | null
+        }
+        Insert: {
+          anonimizado_em?: string | null
+          cpf?: string | null
+          criado_em?: string
+          danca_nas_duas: boolean
+          id?: string
+          lista_id: string
+          nascimento?: string | null
+          nome?: string | null
+        }
+        Update: {
+          anonimizado_em?: string | null
+          cpf?: string | null
+          criado_em?: string
+          danca_nas_duas?: boolean
+          id?: string
+          lista_id?: string
+          nascimento?: string | null
+          nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alunos_lista_lista_id_fkey"
+            columns: ["lista_id"]
+            isOneToOne: false
+            referencedRelation: "listas_alunos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alunos_passes: {
+        Row: {
+          aluno_id: string
+          criado_em: string
+          passe: string
+          user_id: string
+          vale_ate: string
+        }
+        Insert: {
+          aluno_id: string
+          criado_em?: string
+          passe?: string
+          user_id: string
+          vale_ate: string
+        }
+        Update: {
+          aluno_id?: string
+          criado_em?: string
+          passe?: string
+          user_id?: string
+          vale_ate?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alunos_passes_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos_lista"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alunos_pedidos: {
+        Row: {
+          aluno_id: string
+          criado_em: string
+          lista_id: string
+          order_id: string
+        }
+        Insert: {
+          aluno_id: string
+          criado_em?: string
+          lista_id: string
+          order_id: string
+        }
+        Update: {
+          aluno_id?: string
+          criado_em?: string
+          lista_id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alunos_pedidos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos_lista"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alunos_pedidos_lista_id_fkey"
+            columns: ["lista_id"]
+            isOneToOne: false
+            referencedRelation: "listas_alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alunos_pedidos_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alunos_reservas: {
+        Row: {
+          aluno_id: string
+          criado_em: string
+          event_id: string
+          hold_token: string
+          user_id: string
+        }
+        Insert: {
+          aluno_id: string
+          criado_em?: string
+          event_id: string
+          hold_token: string
+          user_id: string
+        }
+        Update: {
+          aluno_id?: string
+          criado_em?: string
+          event_id?: string
+          hold_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alunos_reservas_aluno_id_fkey"
+            columns: ["aluno_id"]
+            isOneToOne: false
+            referencedRelation: "alunos_lista"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -1740,6 +1888,72 @@ export type Database = {
           tipo_evento?: string
         }
         Relationships: []
+      }
+      listas_alunos: {
+        Row: {
+          abre_lote1_em: string
+          abre_lote2_em: string
+          apagar_dados_em: string
+          criado_em: string
+          dados_apagados_em: string | null
+          id: string
+          limite_por_aluno: number
+          nome: string
+          trava_ligada: boolean
+        }
+        Insert: {
+          abre_lote1_em: string
+          abre_lote2_em: string
+          apagar_dados_em: string
+          criado_em?: string
+          dados_apagados_em?: string | null
+          id?: string
+          limite_por_aluno?: number
+          nome: string
+          trava_ligada?: boolean
+        }
+        Update: {
+          abre_lote1_em?: string
+          abre_lote2_em?: string
+          apagar_dados_em?: string
+          criado_em?: string
+          dados_apagados_em?: string | null
+          id?: string
+          limite_por_aluno?: number
+          nome?: string
+          trava_ligada?: boolean
+        }
+        Relationships: []
+      }
+      listas_alunos_eventos: {
+        Row: {
+          event_id: string
+          lista_id: string
+        }
+        Insert: {
+          event_id: string
+          lista_id: string
+        }
+        Update: {
+          event_id?: string
+          lista_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listas_alunos_eventos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "listas_alunos_eventos_lista_id_fkey"
+            columns: ["lista_id"]
+            isOneToOne: false
+            referencedRelation: "listas_alunos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       map_objects: {
         Row: {
@@ -3619,6 +3833,10 @@ export type Database = {
         Args: { _data: string; _hora: string; _padrao: string }
         Returns: string
       }
+      _aluno_convites_em_uso: {
+        Args: { _aluno_id: string; _menos_token?: string }
+        Returns: number
+      }
       _conferir_pin: { Args: { _pin: string; _user_id: string }; Returns: Json }
       _pedido_so_da_casa: { Args: { _order_id: string }; Returns: boolean }
       _pin_email_da_conta: { Args: { _user_id: string }; Returns: string }
@@ -3703,6 +3921,15 @@ export type Database = {
       }
       admin_zerar_pin: {
         Args: { _motivo?: string; _user_id: string }
+        Returns: Json
+      }
+      aluno_conferir: {
+        Args: { _cpf: string; _event_id: string; _nascimento: string }
+        Returns: Json
+      }
+      aluno_pelo_passe: { Args: { _passe: string }; Returns: Json }
+      anonimizar_lista_de_alunos: {
+        Args: { _antes_da_data?: boolean; _lista_id: string }
         Returns: Json
       }
       apply_order_approved: {
@@ -3877,6 +4104,7 @@ export type Database = {
         Args: { _event_product_id: string }
         Returns: string[]
       }
+      evento_lista_info: { Args: { _event_id: string }; Returns: Json }
       expirar_transferencias_vencidas: {
         Args: { _ticket_id?: string }
         Returns: number
@@ -3895,6 +4123,15 @@ export type Database = {
         Args: { _id: string; _nome: string }
         Returns: string
       }
+      gestao_payout_dar_baixa: {
+        Args: {
+          p_comprovante_path: string
+          p_motivo?: string
+          p_payout_id: string
+          p_quem: string
+        }
+        Returns: Json
+      }
       gestao_reembolso_dar_baixa: {
         Args: {
           p_comprovante_path: string
@@ -3904,6 +4141,9 @@ export type Database = {
         }
         Returns: Json
       }
+      gestao_repasse_extrato: { Args: { p_payout_id: string }; Returns: Json }
+      gestao_repasse_pedidos: { Args: { p_payout_id: string }; Returns: Json }
+      gestao_repasses: { Args: { p_status?: string }; Returns: Json }
       get_camarote_wristbands: {
         Args: { _event_id: string }
         Returns: {
@@ -4012,6 +4252,10 @@ export type Database = {
       }
       hold_seats: {
         Args: { _event_id: string; _seat_ids: string[]; _window?: string }
+        Returns: Json
+      }
+      hold_seats_aluno: {
+        Args: { _event_id: string; _passe: string; _seat_ids: string[] }
         Returns: Json
       }
       iniciar_transferencia_ingresso: {
