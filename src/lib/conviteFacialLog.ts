@@ -20,10 +20,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type ConviteFacialEvento = 'mostrado' | 'recusado' | 'concluido';
 export type ConviteFacialOrigem = 'compra' | 'login';
+/*
+ * OS-343: com a chave da facial obrigatória ligada, a recusa só existe para quem
+ * não pode ou não consegue fazer a foto, e o motivo vai junto na origem (a
+ * função do banco guarda a origem como texto livre; a lista fechada é a da ação):
+ *   facial_convite_recusado com origem 'compra:menor', 'compra:nao_consegue'...
+ */
+export type ConviteFacialOrigemComMotivo =
+  | ConviteFacialOrigem
+  | `${ConviteFacialOrigem}:${'menor' | 'nao_consegue' | 'idade_nao_conferida'}`;
 
 export function registrarConviteFacial(
   evento: ConviteFacialEvento,
-  origem: ConviteFacialOrigem,
+  origem: ConviteFacialOrigemComMotivo,
 ): void {
   // `as any`: a RPC é nova e o types.ts é auto-gerado (não se edita à mão).
   void (supabase as any)

@@ -15,6 +15,16 @@ export type OrderEmailSource =
   | (string & {});
 export const ORDER_EMAIL_KIND = "paid_confirmation" as const;
 
+// Ingressos do pedido que entram no e-mail. `deFora` tira alguns pelo id: na retirada
+// grátis com acompanhante (OS-364), o 2º ingresso é do acompanhante e vai para o e-mail
+// dele pelo link de aceite; mandar o QR dele a quem retirou confundia (e o código morre
+// no aceite). Sem `deFora`, todos, como sempre foi.
+export function ingressosDoEmail<T extends { id: string }>(tickets: T[], deFora?: string[]): T[] {
+  if (!deFora || deFora.length === 0) return tickets;
+  const fora = new Set(deFora);
+  return tickets.filter((t) => !fora.has(t.id));
+}
+
 type OkResult = { ok: true; messageId?: string | null };
 type SkippedResult = {
   ok: false;
@@ -187,9 +197,9 @@ export async function sendOrderConfirmationEmailSafe(
   // supabase-js (2 / 2.57.2 / 2.117.2), e o tipo nominal do cliente de uma
   // versão não é atribuível ao da outra. Restringir aqui quebra o deno check.
   supabase: any,
-  args: { orderId: string; source: OrderEmailSource },
+  args: { orderId: string; source: OrderEmailSource; deFora?: string[] },
 ): Promise<OrderEmailResult> {
-  const { orderId, source } = args;
+  const { orderId, source, deFora } = args;
   const kind = ORDER_EMAIL_KIND;
 
   try {
@@ -291,15 +301,16 @@ export async function sendOrderConfirmationEmailSafe(
         .maybeSingle(),
       supabase
         .from("tickets")
-        .select("ticket_code, holder_name, lot_id")
+        .select("id, ticket_code, holder_name, lot_id")
         .eq("order_id", orderId),
     ]);
 
-    const tickets = (ticketRows ?? []) as Array<{
+    const tickets = ingressosDoEmail((ticketRows ?? []) as Array<{
+      id: string;
       ticket_code: string;
       holder_name: string | null;
       lot_id: string | null;
-    }>;
+    }>, deFora);
     const qty = tickets.length;
     const eventTitle = event?.title ?? "seu evento";
     const eventVenue = event?.venue

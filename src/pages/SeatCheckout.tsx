@@ -36,6 +36,7 @@ import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 import { AvisoTaxaNaoReembolsavel } from '@/components/legal/AvisoTaxaNaoReembolsavel';
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
+import { useFacialPendente } from '@/hooks/useFacialPendente';
 
 
 type Step = 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
@@ -106,6 +107,15 @@ export default function SeatCheckout() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, profile, isLoading: authLoading } = useAuth();
+  /*
+   * OS-343: com a chave da facial obrigatória LIGADA, conta nova sem rosto passa
+   * pela etapa do rosto (o mesmo modal da conta) antes de pagar a mesa. Estado
+   * próprio para o modal não sumir no meio do aviso quando a pendência cai.
+   * Desligada (o padrão), `pendente` é sempre false e nada muda.
+   */
+  const facialPend = useFacialPendente();
+  const [pedirFacial, setPedirFacial] = useState(false);
+  useEffect(() => { if (facialPend.pendente) setPedirFacial(true); }, [facialPend.pendente]);
   const {
     hold,
     addons,
@@ -480,14 +490,14 @@ export default function SeatCheckout() {
   // já é protegida; este gate cobre a sessão que caiu no meio da compra e
   // qualquer reaproveitamento desta tela fora da rota protegida. Nunca comprar
   // como visitante: o ingresso ficaria sem dono e a pessoa sem como entrar.
-  if (!authLoading && !user) {
+  if (!authLoading && (!user || pedirFacial)) {
     return (
       <>
         <Helmet><title>Entrar — {event?.title ?? 'Checkout'}</title></Helmet>
         <div className="min-h-screen">
           <Header />
           <main className="pt-32 max-w-md mx-auto px-4 text-center space-y-4">
-            <h1 className="font-display font-bold text-xl">Entre ou crie sua conta para continuar</h1>
+            <h1 className="font-display font-bold text-xl">{user ? 'Falta uma etapa da sua conta' : 'Entre ou crie sua conta para continuar'}</h1>
             <p className="text-sm text-muted-foreground">
               O ingresso fica na sua conta, em Meus Ingressos. Sua reserva continua guardada enquanto o relógio não zerar.
             </p>
@@ -496,7 +506,7 @@ export default function SeatCheckout() {
         <AuthModalV2
           isOpen
           onClose={() => navigate(`/evento/${eventId}`, { replace: true })}
-          onAuthenticated={() => { /* o AuthContext traz o usuário e o checkout segue sozinho */ }}
+          onAuthenticated={() => { setPedirFacial(false); /* o AuthContext traz o usuário e o checkout segue sozinho */ }}
         />
       </>
     );
