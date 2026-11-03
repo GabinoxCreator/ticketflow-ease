@@ -102,7 +102,7 @@ export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceit
             <>
               <div className="flex gap-3">
                 <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4.5 h-4.5 text-primary" />
+                  <ShieldCheck className="w-[18px] h-[18px] text-primary" />
                 </div>
                 <div className="min-w-0">
                   <p className="font-display font-semibold text-base leading-snug">Confirme seu CPF</p>
@@ -117,7 +117,7 @@ export function AceiteDoIngresso({ cpfFinal, jaTemConta, emailMascarado, onAceit
                   value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))}
                   onKeyDown={(e) => e.key === 'Enter' && confirmarCpf()} />
               </div>
-              <Button variant="hero" size="lg" className="w-full h-13" onClick={confirmarCpf} disabled={processando}>
+              <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold" onClick={confirmarCpf} disabled={processando}>
                 {processando ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Recebendo…</> : 'Continuar'}
               </Button>
             </>

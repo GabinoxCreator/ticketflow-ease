@@ -328,7 +328,7 @@ export default function CortesiaLink() {
                   ].map(({ n, icone: Icone, t, d }) => (
                     <li key={n} className="flex gap-3">
                       <div className="h-9 w-9 shrink-0 rounded-xl bg-primary/15 flex items-center justify-center">
-                        <Icone className="h-4.5 w-4.5 text-primary" />
+                        <Icone className="h-[18px] w-[18px] text-primary" />
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-sm leading-snug">{t}</p>
@@ -345,10 +345,12 @@ export default function CortesiaLink() {
                     <Users className="h-4 w-4 text-primary" />
                     <p className="font-semibold text-sm">Vai levar alguém?</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* "Só eu" estreito e o outro com o resto, para "Eu e um acompanhante" não quebrar
+                      em 2 linhas no celular (OS-364). */}
+                  <div className="flex gap-2">
                     {[{ v: false, t: 'Só eu' }, { v: true, t: 'Eu e um acompanhante' }].map(({ v, t }) => (
                       <button key={t} type="button" aria-pressed={comAcompanhante === v} onClick={() => setComAcompanhante(v)}
-                        className={`rounded-xl border px-3 py-3 text-sm font-medium transition-colors ${comAcompanhante === v ? 'border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'border-border bg-background text-foreground'}`}>
+                        className={`${v ? 'flex-1 px-3' : 'shrink-0 px-5'} min-h-12 rounded-xl border py-3 text-sm font-medium leading-tight transition-colors ${comAcompanhante === v ? 'border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20' : 'border-border bg-background text-foreground'}`}>
                         {t}
                       </button>
                     ))}
@@ -387,7 +389,7 @@ export default function CortesiaLink() {
                   </p>
                 </div>
               ) : (
-                <Button variant="hero" size="lg" className="w-full h-13" onClick={comecar}>
+                <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold" onClick={comecar}>
                   Retirar meu ingresso
                 </Button>
               )}
@@ -501,6 +503,10 @@ export default function CortesiaLink() {
                   perder este link, é só entrar no site com o seu e-mail.
                 </p>
               </div>
+
+              <Button variant="hero" size="lg" className="w-full h-14 text-base font-semibold" onClick={() => navigate('/meus-ingressos')}>
+                <Ticket className="w-5 h-5 mr-2" /> Ver meus ingressos
+              </Button>
 
 
             </motion.div>

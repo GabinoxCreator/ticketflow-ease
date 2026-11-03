@@ -413,7 +413,12 @@ serve(async (req) => {
     // E-mail com o QR. Nunca derruba a retirada: o ingresso já está na conta e na tela.
     let emailEnviado = false;
     try {
-      const r = await sendOrderConfirmationEmailSafe(admin, { orderId: order.id, source: "cortesia_link" });
+      // Só o ingresso de quem retirou quando o link do acompanhante saiu: o dele já foi para o
+      // e-mail dele (OS-364). Se o link falhou, o dele vai junto, de reserva, como antes.
+      const doAcompanhante = acompanhanteInfo?.enviado
+        ? todos.filter((t) => t.holder_cpf && t.holder_cpf !== cpf).map((t) => t.id)
+        : [];
+      const r = await sendOrderConfirmationEmailSafe(admin, { orderId: order.id, source: "cortesia_link", deFora: doAcompanhante });
       emailEnviado = r.ok === true;
     } catch (e) {
       log("email_falhou", { error: String(e) });
