@@ -989,6 +989,8 @@ export type Database = {
           parcelas_sem_juros: number | null
           price: number
           reserved_quantity: number
+          retirada_max_por_cpf: number
+          retirada_publica: boolean
           sales_start_type: string
           sector_name: string
           sold_quantity: number
@@ -1017,6 +1019,8 @@ export type Database = {
           parcelas_sem_juros?: number | null
           price: number
           reserved_quantity?: number
+          retirada_max_por_cpf?: number
+          retirada_publica?: boolean
           sales_start_type?: string
           sector_name?: string
           sold_quantity?: number
@@ -1045,6 +1049,8 @@ export type Database = {
           parcelas_sem_juros?: number | null
           price?: number
           reserved_quantity?: number
+          retirada_max_por_cpf?: number
+          retirada_publica?: boolean
           sales_start_type?: string
           sector_name?: string
           sold_quantity?: number
@@ -2120,6 +2126,7 @@ export type Database = {
           provider_authorization_code: string | null
           provider_pix_code: string | null
           provider_transaction_id: string | null
+          retirada_por_link: boolean
           review_flagged_at: string | null
           review_reason: Json | null
           review_status: string | null
@@ -2157,6 +2164,7 @@ export type Database = {
           provider_authorization_code?: string | null
           provider_pix_code?: string | null
           provider_transaction_id?: string | null
+          retirada_por_link?: boolean
           review_flagged_at?: string | null
           review_reason?: Json | null
           review_status?: string | null
@@ -2194,6 +2202,7 @@ export type Database = {
           provider_authorization_code?: string | null
           provider_pix_code?: string | null
           provider_transaction_id?: string | null
+          retirada_por_link?: boolean
           review_flagged_at?: string | null
           review_reason?: Json | null
           review_status?: string | null
