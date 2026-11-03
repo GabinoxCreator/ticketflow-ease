@@ -351,3 +351,10 @@ verify_jwt = false
 # header x-admin-secret. Nunca pelo navegador do público.
 [functions.carteira-codigo-whatsapp]
 verify_jwt = false
+
+# Retirada de cortesia pelo link público do evento (OS-313, Apresenta Summit).
+# verify_jwt=false porque a página também responde SEM ninguém logado (ação `info`,
+# que só mostra o evento); a ação `retirar` exige o JWT do próprio convidado, lido
+# dentro da função. Nunca emite ingresso para quem não tem sessão.
+[functions.cortesia-link]
+verify_jwt = false

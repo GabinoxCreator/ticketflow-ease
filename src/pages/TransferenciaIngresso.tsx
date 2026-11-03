@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
@@ -11,6 +11,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { formatEventDate } from '@/lib/eventTime';
 import { AceiteDoIngresso } from '@/components/tickets/AceiteDoIngresso';
+import FacialCaptureFullscreen from '@/components/auth/FacialCaptureFullscreen';
+import FacialInviteModal from '@/components/auth/FacialInviteModal';
+import { registrarConviteFacial } from '@/lib/conviteFacialLog';
 
 /*
  * Página do link de transferência — o que QUEM RECEBE vê.
@@ -37,6 +40,8 @@ interface Info {
   emailMascarado?: string | null;
   evento: { titulo: string; data: string; hora: string; local: string; cidade: string; estado: string; imagem: string | null } | null;
   ingresso: { lote: string | null; assento: string | null };
+  /** Evento com entrada pela facial (lote de retirada pública, OS-357): pede a facial depois do aceite. */
+  exigeFacial?: boolean;
 }
 
 const formatCpf = (v: string) =>
@@ -57,6 +62,12 @@ export default function TransferenciaIngresso() {
   const [cpf, setCpf] = useState('');
   const [processando, setProcessando] = useState(false);
   const [pronto, setPronto] = useState(false);
+  // Evento com entrada pela facial (OS-357): a facial vem ANTES do aceite e é obrigatória
+  // (decisão do Gabriel, 31/10). O aceite que ficou esperando a facial volta a rodar
+  // sozinho quando a foto é gravada.
+  const [facial, setFacial] = useState<'nao' | 'convite' | 'camera'>('nao');
+  const [avisoFacial, setAvisoFacial] = useState(false);
+  const aceiteEsperando = useRef<{ cpf: string; nome?: string; telefone?: string } | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -89,6 +100,43 @@ export default function TransferenciaIngresso() {
 
     setProcessando(true);
     try {
+      // Evento com entrada pela facial: sem facial cadastrada, primeiro o convite da
+      // facial. O servidor confere de novo (a tela só conduz).
+      if (info?.exigeFacial) {
+        const { data: sessao } = await supabase.auth.getUser();
+        const uid = sessao?.user?.id;
+        const { data: perfil } = uid
+          ? await supabase.from('profiles').select('cpf, facial_photo_path').eq('id', uid).maybeSingle()
+          : { data: null };
+        // Conta de outro CPF (o celular da família, logado em outra pessoa): a foto iria
+        // parar no cadastro errado e a portaria ligaria este rosto a outro CPF. Para aqui,
+        // antes da câmera. O servidor confere a mesma coisa.
+        const cpfDaConta = String(perfil?.cpf ?? '').replace(/\D/g, '');
+        if (cpfDaConta && cpfDaConta !== cpfLimpo) {
+          toast.error('Esta conta está em outro CPF. Saia e crie a conta (ou entre) com o CPF de quem vai usar o ingresso.');
+          return;
+        }
+        // Conta antiga sem CPF: a portaria liga o rosto ao ingresso pelo CPF do perfil, então
+        // ele é gravado aqui, antes da câmera, e só se for o CPF para quem o ingresso foi
+        // apontado (o final confere com o do link; o servidor confere o número inteiro).
+        if (!cpfDaConta) {
+          if (!cpfLimpo.endsWith(info.cpfFinal)) {
+            toast.error(`Este ingresso é para o CPF terminado em ${info.cpfFinal}. Confira o CPF digitado.`);
+            return;
+          }
+          const { data: def } = await supabase.rpc('definir_meu_cpf', { _cpf: cpfLimpo });
+          if (!(def as { ok?: boolean } | null)?.ok) {
+            toast.error('Não deu para gravar o CPF na sua conta. Fale com a organização do evento.');
+            return;
+          }
+        }
+        if (!perfil?.facial_photo_path) {
+          aceiteEsperando.current = { cpf: cpfLimpo, nome: nomeInformado, telefone: telInformado };
+          registrarConviteFacial('mostrado', 'login');
+          setFacial('convite');
+          return;
+        }
+      }
       const { data, error } = await supabase.functions.invoke('ticket-transfer-accept', {
         body: { token, cpf: cpfLimpo, nome: nomeInformado || undefined, telefone: telInformado || undefined },
       });
@@ -96,6 +144,12 @@ export default function TransferenciaIngresso() {
       if (data?.error) { toast.error(data.error); return; }
       if (error) {
         const corpo = await (error as any)?.context?.json?.().catch(() => null);
+        // O servidor achou a conta sem facial (outra aba, foto apagada): volta ao convite.
+        if (corpo?.code === 'sem_facial') {
+          aceiteEsperando.current = { cpf: cpfLimpo, nome: nomeInformado, telefone: telInformado };
+          setFacial('convite');
+          return;
+        }
         toast.error(corpo?.error || 'Não foi possível aceitar o ingresso.');
         return;
       }
@@ -136,7 +190,7 @@ export default function TransferenciaIngresso() {
     const textos: Record<string, string> = {
       aceita: 'Este ingresso já foi aceito.',
       cancelada: `${info.deQuem} cancelou esta transferência.`,
-      expirada: 'Este link venceu (ele vale 24 horas). Peça um novo para quem enviou.',
+      expirada: 'Este link venceu. Peça um novo para quem enviou.',
     };
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
@@ -145,6 +199,47 @@ export default function TransferenciaIngresso() {
           <h1 className="font-display font-semibold text-xl">Transferência encerrada</h1>
           <p className="text-sm text-muted-foreground">{textos[info.status] ?? 'Esta transferência não está mais ativa.'}</p>
           <Button variant="outline" onClick={() => navigate('/')}>Ir para o início</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const concluirFacial = () => {
+    registrarConviteFacial('concluido', 'login');
+    setFacial('nao');
+    const pendente = aceiteEsperando.current;
+    aceiteEsperando.current = null;
+    if (pendente) void aceitar(pendente);
+  };
+
+  if (facial === 'camera') {
+    return <FacialCaptureFullscreen onDone={concluirFacial} onSkip={() => setFacial('convite')} />;
+  }
+
+  if (facial === 'convite') {
+    return (
+      <div className="min-h-screen px-4 py-10">
+        <div className="max-w-md mx-auto space-y-5">
+          <div className="text-center space-y-1">
+            <ShieldCheck className="w-10 h-10 text-primary mx-auto" />
+            <h1 className="font-display font-bold text-xl">Falta só a sua facial</h1>
+            <p className="text-sm text-muted-foreground">É ela que libera a sua entrada no dia. Cadastrada a facial, o ingresso passa para a sua conta.</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-card/60 p-6">
+            <FacialInviteModal
+              onActivate={() => setFacial('camera')}
+              onSkip={() => { registrarConviteFacial('recusado', 'login'); setAvisoFacial(true); }}
+            />
+          </div>
+          {avisoFacial && (
+            <div className="space-y-3 text-center">
+              <p className="text-xs text-muted-foreground">
+                Este ingresso só passa para você com a facial cadastrada. A câmera não abriu? Tente pelo
+                navegador do celular, liberando o acesso à câmera. Se não der, fale com a organização do
+                evento antes do dia.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -239,6 +334,7 @@ export default function TransferenciaIngresso() {
             emailMascarado={info.emailMascarado ?? null}
             processando={processando}
             onAceitar={aceitar}
+            semFacial={!!info.exigeFacial}
           />
         )}
 

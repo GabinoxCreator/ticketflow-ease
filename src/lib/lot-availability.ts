@@ -14,6 +14,8 @@ export interface LotForAvailability {
   start_date?: string | null;
   end_date?: string | null;
   starts_after_lot_id?: string | null;
+  /** Lote que só sai pelo link de cortesia (OS-313): nunca entra na venda normal. */
+  retirada_publica?: boolean | null;
   total_quantity: number;
   sold_quantity: number;
   reserved_quantity?: number | null;
@@ -45,6 +47,10 @@ export function isLotEnded(lot: LotForAvailability, now: Date = new Date()): boo
  *   de fim (OS-227, 14/10/2026: o que ocorrer primeiro; antes só o esgotado abria, e
  *   um anterior que encerrava pela data deixava o seguinte fechado para sempre).
  * Lote 'scheduled' sem data se comporta como 'now' (não trava venda por dado incompleto).
+ *
+ * Lote de retirada pública (OS-313) NUNCA está aberto aqui: ele existe só para o link de
+ * cortesia, onde valem a trava de um por pessoa e o cadastro. Deixá-lo na vitrine punha
+ * ingresso de graça à venda na página do evento, na maquininha e no totem.
  */
 export function isLotOpenForSale(
   lot: LotForAvailability,
@@ -52,6 +58,7 @@ export function isLotOpenForSale(
   now: Date = new Date(),
 ): boolean {
   if (!lot.is_active) return false;
+  if (lot.retirada_publica) return false;
 
   if (isLotEnded(lot, now)) return false;
 

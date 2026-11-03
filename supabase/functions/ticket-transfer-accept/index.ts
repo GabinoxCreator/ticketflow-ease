@@ -26,7 +26,7 @@ const json = (body: unknown, status = 200) =>
 
 const RECADOS: Record<string, string> = {
   link_invalido: 'Este link não existe. Confira com quem enviou.',
-  link_expirado: 'Este link venceu (vale 24 horas). Peça um novo para quem enviou.',
+  link_expirado: 'Este link venceu. Peça um novo para quem enviou.',
   ja_aceita: 'Este ingresso já foi aceito.',
   transferencia_cancelada: 'Quem enviou cancelou esta transferência.',
   cpf_nao_confere: 'O CPF informado não é o mesmo que quem enviou apontou. Confira com a pessoa.',
@@ -36,6 +36,8 @@ const RECADOS: Record<string, string> = {
   ingresso_ja_utilizado: 'Este ingresso já foi utilizado na entrada — a transferência foi encerrada.',
   ingresso_indisponivel: 'Este ingresso não está mais válido.',
   ingresso_nao_encontrado: 'Ingresso não encontrado.',
+  // Ingresso de retirada grátis (OS-357): um por CPF no evento, como dono ou acompanhante.
+  cpf_ja_tem_ingresso: 'Este CPF já tem ingresso deste evento. Cada pessoa fica com um só.',
 };
 
 function recado(erro: string): string {
@@ -74,6 +76,36 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { auth: { persistSession: false } },
     );
+
+    // Ingresso de retirada grátis (OS-356/357): a entrada é pela facial, e a facial do
+    // titular é obrigatória (decisão do Gabriel, 31/10). O ingresso só passa para a conta
+    // dele com a facial cadastrada, e numa conta do MESMO CPF: é pelo CPF do perfil que a
+    // portaria liga o rosto ao ingresso.
+    const { data: tr } = await admin
+      .from('ticket_transfers').select('ticket_id').eq('token', token).maybeSingle();
+    if (tr?.ticket_id) {
+      const { data: tk } = await admin
+        .from('tickets').select('lot_id').eq('id', tr.ticket_id).maybeSingle();
+      const { data: lot } = tk?.lot_id
+        ? await admin.from('event_lots').select('retirada_publica').eq('id', tk.lot_id).maybeSingle()
+        : { data: null };
+      if (lot?.retirada_publica === true) {
+        const { data: perfil } = await admin
+          .from('profiles').select('cpf, facial_photo_path').eq('id', user.id).maybeSingle();
+        const cpfPerfil = unformatCPF(String(perfil?.cpf ?? ''));
+        // Conta sem CPF também não serve: a portaria liga o rosto ao ingresso pelo CPF do
+        // perfil (a tela grava o CPF antes da câmera, por `definir_meu_cpf`).
+        if (!cpfPerfil) {
+          return json({ error: 'Grave o seu CPF na conta antes de aceitar: é por ele que a sua facial abre a entrada.', code: 'conta_sem_cpf' }, 409);
+        }
+        if (cpfPerfil !== cpfLimpo) {
+          return json({ error: 'Esta conta está em outro CPF. Saia e crie a conta (ou entre) com o CPF de quem vai usar o ingresso.', code: 'conta_de_outro_cpf' }, 409);
+        }
+        if (!perfil?.facial_photo_path) {
+          return json({ error: 'Para ficar com este ingresso, cadastre a sua facial: é ela que libera a sua entrada.', code: 'sem_facial' }, 409);
+        }
+      }
+    }
 
     const { data, error } = await admin.rpc('aceitar_transferencia_ingresso', {
       _token: token,

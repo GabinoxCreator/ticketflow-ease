@@ -14,7 +14,9 @@ export function eventoParaCard(event: Event): EventData {
   const abertos = lots.filter((lot: any) => isLotOpenForSale(lot, lots as LotForAvailability[]));
   const activeLots = abertos.length > 0
     ? abertos
-    : lots.filter((lot: any) => lot.is_active && !isLotEnded(lot));
+    // O lote de retirada gratuita (OS-313/OS-356) nunca anuncia preço: sem esta
+    // trava, o evento só com ele mostraria "a partir de R$ 0,00".
+    : lots.filter((lot: any) => lot.is_active && !lot.retirada_publica && !isLotEnded(lot));
   const prices = activeLots.map((lot: any) => lot.price);
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
