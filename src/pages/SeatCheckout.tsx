@@ -38,6 +38,7 @@ import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
 import { useFacialPendente } from '@/hooks/useFacialPendente';
 import { useListaDoEvento, lerAluno } from '@/hooks/useListaDeAlunos';
 import { horaCurta } from '@/lib/eventTime';
+import { ConvidadosDaCompra } from '@/components/tickets/ConvidadosDoPedido';
 
 
 type Step = 'cpf' | 'method' | 'pix' | 'card' | 'awaiting' | 'verifying' | 'success';
@@ -830,6 +831,8 @@ export default function SeatCheckout() {
                 </div>
                 <h2 className="font-display font-bold text-2xl">Pagamento confirmado!</h2>
                 <p className="text-sm text-muted-foreground">Seus assentos estão garantidos.</p>
+                {/* Convidado do pedido (OS-372). Com lista de alunos (Balé), a edge diz que não tem. */}
+                {orderId && <ConvidadosDaCompra orderId={orderId} />}
                 <Button variant="hero" size="lg" onClick={() => navigate('/meus-ingressos')}>
                   Ver meus ingressos
                 </Button>

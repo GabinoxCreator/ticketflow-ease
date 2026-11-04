@@ -3,6 +3,7 @@ import { CheckCircle2, Ticket, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
+import { ConvidadosDaCompra } from '@/components/tickets/ConvidadosDoPedido';
 
 interface CheckoutStepSuccessProps {
   eventTitle: string;
@@ -76,6 +77,9 @@ export function CheckoutStepSuccess({
 
       {/* Loja do evento: código de retirada dos produtos deste pedido. */}
       <RetiradasDoComprador orderId={orderId} />
+
+      {/* Convidado do pedido (OS-372): com 2+ ingressos, para quem é cada um a mais. */}
+      <ConvidadosDaCompra orderId={orderId} />
 
       {/* Onde fica o ingresso (10/10/2026): quem só tem WhatsApp na conta não
           recebe e-mail, e o ingresso não sai mais pelo WhatsApp. */}
