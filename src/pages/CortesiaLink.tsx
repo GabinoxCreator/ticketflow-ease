@@ -33,9 +33,10 @@ import { toast } from 'sonner';
  * link não sabe), depois a conta, depois o rosto, e o ingresso por último. Pedir cadastro
  * antes de dizer do que se trata é o jeito mais rápido de fechar a aba.
  *
- * A facial é OBRIGATÓRIA: sem o rosto cadastrado não sai ingresso (decisão do Gabriel em
- * 26/10, mantida depois de eu levantar o parecer jurídico de 02/10, que desaconselha exigir
- * biometria como única porta). A trava real está na edge; esta tela só conduz.
+ * A facial é o caminho padrão, não a única porta (OS-374, decisão do Gabriel em 04/11/2026,
+ * que substitui a facial obrigatória de 26/10; o parecer jurídico de 02/10 desaconselha
+ * exigir biometria como única porta): a tela convida, e "Seguir sem facial" retira do
+ * mesmo jeito, com a entrada pelo QR Code com documento.
  */
 
 type Etapa = 'carregando' | 'convite' | 'conta' | 'facial' | 'facial-camera' | 'emitindo' | 'pronto' | 'erro';
@@ -110,7 +111,11 @@ export default function CortesiaLink() {
   // `null` enquanto a resposta não chegou: tratar "não sei" como "não tem" mandava quem
   // já tinha rosto cadastrado para a câmera de novo (recoleta de biometria à toa).
   const [temFacial, setTemFacial] = useState<boolean | null>(null);
-  const [avisoFacial, setAvisoFacial] = useState(false);
+  // Tocou "Seguir sem facial" (OS-374): a retirada não volta mais ao convite.
+  const seguiuSemFacial = useRef(false);
+  // Uma retirada por vez: dois toques rápidos no "Seguir sem facial" (ou no "Retirar")
+  // disparavam duas chamadas e a segunda podia pintar erro em cima da que deu certo.
+  const retirando = useRef(false);
 
   const chamar = useCallback(async (acao: 'info' | 'retirar') => {
     const { data, error } = await supabase.functions.invoke('cortesia-link', {
@@ -175,12 +180,15 @@ export default function CortesiaLink() {
   }, [user]);
 
   const retirar = useCallback(async () => {
+    if (retirando.current) return;
+    retirando.current = true;
     setEtapa('emitindo');
     try {
       const r = await chamar('retirar');
       if (!r.ok) {
-        // A edge é quem manda na facial: se faltou rosto, a tela leva para a captura.
-        if (r.code === 'sem_facial') { setTemFacial(false); setEtapa('facial'); return; }
+        // Servidor antigo (antes do redeploy da OS-374) recusou por falta de rosto: volta ao
+        // convite, a não ser que a pessoa já tenha escolhido seguir sem a facial.
+        if (r.code === 'sem_facial' && !seguiuSemFacial.current) { setTemFacial(false); setEtapa('facial'); return; }
         setCodigoErro(r.code ?? 'erro_interno');
         setErro(MENSAGEM_ERRO[r.code ?? 'erro_interno'] ?? MENSAGEM_ERRO.erro_interno);
         setEtapa('erro');
@@ -196,6 +204,8 @@ export default function CortesiaLink() {
       setCodigoErro('erro_interno');
       setErro(MENSAGEM_ERRO.erro_interno);
       setEtapa('erro');
+    } finally {
+      retirando.current = false;
     }
   }, [chamar]);
 
@@ -213,8 +223,8 @@ export default function CortesiaLink() {
       comFacial = Boolean(data?.facial_photo_path);
     }
     setTemFacial(comFacial);
-    // A facial é obrigatória neste link: quem recusou o convite do cadastro passa por ela
-    // aqui, porque sem rosto a edge não emite ingresso nenhum.
+    // Quem recusou o convite do cadastro vê o convite deste evento aqui, com o
+    // "Seguir sem facial" (OS-374).
     if (comFacial) { void retirar(); return; }
     setEtapa('facial');
   }, [retirar]);
@@ -246,7 +256,9 @@ export default function CortesiaLink() {
       acompanhanteRef.current = null;
     }
     if (!user) { setEtapa('conta'); return; }
-    if (temFacial === null) { void retirar(); return; }  // ainda não sei: a edge decide
+    // Ainda não sei se tem facial: pergunta o perfil agora (como depois da conta). A edge não
+    // recusa mais sem facial (OS-374), então chamar a retirada às cegas pularia o convite.
+    if (temFacial === null) { void depoisDaConta(); return; }
     if (!temFacial) { setEtapa('facial'); return; }
     void retirar();
   };
@@ -323,7 +335,7 @@ export default function CortesiaLink() {
                 <ol className="space-y-3">
                   {[
                     { n: 1, icone: UserRound, t: 'Sua conta', d: 'CPF, contato e uma senha.' },
-                    { n: 2, icone: ScanFace, t: 'Sua facial', d: 'É ela que abre a entrada no dia, sem fila.' },
+                    { n: 2, icone: ScanFace, t: 'Sua facial', d: 'A entrada mais rápida; se preferir, siga sem ela.' },
                     { n: 3, icone: Ticket, t: 'Seu ingresso', d: 'Com o QR para guardar no celular.' },
                   ].map(({ n, icone: Icone, t, d }) => (
                     <li key={n} className="flex gap-3">
@@ -358,8 +370,7 @@ export default function CortesiaLink() {
                   {comAcompanhante && (
                     <div className="space-y-3">
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        O ingresso dele sai no CPF dele. Ele recebe um e-mail para criar a conta e
-                        cadastrar a facial, que é o que libera a entrada dele no dia.
+                        O ingresso dele sai no CPF dele. Ele cria a conta pelo link do e-mail e recebe o ingresso.
                       </p>
                       <div className="space-y-1.5">
                         <Label htmlFor="a-nome">Nome do acompanhante</Label>
@@ -411,23 +422,30 @@ export default function CortesiaLink() {
               <div className="rounded-2xl border border-border/60 bg-card/60 p-6">
                 <FacialInviteModal
                   onActivate={() => setEtapa('facial-camera')}
-                  onSkip={() => { registrarConviteFacial('recusado', 'login'); setAvisoFacial(true); }}
+                  onSkip={() => {
+                    if (retirando.current) return;
+                    registrarConviteFacial('recusado', 'login');
+                    seguiuSemFacial.current = true;
+                    void retirar();
+                  }}
+                  rotuloPular="Seguir sem facial"
                 />
               </div>
               <div className="space-y-2 text-center">
                 <p className="text-xs text-muted-foreground">
-                  {avisoFacial
-                    ? 'Este ingresso só é liberado com a facial cadastrada: é ela que abre a entrada no dia.'
-                    : 'A facial é o que libera a sua entrada no dia deste evento.'}
+                  Com a facial você entra sem fila; sem ela, entra pelo QR Code com documento.
                 </p>
-                {/* Com a facial obrigatória, quem está com a câmera bloqueada ou num celular
-                    emprestado ficaria sem ingresso e sem a quem recorrer. */}
-                {avisoFacial && (
-                  <p className="text-xs text-muted-foreground">
-                    A câmera não abriu? Tente pelo navegador do seu celular, liberando o acesso à
-                    câmera quando ele pedir. Se não der, fale com a organização do evento.
-                  </p>
-                )}
+                {/* OS-374: o porquê da facial, na Política (seção 7). */}
+                <p>
+                  <a
+                    href="/privacidade#eventos-com-facial"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline underline-offset-2"
+                  >
+                    Por que pedimos a facial?
+                  </a>
+                </p>
               </div>
             </motion.div>
           )}
@@ -454,7 +472,10 @@ export default function CortesiaLink() {
                   {jaTinha ? 'Você já tinha retirado' : 'Ingresso garantido!'}
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  No dia é só chegar e olhar para a câmera. O QR abaixo serve de reserva.
+                  {/* OS-374: quem seguiu sem facial entra pelo QR com documento. */}
+                  {temFacial === true
+                    ? 'No dia é só chegar e olhar para a câmera. O QR abaixo serve de reserva.'
+                    : 'No dia, mostre o QR abaixo na entrada, com um documento oficial com foto.'}
                 </p>
                 {emailEnviado && (
                   <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5 justify-center">
@@ -478,7 +499,7 @@ export default function CortesiaLink() {
                   <Users className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {acompanhanteEnviado.enviado
-                      ? <>O ingresso do seu acompanhante foi para <strong>{acompanhanteEnviado.email}</strong>. Ele cria a conta e cadastra a facial pelo link do e-mail.</>
+                      ? <>O ingresso do seu acompanhante foi para <strong>{acompanhanteEnviado.email}</strong>. Ele cria a conta pelo link do e-mail e recebe o ingresso.</>
                       : <>O ingresso do seu acompanhante já está no CPF dele, mas o e-mail não saiu agora. Fale com a organização do evento para reenviar o link.</>}
                   </p>
                 </div>

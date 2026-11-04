@@ -766,8 +766,17 @@ const EventDetails = () => {
                           <p className="font-semibold leading-snug break-words">{loteRetirada.name}</p>
                           <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1.5">
                             <ScanFace className="h-3.5 w-3.5 shrink-0" />
-                            Para retirar: crie a sua conta e cadastre a sua facial. A entrada é pela facial.
+                            Para retirar: crie a sua conta. A entrada é pela facial ou pelo QR Code com documento.
                           </p>
+                          {/* OS-374: o porquê da facial, na Política (seção 7). */}
+                          <a
+                            href="/privacidade#eventos-com-facial"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary underline underline-offset-2 mt-1 inline-block"
+                          >
+                            Por que pedimos a facial?
+                          </a>
                         </div>
                         <p className="font-bold text-lg gradient-text shrink-0">Grátis</p>
                       </div>

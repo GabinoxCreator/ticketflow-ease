@@ -23,8 +23,9 @@ export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
    * OS-343: com a chave da facial obrigatória LIGADA (`src/lib/facialObrigatoria.ts`)
    * a Política mostra outro texto (seções 2, 5, 7, 11 e 12), e a versão passa a
    * ser o DIA DO CORTE, sozinha: ligar a chave e mudar a versão é o mesmo gesto.
-   * Desligada, continua '2026-10-01'. */
-  privacidade: diaDoCorte() ?? '2026-10-01',
+   * Desligada, era '2026-10-01'; passou a '2026-11-04' com o texto dos eventos com
+   * entrada pela facial (OS-374, seção 7 do texto desligado). */
+  privacidade: diaDoCorte() ?? '2026-11-04',
   reembolso: '2026-09-30',
 };
 

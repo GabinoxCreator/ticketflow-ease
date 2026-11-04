@@ -77,10 +77,11 @@ serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
-    // Ingresso de retirada grátis (OS-356/357): a entrada é pela facial, e a facial do
-    // titular é obrigatória (decisão do Gabriel, 31/10). O ingresso só passa para a conta
-    // dele com a facial cadastrada, e numa conta do MESMO CPF: é pelo CPF do perfil que a
-    // portaria liga o rosto ao ingresso.
+    // Ingresso de retirada grátis (OS-356/357): a entrada é pela facial, e o ingresso só
+    // passa para uma conta do MESMO CPF: é pelo CPF do perfil que a portaria liga o rosto
+    // ao ingresso. A facial deixou de ser obrigatória (OS-374, decisão do Gabriel em
+    // 04/11/2026, que substitui a de 31/10): quem toca "Seguir sem facial" aceita do mesmo
+    // jeito e entra pelo QR Code com um documento oficial com foto.
     const { data: tr } = await admin
       .from('ticket_transfers').select('ticket_id').eq('token', token).maybeSingle();
     if (tr?.ticket_id) {
@@ -91,7 +92,7 @@ serve(async (req) => {
         : { data: null };
       if (lot?.retirada_publica === true) {
         const { data: perfil } = await admin
-          .from('profiles').select('cpf, facial_photo_path').eq('id', user.id).maybeSingle();
+          .from('profiles').select('cpf').eq('id', user.id).maybeSingle();
         const cpfPerfil = unformatCPF(String(perfil?.cpf ?? ''));
         // Conta sem CPF também não serve: a portaria liga o rosto ao ingresso pelo CPF do
         // perfil (a tela grava o CPF antes da câmera, por `definir_meu_cpf`).
@@ -100,9 +101,6 @@ serve(async (req) => {
         }
         if (cpfPerfil !== cpfLimpo) {
           return json({ error: 'Esta conta está em outro CPF. Saia e crie a conta (ou entre) com o CPF de quem vai usar o ingresso.', code: 'conta_de_outro_cpf' }, 409);
-        }
-        if (!perfil?.facial_photo_path) {
-          return json({ error: 'Para ficar com este ingresso, cadastre a sua facial: é ela que libera a sua entrada.', code: 'sem_facial' }, 409);
         }
       }
     }
