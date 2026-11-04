@@ -14,6 +14,7 @@ import { AceiteDoIngresso } from '@/components/tickets/AceiteDoIngresso';
 import FacialCaptureFullscreen from '@/components/auth/FacialCaptureFullscreen';
 import FacialInviteModal from '@/components/auth/FacialInviteModal';
 import { registrarConviteFacial } from '@/lib/conviteFacialLog';
+import { FacialDepoisDoAceite } from '@/components/tickets/FacialDepoisDoAceite';
 
 /*
  * Página do link de transferência — o que QUEM RECEBE vê.
@@ -68,6 +69,9 @@ export default function TransferenciaIngresso() {
   const [facial, setFacial] = useState<'nao' | 'convite' | 'camera'>('nao');
   const [avisoFacial, setAvisoFacial] = useState(false);
   const aceiteEsperando = useRef<{ cpf: string; nome?: string; telefone?: string } | null>(null);
+  // Facial opcional depois do aceite (OS-372, decisão do Gabriel de 04/11): quem já tinha conta
+  // sem facial também vê o convite. Guarda o CPF aceito, que é o da conta.
+  const [ofertaFacial, setOfertaFacial] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -154,6 +158,22 @@ export default function TransferenciaIngresso() {
         return;
       }
 
+      // Facial opcional depois do aceite (OS-372): só quando a conta não tem facial e o CPF
+      // da conta é o do ingresso (é por ele que a portaria liga o rosto ao ingresso). No
+      // evento com entrada pela facial ela já veio antes do aceite.
+      if (!info?.exigeFacial) {
+        const { data: sessao } = await supabase.auth.getUser();
+        const uid = sessao?.user?.id;
+        const { data: perfil } = uid
+          ? await supabase.from('profiles').select('cpf, facial_photo_path').eq('id', uid).maybeSingle()
+          : { data: null };
+        // Conta criada agora, no próprio aceite, já viu o convite da facial no cadastro.
+        const contaNova = Date.now() - new Date(sessao?.user?.created_at ?? 0).getTime() < 30 * 60_000;
+        if (perfil && !contaNova && !perfil.facial_photo_path && String(perfil.cpf ?? '').replace(/\D/g, '') === cpfLimpo) {
+          setOfertaFacial(cpfLimpo);
+          return;
+        }
+      }
       setPronto(true);
       setTimeout(() => navigate('/meus-ingressos'), 2200);
     } catch (e: any) {
@@ -243,6 +263,10 @@ export default function TransferenciaIngresso() {
         </div>
       </div>
     );
+  }
+
+  if (ofertaFacial) {
+    return <FacialDepoisDoAceite cpf={ofertaFacial} onFim={() => navigate('/meus-ingressos')} />;
   }
 
   if (pronto) {

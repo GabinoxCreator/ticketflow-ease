@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { readPendingCheckout, clearPendingCheckout } from '@/lib/pendingCheckout';
 import { useMetaPurchase } from '@/hooks/useMetaPurchase';
 import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
+import { ConvidadosDaCompra } from '@/components/tickets/ConvidadosDoPedido';
 
 /*
  * Acompanhamento do pedido — /pedido/:orderId
@@ -253,6 +254,9 @@ export default function PedidoStatus() {
           {/* Loja do evento: código de retirada dos produtos deste pedido. Não
               mostra nada quando o pedido é só de ingresso. */}
           <RetiradasDoComprador orderId={order.id} />
+          {/* Convidado do pedido (OS-372): com 2+ ingressos, para quem é cada um a mais.
+              É aqui também que o PIX confirmado depois chega: a tela muda para paga sozinha. */}
+          <ConvidadosDaCompra orderId={order.id} />
           <div className="rounded-xl bg-card/60 border border-border/60 p-3">
             <p className="text-[11px] text-muted-foreground">
               Pedido #{order.id.slice(0, 8).toUpperCase()} · {formatPrice(Number(order.total_amount))}

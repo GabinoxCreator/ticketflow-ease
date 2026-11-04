@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { UserTicket } from '@/hooks/useUserTickets';
+import { ConviteAbertoAcoes } from '@/components/tickets/ConvidadosDoPedido';
 
 /*
  * Transferir ingresso — a parte que o DONO vê (§4 do framework do Rodeio).
@@ -170,6 +171,25 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
     // enquanto a pessoa ainda está copiando.
     setTimeout(() => { setLink(null); setCpf(''); setTelefone(''); }, 300);
   };
+
+  // ── Convidado do pedido (OS-372): o convite aberto, com WhatsApp, reenviar e cancelar.
+  // O link é o mesmo `/transferencia/<token>`; o que muda é que nós mandamos o e-mail.
+  if (emTransferencia && ticket.transfer!.convidado) {
+    const c = ticket.transfer!.convidado;
+    return (
+      <ConviteAbertoAcoes
+        evento={ticket.event?.title ?? null}
+        onChange={onChange}
+        ingresso={{
+          convidado: {
+            transferId: ticket.transfer!.id, nome: c.nome, cpfFinal: ticket.transfer!.to_cpf_final,
+            email: c.email, telefone: c.telefone, expiraEm: ticket.transfer!.expires_at,
+            avisoEnviadoEm: c.avisoEnviadoEm, link: `${window.location.origin}/transferencia/${c.token}`,
+          },
+        }}
+      />
+    );
+  }
 
   // ── Ingresso já em transferência: o dono só vê o aviso e o botão de cancelar
   if (emTransferencia) {

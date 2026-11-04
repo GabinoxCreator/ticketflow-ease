@@ -363,3 +363,8 @@ verify_jwt = false
 # dentro da função. Nunca emite ingresso para quem não tem sessão.
 [functions.cortesia-link]
 verify_jwt = false
+
+# Convidado do pedido (OS-372): o comprador aponta para quem é cada ingresso a mais e nós
+# mandamos o link por e-mail. Logado: quem manda é a sessão, nunca um id do navegador.
+[functions.ingresso-convidado]
+verify_jwt = true

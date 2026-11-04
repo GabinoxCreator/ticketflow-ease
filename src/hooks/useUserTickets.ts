@@ -54,6 +54,14 @@ export interface UserTicket {
     status: string;
     expires_at: string;
     to_cpf_final: string;
+    /** Convidado do pedido (OS-372): nós mandamos o e-mail; a tela mostra reenviar e WhatsApp. */
+    convidado?: {
+      nome: string | null;
+      email: string | null;
+      telefone: string | null;
+      avisoEnviadoEm: string | null;
+      token: string;
+    } | null;
   } | null;
   /**
    * Pedido de reembolso deste ingresso, quando existe (OS-103). Em análise
@@ -153,7 +161,9 @@ export function useUserTickets() {
           // Sai sozinho quando os tipos forem regerados.
           const { data: transfers } = await (supabase as any)
             .from('ticket_transfers')
-            .select('id, ticket_id, status, expires_at, to_cpf')
+            // `*` de propósito (OS-372): as colunas do convidado nascem numa migration, e uma
+            // lista fechada aqui faria a consulta inteira falhar se a tela subir antes dela.
+            .select('*')
             .in('ticket_id', ids)
             .eq('status', 'pendente');
           const porTicket = new Map<string, any>();
@@ -161,7 +171,12 @@ export function useUserTickets() {
           for (const t of lista) {
             const tr = porTicket.get(t.id);
             t.transfer = tr
-              ? { id: tr.id, status: tr.status, expires_at: tr.expires_at, to_cpf_final: String(tr.to_cpf ?? '').slice(-3) }
+              ? {
+                  id: tr.id, status: tr.status, expires_at: tr.expires_at, to_cpf_final: String(tr.to_cpf ?? '').slice(-3),
+                  convidado: tr.origem === 'convidado'
+                    ? { nome: tr.to_name ?? null, email: tr.to_email ?? null, telefone: tr.to_phone ?? null, avisoEnviadoEm: tr.aviso_enviado_em ?? null, token: tr.token }
+                    : null,
+                }
               : null;
           }
         }

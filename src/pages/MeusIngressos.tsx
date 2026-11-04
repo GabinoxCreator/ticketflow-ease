@@ -18,6 +18,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
 import { TransferirIngresso } from '@/components/tickets/TransferirIngresso';
+import { ConvidadosDoPedido, useConvidadosDosPedidos } from '@/components/tickets/ConvidadosDoPedido';
+import type { PedidoComConvidados } from '@/lib/convidado';
+import { useQueryClient } from '@tanstack/react-query';
 import { PedirReembolso } from '@/components/tickets/PedirReembolso';
 import { brl } from '@/lib/reembolso';
 import { RetiradasDoComprador } from '@/components/tickets/RetiradasDoComprador';
@@ -66,7 +69,7 @@ function situacaoDoReembolso(t: UserTicket): string | null {
   return null;
 }
 
-const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false }: { tickets: UserTicket[]; onTransferChange?: () => void; permitirReembolso?: boolean }) => {
+const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false, convidados }: { tickets: UserTicket[]; onTransferChange?: () => void; permitirReembolso?: boolean; convidados?: PedidoComConvidados }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
 
@@ -187,6 +190,13 @@ const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false }
               {expanded ? 'Ocultar ingressos' : `Ver ingressos (${tickets.length})`}
             </Button>
             {reembolso && <div className="mt-2">{reembolso}</div>}
+            {/* Convidado do pedido (OS-372): para quem são os ingressos a mais, e os convites
+                já feitos (também aparecem dentro de cada ingresso, no lugar do Transferir). */}
+            {convidados && (
+              <div className="mt-3">
+                <ConvidadosDoPedido pedido={convidados} onChange={onTransferChange} />
+              </div>
+            )}
           </div>
 
           {expanded && (
@@ -756,6 +766,16 @@ const EmptyState = ({ title, description }: { title: string; description: string
 
 const MeusIngressos = () => {
   const { upcomingTickets, pastTickets, cancelledTickets, transferidos, isLoading, refetch } = useUserTickets();
+  const queryClient = useQueryClient();
+  // Convidado do pedido (OS-372): uma pergunta só à edge, pelos pedidos com 2+ ingressos.
+  const gruposProximos = groupByOrder(upcomingTickets);
+  const { data: convidados } = useConvidadosDosPedidos(
+    gruposProximos.filter((g) => g.length >= 2 && g[0].order_id).map((g) => g[0].order_id),
+  );
+  const mudouIngresso = () => {
+    void refetch();
+    void queryClient.invalidateQueries({ queryKey: ['convidados-dos-pedidos'] });
+  };
 
   return (
     <>
@@ -872,8 +892,14 @@ const MeusIngressos = () => {
                   <TicketSkeleton />
                 </>
               ) : upcomingTickets.length > 0 ? (
-                groupByOrder(upcomingTickets).map((group) => (
-                  <OrderGroupCard key={group[0].order_id ?? group[0].id} tickets={group} onTransferChange={() => refetch()} permitirReembolso />
+                gruposProximos.map((group) => (
+                  <OrderGroupCard
+                    key={group[0].order_id ?? group[0].id}
+                    tickets={group}
+                    onTransferChange={mudouIngresso}
+                    permitirReembolso
+                    convidados={convidados?.find((p) => p.orderId === group[0].order_id)}
+                  />
                 ))
               ) : (
                 <EmptyState
