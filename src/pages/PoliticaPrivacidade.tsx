@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -17,6 +19,25 @@ import { facialObrigatoria } from '@/lib/facialObrigatoria';
  */
 export default function PoliticaPrivacidade() {
   const obrigatoria = facialObrigatoria();
+  /* OS-374 (04/11/2026): o texto DESLIGADO ganhou o parágrafo dos eventos com
+   * entrada pela facial (seção 7) e a data passou a 04/11/2026; o
+   * "sem mudança nenhuma" do comentário acima vale só até aqui.
+   * O rodapé abre /privacidade#reconhecimento-facial (topo da seção 7) e
+   * o "Por que pedimos a facial?" das telas da facial abre
+   * /privacidade#eventos-com-facial (o parágrafo dos eventos com entrada pela
+   * facial, que só existe com a chave desligada; ligada, cai no topo da seção 7).
+   * Numa página montada pelo React o navegador não acha a âncora sozinho (o texto
+   * ainda não existe quando ele tenta), então a rolagem é feita aqui. O `key`
+   * entra para rolar de novo quando o link é clicado já estando na mesma âncora. */
+  const { hash, key } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    const id = decodeURIComponent(hash.slice(1));
+    const alvo =
+      document.getElementById(id) ??
+      (id === 'eventos-com-facial' ? document.getElementById('reconhecimento-facial') : null);
+    if (alvo) alvo.scrollIntoView({ block: 'start' });
+  }, [hash, key]);
   /* Com a chave ligada, a versão É o dia do corte (documentos-legais.ts). */
   const desdeQuando = dataPorExtenso('privacidade');
   return (
@@ -169,8 +190,9 @@ export default function PoliticaPrivacidade() {
                 </p>
               </section>
 
-              {/* 7 */}
-              <section>
+              {/* 7 · a âncora é o destino do link "Reconhecimento facial" do rodapé e do
+                  "Por que pedimos a facial?" da retirada e do aceite de ingresso (OS-374). */}
+              <section id="reconhecimento-facial" className="scroll-mt-24">
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">7. Câmera, QR Code e reconhecimento facial</h2>
                 <p>A plataforma pode solicitar acesso à câmera do dispositivo para ler o QR Code do ingresso durante a validação e o check-in.</p>
                 {obrigatoria ? (
@@ -197,6 +219,20 @@ export default function PoliticaPrivacidade() {
                       <li><strong>Com quem ela é compartilhada.</strong> A conferência é feita por fornecedor especializado de reconhecimento facial, que recebe a sua foto junto com os dados que identificam a sua conta (CPF, e-mail e telefone) e pode tratá-los <strong>fora do Brasil</strong> (ver transferência internacional na seção 6).</li>
                       <li><strong>Você pode revogar</strong> o consentimento a qualquer momento pelo canal da seção 14, e pedir a exclusão do seu cadastro facial. Feita a exclusão, a sua entrada no evento passa a ser pelo QR Code do ingresso.</li>
                     </ul>
+                    {/* OS-374 (04/11/2026): texto aprovado pelo Gabriel na caixinha, palavra por
+                        palavra, com a decisão do mesmo dia de fazer o "Seguir sem facial"
+                        funcionar. Cobre o lote de retirada com facial (Canto do Mato), o link de
+                        cortesia e o aceite de ingresso de evento com entrada pela facial, que já
+                        estão no ar com a chave geral desligada. A âncora é o destino do
+                        "Por que pedimos a facial?" da página do evento, da retirada e do aceite. */}
+                    <div id="eventos-com-facial" className="scroll-mt-24">
+                    <p><strong>Eventos com entrada pela facial.</strong> Alguns eventos têm a entrada feita pela facial, e a página do evento avisa isso antes da compra ou da retirada. Nesses eventos, o cadastro facial é o caminho padrão: é ele que garante que quem entra é a pessoa do ingresso e impede que o ingresso seja repassado, revendido ou usado por outra pessoa.</p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>Base legal:</strong> consentimento específico e destacado, pedido na tela antes da foto (art. 11, I, da LGPD).</li>
+                      <li>Prefere não fazer, ou não conseguiu? Toque em "Seguir sem facial": o ingresso sai do mesmo jeito, e a entrada é pelo QR Code com um documento oficial com foto.</li>
+                      <li>Pagar com a facial nos totens continua <strong>opcional</strong> e pode ser revogado a qualquer momento, sem perder o ingresso.</li>
+                    </ul>
+                    </div>
                   </>
                 )}
               </section>

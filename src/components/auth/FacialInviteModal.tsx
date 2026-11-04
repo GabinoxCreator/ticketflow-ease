@@ -9,6 +9,10 @@ import { Button } from '@/components/ui/button';
 interface FacialInviteModalProps {
   onActivate: () => void;
   onSkip: () => void;
+  /** Rótulo do botão de pular. Padrão "Agora não" (o convite opcional do site todo);
+   *  a retirada e o aceite de evento com entrada pela facial usam "Seguir sem facial"
+   *  (OS-374, decisão do Gabriel em 04/11/2026). */
+  rotuloPular?: string;
 }
 
 const BENEFITS = [
@@ -18,7 +22,7 @@ const BENEFITS = [
   { icon: ShieldCheck, title: 'Mais seguro', desc: 'Só você usa seu ingresso' },
 ];
 
-const FacialInviteModal: React.FC<FacialInviteModalProps> = ({ onActivate, onSkip }) => {
+const FacialInviteModal: React.FC<FacialInviteModalProps> = ({ onActivate, onSkip, rotuloPular = 'Agora não' }) => {
   const [consent, setConsent] = useState(false);
 
   return (
@@ -107,7 +111,7 @@ const FacialInviteModal: React.FC<FacialInviteModalProps> = ({ onActivate, onSki
           Ativar facial
         </Button>
         <Button type="button" variant="ghost" size="lg" className="w-full" onClick={onSkip}>
-          Agora não
+          {rotuloPular}
         </Button>
       </div>
 

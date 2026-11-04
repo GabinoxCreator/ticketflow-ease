@@ -20,7 +20,7 @@ export function htmlAcompanhante(o: { nomeAcompanhante: string; quemRetirou: str
       </div>
       <h2 style="color: #1f2937;">Olá${nome ? `, ${nome}` : ""}!</h2>
       <p style="color: #4b5563; font-size: 18px;">${quem || "Uma pessoa"} retirou um ingresso para você no <strong>${evento}</strong>.</p>
-      <p style="color: #4b5563; font-size: 18px;">Para usar, crie a sua conta na FestPag e cadastre a sua facial: é ela que libera a sua entrada no dia.</p>
+      <p style="color: #4b5563; font-size: 18px;">Para receber o seu ingresso, é só fazer o seu cadastro na FestPag pelo botão abaixo.</p>
       <p style="text-align: center; margin: 30px 0;">
         <a href="${o.url}" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 10px; font-size: 18px; font-weight: bold;">
           Pegar meu ingresso

@@ -15,6 +15,8 @@ const Footer = () => {
     suporte: [
       { label: 'Central de Ajuda', href: '/ajuda' },
       { label: 'Entenda a taxa', href: '/taxa' },
+      // OS-374: o porquê da facial, a base legal e o que fazemos com ela (seção 7).
+      { label: 'Reconhecimento facial', href: '/privacidade#reconhecimento-facial' },
       { label: 'Termos de Uso', href: '/termos' },
     ],
     legal: [

@@ -62,11 +62,14 @@ export default function TransferenciaIngresso() {
   const [cpf, setCpf] = useState('');
   const [processando, setProcessando] = useState(false);
   const [pronto, setPronto] = useState(false);
-  // Evento com entrada pela facial (OS-357): a facial vem ANTES do aceite e é obrigatória
-  // (decisão do Gabriel, 31/10). O aceite que ficou esperando a facial volta a rodar
-  // sozinho quando a foto é gravada.
+  // Tocou "Seguir sem facial" (OS-374): o aceite não volta mais ao convite.
+  const seguiuSemFacial = useRef(false);
+  // Evento com entrada pela facial (OS-357): a facial vem ANTES do aceite. O aceite que
+  // ficou esperando a facial volta a rodar sozinho quando a foto é gravada, ou quando a
+  // pessoa toca "Seguir sem facial" (OS-374, decisão do Gabriel em 04/11/2026, que
+  // substitui a facial obrigatória de 31/10: sem facial, a entrada é pelo QR Code com
+  // documento).
   const [facial, setFacial] = useState<'nao' | 'convite' | 'camera'>('nao');
-  const [avisoFacial, setAvisoFacial] = useState(false);
   const aceiteEsperando = useRef<{ cpf: string; nome?: string; telefone?: string } | null>(null);
 
   useEffect(() => {
@@ -130,7 +133,7 @@ export default function TransferenciaIngresso() {
             return;
           }
         }
-        if (!perfil?.facial_photo_path) {
+        if (!perfil?.facial_photo_path && !seguiuSemFacial.current) {
           aceiteEsperando.current = { cpf: cpfLimpo, nome: nomeInformado, telefone: telInformado };
           registrarConviteFacial('mostrado', 'login');
           setFacial('convite');
@@ -144,8 +147,9 @@ export default function TransferenciaIngresso() {
       if (data?.error) { toast.error(data.error); return; }
       if (error) {
         const corpo = await (error as any)?.context?.json?.().catch(() => null);
-        // O servidor achou a conta sem facial (outra aba, foto apagada): volta ao convite.
-        if (corpo?.code === 'sem_facial') {
+        // Servidor antigo (antes do redeploy da OS-374) achou a conta sem facial: volta ao
+        // convite, a não ser que a pessoa já tenha escolhido seguir sem ela.
+        if (corpo?.code === 'sem_facial' && !seguiuSemFacial.current) {
           aceiteEsperando.current = { cpf: cpfLimpo, nome: nomeInformado, telefone: telInformado };
           setFacial('convite');
           return;
@@ -212,6 +216,19 @@ export default function TransferenciaIngresso() {
     if (pendente) void aceitar(pendente);
   };
 
+  // "Seguir sem facial" (OS-374): conta como recusa, como sempre, e o aceite que esperava
+  // a facial segue sem ela.
+  const seguirSemFacial = () => {
+    // Dois toques rápidos: o primeiro já levou o aceite que esperava; o segundo não faz nada.
+    if (!aceiteEsperando.current) return;
+    registrarConviteFacial('recusado', 'login');
+    seguiuSemFacial.current = true;
+    setFacial('nao');
+    const pendente = aceiteEsperando.current;
+    aceiteEsperando.current = null;
+    if (pendente) void aceitar(pendente);
+  };
+
   if (facial === 'camera') {
     return <FacialCaptureFullscreen onDone={concluirFacial} onSkip={() => setFacial('convite')} />;
   }
@@ -222,24 +239,27 @@ export default function TransferenciaIngresso() {
         <div className="max-w-md mx-auto space-y-5">
           <div className="text-center space-y-1">
             <ShieldCheck className="w-10 h-10 text-primary mx-auto" />
-            <h1 className="font-display font-bold text-xl">Falta só a sua facial</h1>
-            <p className="text-sm text-muted-foreground">É ela que libera a sua entrada no dia. Cadastrada a facial, o ingresso passa para a sua conta.</p>
+            <h1 className="font-display font-bold text-xl">Cadastre a sua facial</h1>
+            <p className="text-sm text-muted-foreground">Com ela, a sua entrada é mais rápida. Prefere não fazer? Toque em "Seguir sem facial" e entre pelo QR Code com um documento oficial com foto.</p>
+            {/* OS-374: o porquê da facial, na Política (seção 7). */}
+            <p>
+              <a
+                href="/privacidade#eventos-com-facial"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary underline underline-offset-2"
+              >
+                Por que pedimos a facial?
+              </a>
+            </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-card/60 p-6">
             <FacialInviteModal
               onActivate={() => setFacial('camera')}
-              onSkip={() => { registrarConviteFacial('recusado', 'login'); setAvisoFacial(true); }}
+              onSkip={seguirSemFacial}
+              rotuloPular="Seguir sem facial"
             />
           </div>
-          {avisoFacial && (
-            <div className="space-y-3 text-center">
-              <p className="text-xs text-muted-foreground">
-                Este ingresso só passa para você com a facial cadastrada. A câmera não abriu? Tente pelo
-                navegador do celular, liberando o acesso à câmera. Se não der, fale com a organização do
-                evento antes do dia.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     );

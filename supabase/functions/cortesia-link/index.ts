@@ -9,9 +9,10 @@
 // NOME do lote, e a revisão mostrou o furo: bastava um produtor escrever esse nome no painel
 // dele para abrir uma torneira de ingresso grátis no evento dele. Quem liga é a casa.
 //
-// A facial é OBRIGATÓRIA para retirar (decisão do Gabriel, 26/10/2026, repetida depois de
-// eu levantar o parecer jurídico de 02/10, que desaconselha exigir biometria como única
-// porta). Quem não cadastrou o rosto não recebe ingresso, e a trava mora aqui, não na tela.
+// A facial é o caminho padrão, não a única porta (OS-374, decisão do Gabriel em 04/11/2026,
+// que substitui a facial obrigatória de 26/10): a tela convida para a facial, e quem toca
+// "Seguir sem facial" retira do mesmo jeito e entra pelo QR Code com um documento oficial
+// com foto. O parecer jurídico de 02/10 desaconselha exigir biometria como única porta.
 //
 // Regras que não se quebra:
 //   • `orders.customer_cpf` é o ÚNICO campo que a `facial-checkin` consulta. Sem CPF no perfil,
@@ -190,15 +191,17 @@ serve(async (req) => {
     const porConta = await checkRateLimit(admin, `cortesia:conta:${user.id}`, 8, 600, 600);
     if (!porConta.allowed) return rateLimitResponse(porConta, corsHeaders);
 
-    // Sem rosto cadastrado não há ingresso (decisão do Gabriel, 26/10).
-    if (!perfil?.facial_photo_path) return json({ ok: false, code: "sem_facial" });
+    // Sem rosto cadastrado o ingresso sai do mesmo jeito: quem toca "Seguir sem facial"
+    // entra pelo QR Code com um documento oficial com foto (OS-374, decisão do Gabriel em
+    // 04/11/2026, que substitui o "sem rosto não há ingresso" de 26/10). O `com_facial`
+    // da auditoria da retirada (abaixo) continua dizendo quem cadastrou.
 
     const email = (perfil?.email ?? user.email ?? "").trim().toLowerCase();
     if (!email) return json({ ok: false, code: "sem_email" });
     const nome = (perfil?.nome_completo ?? "").trim() || email.split("@")[0];
 
     // Acompanhante (OS-357): o 2º ingresso nasce no CPF, no nome e no e-mail dele, e ele
-    // recebe o link para criar a conta e cadastrar a facial. Só no lote que permite 2.
+    // recebe o link para criar a conta e receber o ingresso. Só no lote que permite 2.
     let acompanhante: { nome: string; cpf: string; email: string } | null = null;
     if (body?.acompanhante) {
       if (maxPorCpf < 2) return json({ ok: false, code: "sem_acompanhante" });
