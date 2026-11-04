@@ -33,6 +33,14 @@
 //   falhar, a resposta sai igual à de antes, sem `conferencia` (a produtora fica
 //   pendente).
 //
+// IDADE NA ETAPA DO ROSTO (OS-343, caminho D, 03/11/2026)
+//   Com login e o CPF da própria conta, a resposta diz se a data confere; bateu, a
+//   conta ganha `app_metadata.idade_conferida` ({maior, em}), que o `facial-enroll`
+//   exige para a foto da entrada. A base nova (Consulta CPF v3 da Receita) só
+//   responde com CPF + data; em 03/11 a do Marcel ainda chamava a v2 e devolvia 410
+//   a toda consulta de CPF (com qualquer nome e formato de data): até ele migrar,
+//   ninguém faz a foto da entrada pela obrigatória.
+//
 // CPF COM DATA DE NASCIMENTO (OS-339, 28/10/2026)
 //   A consulta de CPF do Marcel passou a exigir a data de nascimento junto do CPF
 //   (o Gabriel falou com ele em 28/10). A tela manda `birth_date` ('aaaa-mm-dd') e
@@ -68,6 +76,13 @@ const LOOKUP_TIMEOUT_MS = 10_000;
 const RL_MAX = 8;
 const RL_WINDOW_SECONDS = 600;
 const RL_BLOCK_SECONDS = 900;
+// Com login (OS-343 fase 2): o limite de 8 vale por CONTA, e a rede ganha um teto
+// mais alto, para muitas contas atrás do mesmo IP (CGNAT, wi-fi do evento) não se
+// travarem umas às outras, sem abrir a porta para varredura de uma rede só.
+const RL_MAX_IP_COM_LOGIN = 40;
+// Tempo máximo para conferir o login: passou disso, a chamada vale como sem login
+// (limite por IP, sem conferência de data, e a tela não colhe a foto).
+const GET_USER_TIMEOUT_MS = 3000;
 
 // Como a data de nascimento vai para a consulta de CPF do Marcel. [A CONFIRMAR com o
 // Marcel] nome do parâmetro e formato: em 28/10 nenhuma combinação foi aceita (a rota
@@ -86,13 +101,56 @@ const NASCIMENTO_NA_CONSULTA = {
 // também chega como "Bearer", então não basta ter o cabeçalho: o token tem de ser de
 // um usuário. Qualquer falha na conferência vale "não": a resposta fica como antes.
 // deno-lint-ignore no-explicit-any
-async function chamadaDeUsuarioLogado(supabase: any, req: Request): Promise<boolean> {
+async function usuarioDaChamada(supabase: any, req: Request): Promise<{ id: string; app_metadata: Record<string, unknown> } | null> {
   const auth = req.headers.get('Authorization') ?? '';
   const jwt = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  if (!jwt) return false;
+  if (!jwt) return null;
   try {
-    const { data, error } = await supabase.auth.getUser(jwt);
-    return !error && !!data?.user?.id;
+    const tempo = new Promise<null>((resolve) => setTimeout(() => resolve(null), GET_USER_TIMEOUT_MS));
+    // deno-lint-ignore no-explicit-any
+    const r: any = await Promise.race([supabase.auth.getUser(jwt), tempo]);
+    if (!r || r.error || !r.data?.user?.id) return null;
+    return { id: r.data.user.id, app_metadata: (r.data.user.app_metadata ?? {}) as Record<string, unknown> };
+  } catch (_) {
+    return null;
+  }
+}
+
+// OS-343, caminho D (03/11/2026): o CPF consultado é o da PRÓPRIA conta? Só aí a
+// resposta diz se a data confere (revisão 3: com login, qualquer CPF respondia) e só
+// aí a conta ganha a marca de idade. Falha na leitura vale "não".
+// deno-lint-ignore no-explicit-any
+async function cpfDaConta(supabase: any, userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.from('profiles').select('cpf').eq('id', userId).maybeSingle();
+    if (error || !data?.cpf) return null;
+    return unformatCPF(String(data.cpf));
+  } catch (_) {
+    return null;
+  }
+}
+
+// Idade completa hoje, no fuso de Brasília, a partir de 'aaaa-mm-dd'.
+function idadeHoje(iso: string): number {
+  const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const [a, m, d] = iso.split('-').map(Number);
+  const [ha, hm, hd] = hoje.split('-').map(Number);
+  let idade = ha - a;
+  if (hm < m || (hm === m && hd < d)) idade -= 1;
+  return idade;
+}
+
+// A marca de idade da conta (caminho D): a base de CPF confirmou a data de nascimento
+// do CPF da própria conta. Mora no `app_metadata`, que só o servidor escreve (o
+// navegador escreve só no `user_metadata`); o `facial-enroll` recusa a foto da entrada
+// sem `maior: true`. Guarda só o resultado e a hora, nunca a data.
+// deno-lint-ignore no-explicit-any
+async function marcarIdadeConferida(supabase: any, user: { id: string; app_metadata: Record<string, unknown> }, maior: boolean): Promise<boolean> {
+  try {
+    const { error } = await supabase.auth.admin.updateUserById(user.id, {
+      app_metadata: { ...user.app_metadata, idade_conferida: { maior, em: new Date().toISOString() } },
+    });
+    return !error;
   } catch (_) {
     return false;
   }
@@ -228,11 +286,23 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Quem chama: com login de uma conta de verdade, o limite é DA CONTA
+    // (`doclookup:user:<id>`), para a etapa da facial não estourar em rede
+    // compartilhada (CGNAT, wi-fi do evento) nem travar o cadastro de produtor de
+    // quem está na mesma rede; sem login (cadastro de produtor sem conta, ou a chave
+    // pública), igual a antes: por IP (OS-343 fase 2, revisão 1).
+    const quem = await usuarioDaChamada(supabase, req);
     const ip = getClientIp(req);
     const rl = await checkRateLimit(
-      supabase, `doclookup:${ip}`, RL_MAX, RL_WINDOW_SECONDS, RL_BLOCK_SECONDS,
+      supabase, quem ? `doclookup:user:${quem.id}` : `doclookup:${ip}`, RL_MAX, RL_WINDOW_SECONDS, RL_BLOCK_SECONDS,
     );
     if (!rl.allowed) return rateLimitResponse(rl, corsHeaders);
+    if (quem) {
+      const rlRede = await checkRateLimit(
+        supabase, `doclookup:rede:${ip}`, RL_MAX_IP_COM_LOGIN, RL_WINDOW_SECONDS, RL_BLOCK_SECONDS,
+      );
+      if (!rlRede.allowed) return rateLimitResponse(rlRede, corsHeaders);
+    }
 
     // Ausente = integração não configurada. Não é erro do usuário: devolve indisponível
     // e o formulário segue no preenchimento manual.
@@ -277,14 +347,23 @@ serve(async (req) => {
         // Só o nome. A API devolve nascimento; a data que a pessoa digitou serviu só
         // para a consulta e não passa daqui.
         // OS-343: quando a data veio E quem pergunta está logado numa conta (a etapa
-        // do rosto do comprador), a resposta diz também se a data BATE com a da base
-        // (`nascimento_confere`: true, false, ou null quando a base não devolveu data).
-        // Sem login (o cadastro de produtor, ou qualquer um com a chave pública), a
-        // resposta fica exatamente como antes: a página é pública e não pode virar um
-        // "confere CPF com data de nascimento" para quem quiser. A data da base nunca
-        // sai daqui.
-        const comConferencia = nascimento ? await chamadaDeUsuarioLogado(supabase, req) : false;
-        const confere = comConferencia ? nascimentoConfere(data, nascimento!) : null;
+        // do rosto do comprador) E o CPF é o da própria conta, a resposta diz também se
+        // a data BATE com a da base (`nascimento_confere`: true, false, ou null quando a
+        // base não devolveu data). Sem login, ou com o CPF de outra pessoa, a resposta
+        // fica exatamente como antes: a página é pública e não pode virar um "confere
+        // CPF com data de nascimento" para quem quiser. A data da base nunca sai daqui.
+        // Caminho D (03/11): bateu, a conta ganha a marca de idade no servidor; se a
+        // marca não gravar, a resposta diz "não deu para saber" (null) e a tela não
+        // coleta o rosto (na dúvida, não se coleta dado sensível).
+        const comConferencia = !!nascimento && !!quem && (await cpfDaConta(supabase, quem.id)) === digits;
+        let confere = comConferencia ? nascimentoConfere(data, nascimento!) : null;
+        if (comConferencia && confere === true) {
+          const marcou = await marcarIdadeConferida(supabase, quem!, idadeHoje(nascimento!) >= 18);
+          if (!marcou) {
+            console.warn('[document-lookup] marca de idade nao gravada', tail(digits));
+            confere = null;
+          }
+        }
         const conferencia = await gravarFicha(supabase, digits);
         return json({
           ok: true, type: 'cpf', data: { legal_name: name },

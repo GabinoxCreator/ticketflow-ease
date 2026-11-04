@@ -4,14 +4,16 @@
  * Com a chave DESLIGADA (`src/lib/facialObrigatoria.ts`) devolve sempre "não" e
  * não faz consulta nenhuma: o site fica exatamente como era.
  *
- * Com a chave ligada, só olha conta criada depois do corte. Conta antiga nunca
- * é cobrada (decisão do Gabriel, 28/09/2026). Se a leitura do perfil falhar, a
- * resposta é "não": falha nossa nunca trava uma compra.
+ * Com a chave ligada, olha toda conta logada sem rosto: a nova (que fugiu do
+ * cadastro no meio) e a antiga, criada antes do corte, que faz a facial na próxima
+ * compra (decisão do Gabriel, 03/11/2026, caminho D; até 03/11 a conta antiga
+ * nunca era cobrada). Só quem chama na COMPRA usa isto. Se a leitura do perfil
+ * falhar, a resposta é "não": falha nossa nunca trava uma compra.
  */
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { contaNovaParaFacial, facialObrigatoria, precisaDaFacial } from '@/lib/facialObrigatoria';
+import { facialObrigatoria, precisaDaFacial } from '@/lib/facialObrigatoria';
 
 export const chaveFacialPendente = (userId?: string | null) => ['facial-pendente', userId ?? null] as const;
 
@@ -26,7 +28,7 @@ export interface FacialPendente {
 
 export function useFacialPendente(): FacialPendente {
   const { user } = useAuth();
-  const candidata = facialObrigatoria() && !!user && contaNovaParaFacial(user.created_at);
+  const candidata = facialObrigatoria() && !!user;
 
   const consulta = useQuery({
     queryKey: chaveFacialPendente(user?.id),

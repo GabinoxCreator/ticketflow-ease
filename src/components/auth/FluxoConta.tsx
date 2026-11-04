@@ -244,8 +244,9 @@ export function FluxoConta({
    * OS-343: a chave da facial obrigatória. Desligada (o padrão), `obrigatoria` é
    * false, `useFacialPendente` não consulta nada e este componente é o de sempre.
    * Ligada, na COMPRA (modal; a página /login e o aceite de ingresso ficam de
-   * fora), a conta nova que ficou sem rosto passa pela etapa do rosto antes de
-   * seguir para o pagamento (decisão do chat de 28/10, na ficha da OS-343).
+   * fora), a conta que está sem rosto passa pela etapa do rosto antes de seguir
+   * para o pagamento: a nova que fugiu do cadastro (decisão do chat de 28/10) e a
+   * antiga, criada antes do corte (decisão do Gabriel de 03/11, caminho D).
    */
   const obrigatoria = facialObrigatoria();
   const facialPend = useFacialPendente();
@@ -333,9 +334,10 @@ export function FluxoConta({
   }, [user, ativo, onAuthenticated, etapaDeCadastroComSessao, seguraPelaFacial]);
 
   /*
-   * OS-343, chave ligada: conta nova sem rosto que entrou (ou já estava logada)
-   * pela compra vai para a etapa do rosto, pelo mesmo caminho do cadastro. As
-   * três travas de saída sobem juntas, como no fim do cadastro.
+   * OS-343, chave ligada: conta sem rosto que entrou (ou já estava logada) pela
+   * compra vai para a etapa do rosto, pelo mesmo caminho do cadastro. Vale para a
+   * conta nova e, desde o caminho D (03/11/2026), para a antiga, criada antes do
+   * corte. As três travas de saída sobem juntas, como no fim do cadastro.
    */
   useEffect(() => {
     if (!cobraFacialNaCompra || !ativo || !user || !facialPend.pendente) return;
