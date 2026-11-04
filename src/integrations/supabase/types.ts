@@ -154,33 +154,36 @@ export type Database = {
       alunos_lista: {
         Row: {
           anonimizado_em: string | null
+          celular_responsavel: string | null
           cpf: string | null
           criado_em: string
-          danca_nas_duas: boolean
           id: string
           lista_id: string
           nascimento: string | null
           nome: string | null
+          sessoes: number[]
         }
         Insert: {
           anonimizado_em?: string | null
+          celular_responsavel?: string | null
           cpf?: string | null
           criado_em?: string
-          danca_nas_duas: boolean
           id?: string
           lista_id: string
           nascimento?: string | null
           nome?: string | null
+          sessoes: number[]
         }
         Update: {
           anonimizado_em?: string | null
+          celular_responsavel?: string | null
           cpf?: string | null
           criado_em?: string
-          danca_nas_duas?: boolean
           id?: string
           lista_id?: string
           nascimento?: string | null
           nome?: string | null
+          sessoes?: number[]
         }
         Relationships: [
           {
@@ -1891,36 +1894,39 @@ export type Database = {
       }
       listas_alunos: {
         Row: {
-          abre_lote1_em: string
-          abre_lote2_em: string
+          abre_em: string
           apagar_dados_em: string
           criado_em: string
           dados_apagados_em: string | null
           id: string
           limite_por_aluno: number
           nome: string
+          pagina_slug: string | null
+          pagina_titulo: string | null
           trava_ligada: boolean
         }
         Insert: {
-          abre_lote1_em: string
-          abre_lote2_em: string
+          abre_em: string
           apagar_dados_em: string
           criado_em?: string
           dados_apagados_em?: string | null
           id?: string
           limite_por_aluno?: number
           nome: string
+          pagina_slug?: string | null
+          pagina_titulo?: string | null
           trava_ligada?: boolean
         }
         Update: {
-          abre_lote1_em?: string
-          abre_lote2_em?: string
+          abre_em?: string
           apagar_dados_em?: string
           criado_em?: string
           dados_apagados_em?: string | null
           id?: string
           limite_por_aluno?: number
           nome?: string
+          pagina_slug?: string | null
+          pagina_titulo?: string | null
           trava_ligada?: boolean
         }
         Relationships: []
@@ -1929,14 +1935,17 @@ export type Database = {
         Row: {
           event_id: string
           lista_id: string
+          sessao: number
         }
         Insert: {
           event_id: string
           lista_id: string
+          sessao: number
         }
         Update: {
           event_id?: string
           lista_id?: string
+          sessao?: number
         }
         Relationships: [
           {
@@ -3924,7 +3933,7 @@ export type Database = {
         Returns: Json
       }
       aluno_conferir: {
-        Args: { _cpf: string; _event_id: string; _nascimento: string }
+        Args: { _cpf: string; _event_id: string; _nascimento?: string }
         Returns: Json
       }
       aluno_pelo_passe: { Args: { _passe: string }; Returns: Json }
@@ -4289,6 +4298,8 @@ export type Database = {
       json_ou_nulo: { Args: { _texto: string }; Returns: Json }
       ler_segredo: { Args: { _nome: string }; Returns: string }
       lgpd_retention_sweep: { Args: never; Returns: undefined }
+      link_e_de_pagina: { Args: { _slug: string }; Returns: boolean }
+      lista_pela_pagina: { Args: { _slug: string }; Returns: Json }
       loja_habilitada: { Args: never; Returns: boolean }
       lookup_customer_by_cpf: {
         Args: { _cpf: string; _event_id: string }
