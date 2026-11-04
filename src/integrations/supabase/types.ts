@@ -3523,6 +3523,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           accepted_by_user_id: string | null
+          aviso_enviado_em: string | null
           cancelled_at: string | null
           created_at: string
           event_id: string
@@ -3530,16 +3531,19 @@ export type Database = {
           from_holder_name: string | null
           from_user_id: string | null
           id: string
+          origem: string | null
           status: string
           ticket_id: string
           to_cpf: string
           to_email: string | null
+          to_name: string | null
           to_phone: string | null
           token: string
         }
         Insert: {
           accepted_at?: string | null
           accepted_by_user_id?: string | null
+          aviso_enviado_em?: string | null
           cancelled_at?: string | null
           created_at?: string
           event_id: string
@@ -3547,16 +3551,19 @@ export type Database = {
           from_holder_name?: string | null
           from_user_id?: string | null
           id?: string
+          origem?: string | null
           status?: string
           ticket_id: string
           to_cpf: string
           to_email?: string | null
+          to_name?: string | null
           to_phone?: string | null
           token: string
         }
         Update: {
           accepted_at?: string | null
           accepted_by_user_id?: string | null
+          aviso_enviado_em?: string | null
           cancelled_at?: string | null
           created_at?: string
           event_id?: string
@@ -3564,10 +3571,12 @@ export type Database = {
           from_holder_name?: string | null
           from_user_id?: string | null
           id?: string
+          origem?: string | null
           status?: string
           ticket_id?: string
           to_cpf?: string
           to_email?: string | null
+          to_name?: string | null
           to_phone?: string | null
           token?: string
         }
@@ -3939,6 +3948,18 @@ export type Database = {
       aluno_pelo_passe: { Args: { _passe: string }; Returns: Json }
       anonimizar_lista_de_alunos: {
         Args: { _antes_da_data?: boolean; _lista_id: string }
+        Returns: Json
+      }
+      apontar_convidado_ingresso: {
+        Args: {
+          _ticket_id: string
+          _to_cpf: string
+          _to_email: string
+          _to_nome: string
+          _to_phone: string
+          _token: string
+          _user_id: string
+        }
         Returns: Json
       }
       apply_order_approved: {
