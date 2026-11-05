@@ -97,7 +97,7 @@ serve(async (req) => {
         // Conta sem CPF também não serve: a portaria liga o rosto ao ingresso pelo CPF do
         // perfil (a tela grava o CPF antes da câmera, por `definir_meu_cpf`).
         if (!cpfPerfil) {
-          return json({ error: 'Grave o seu CPF na conta antes de aceitar: é por ele que a sua facial abre a entrada.', code: 'conta_sem_cpf' }, 409);
+          return json({ error: 'Antes de aceitar, grave o seu CPF na sua conta: é ele que deixa o ingresso no seu nome.', code: 'conta_sem_cpf' }, 409);
         }
         if (cpfPerfil !== cpfLimpo) {
           return json({ error: 'Esta conta está em outro CPF. Saia e crie a conta (ou entre) com o CPF de quem vai usar o ingresso.', code: 'conta_de_outro_cpf' }, 409);

@@ -64,7 +64,7 @@ export function PassePermanenteDialog({ open, onOpenChange, aceito, onAceitar }:
           {REGRAS.map(({ Icone, titulo, texto }) => (
             <li key={titulo} className="flex gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                <Icone className="w-4.5 h-4.5 text-primary" />
+                <Icone className="h-[18px] w-[18px] text-primary" />
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm leading-snug">{titulo}</p>

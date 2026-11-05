@@ -56,7 +56,7 @@ export function AvisoCupomLoteSubsidiado({ eventId }: Props) {
     <div className="rounded-2xl border border-amber-500/40 bg-amber-500/[0.07] p-4 sm:p-5">
       <div className="flex gap-3.5">
         <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-          <AlertTriangle className="w-4.5 h-4.5 text-amber-500" />
+          <AlertTriangle className="h-[18px] w-[18px] text-amber-500" />
         </div>
         <div className="min-w-0 space-y-2.5">
           <p className="font-semibold text-sm">
