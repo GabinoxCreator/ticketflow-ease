@@ -30,6 +30,9 @@ const RECADOS: Record<string, string> = {
   ja_aceita: 'Este ingresso já foi aceito.',
   transferencia_cancelada: 'Quem enviou cancelou esta transferência.',
   cpf_nao_confere: 'O CPF informado não é o mesmo que quem enviou apontou. Confira com a pessoa.',
+  // OS-399 (decisão do Gabriel, 06/11/2026): o CPF apontado já tem conta e quem aceita não
+  // é ela. O texto não diz se o CPF tem conta: serve para qualquer conta que não seja a dele.
+  transferido_para_outro_cpf: 'Este ingresso foi transferido para outro CPF. Para aceitar, entre na conta desse CPF.',
   // Acontece quando o dono abre o próprio link estando logado. Sem esta frase,
   // ele levaria um erro genérico e não entenderia por quê (Gabriel, 21/08).
   nao_pode_aceitar_para_si: 'Este é o seu próprio link de transferência. Ele precisa ser aberto pela pessoa que vai receber o ingresso, na conta dela.',
@@ -83,7 +86,7 @@ serve(async (req) => {
     // 04/11/2026, que substitui a de 31/10): quem toca "Seguir sem facial" aceita do mesmo
     // jeito e entra pelo QR Code com um documento oficial com foto.
     const { data: tr } = await admin
-      .from('ticket_transfers').select('ticket_id').eq('token', token).maybeSingle();
+      .from('ticket_transfers').select('ticket_id, to_cpf').eq('token', token).maybeSingle();
     if (tr?.ticket_id) {
       const { data: tk } = await admin
         .from('tickets').select('lot_id').eq('id', tr.ticket_id).maybeSingle();
@@ -94,6 +97,17 @@ serve(async (req) => {
         const { data: perfil } = await admin
           .from('profiles').select('cpf').eq('id', user.id).maybeSingle();
         const cpfPerfil = unformatCPF(String(perfil?.cpf ?? ''));
+        // OS-399: o CPF apontado já tem conta e quem aceita não é ela: a frase aprovada pelo
+        // Gabriel, a mesma do banco. Só se o CPF digitado for o apontado (quem tem o link e
+        // chuta outro CPF não descobre se ele tem conta) e antes das frases de conta sem CPF
+        // e de conta em outro CPF, que valem quando ninguém tem esse CPF.
+        if (cpfPerfil !== cpfLimpo && cpfLimpo === tr.to_cpf) {
+          const { data: donos } = await admin
+            .from('profiles').select('id').eq('cpf', tr.to_cpf).limit(1);
+          if (donos?.length) {
+            return json({ error: RECADOS.transferido_para_outro_cpf, code: 'transferido_para_outro_cpf' }, 409);
+          }
+        }
         // Conta sem CPF também não serve: a portaria liga o rosto ao ingresso pelo CPF do
         // perfil (a tela grava o CPF antes da câmera, por `definir_meu_cpf`).
         if (!cpfPerfil) {

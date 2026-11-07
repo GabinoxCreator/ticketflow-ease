@@ -106,6 +106,9 @@ export default function TransferenciaIngresso() {
     if (cpfLimpo.length !== 11) { toast.error('Informe seu CPF.'); return; }
 
     setProcessando(true);
+    // OS-399: conta de outro CPF diante de um CPF de link que TEM dona. A tela não abre a câmera
+    // (a foto iria para a conta errada) e deixa o servidor responder, que recusa com a frase aprovada.
+    let servidorDecide = false;
     try {
       // Evento com entrada pela facial: sem facial cadastrada, primeiro o convite da
       // facial. O servidor confere de novo (a tela só conduz).
@@ -120,8 +123,13 @@ export default function TransferenciaIngresso() {
         // antes da câmera. O servidor confere a mesma coisa.
         const cpfDaConta = String(perfil?.cpf ?? '').replace(/\D/g, '');
         if (cpfDaConta && cpfDaConta !== cpfLimpo) {
-          toast.error('Esta conta está em outro CPF. Saia e crie a conta (ou entre) com o CPF de quem vai usar o ingresso.');
-          return;
+          if (info.jaTemConta && cpfLimpo.endsWith(info.cpfFinal)) {
+            servidorDecide = true;
+          } else {
+            // Ninguém tem o CPF apontado (ou o digitado não é o do link): a frase de sempre.
+            toast.error('Esta conta está em outro CPF. Saia e crie a conta (ou entre) com o CPF de quem vai usar o ingresso.');
+            return;
+          }
         }
         // Conta antiga sem CPF: a portaria liga o rosto ao ingresso pelo CPF do perfil, então
         // ele é gravado aqui, antes da câmera, e só se for o CPF para quem o ingresso foi
@@ -133,11 +141,14 @@ export default function TransferenciaIngresso() {
           }
           const { data: def } = await supabase.rpc('definir_meu_cpf', { _cpf: cpfLimpo });
           if (!(def as { ok?: boolean } | null)?.ok) {
-            toast.error('Não deu para gravar o CPF na sua conta. Fale com a organização do evento.');
+            // CPF que já é de outra conta (OS-399): o mesmo texto que a edge dá no aceite.
+            toast.error((def as { erro?: string } | null)?.erro === 'cpf_de_outra_conta'
+              ? 'Este ingresso foi transferido para outro CPF. Para aceitar, entre na conta desse CPF.'
+              : 'Não deu para gravar o CPF na sua conta. Fale com a organização do evento.');
             return;
           }
         }
-        if (!perfil?.facial_photo_path && !seguiuSemFacial.current) {
+        if (!servidorDecide && !perfil?.facial_photo_path && !seguiuSemFacial.current) {
           aceiteEsperando.current = { cpf: cpfLimpo, nome: nomeInformado, telefone: telInformado };
           registrarConviteFacial('mostrado', 'login');
           setFacial('convite');
