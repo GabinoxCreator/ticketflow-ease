@@ -4,11 +4,22 @@
 // Antes do mapa: a família informa o CPF do aluno, a tela mostra só o PRIMEIRO
 // nome (para conferir que digitou o aluno certo), quantos convites restam e só
 // as sessões em que o aluno dança. Quem decide é o banco: esta tela não sabe
-// quem está na lista e não guarda o CPF (fica só o passe que o banco devolve).
+// quem está na lista e não guarda o CPF (fica só o passe que o banco devolve;
+// a exceção, só enquanto a conta não existe, é a da OS-402, abaixo).
 // Ocupa o celular inteiro, com a capa do evento ao fundo, o passo a passo e a
 // janela "Como funciona" (abre sozinha uma vez por aba). Textos aprovados pelo
 // Gabriel em 03/11 (ficha da OS-365).
-import { useEffect, useState } from 'react';
+//
+// OS-402 (07/11): quem chega sem conta cria a conta no meio da compra.
+// · A janela de criar conta recebe o CPF do aluno: diz que a conta é de quem
+//   compra e avisa se a pessoa digitar o mesmo CPF do aluno (sem travar: aluna
+//   adulta compra para si).
+// · A conferência do aluno roda quando a janela FECHA (facial feita ou "Agora
+//   não"): a família vê o cartão do aluno, ou o erro, na frente, não atrás da janela.
+// · Enquanto a conta não existe, o CPF do aluno fica guardado NESTA ABA
+//   (sessionStorage, 10 minutos), para o celular que recarrega a aba na ida ao
+//   e-mail do código não perder o que já foi digitado. Apagado ao conferir ou ao sair.
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -52,6 +63,36 @@ interface Props {
 }
 
 const CHAVE_COMO_FUNCIONA = 'festpag:como-funciona-lista';
+/* OS-402: o CPF do aluno de quem saiu para criar a conta (só nesta aba, por
+ * evento, só sem login). Vale 10 minutos, como o `cadastroEmCurso`: vencido, é
+ * ignorado e apagado. Guardado como {cpf, em} (em = Date.now() ao gravar). */
+const CHAVE_CPF_PENDENTE = 'festpag:cpf-aluno-pendente:';
+const VALIDADE_CPF_PENDENTE_MS = 10 * 60 * 1000;
+
+function guardarCpfPendente(eventId: string, digitos: string) {
+  try {
+    sessionStorage.setItem(CHAVE_CPF_PENDENTE + eventId, JSON.stringify({ cpf: digitos, em: Date.now() }));
+  } catch { /* sem storage: fica só na memória */ }
+}
+function apagarCpfPendente(eventId: string) {
+  try { sessionStorage.removeItem(CHAVE_CPF_PENDENTE + eventId); } catch { /* nada */ }
+}
+function lerCpfPendente(eventId: string): string | null {
+  try {
+    const bruto = sessionStorage.getItem(CHAVE_CPF_PENDENTE + eventId);
+    if (!bruto) return null;
+    const v = JSON.parse(bruto) as { cpf?: unknown; em?: unknown };
+    const idade = Date.now() - Number(v?.em);
+    if (typeof v?.cpf !== 'string' || !validateCPF(v.cpf) || !(idade >= 0 && idade <= VALIDADE_CPF_PENDENTE_MS)) {
+      apagarCpfPendente(eventId);
+      return null;
+    }
+    return v.cpf;
+  } catch {
+    apagarCpfPendente(eventId);
+    return null;
+  }
+}
 
 function diaMes(date: string | undefined): string {
   const [, mes, dia] = (date ?? '').split('-');
@@ -146,7 +187,7 @@ function ComoFunciona({ aberto, onFechar, limite }: { aberto: boolean; onFechar:
 }
 
 export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessaoAtual, naPagina = false }: Props) {
-  const { user } = useAuth();
+  const { user, isLoading: authCarregando } = useAuth();
   const navigate = useNavigate();
   const [cpf, setCpf] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -188,10 +229,12 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
     setErro(null);
     const digitos = unformatCPF(cpf);
     if (!validateCPF(digitos)) { setErro('Confira o CPF do aluno.'); return; }
-    if (!user) { setConferirAoEntrar(true); setAuthAberto(true); return; }
+    if (!user) { guardarCpfPendente(eventId, digitos); setConferirAoEntrar(true); setAuthAberto(true); return; }
     setEnviando(true);
     try {
       const r = await conferirAluno(eventId, digitos);
+      // Já conferido (com conta): o CPF guardado na aba não serve mais.
+      apagarCpfPendente(eventId);
       if ('aluno' in r) {
         guardarAluno(r.aluno);
         onAluno(r.aluno);
@@ -211,13 +254,36 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
     }
   };
 
+  // Confere quando a janela da conta FECHA (OS-402): antes, o cartão do aluno ou
+  // o erro nasciam atrás da janela, durante o convite da facial. Fechou sem
+  // conta: desistiu, e o CPF guardado na aba sai.
   useEffect(() => {
-    if (user && conferirAoEntrar) {
-      setConferirAoEntrar(false);
-      void conferir();
-    }
+    if (!conferirAoEntrar || authAberto || authCarregando) return;
+    setConferirAoEntrar(false);
+    if (user) void conferir();
+    else apagarCpfPendente(eventId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, conferirAoEntrar]);
+  }, [user, conferirAoEntrar, authAberto, authCarregando]);
+
+  // A aba recarregou no meio do cadastro (celular indo ao e-mail do código):
+  // o CPF do aluno volta para o campo. Já com conta, confere sozinho.
+  const cpfRestaurado = useRef(false);
+  useEffect(() => {
+    if (cpfRestaurado.current || authCarregando) return;
+    cpfRestaurado.current = true;
+    const salvo = lerCpfPendente(eventId);
+    if (!salvo) return;
+    setCpf(formatCPF(salvo));
+    if (user) setConferirAoEntrar(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authCarregando]);
+
+  // O erro do CPF do aluno aparece à vista, mesmo com a tela rolada.
+  useEffect(() => {
+    if (!erro) return;
+    const t = setTimeout(() => document.getElementById('erro-cpf-aluno')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+    return () => clearTimeout(t);
+  }, [erro]);
 
   const escolherSessao = (s: SessaoDaLista) => {
     if (!naPagina && s.event_id === eventId) { onSessaoAtual(); return; }
@@ -241,7 +307,7 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => navigate(`/evento/${lista.pagina_slug || evento.slug || eventId}`)}
+            onClick={() => { apagarCpfPendente(eventId); navigate(`/evento/${lista.pagina_slug || evento.slug || eventId}`); }}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
             aria-label="Voltar"
           >
@@ -314,6 +380,7 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
                 <AnimatePresence>
                   {erro && (
                     <motion.p
+                      id="erro-cpf-aluno"
                       role="alert"
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -434,8 +501,9 @@ export function EntradaDoAluno({ eventId, evento, lista, aluno, onAluno, onSessa
       <ComoFunciona aberto={comoFunciona} onFechar={() => setComoFunciona(false)} limite={limite} />
       <AuthModalV2
         isOpen={authAberto}
-        onClose={() => { setAuthAberto(false); setConferirAoEntrar(false); }}
+        onClose={() => setAuthAberto(false)}
         onAuthenticated={() => setAuthAberto(false)}
+        cpfDoAluno={validateCPF(unformatCPF(cpf)) ? unformatCPF(cpf) : undefined}
       />
     </div>
   );

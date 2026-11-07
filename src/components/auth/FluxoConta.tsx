@@ -71,7 +71,7 @@ import {
 } from '@/lib/authV2';
 import {
   Eye, EyeOff, Mail, Lock, User, CreditCard, Phone,
-  Loader2, ArrowLeft, ArrowRight, ShieldCheck, Clock, LogIn,
+  Loader2, ArrowLeft, ArrowRight, ShieldCheck, Clock, LogIn, AlertTriangle,
 } from 'lucide-react';
 
 export type AbaConta = 'entrar' | 'cadastro';
@@ -95,6 +95,13 @@ export interface FluxoContaProps {
    * senão a pessoa lia "é opcional" e via o convite duas vezes seguidas.
    */
   semFacial?: boolean;
+  /**
+   * OS-402: aberto pela entrada do aluno (lista de alunos, Balé). É o CPF do
+   * aluno que a família acabou de digitar (só números). Com ele, o passo do CPF
+   * diz que a conta é de quem compra e avisa se digitarem o mesmo CPF do aluno.
+   * Ausente (todo outro lugar), o cadastro é o de sempre.
+   */
+  cpfDoAluno?: string;
 }
 
 /*
@@ -234,7 +241,7 @@ const TelaDoCodigo = ({
 );
 
 export function FluxoConta({
-  ativo = true, onFechar, onAuthenticated, embutido = false, abaInicial = 'entrar', semFacial = false,
+  ativo = true, onFechar, onAuthenticated, embutido = false, abaInicial = 'entrar', semFacial = false, cpfDoAluno,
 }: FluxoContaProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -284,6 +291,10 @@ export function FluxoConta({
   /* O nome só é pedido quando o registro não respondeu — ver o cabeçalho. */
   const [precisaNome, setPrecisaNome] = useState(false);
   const [nome, setNome] = useState('');
+  /* OS-402: o CPF digitado é o do aluno? Aviso, e o "sou eu" de aluna adulta vale até fechar a janela. */
+  const [avisoCpfAluno, setAvisoCpfAluno] = useState(false);
+  const [souOAluno, setSouOAluno] = useState(false);
+  const mostrarAvisoCpfAluno = avisoCpfAluno && !!cpfDoAluno && cpf === cpfDoAluno;
 
   // código
   const [desafio, setDesafio] = useState<RespostaEnvio | null>(null);
@@ -382,6 +393,7 @@ export function FluxoConta({
       setCpf(''); setWhatsapp(''); setEmail(''); setConfirmaSenha('');
       setPrecisaNome(false); setNome('');
       setDesafio(null); setCodigo('');
+      setAvisoCpfAluno(false); setSouOAluno(false);
     }
   }, [ativo, abaInicial]);
 
@@ -550,9 +562,11 @@ export function FluxoConta({
   };
 
   // ── CRIAR CONTA ───────────────────────────────────────────────────────────
-  const seguirDoCpf = async () => {
+  const seguirDoCpf = async (souAluno?: boolean) => {
     const limpo = cpf.replace(/\D/g, '');
     if (!validateCPF(limpo)) { toast.error('Esse CPF não parece certo. Confira os números.'); return; }
+    // OS-402: o mesmo CPF do aluno não trava (aluna adulta compra para si), só avisa.
+    if (cpfDoAluno && limpo === cpfDoAluno && !souOAluno && souAluno !== true) { setAvisoCpfAluno(true); return; }
     setOcupado(true);
     try {
       const r = await identificar(limpo);
@@ -882,14 +896,15 @@ export function FluxoConta({
             {etapa === 'cpf' && (
               <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); seguirDoCpf(); }}>
                 <div>
-                  <h2 className="font-display text-2xl font-bold tracking-tight">Vamos criar a sua conta</h2>
-                  <p className="mt-1 text-base text-muted-foreground">Comece pelo seu CPF.</p>
+                  {/* OS-402: vindo da entrada do aluno, a conta é de quem compra (textos aprovados pelo Gabriel em 07/11). */}
+                  <h2 className="font-display text-2xl font-bold tracking-tight">{cpfDoAluno ? 'Agora o SEU CPF' : 'Vamos criar a sua conta'}</h2>
+                  <p className="mt-1 text-base text-muted-foreground">{cpfDoAluno ? 'A conta é de quem compra os convites (mãe, pai ou responsável), não do aluno.' : 'Comece pelo seu CPF.'}</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm">CPF</Label>
                   <div className="relative group">
                     <CreditCard className={ICONE} />
-                    <Input autoFocus inputMode="numeric" autoComplete="off" placeholder="000.000.000-00"
+                    <Input id="cpf-da-conta" autoFocus inputMode="numeric" autoComplete="off" placeholder="000.000.000-00"
                       value={formatCPF(cpf)} onChange={(e) => setCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
                       className={cn(CAMPO, 'tabular-nums')} />
                   </div>
@@ -897,7 +912,24 @@ export function FluxoConta({
                     <p className="text-sm text-destructive">Esse CPF não parece certo. Confira os números.</p>
                   )}
                 </div>
-                <BotaoPrincipal onClick={seguirDoCpf} label="Continuar" ocupado={ocupado} disabled={cpf.length !== 11} />
+                {mostrarAvisoCpfAluno ? (
+                  <div role="alert" className="space-y-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+                    <p className="flex gap-2 text-base font-medium">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500" />
+                      Esse é o CPF do aluno. A conta precisa ser de quem está comprando.
+                    </p>
+                    <Button type="button" variant="hero" size="lg" className="w-full h-12 text-base"
+                      onClick={() => { setCpf(''); setAvisoCpfAluno(false); document.getElementById('cpf-da-conta')?.focus(); }}>
+                      Usar o meu CPF
+                    </Button>
+                    <Button type="button" variant="outline" size="lg" className="w-full h-12 text-base" disabled={ocupado}
+                      onClick={() => { setSouOAluno(true); setAvisoCpfAluno(false); void seguirDoCpf(true); }}>
+                      Sou eu, sou aluno(a) adulto(a)
+                    </Button>
+                  </div>
+                ) : (
+                  <BotaoPrincipal onClick={seguirDoCpf} label="Continuar" ocupado={ocupado} disabled={cpf.length !== 11} />
+                )}
 
                 {/*
                   * Na COMPRA o caminho de quem já tem conta ganha um cartão próprio,
