@@ -15,9 +15,11 @@ interface AuthModalV2Props {
   isOpen: boolean;
   onClose: () => void;
   onAuthenticated: () => void;
+  /** OS-402: aberto pela entrada do aluno; o CPF do aluno (só números). Ver `FluxoConta`. */
+  cpfDoAluno?: string;
 }
 
-export function AuthModalV2({ isOpen, onClose, onAuthenticated }: AuthModalV2Props) {
+export function AuthModalV2({ isOpen, onClose, onAuthenticated, cpfDoAluno }: AuthModalV2Props) {
   const isMobile = useIsMobile();
 
   return (
@@ -41,6 +43,7 @@ export function AuthModalV2({ isOpen, onClose, onAuthenticated }: AuthModalV2Pro
           abaInicial="cadastro"
           onFechar={onClose}
           onAuthenticated={onAuthenticated}
+          cpfDoAluno={cpfDoAluno}
         />
       </DialogContent>
     </Dialog>
