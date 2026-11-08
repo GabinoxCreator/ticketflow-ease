@@ -111,12 +111,14 @@ export default function PoliticaPrivacidade() {
                 <p>Podemos coletar os seguintes dados de produtores:</p>
                 <ul className="list-disc pl-6 space-y-1">
                   <li>nome;</li>
-                  <li>CNPJ;</li>
+                  <li>CNPJ, quando o produtor é pessoa jurídica;</li>
+                  <li>CPF, quando o produtor é pessoa física;</li>
+                  <li>data de nascimento, só do produtor pessoa física, informada para conferir o CPF (seção 5);</li>
                   <li>e-mail;</li>
                   <li>telefone;</li>
                   <li>dados bancários para repasse de valores.</li>
                 </ul>
-                <p>Esses dados são utilizados para cadastro do produtor, relacionamento comercial, validação operacional, repasse financeiro e gestão dos eventos disponibilizados na plataforma.</p>
+                <p>Esses dados são utilizados para cadastro do produtor, relacionamento comercial, validação operacional, repasse financeiro e gestão dos eventos disponibilizados na plataforma. O CPF, o CNPJ e a data de nascimento servem para conferir a identidade do produtor e pagar o repasse com segurança.</p>
 
                 <h3 className="font-semibold text-lg text-foreground mt-6 mb-2">c) Dados de colaboradores</h3>
                 <p>Atualmente, para colaboradores vinculados à operação de eventos, podemos armazenar:</p>
@@ -172,6 +174,7 @@ export default function PoliticaPrivacidade() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li><strong>Com produtores de eventos:</strong> quando um cliente compra um ingresso, o produtor daquele evento pode receber os dados necessários à operação e ao controle de acesso: atualmente <strong>nome, CPF, e-mail e telefone</strong>, além dos dados do pedido e do ingresso. O produtor só enxerga os pedidos dos próprios eventos.</li>
                   <li><strong>Com parceiros de pagamento:</strong> atualmente a <strong>Safe2Pay</strong> e, em eventos anteriores à migração, o <strong>Mercado Pago</strong>, para processar cobranças, confirmações, estornos, repasses e rotinas financeiras.</li>
+                  <li><strong>Com parceiro de pagamentos que confere os dados em base oficial:</strong> no cadastro do produtor, o CPF e a data de nascimento (pessoa física) ou o CNPJ (pessoa jurídica) são enviados a um parceiro de pagamentos, que confere os dados em base oficial do governo, para conferir a identidade do produtor e pagar o repasse com segurança. A data de nascimento informada no cadastro de produtor é usada só nessa conferência e não é guardada pela FestPag.</li>
                   <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend), a <strong>Meta/Facebook</strong> e o <strong>Google</strong> (Tag Manager), estes dois últimos apenas quando você autoriza cookies de marketing (ver seção 6), para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
                   <li><strong>Com fornecedores de comunicação:</strong> serviços de envio de e-mail e de mensagens por WhatsApp, usados para mandar o seu ingresso, o código de acesso à conta e avisos sobre a sua compra.</li>
                   {obrigatoria ? (
@@ -278,6 +281,7 @@ export default function PoliticaPrivacidade() {
                   <li>resguardar direitos da FestPag em processos administrativos, judiciais ou arbitrais.</li>
                 </ul>
                 <p>Quando aplicável, os dados poderão ser eliminados, anonimizados ou mantidos de forma segura, conforme a base legal e a necessidade de retenção.</p>
+                <p><strong>Os dados do produtor</strong> (CPF ou CNPJ, nome, contatos e dados bancários) ficam guardados enquanto a conta do produtor existir e, depois, pelo tempo que a lei fiscal exige. A data de nascimento informada no cadastro de produtor não é guardada: serve só para a conferência do CPF.</p>
                 {obrigatoria ? (
                   <p><strong>A foto do cadastro facial</strong> é apagada depois de 12 meses sem uso (sem compra e sem entrada pela facial), com aviso por e-mail 60 dias antes, ou quando você exclui a conta ou pede a exclusão do cadastro facial pelo canal da seção 14. Nos três casos ela é apagada na FestPag e pedimos ao fornecedor que apague a cópia dele. A data de nascimento que você informa fica na sua conta enquanto ela existir; da conferência com a base guardamos só o resultado ("maior de 18 conferido") e a data em que foi feita. Os registros das compras e das entradas no evento continuam guardados pelo prazo da lei, sem a foto.</p>
                 ) : (

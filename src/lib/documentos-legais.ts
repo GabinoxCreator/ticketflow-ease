@@ -24,8 +24,11 @@ export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
    * a Política mostra outro texto (seções 2, 5, 7, 11 e 12), e a versão passa a
    * ser o DIA DO CORTE, sozinha: ligar a chave e mudar a versão é o mesmo gesto.
    * Desligada, era '2026-10-01'; passou a '2026-11-04' com o texto dos eventos com
-   * entrada pela facial (OS-374, seção 7 do texto desligado). */
-  privacidade: diaDoCorte() ?? '2026-11-04',
+   * entrada pela facial (OS-374, seção 7 do texto desligado); passou a '2026-11-07'
+   * com o CPF e a data de nascimento do produtor na Política (OS-400, seções 2, 5 e 9).
+   * Só a data do texto muda: nada neste arquivo obriga quem já aceitou a aceitar de novo,
+   * o aceite grava a versão que a pessoa viu. */
+  privacidade: diaDoCorte() ?? '2026-11-07',
   reembolso: '2026-09-30',
 };
 
