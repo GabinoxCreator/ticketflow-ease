@@ -4,8 +4,12 @@
 // Pedido do Gabriel: "a gente apontar cada ingresso para seu convidado e ele ter o link da
 // facial, a gente mandar pelo email ou whatsapp". É a transferência de sempre por baixo
 // (`/transferencia/<token>`, aceite pelo CPF), aberta pela RPC `apontar_convidado_ingresso`,
-// que confere o pedido (site, pago, 2+ ingressos, sem lista de alunos nem retirada grátis),
-// o CPF (um por evento) e chama `iniciar_transferencia_ingresso`.
+// que confere o pedido (site, pago, 2+ ingressos, sem retirada grátis), o CPF (um por
+// evento) e chama `iniciar_transferencia_ingresso`.
+//
+// OS-401 (07/11/2026): o evento com lista de alunos (Balé) deixou de ficar de fora. Decisão
+// do Gabriel: no fim da compra a família PODE dizer para quem é cada convite, e cada pessoa
+// entra pela facial ou pelo CPF dela (migration `20261107170000`, a mesma regra na função).
 //
 // Três ações, sempre com o usuário tirado da sessão, nunca de um id vindo do navegador:
 //   · pedidos  { orderIds }                         → o que a tela mostra de cada pedido
@@ -118,10 +122,6 @@ async function pedidos(admin: any, userId: string, orderIds: string[]) {
         .order('created_at', { ascending: false })
     : { data: [] };
   const eventIds = Array.from(new Set((ords ?? []).map((o: any) => o.event_id)));
-  const { data: listas } = eventIds.length
-    ? await admin.from('listas_alunos_eventos').select('event_id').in('event_id', eventIds)
-    : { data: [] };
-  const comLista = new Set((listas ?? []).map((l: any) => l.event_id));
   const { data: evs } = eventIds.length
     ? await admin.from('events').select('id, title').in('id', eventIds)
     : { data: [] };
@@ -136,7 +136,7 @@ async function pedidos(admin: any, userId: string, orderIds: string[]) {
     const validos = doPedido.filter((t: any) => t.status === 'valid');
     const elegivel = meus.length > 0
       && o.status === 'paid' && o.sale_origin === 'online' && !o.retirada_por_link
-      && validos.length >= 2 && !comLista.has(o.event_id);
+      && validos.length >= 2;
     if (!elegivel) return { orderId: o.id, elegivel: false, ingressos: [] };
 
     const ingressos = meus.map((t: any) => {

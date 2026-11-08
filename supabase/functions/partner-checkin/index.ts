@@ -9,6 +9,15 @@
 // ticket_code já identifica o ingresso e o evento dele, e a janela é o que impede
 // check-in em evento que não está acontecendo. `event_id` no body é opcional e
 // serve só pra estreitar a busca.
+//
+// OS-401 (07/11/2026): com `mapa: true` no corpo (só o nosso totem pede), o
+// check-in feito leva o mapa do lugar (`_shared/mapaDoCheckin.ts`): a
+// poltrona, as outras da mesma compra e as posições do mapa do evento. Sem
+// `mapa`, a resposta é a de sempre.
+// Sessões do MESMO dia (Balé, 18h30 e 20h30): só a sessão da vez entra
+// (`_shared/sessaoDaPorta.ts`, decisão do Gabriel "Pelo horário, sozinho"); fora
+// da vez volta o `outside_checkin_window` de sempre, com `sessao` e a frase em
+// `message`. Evento fora de lista ou sozinho no dia: nada muda.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -17,6 +26,8 @@ import {
   ingressosEmReembolso,
   MENSAGEM_REEMBOLSO_EM_ANALISE,
 } from "../_shared/reembolsoEmAnalise.ts";
+import { mapaDoCheckin } from "../_shared/mapaDoCheckin.ts";
+import { fraseDaSessao, portasDasSessoes } from "../_shared/sessaoDaPorta.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +71,7 @@ serve(async (req) => {
     }
     const ticket_code = body?.ticket_code;
     const dry_run = body?.dry_run === true;
+    const querMapa = body?.mapa === true;
     // Origem para o checkin_logs: 'partner_api' (padrão) ou o que o nosso
     // totem mandar ('festpag_totem_qr'). Só letras e sublinhado.
     const source = typeof body?.source === "string" && /^[a-z_]{1,32}$/.test(body.source)
@@ -181,6 +193,29 @@ serve(async (req) => {
         checked_in: false,
         window: { starts_at: win.starts_at, ends_at: win.ends_at },
         message,
+        ticket: ticketView(),
+      });
+    }
+
+    // ---------- 6b. OS-401: sessões do mesmo dia (fail-closed, como a janela) ----------
+    const portas = await portasDasSessoes(supabase, [ticketEventId], "PARTNER-CHECKIN");
+    if (portas === "erro") {
+      return json({ error: "checkin_window_unavailable" }, 503);
+    }
+    const portaDaSessao = portas.get(ticketEventId);
+    if (portaDaSessao && !portaDaSessao.aberta) {
+      await supabase.from("checkin_logs").insert({
+        ticket_id: ticket.id,
+        event_id: ticketEventId,
+        action: "checkin_blocked_window",
+        source,
+      });
+      return json({
+        result: "outside_checkin_window",
+        checked_in: false,
+        window: { starts_at: win.starts_at, ends_at: win.ends_at },
+        message: fraseDaSessao(portaDaSessao),
+        sessao: portaDaSessao,
         ticket: ticketView(),
       });
     }
@@ -319,6 +354,27 @@ serve(async (req) => {
       source,
     });
 
+    // OS-401: o mapa do lugar (só para quem pediu, e só ingresso com poltrona).
+    // A família: os outros ingressos da mesma compra neste evento. Nunca lança.
+    let mapa = null;
+    if (querMapa && ticket.event_seat_id) {
+      const { data: irmaos, error: irmaosErr } = await supabase
+        .from("tickets")
+        .select("event_seat_id")
+        .eq("order_id", ticket.order_id)
+        .eq("event_id", ticketEventId)
+        .neq("status", "cancelled")
+        .limit(100);
+      if (irmaosErr) console.error("[PARTNER-CHECKIN] mapa: família não leu (segue sem ela)", irmaosErr);
+      mapa = await mapaDoCheckin(
+        supabase,
+        ticketEventId,
+        ticket.event_seat_id,
+        (irmaos ?? []).map((t: { event_seat_id: string | null }) => t.event_seat_id),
+        "PARTNER-CHECKIN",
+      );
+    }
+
     return json({
       result: "valid",
       checked_in: true,
@@ -331,6 +387,7 @@ serve(async (req) => {
         seat_type_name: seatTypeName,
         validated_at: validatedAt,
       },
+      ...(querMapa ? { mapa } : {}),
     });
   } catch (error) {
     // 10. Falha de infra nunca vira 200.
