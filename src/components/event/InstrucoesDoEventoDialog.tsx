@@ -81,7 +81,7 @@ export function InstrucoesDoEventoDialog({ eventId, instrucoes, abertoPorFora, o
                     p.atencao ? 'bg-amber-500/20' : 'bg-primary/15',
                   )}
                 >
-                  <Icone className={cn('w-4.5 h-4.5', p.atencao ? 'text-amber-400' : 'text-primary')} />
+                  <Icone className={cn('h-[18px] w-[18px]', p.atencao ? 'text-amber-400' : 'text-primary')} />
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-sm leading-snug">{p.titulo}</p>

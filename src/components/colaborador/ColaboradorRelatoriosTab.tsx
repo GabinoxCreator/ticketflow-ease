@@ -33,7 +33,7 @@ const KPI = ({
 }: { Icon: any; label: string; value: string | number; iconBg: string; iconColor: string }) => (
   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
     <div className={`w-9 h-9 rounded-full ${iconBg} inline-flex items-center justify-center mb-2`}>
-      <Icon className={`w-4.5 h-4.5 ${iconColor}`} style={{ width: 18, height: 18 }} />
+      <Icon className={`h-[18px] w-[18px] ${iconColor}`} style={{ width: 18, height: 18 }} />
     </div>
     <div className="text-xl font-extrabold text-slate-900 tabular-nums break-words leading-tight">{value}</div>
     <div className="text-[11px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">{label}</div>

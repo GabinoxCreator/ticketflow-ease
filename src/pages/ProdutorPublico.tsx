@@ -145,7 +145,7 @@ function ProximoEvento({ evento }: { evento: EventData }) {
               <span />
             )}
             <span className="inline-flex h-11 items-center whitespace-nowrap rounded-xl bg-primary px-4 sm:px-5 text-sm font-semibold text-primary-foreground shadow-md group-hover:bg-primary/90 transition-colors">
-              Comprar ingresso
+              {evento.gratuito ? 'Ver ingressos' : 'Comprar ingresso'}
             </span>
           </div>
         </div>
