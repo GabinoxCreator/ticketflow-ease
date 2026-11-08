@@ -3842,6 +3842,102 @@ export type Database = {
           },
         ]
       }
+      vigia_do_email: {
+        Row: {
+          alvo: string
+          ativo: boolean
+          avisou_recusa: boolean
+          calma_min: number
+          desde: string | null
+          estado: string
+          janela_falha_min: number
+          lembrete_horas: number
+          motivo: string | null
+          retrato: Json | null
+          travadas_min: number
+          travadas_pct: number
+          ultima_presa_avisada_em: string | null
+          ultima_rodada_em: string | null
+          ultimo_aviso_em: string | null
+          ultimo_problema_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          alvo?: string
+          ativo?: boolean
+          avisou_recusa?: boolean
+          calma_min?: number
+          desde?: string | null
+          estado?: string
+          janela_falha_min?: number
+          lembrete_horas?: number
+          motivo?: string | null
+          retrato?: Json | null
+          travadas_min?: number
+          travadas_pct?: number
+          ultima_presa_avisada_em?: string | null
+          ultima_rodada_em?: string | null
+          ultimo_aviso_em?: string | null
+          ultimo_problema_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alvo?: string
+          ativo?: boolean
+          avisou_recusa?: boolean
+          calma_min?: number
+          desde?: string | null
+          estado?: string
+          janela_falha_min?: number
+          lembrete_horas?: number
+          motivo?: string | null
+          retrato?: Json | null
+          travadas_min?: number
+          travadas_pct?: number
+          ultima_presa_avisada_em?: string | null
+          ultima_rodada_em?: string | null
+          ultimo_aviso_em?: string | null
+          ultimo_problema_em?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vigia_do_email_avisos: {
+        Row: {
+          created_at: string
+          destino_whatsapp: string | null
+          enviado_em: string | null
+          id: string
+          pedido_id: number | null
+          tentativas: number
+          texto: string
+          tipo: string
+          ultimo_erro: string | null
+        }
+        Insert: {
+          created_at?: string
+          destino_whatsapp?: string | null
+          enviado_em?: string | null
+          id?: string
+          pedido_id?: number | null
+          tentativas?: number
+          texto: string
+          tipo: string
+          ultimo_erro?: string | null
+        }
+        Update: {
+          created_at?: string
+          destino_whatsapp?: string | null
+          enviado_em?: string | null
+          id?: string
+          pedido_id?: number | null
+          tentativas?: number
+          texto?: string
+          tipo?: string
+          ultimo_erro?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -4121,6 +4217,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      envio_de_email_saude: { Args: { _agora?: string }; Returns: Json }
       event_product_faltas: {
         Args: {
           _event_product_id: string
@@ -4613,6 +4710,14 @@ export type Database = {
       user_holds_ticket_for_event: {
         Args: { _event_id: string }
         Returns: boolean
+      }
+      vigia_email_texto: {
+        Args: { _agora: string; _desde: string; _s: Json; _tipo: string }
+        Returns: string
+      }
+      vigiar_envio_de_email: {
+        Args: { _agora?: string; _teste?: boolean }
+        Returns: Json
       }
       vigiar_relogio_do_pix: { Args: never; Returns: Json }
     }
