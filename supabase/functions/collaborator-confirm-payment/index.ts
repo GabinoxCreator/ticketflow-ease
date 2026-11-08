@@ -13,8 +13,8 @@ const corsHeaders = {
 
 // Mesmo system actor usado pelo wrapper _shared/applyOrderApproved.ts
 const SYSTEM_ACTOR = '95628c4a-8040-44ed-83c5-d6a5b8793926';
-// 'pix' liberado pro totem de ingresso (m-SiTef). Só cartão grava pos_* (ver isCard
-// abaixo); prova do PIX (endToEndId/txid) NÃO é persistida por ora — dívida conhecida.
+// 'pix' liberado pro totem de ingresso (m-SiTef). Cartão e PIX gravam pos_* (PASSO 4;
+// o PIX passou a gravar na OS-381, 05/11/2026).
 const VALID_METHODS = ['card_credit', 'card_debit', 'cash', 'pix'];
 // Placeholder de balcão (mesmo valor do collaborator-reserve-order). Pedido sem
 // e-mail real fica com este endereço — NÃO deve receber e-mail de confirmação.
@@ -151,11 +151,28 @@ Deno.serve(async (req) => {
 
     // PASSO 4 — grava dados do POS ANTES da RPC (guard status='pending')
     const updateObj: Record<string, unknown> = { payment_method };
-    if (isCard && pos) {
+    // OS-381 (05/11/2026): o PIX também grava o código da transação. O PIX do SiTef
+    // devolve NSU SiTef e NSU do Host (campos 133 e 134; no totem, todos os PIX pagos
+    // trazem os dois) e a maquininha já mandava no `pos`, mas aqui só cartão gravava:
+    // as vendas PIX ficavam sem nada para achar no extrato. Dado de transação não se
+    // descarta. A bandeira continua só no cartão (no PIX não há bandeira de cartão).
+    // O formato do `pos` não mudou: maquininha antiga e totem de ingresso seguem iguais.
+    const isPix = payment_method === 'pix';
+    if (isPix && !(pos && (pos.nsu || pos.nsu_host || pos.authorization_code))) {
+      // PIX sem código é anômalo (o SiTef sempre devolve), mas não fatal: só registra.
+      await supabase.from('audit_logs').insert({
+        actor_id: SYSTEM_ACTOR,
+        action: 'collaborator_confirm_payment_pix_no_nsu',
+        target_type: 'order',
+        target_id: order_id,
+        metadata: { collaborator_id, payment_method, pos: pos ?? null },
+      });
+    }
+    if ((isCard || isPix) && pos) {
       if (pos.nsu != null) updateObj.pos_nsu = pos.nsu;
       if (pos.nsu_host != null) updateObj.pos_nsu_host = pos.nsu_host;
       if (pos.authorization_code != null) updateObj.pos_authorization_code = pos.authorization_code;
-      if (pos.card_brand != null) updateObj.pos_card_brand = pos.card_brand;
+      if (isCard && pos.card_brand != null) updateObj.pos_card_brand = pos.card_brand;
       if (pos.terminal_id != null) updateObj.pos_terminal_id = pos.terminal_id;
     }
     const { data: updated, error: updErr } = await supabase
