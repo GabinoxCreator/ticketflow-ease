@@ -13,10 +13,26 @@
 // tudo (fail-closed) — endpoint de portaria jamais fica aberto.
 //
 // LGPD: o CPF entra no corpo mas NUNCA sai no log (ver maskCpf).
+//
+// OS-401 (07/11/2026, Balé da Bruna):
+//   • o CPF do ALUNO também acha o ingresso: no evento com lista de alunos a
+//     família sabe o CPF da criança (foi o que digitou para comprar), e o
+//     pedido fica ligado a ela em `alunos_pedidos`. Vale o mesmo cuidado do
+//     comprador: só ingresso SEM titular (o que foi passado a um convidado
+//     entra pelo CPF do convidado);
+//   • com `mapa: true` no corpo (só o nosso totem pede), o sucesso leva o mapa
+//     do lugar (`_shared/mapaDoCheckin.ts`): a poltrona, as da família e as
+//     posições do mapa do evento. Sem `mapa`, a resposta é a de sempre;
+//   • sessões do MESMO dia (Balé, 18h30 e 20h30): só a sessão da vez entra
+//     (`_shared/sessaoDaPorta.ts`, decisão do Gabriel "Pelo horário, sozinho").
+//     Fora da vez volta `fora_da_janela`, como sempre, com `sessao` e `mensagem`.
+//     Evento fora de lista ou sozinho no dia: nada muda.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
 import { maskCpf } from "../_shared/pii.ts";
+import { mapaDoCheckin } from "../_shared/mapaDoCheckin.ts";
+import { fraseDaSessao, type PortaDaSessao, portasDasSessoes } from "../_shared/sessaoDaPorta.ts";
 import {
   ehErroDeReembolso,
   ingressosEmReembolso,
@@ -46,6 +62,8 @@ const semIngresso = (motivo: Motivo, extra: Record<string, unknown> = {}) =>
 type TicketRow = {
   id: string;
   event_id: string;
+  order_id: string;
+  event_seat_id: string | null;
   status: string;
   holder_name: string;
   created_at: string;
@@ -74,7 +92,7 @@ serve(async (req) => {
     }
 
     // ---------- 2. Input ----------
-    let body: { cpf?: unknown; event_id?: unknown; source?: unknown };
+    let body: { cpf?: unknown; event_id?: unknown; source?: unknown; mapa?: unknown };
     try {
       body = await req.json();
     } catch {
@@ -88,6 +106,9 @@ serve(async (req) => {
     const source = typeof body?.source === "string" && /^[a-z_]{1,32}$/.test(body.source)
       ? body.source
       : "facial";
+
+    // OS-401: o mapa do lugar só vai para quem pede (o nosso totem).
+    const querMapa = body?.mapa === true;
 
     const cpfDigits = unformatCPF(typeof body?.cpf === "string" ? body.cpf : "");
     if (!validateCPF(cpfDigits)) {
@@ -117,7 +138,7 @@ serve(async (req) => {
     // Os dois CPFs são gravados só com dígitos, então o match é exato.
     // !inner: só ingresso de pedido PAGO conta. 'valid' e 'used' vêm juntos pra
     // distinguir "nunca teve" de "já entrou".
-    const SELECT_INGRESSO = "id, event_id, status, holder_name, created_at, events(id,title), orders!inner(customer_cpf,status)";
+    const SELECT_INGRESSO = "id, event_id, order_id, event_seat_id, status, holder_name, created_at, events(id,title), orders!inner(customer_cpf,status)";
     let porTitular = supabase
       .from("tickets")
       .select(SELECT_INGRESSO)
@@ -136,8 +157,39 @@ serve(async (req) => {
       porComprador = porComprador.eq("event_id", eventId);
     }
 
-    const [rTitular, rComprador] = await Promise.all([porTitular, porComprador]);
-    const ticketsErr = rTitular.error ?? rComprador.error;
+    // OS-401: o CPF do aluno (lista de alunos, Balé). Os pedidos ligados à
+    // criança em `alunos_pedidos`; só ingresso sem titular, como o do comprador.
+    const porAluno = (async () => {
+      const { data: alunos, error: e1 } = await supabase
+        .from("alunos_lista")
+        .select("id")
+        .eq("cpf", cpfDigits)
+        .is("anonimizado_em", null)
+        .limit(20);
+      if (e1) return { data: null, error: e1 };
+      const ids = (alunos ?? []).map((a: { id: string }) => a.id);
+      if (ids.length === 0) return { data: [], error: null };
+      const { data: ligados, error: e2 } = await supabase
+        .from("alunos_pedidos")
+        .select("order_id")
+        .in("aluno_id", ids)
+        .limit(200);
+      if (e2) return { data: null, error: e2 };
+      const pedidos = Array.from(new Set((ligados ?? []).map((l: { order_id: string }) => l.order_id)));
+      if (pedidos.length === 0) return { data: [], error: null };
+      let q = supabase
+        .from("tickets")
+        .select(SELECT_INGRESSO)
+        .in("status", ["valid", "used"])
+        .in("order_id", pedidos)
+        .is("holder_cpf", null)
+        .eq("orders.status", "paid");
+      if (eventId) q = q.eq("event_id", eventId);
+      return await q;
+    })();
+
+    const [rTitular, rComprador, rAluno] = await Promise.all([porTitular, porComprador, porAluno]);
+    const ticketsErr = rTitular.error ?? rComprador.error ?? rAluno.error;
     if (ticketsErr) {
       console.error("[FACIAL-CHECKIN] lookup error", { cpf: cpfLog, event_id: eventId, error: ticketsErr });
       return json({ error: "internal_error" }, 503);
@@ -146,7 +198,7 @@ serve(async (req) => {
     // Junta sem repetir (o mesmo ingresso pode ter titular = comprador) e mantém a ordem
     // de antes: o mais antigo primeiro.
     const porId = new Map<string, TicketRow>();
-    for (const t of [...(rTitular.data ?? []), ...(rComprador.data ?? [])] as unknown as TicketRow[]) {
+    for (const t of [...(rTitular.data ?? []), ...(rComprador.data ?? []), ...(rAluno.data ?? [])] as unknown as TicketRow[]) {
       porId.set(t.id, t);
     }
     const tickets = Array.from(porId.values())
@@ -176,6 +228,20 @@ serve(async (req) => {
       if (win.is_open) openEventIds.add(evId);
     }
 
+    // OS-401: sessões do mesmo dia: a sessão fora da vez sai do conjunto aberto.
+    // Erro na leitura = janela indisponível (fail-closed, como acima).
+    let portaFechada: PortaDaSessao | null = null;
+    if (openEventIds.size > 0) {
+      const portas = await portasDasSessoes(supabase, Array.from(openEventIds), "FACIAL-CHECKIN");
+      if (portas === "erro") return json({ error: "checkin_window_unavailable" }, 503);
+      for (const [evId, porta] of portas) {
+        if (!porta.aberta) {
+          openEventIds.delete(evId);
+          portaFechada ??= porta;
+        }
+      }
+    }
+
     if (openEventIds.size === 0) {
       console.log("[FACIAL-CHECKIN] fora da janela", { cpf: cpfLog, event_id: eventId });
       // Mesmo log de tentativa bloqueada que o colaborador e o parceiro gravam.
@@ -186,7 +252,10 @@ serve(async (req) => {
         action: "checkin_blocked_window",
         source,
       });
-      return semIngresso("fora_da_janela");
+      return semIngresso(
+        "fora_da_janela",
+        portaFechada ? { sessao: portaFechada, mensagem: fraseDaSessao(portaFechada) } : {},
+      );
     }
 
     // ---------- 5. Escolha do ingresso (o mais antigo) ----------
@@ -264,6 +333,34 @@ serve(async (req) => {
       tickets_restantes: restantes,
     });
 
+    // OS-401: o mapa do lugar (só para quem pediu, e só ingresso com poltrona).
+    // A família: os outros ingressos deste CPF neste evento e os das mesmas
+    // compras (inclusive os passados a convidados: sentam juntos). Nunca lança.
+    let mapa = null;
+    if (querMapa && ticket.event_seat_id) {
+      const doEvento = tickets.filter((t) => t.event_id === ticket.event_id);
+      const pedidos = Array.from(new Set(doEvento.map((t) => t.order_id).filter(Boolean)));
+      let daCompra: { event_seat_id: string | null }[] = [];
+      if (pedidos.length > 0) {
+        const { data: irmaos, error: irmaosErr } = await supabase
+          .from("tickets")
+          .select("event_seat_id")
+          .in("order_id", pedidos)
+          .eq("event_id", ticket.event_id)
+          .neq("status", "cancelled")
+          .limit(100);
+        if (irmaosErr) console.error("[FACIAL-CHECKIN] mapa: família não leu (segue sem ela)", irmaosErr);
+        daCompra = irmaos ?? [];
+      }
+      mapa = await mapaDoCheckin(
+        supabase,
+        ticket.event_id,
+        ticket.event_seat_id,
+        [...doEvento.map((t) => t.event_seat_id), ...daCompra.map((t) => t.event_seat_id)],
+        "FACIAL-CHECKIN",
+      );
+    }
+
     return json({
       tem_ingresso: true,
       ticket_id: ticket.id,
@@ -271,6 +368,7 @@ serve(async (req) => {
       holder_name: ticket.holder_name,
       checked_in_at: checkedInAt,
       tickets_restantes: restantes,
+      ...(querMapa ? { mapa } : {}),
     });
   } catch (error) {
     console.error("[FACIAL-CHECKIN] error:", error);
