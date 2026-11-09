@@ -49,6 +49,9 @@ interface CheckoutStepPaymentProps {
   /** O pagamento está aberto. Ao fechar, o modal ainda anima a saída com este
    *  passo montado: a resposta do cupom do link que chega nesse meio é ignorada. */
   aberto?: boolean;
+  /** Compra pelo link de venda (OS-405): o preço já é o do link, sem cupom. Esconde o
+   *  campo e não aplica o cupom guardado do evento (o servidor também ignora). */
+  semCupom?: boolean;
 }
 
 export function CheckoutStepPayment({
@@ -68,6 +71,7 @@ export function CheckoutStepPayment({
   passeAceito = false,
   onPasseAceitoChange,
   aberto = true,
+  semCupom = false,
 }: CheckoutStepPaymentProps) {
   const [couponInput, setCouponInput] = useState('');
   const [validating, setValidating] = useState(false);
@@ -148,7 +152,7 @@ export function CheckoutStepPayment({
   // a conferência roda, PIX e cartão esperam: tocar antes geraria o pedido sem
   // o desconto que a pessoa veio buscar.
   const [aplicandoDoLink, setAplicandoDoLink] = useState(
-    () => !appliedCoupon && !!eventId && !!lerCupomDoLink(eventId),
+    () => !semCupom && !appliedCoupon && !!eventId && !!lerCupomDoLink(eventId),
   );
   const tentouCupomDoLink = useRef(false);
   const montado = useRef(true);
@@ -159,7 +163,7 @@ export function CheckoutStepPayment({
     return () => { montado.current = false; };
   }, []);
   useEffect(() => {
-    if (tentouCupomDoLink.current || appliedCoupon || !eventId) return;
+    if (semCupom || tentouCupomDoLink.current || appliedCoupon || !eventId) return;
     tentouCupomDoLink.current = true;
     const codigo = lerCupomDoLink(eventId);
     if (!codigo) return setAplicandoDoLink(false);
@@ -243,7 +247,8 @@ export function CheckoutStepPayment({
           ))}
         </div>
 
-        {/* Cupom */}
+        {/* Cupom (fora da compra pelo link de venda, OS-405) */}
+        {!semCupom && (
         <div className="relative pt-3 border-t border-border/50">
           {aplicandoDoLink && !appliedCoupon ? (
             <div className="flex items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-3 text-sm">
@@ -293,6 +298,7 @@ export function CheckoutStepPayment({
             </div>
           )}
         </div>
+        )}
 
         <div className="relative space-y-1 pt-1">
           {appliedCoupon && (

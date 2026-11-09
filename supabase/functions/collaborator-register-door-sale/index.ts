@@ -55,7 +55,7 @@ serve(async (req) => {
 
     const { data: lot } = await supabase
       .from('event_lots')
-      .select(`id, event_id, price, total_quantity, sold_quantity, reserved_quantity, is_active, name, end_date, retirada_publica, ${CAMPOS_DO_GRUPO}`)
+      .select(`id, event_id, price, total_quantity, sold_quantity, reserved_quantity, is_active, name, end_date, retirada_publica, escondido, ${CAMPOS_DO_GRUPO}`)
       .eq('id', lot_id)
       .maybeSingle();
     if (!lot || lot.event_id !== event_id) {
@@ -76,6 +76,11 @@ serve(async (req) => {
     // convidado, onde valem a trava de um por pessoa, o CPF conferido e a facial.
     if (lot.retirada_publica) {
       return new Response(JSON.stringify({ error: mensagemDoFechado(lot.name, 'so_pelo_link') }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // Lote escondido (OS-405) não vende na portaria: ele só sai pelo link de venda do site.
+    if (lot.escondido) {
+      return new Response(JSON.stringify({ error: mensagemDoFechado(lot.name, 'escondido') }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     // Data de fim vencida não vende (OS-106): a mesma regra do site e da maquininha.

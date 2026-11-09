@@ -34,6 +34,8 @@ interface CheckoutStepCardMarcelProps {
   onPagarComPix?: () => Promise<void>;
   /** Cobrança em dúvida: leva ao acompanhamento do pedido (`/pedido/:id`). */
   onEmDuvida?: (orderId: string) => void;
+  /** Compra pelo link de venda (OS-405): o servidor monta o carrinho pelo link. */
+  linkToken?: string;
 }
 
 export function CheckoutStepCardMarcel({
@@ -50,9 +52,11 @@ export function CheckoutStepCardMarcel({
   onError,
   onPagarComPix,
   onEmDuvida,
+  linkToken,
 }: CheckoutStepCardMarcelProps) {
   // `items` (lotes) no formato de sempre; `products` e `bundles` só quando há loja.
-  const carrinho = corpoDoCarrinho(items);
+  // Com o link de venda (OS-405) vai junto o token: o servidor cobra o que o link diz.
+  const carrinho = { ...corpoDoCarrinho(items), ...(linkToken ? { linkToken } : {}) };
 
   // Cotação: pede à edge os valores já precificados. O servidor é a fonte da
   // verdade; a tela nunca calcula preço.
@@ -87,6 +91,9 @@ export function CheckoutStepCardMarcel({
       if (corpo?.aprovado === true && corpo?.orderId) {
         throw new CobrancaEmDuvidaError('Pagamento em verificação.', String(corpo.orderId));
       }
+      // Link de venda usado, vencido ou com pagamento em andamento (OS-405): a frase do
+      // servidor diz o que fazer; a do supabase-js ("non-2xx status code") não diz.
+      if (linkToken && typeof corpo?.error === 'string') throw new Error(corpo.error);
       throw error;
     }
     if (data?.status === 'approved') {

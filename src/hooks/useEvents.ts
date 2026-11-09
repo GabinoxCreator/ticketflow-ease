@@ -58,6 +58,8 @@ export interface Event {
     starts_after_lot_id?: string | null;
     /** Lote que só sai pelo link de cortesia (OS-313): nunca aparece à venda. */
     retirada_publica?: boolean | null;
+    /** Lote escondido (OS-405): só pelo link de venda, nunca na vitrine. */
+    escondido?: boolean | null;
   }>;
   /** Receita no valor de face (sem taxa, sem juro, sem cortesia). null = o cálculo falhou. */
   paid_revenue?: number | null;
@@ -352,7 +354,8 @@ const SELECT_VITRINE = `
             start_date,
             end_date,
             starts_after_lot_id,
-            retirada_publica
+            retirada_publica,
+            escondido
           )
         `;
 

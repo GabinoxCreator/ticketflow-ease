@@ -25,6 +25,7 @@ import { rateLimitResponse } from "../_shared/rateLimit.ts";
 import { conflitosDeCpfPorDia, mensagemDoConflito } from "../_shared/umCpfPorDia.ts";
 import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.ts';
 import { semEmailInterno } from '../_shared/emailInterno.ts';
+import { tokenDoLink, lerLinkParaCompra, ehLinkJaEmUso, MSG_LINK_EM_PAGAMENTO, semEstoqueDoLink } from '../_shared/linkDeVenda.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,9 +69,13 @@ serve(async (req) => {
     // Quem só tem WhatsApp tem e-mail interno no Supabase: nunca gravar nem mandar ao gateway.
     const customerEmail = semEmailInterno(body.customerEmail);
 
+    // Link de venda (OS-405): com ele, o carrinho é o gravado no link (lerLinkParaCompra).
+    const linkToken = tokenDoLink(body.linkToken);
+
     // Carrinho pode ser só de produto (camiseta para quem já tem o convite):
     // vale ter lote, produto ou combo. Vazio de tudo é que não vale.
-    const temAlgo = (Array.isArray(items) && items.length > 0)
+    const temAlgo = !!linkToken
+      || (Array.isArray(items) && items.length > 0)
       || (Array.isArray(body.products) && body.products.length > 0)
       || (Array.isArray(body.bundles) && body.bundles.length > 0);
     if (!eventId || !temAlgo) {
@@ -102,9 +107,13 @@ serve(async (req) => {
     // PREÇO VEM DO BANCO, pela mesma função que o cartão usa. Manter a conta
     // duplicada aqui foi o que deixou esta edge sem tratar cupom na 1ª versão:
     // o cliente via o desconto na tela e era cobrado o valor cheio.
-    const preco = await resolverPreco(admin, eventId, items, 'pix', body.couponId,
-      { products: body.products, bundles: body.bundles });
+    // Com link: lote, quantidade e preço saem do link; itens, produtos e cupom do corpo
+    // não entram (OS-405).
+    const link = linkToken ? await lerLinkParaCompra(admin, linkToken, eventId) : null;
+    const preco = await resolverPreco(admin, eventId, link ? null : items, 'pix', link ? null : body.couponId,
+      link ? null : { products: body.products, bundles: body.bundles }, link);
     const lineItems = preco.linhas;
+    if (link) log('Compra por link de venda', { linkId: link.id });
 
     // Trava "1 ingresso por CPF" nos eventos que a exigem, ANTES de reservar.
     const ticketLimit = getTicketLimitForEvent(eventId);
@@ -141,7 +150,7 @@ serve(async (req) => {
 
     // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto dois compradores levam o mesmo
     // último ingresso — e é com o lote acabando que mais gente compra junto.
-    reservado = await reservarEstoque(admin, lineItems);
+    reservado = await reservarEstoque(admin, lineItems, link ? semEstoqueDoLink : undefined);
     reservadoProd = await reservarProdutos(admin, preco.produtos);
 
     const expiresAtIso = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60_000).toISOString();
@@ -162,11 +171,15 @@ serve(async (req) => {
         user_id: userId,
         customer_cpf: cleanCPF,
         expires_at: expiresAtIso,
+        // Só com link: sem ele a coluna nem vai no insert (OS-405).
+        ...(link ? { link_de_venda_id: link.id } : {}),
       })
       .select().single();
 
     if (orderError || !order) {
       log('Falha ao criar pedido', { orderError });
+      // Outra aba criou o pedido deste link primeiro (índice do "um uso").
+      if (link && ehLinkJaEmUso(orderError)) throw new CarrinhoInvalido(MSG_LINK_EM_PAGAMENTO, 409);
       throw new Error('Erro ao criar pedido');
     }
     orderId = order.id;

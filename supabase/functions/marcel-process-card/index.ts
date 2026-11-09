@@ -30,6 +30,7 @@ import { validarNomePessoa, normalizarNomePessoa } from '../_shared/nomePessoa.t
 import { bandeiraDoCartao } from '../_shared/bandeiraCartao.ts';
 import { semEmailInterno } from '../_shared/emailInterno.ts';
 import { motivoDaFalha } from '../_shared/motivoDaFalha.ts';
+import { tokenDoLink, lerLinkParaCompra, ehLinkJaEmUso, MSG_LINK_EM_PAGAMENTO, semEstoqueDoLink } from '../_shared/linkDeVenda.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -89,8 +90,12 @@ serve(async (req) => {
     // Publicado e pago pelo Marcel, antes de qualquer conta de preço.
     const event = await eventoAVendaNoMarcel(admin, eventId);
 
-    const preco = await resolverPreco(admin, eventId, items, 'card', couponId,
-      { products: body.products, bundles: body.bundles });
+    // Link de venda (OS-405): com ele, lote, quantidade e preço saem do link, na cotação
+    // e na cobrança; itens, produtos e cupom do corpo não entram.
+    const linkToken = tokenDoLink(body.linkToken);
+    const link = linkToken ? await lerLinkParaCompra(admin, linkToken, eventId) : null;
+    const preco = await resolverPreco(admin, eventId, link ? null : items, 'card', link ? null : couponId,
+      link ? null : { products: body.products, bundles: body.bundles }, link);
     // Em carrinho só de ingresso, as duas funções dão o mesmo que as antigas
     // (`produtorAbsorve` e `parcelasSemJurosDoCarrinho`).
     const absorve = carrinhoAbsorve(preco);
@@ -227,7 +232,7 @@ serve(async (req) => {
     // RESERVA ANTES DE CRIAR O PEDIDO. Sem isto, dois compradores levam o mesmo
     // último ingresso — e é justamente com o lote acabando que mais gente
     // compra ao mesmo tempo.
-    reservado = await reservarEstoque(admin, preco.linhas);
+    reservado = await reservarEstoque(admin, preco.linhas, link ? semEstoqueDoLink : undefined);
     reservadoProd = await reservarProdutos(admin, preco.produtos);
 
     const { data: order, error: orderError } = await admin
@@ -246,10 +251,17 @@ serve(async (req) => {
         user_id: userId,
         customer_cpf: cleanCPF,
         expires_at: new Date(Date.now() + CARD_EXPIRATION_MINUTES * 60_000).toISOString(),
+        // Só com link: sem ele a coluna nem vai no insert (OS-405).
+        ...(link ? { link_de_venda_id: link.id } : {}),
       })
       .select().single();
 
-    if (orderError || !order) throw new Error('Erro ao criar pedido');
+    if (orderError || !order) {
+      // Outra aba criou o pedido deste link primeiro (índice do "um uso").
+      if (link && ehLinkJaEmUso(orderError)) throw new CarrinhoInvalido(MSG_LINK_EM_PAGAMENTO, 409);
+      throw new Error('Erro ao criar pedido');
+    }
+    if (link) log('Compra por link de venda', { linkId: link.id, orderId: order.id });
     orderId = order.id;
 
     // Linhas de produto. Gravou, a reserva passa a ser do pedido: dali em

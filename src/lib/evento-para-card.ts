@@ -6,7 +6,8 @@ import type { EventCategory, EventData } from '@/data/mockEvents';
 import { isLotEnded, isLotOpenForSale, type LotForAvailability } from '@/lib/lot-availability';
 
 export function eventoParaCard(event: Event): EventData {
-  const lots = event.event_lots || [];
+  // Lote escondido (OS-405) não existe para a vitrine: nem preço, nem contagem.
+  const lots = (event.event_lots || []).filter((lot: any) => !lot.escondido);
   // "A partir de" sai dos lotes à venda agora, com a mesma regra da página do
   // evento: lote com data de fim vencida não anuncia preço. Se nenhum abriu
   // ainda (o 1º lote abre amanhã), mostra o preço do que vai abrir, nunca o de
