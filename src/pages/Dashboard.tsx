@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatEventDate } from '@/lib/eventTime';
 
@@ -10,12 +11,12 @@ import {
   ArrowRight,
   Receipt,
   Sparkles,
-  BarChart3,
 } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { EventStatsCard } from '@/components/producer/EventStatsCard';
 import { SalesChart } from '@/components/producer/SalesChart';
 import { EventListItem } from '@/components/producer/EventListItem';
+import { ExcluirEventoDialog } from '@/components/producer/ExcluirEventoDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEvents } from '@/hooks/useEvents';
@@ -28,6 +29,8 @@ const formatBRL = (n: number) =>
 export default function Dashboard() {
   const navigate = useNavigate();
   const { events, activeEvents, isLoading, deleteEvent } = useEvents();
+  // "Excluir" do menu do evento: antes apagava num clique, sem pergunta (OS-408).
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const {
     totalRevenue,
     totalTicketsSold,
@@ -177,7 +180,7 @@ export default function Dashboard() {
                     <EventListItem
                       key={event.id}
                       event={event}
-                      onDelete={(id) => deleteEvent.mutate(id)}
+                      onDelete={(id) => setDeleteId(id)}
                     />
                   ))}
                 </div>
@@ -192,11 +195,10 @@ export default function Dashboard() {
             <CardTitle className="text-base md:text-lg">Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-3">
               {[
                 { icon: Plus, label: 'Criar Evento', path: '/produtor/criar-evento' },
                 { icon: CalendarDays, label: 'Gerenciar Eventos', path: '/produtor/eventos' },
-                { icon: BarChart3, label: 'Ver Relatórios', path: '/produtor/eventos' },
                 { icon: DollarSign, label: 'Pagamentos', path: '/produtor/financeiro' },
               ].map((a) => (
                 <button
@@ -214,6 +216,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <ExcluirEventoDialog
+        eventId={deleteId}
+        eventTitle={events?.find((e) => e.id === deleteId)?.title}
+        onOpenChange={(aberta) => { if (!aberta) setDeleteId(null); }}
+        onConfirm={(id) => { deleteEvent.mutate(id); setDeleteId(null); }}
+      />
     </ProducerLayout>
   );
 }

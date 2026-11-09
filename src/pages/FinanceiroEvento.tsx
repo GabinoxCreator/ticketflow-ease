@@ -93,7 +93,7 @@ export default function FinanceiroEvento() {
               <CardContent className="p-6">
                 <div className="text-center mb-5">
                   <div className="text-sm text-muted-foreground">Balanço Disponível</div>
-                  <div className="text-4xl font-bold mt-1 text-secondary break-words">
+                  <div className="text-4xl font-bold mt-1 text-foreground break-words">
                     {formatBRL(event.available)}
                   </div>
                   {event.receivedDirectly > 0 && (

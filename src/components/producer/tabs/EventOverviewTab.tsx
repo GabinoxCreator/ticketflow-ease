@@ -1,4 +1,4 @@
-import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, Download, QrCode, Eye, BarChart3 } from 'lucide-react';
+import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, ShoppingBag, Wallet, Eye, BarChart3 } from 'lucide-react';
 import { SalesChart } from '@/components/producer/SalesChart';
 import { LotSummaryCard } from '@/components/producer/LotSummaryCard';
 import { AdminFeeOverrideCard } from '@/components/producer/AdminFeeOverrideCard';
@@ -26,6 +26,8 @@ interface EventOverviewTabProps {
   salesByLot: SalesByLot[];
   salesByDay: { date: string; label: string; revenue: number; tickets: number }[];
   onTabChange: (tab: string) => void;
+  /** Abre a janela de venda manual. Sem ela (quem não é o dono do evento), o atalho não aparece. */
+  onVendaManual?: () => void;
 }
 
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -48,6 +50,7 @@ export function EventOverviewTab({
   salesByLot,
   salesByDay,
   onTabChange,
+  onVendaManual,
 }: EventOverviewTabProps) {
   // Um formatador s\u00F3 formata: nunca trocar valor espec\u00EDfico aqui (ver OS-108, 02/10/2026).
   const formatCurrency = (value: number) =>
@@ -90,8 +93,10 @@ export function EventOverviewTab({
   const quickActions = [
     { label: 'Pedidos', icon: ClipboardList, onClick: () => onTabChange('orders') },
     { label: 'Participantes', icon: Users, onClick: () => onTabChange('participants') },
-    { label: 'Check-in', icon: QrCode, onClick: () => onTabChange('checkin') },
-    { label: 'Portaria', icon: Download, onClick: () => onTabChange('doorsales') },
+    // "Check-in" e "Portaria" saíram daqui (OS-408): apontavam para abas retiradas
+    // em 20/08 e o clique não levava a lugar nenhum.
+    ...(onVendaManual ? [{ label: 'Venda manual', icon: ShoppingBag, onClick: onVendaManual }] : []),
+    { label: 'Financeiro', icon: Wallet, onClick: () => onTabChange('financeiro') },
     { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventSlug ?? eventId}`, '_blank') },
     { label: 'Listas', icon: BarChart3, onClick: () => onTabChange('lists') },
   ];

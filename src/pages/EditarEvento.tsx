@@ -46,6 +46,8 @@ import { useEventLots } from '@/hooks/useEventLots';
 import { useProducerTableMaps } from '@/hooks/useProducerTableMaps';
 import { usePublishEvent, useUnpublishEvent } from '@/hooks/useEventPublishing';
 import { EventTypeSelector } from '@/components/producer/EventTypeSelector';
+import { TirarDoArDialog } from '@/components/producer/TirarDoArDialog';
+import { useEventoTemPedido, EVENTO_COM_PEDIDO_NAO_SE_EXCLUI } from '@/hooks/useEventoTemPedido';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -113,6 +115,10 @@ export default function EditarEvento() {
 
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  // Evento com pedido não se exclui (o banco recusa): a tela não oferece o botão (OS-408).
+  const { data: temPedido, isLoading: conferindoPedido } = useEventoTemPedido(id);
+  // Tirar um evento publicado do ar pela situação (Rascunho, Cancelado, Finalizado): pergunta antes de salvar (OS-408).
+  const [esperandoTirarDoAr, setEsperandoTirarDoAr] = useState<EventFormData | null>(null);
 
   const isPublished = event?.status === 'published';
 
@@ -230,7 +236,9 @@ export default function EditarEvento() {
     }
   };
 
-  const onSubmit = async (data: EventFormData) => {
+  const onSubmit = (data: EventFormData) => salvar(data, false);
+
+  const salvar = async (data: EventFormData, tirarDoArConfirmado: boolean) => {
     if (!id) return;
 
     // Bloqueio: mesa/hibrido -> ingresso com assentos vendidos
@@ -264,6 +272,16 @@ export default function EditarEvento() {
       toast.error('Não é possível trocar o mapa de um evento publicado', {
         description: 'Despublique o evento antes de alterar o mapa.',
       });
+      return;
+    }
+
+    // Sair de Publicado tira o evento do site, seja para Rascunho, Cancelado ou
+    // Finalizado (só "published" é visível para o comprador): pergunta antes
+    // (OS-408; Cancelado e Finalizado por decisão do Gabriel em 09/11/2026).
+    // Nada foi gravado até aqui. "Voltar" na janela fecha sem salvar nada.
+    const saindoDoAr = statusChanged && oldStatus === 'published';
+    if (saindoDoAr && !tirarDoArConfirmado) {
+      setEsperandoTirarDoAr(data);
       return;
     }
 
@@ -366,10 +384,16 @@ export default function EditarEvento() {
               <Eye className="w-4 h-4 mr-2" />
               Visualizar
             </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              Excluir
-            </Button>
+            {conferindoPedido ? null : temPedido ? (
+              <p className="text-xs text-muted-foreground max-w-[15rem] self-center" data-testid="evento-nao-se-exclui">
+                {EVENTO_COM_PEDIDO_NAO_SE_EXCLUI}
+              </p>
+            ) : (
+              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir
+              </Button>
+            )}
           </div>
         </div>
 
@@ -700,6 +724,16 @@ export default function EditarEvento() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TirarDoArDialog
+        open={!!esperandoTirarDoAr}
+        onOpenChange={(aberta) => { if (!aberta) setEsperandoTirarDoAr(null); }}
+        onConfirm={() => {
+          const dados = esperandoTirarDoAr;
+          setEsperandoTirarDoAr(null);
+          if (dados) salvar(dados, true);
+        }}
+      />
     </ProducerLayout>
   );
 }

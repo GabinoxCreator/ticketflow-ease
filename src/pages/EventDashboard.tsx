@@ -19,12 +19,17 @@ import { vocabularioAssento } from '@/lib/vocabularioAssento';
 import { useEventStats } from '@/hooks/useEventStats';
 import { useLojaHabilitada } from '@/hooks/useLojaHabilitada';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/AuthContext';
+import { ManualSaleModal } from '@/components/producer/ManualSaleModal';
 import { LayoutDashboard, FileText, Ticket, ClipboardList, Users, Gift, Tag, Wallet, Armchair, ShoppingBag } from 'lucide-react';
 
 export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const { user } = useAuth();
+  // Atalho "Venda manual" da visão geral: a mesma janela do botão do topo (OS-408).
+  const [vendaManualAberta, setVendaManualAberta] = useState(false);
   
   const { data: event, isLoading: eventLoading, error } = useEvent(id);
   const { lojaHabilitada } = useLojaHabilitada();
@@ -70,6 +75,8 @@ export default function EventDashboard() {
   // Como este produtor chama o produto do mapa. No rodeio é "camarote" — e a
   // aba precisa dizer isso, não "Mesas": é o primeiro lugar em que ele olha.
   const vocab = vocabularioAssento((event as any).seat_noun);
+  // Mesma regra do botão "+ Venda Manual" do topo (ManualSaleButton): só o dono do evento.
+  const podeVenderManual = !!user && user.id === event.producer_id;
 
   // ⚠️ SEM "Check-in" e sem "Portaria" (Gabriel, 20/08). Os dois não pertencem
   // ao painel do produtor: o check-in acontece no app do colaborador e no
@@ -138,6 +145,7 @@ export default function EventDashboard() {
             salesByLot={stats.salesByLot}
             salesByDay={stats.salesByDay}
             onTabChange={setActiveTab}
+            onVendaManual={podeVenderManual ? () => setVendaManualAberta(true) : undefined}
           />
         </TabsContent>
 
@@ -180,6 +188,10 @@ export default function EventDashboard() {
           <EventCouponsTab eventId={event.id} eventSlug={event.slug ?? null} />
         </TabsContent>
       </Tabs>
+
+      {podeVenderManual && (
+        <ManualSaleModal event={event} open={vendaManualAberta} onOpenChange={setVendaManualAberta} />
+      )}
     </ProducerLayout>
   );
 }

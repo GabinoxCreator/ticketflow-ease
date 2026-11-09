@@ -234,7 +234,13 @@ export function useEvents() {
       queryClient.invalidateQueries({ queryKey: ['producer-events'] });
       toast.success('Evento excluído com sucesso!');
     },
-    onError: (error: Error) => {
+    onError: (error: Error & { hint?: string }) => {
+      // A recusa do banco para evento com pedido já vem em português e completa
+      // (gatilho trg_evento_com_pedido_nao_se_apaga): mostra como veio (OS-408).
+      if (error.hint === 'evento_com_pedidos' || /não pode ser excluído/i.test(error.message ?? '')) {
+        toast.error(error.message);
+        return;
+      }
       toast.error(`Erro ao excluir evento: ${error.message}`);
     },
   });

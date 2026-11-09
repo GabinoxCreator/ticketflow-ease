@@ -4,20 +4,11 @@ import { useQueries } from '@tanstack/react-query';
 import { CalendarDays, ExternalLink, Layers, Sparkles } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { EventListItem } from '@/components/producer/EventListItem';
+import { ExcluirEventoDialog } from '@/components/producer/ExcluirEventoDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEvents } from '@/hooks/useEvents';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { tituloSemSessao, type InfoDaLista } from '@/hooks/useListaDeAlunos';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 function EventSkeleton() {
   return (
@@ -285,27 +276,13 @@ export default function DashboardEventos() {
         </Tabs>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir evento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O evento e todos os seus lotes serão
-              permanentemente excluídos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Excluir: a janela confere antes se o evento tem pedido (OS-408). */}
+      <ExcluirEventoDialog
+        eventId={deleteId}
+        eventTitle={events?.find((e) => e.id === deleteId)?.title}
+        onOpenChange={(aberta) => { if (!aberta) setDeleteId(null); }}
+        onConfirm={confirmDelete}
+      />
     </ProducerLayout>
   );
 }

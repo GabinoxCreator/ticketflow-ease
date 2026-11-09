@@ -1,6 +1,7 @@
 import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock, Globe, EyeOff, DollarSign, Ticket as TicketIcon, CalendarClock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Event } from '@/hooks/useEvents';
 import { usePublishEvent, useUnpublishEvent } from '@/hooks/useEventPublishing';
@@ -8,6 +9,7 @@ import { format, differenceInDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ManualSaleButton } from '@/components/producer/ManualSaleButton';
 import { CourtesyTicketsButton } from '@/components/producer/admin/CourtesyTicketsButton';
+import { TirarDoArDialog } from '@/components/producer/TirarDoArDialog';
 
 interface EventDashboardHeaderProps {
   event: Event;
@@ -21,6 +23,8 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
   const navigate = useNavigate();
   const publishEvent = usePublishEvent();
   const unpublishEvent = useUnpublishEvent();
+  // Despublicar para a venda: pergunta antes (OS-408). "Voltar" não grava nada.
+  const [perguntaTirarDoAr, setPerguntaTirarDoAr] = useState(false);
 
   const eventDate = new Date(event.date + 'T12:00:00');
   const daysUntil = differenceInDays(eventDate, new Date());
@@ -81,7 +85,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
               variant="outline"
               size="sm"
               disabled={unpublishEvent.isPending}
-              onClick={() => unpublishEvent.mutate(event.id)}
+              onClick={() => setPerguntaTirarDoAr(true)}
               className="rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
             >
               {unpublishEvent.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <EyeOff className="h-4 w-4 mr-2" />}
@@ -202,6 +206,12 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
           </div>
         </div>
       </div>
+
+      <TirarDoArDialog
+        open={perguntaTirarDoAr}
+        onOpenChange={setPerguntaTirarDoAr}
+        onConfirm={() => unpublishEvent.mutate(event.id)}
+      />
     </div>
   );
 }

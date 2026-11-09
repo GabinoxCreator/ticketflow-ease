@@ -79,6 +79,10 @@ export function EventFinanceiroTab({ eventId }: Props) {
       return {
         orders,
         doorSales: (doorRes.data || []) as DoorSaleRow[],
+        // O bloco de portaria some quando não há venda de portaria (OS-408). Se a
+        // leitura falhar, ele avisa, em vez de sumir como se não houvesse venda. O
+        // resto do financeiro não depende disso (portaria é só conferência).
+        doorSalesFailed: !!doorRes.error,
       };
     },
     enabled: !!eventId,
@@ -175,7 +179,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
       manualCount: finance.manualCount,
       byMethodManual: Array.from(byMethodManual.entries()),
       ticketsSold, courtesies, capacity,
-      doorTotal, doorTickets,
+      doorTotal, doorTickets, doorSalesCount: doorSales.length,
       doorByMethod: Array.from(doorByMethod.entries()),
       doorByOperator: Array.from(doorByOperator.entries()),
     };
@@ -348,7 +352,17 @@ export function EventFinanceiroTab({ eventId }: Props) {
         </CardContent>
       </Card>
 
-      {/* Vendas na Portaria — conferência */}
+      {/* Vendas na Portaria — conferência. Só aparece em evento que tem venda de
+          portaria (OS-408): a tela de lançar saiu em 20/08 e o bloco zerado confundia. */}
+      {data?.doorSalesFailed && (
+        <Card className="border-amber-200">
+          <CardContent className="p-5 text-sm">
+            <p className="font-semibold">Não foi possível ler as vendas de portaria agora.</p>
+            <p className="text-muted-foreground mt-1">Os outros números desta tela não dependem delas. Tente recarregar a página.</p>
+          </CardContent>
+        </Card>
+      )}
+      {!data?.doorSalesFailed && stats.doorSalesCount > 0 && (
       <Card className="border-amber-200">
         <CardContent className="p-5 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -403,6 +417,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

@@ -133,6 +133,10 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
   // O lote fica guardado enquanto a pergunta fecha, para o nome não sumir na animação.
   const [lotParaExcluir, setLotParaExcluir] = useState<EventLot | null>(null);
   const [perguntaExcluir, setPerguntaExcluir] = useState(false);
+  // Esgotar para a venda do ingresso na hora: pergunta antes (OS-408). Reativar não
+  // pergunta. O lote fica guardado enquanto a janela fecha, como na lixeira.
+  const [lotParaEsgotar, setLotParaEsgotar] = useState<EventLot | null>(null);
+  const [perguntaEsgotar, setPerguntaEsgotar] = useState(false);
   // Vendidos de verdade (sem cortesia), não o contador de estoque do lote.
   // Sem a contagem (carregando ou falhou) mostra "—", nunca um número errado.
   const { data: vendasPorLote } = useLotSales(lots.map((l) => l.event_id));
@@ -353,7 +357,15 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                               size="icon"
                               className={cn("h-8 w-8", lot.manually_sold_out ? "text-emerald-500 hover:text-emerald-500" : "text-orange-500 hover:text-orange-500")}
                               title={lot.manually_sold_out ? 'Reativar vendas' : 'Marcar como esgotado'}
-                              onClick={() => onUpdate(lot.id, { manually_sold_out: !lot.manually_sold_out })}
+                              aria-label={lot.manually_sold_out ? `Reativar vendas de ${lot.name}` : `Marcar ${lot.name} como esgotado`}
+                              onClick={() => {
+                                if (lot.manually_sold_out) {
+                                  onUpdate(lot.id, { manually_sold_out: false });
+                                } else {
+                                  setLotParaEsgotar(lot);
+                                  setPerguntaEsgotar(true);
+                                }
+                              }}
                             >
                               {lot.manually_sold_out ? <CheckCircle2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                             </Button>
@@ -689,6 +701,26 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={perguntaEsgotar} onOpenChange={setPerguntaEsgotar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar {lotParaEsgotar?.name} como esgotado?</AlertDialogTitle>
+            <AlertDialogDescription>Ele para de vender agora. Você pode reativar depois.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (lotParaEsgotar) onUpdate(lotParaEsgotar.id, { manually_sold_out: true });
+                setPerguntaEsgotar(false);
+              }}
+            >
+              Marcar como esgotado
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={perguntaExcluir} onOpenChange={setPerguntaExcluir}>
         <AlertDialogContent>
