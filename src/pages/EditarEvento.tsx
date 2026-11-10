@@ -355,7 +355,7 @@ export default function EditarEvento() {
   return (
     <ProducerLayout
       breadcrumbs={[
-        { label: 'Dashboard', href: '/produtor/dashboard' },
+        { label: 'Visão Geral', href: '/produtor/dashboard' },
         { label: 'Meus Eventos', href: '/produtor/eventos' },
         { label: 'Editar Evento' },
       ]}
@@ -694,6 +694,7 @@ export default function EditarEvento() {
 
           <TabsContent value="lots">
             <LotManager
+              eventId={id}
               lots={lots || []}
               onAdd={(data) => createLot.mutate(data)}
               onUpdate={(lotId, data) => updateLot.mutate({ id: lotId, data })}

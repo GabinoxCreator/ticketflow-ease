@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { PayoutRow } from '@/hooks/useProducerFinance';
+import { situacaoDoRepasse } from '@/lib/painelDoProdutor';
 
 interface Props {
   payout: PayoutRow;
@@ -48,7 +49,7 @@ export function PayoutPdfButton({ payout, eventTitle, producerName }: Props) {
       : '—';
     doc.text(`Data do pagamento: ${paidDate}`, 14, y);
     y += 7;
-    doc.text(`Status: ${payout.status}`, 14, y);
+    doc.text(`Situação: ${situacaoDoRepasse(payout.status)}`, 14, y);
     y += 12;
 
     // Bank

@@ -14,23 +14,33 @@ interface ProducerLayoutProps {
   breadcrumbs?: { label: string; href?: string }[];
 }
 
+// O nome de cada página na trilha é o MESMO do menu (OS-408): antes a trilha dizia
+// "Equipe" para o que o menu chama de "Colaboradores", e as páginas fora desta
+// lista apareciam como "Dashboard > Dashboard".
 const routeTitles: Record<string, string> = {
-  '/produtor/dashboard': 'Visão Geral',
   '/produtor/eventos': 'Meus Eventos',
   '/produtor/criar-evento': 'Criar Evento',
   '/produtor/financeiro': 'Financeiro',
-  '/produtor/equipe': 'Equipe',
-  '/produtor/pedidos': 'Pedidos',
+  '/produtor/equipe': 'Colaboradores',
+  '/produtor/locais': 'Locais',
+  '/produtor/tipos-de-assento': 'Tipos de Assento',
+  '/produtor/produtos': 'Produtos',
   '/produtor/configuracoes': 'Configurações',
 };
 
+/**
+ * A raiz da trilha de todo o painel: o mesmo nome do menu e do título da página
+ * ("Visão Geral", decisão do Gabriel em 09/11/2026; antes a trilha dizia "Dashboard").
+ */
+export const INICIO_DO_PAINEL = { label: 'Visão Geral', href: '/produtor/dashboard' };
+
 export function ProducerLayout({ children, title, breadcrumbs }: ProducerLayoutProps) {
   const location = useLocation();
-  const pageTitle = title || routeTitles[location.pathname] || 'Dashboard';
-  const defaultBreadcrumbs = [
-    { label: 'Dashboard', href: '/produtor/dashboard' },
-    { label: pageTitle },
-  ];
+  const pageTitle = title || routeTitles[location.pathname];
+  // Na própria página inicial (ou em página sem nome conhecido) a trilha é só "Visão Geral".
+  const defaultBreadcrumbs: { label: string; href?: string }[] = pageTitle
+    ? [INICIO_DO_PAINEL, { label: pageTitle }]
+    : [{ label: INICIO_DO_PAINEL.label }];
   const displayBreadcrumbs = breadcrumbs || defaultBreadcrumbs;
 
   return (

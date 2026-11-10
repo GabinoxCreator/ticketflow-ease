@@ -6,6 +6,7 @@ import { Event } from '@/hooks/useEvents';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { horaCurta, nomeDaCategoria } from '@/lib/painelDoProdutor';
 
 interface EventDataTabProps {
   event: Event;
@@ -23,7 +24,7 @@ export function EventDataTab({ event }: EventDataTabProps) {
     {
       icon: Clock,
       label: 'Horário',
-      value: event.time,
+      value: horaCurta(event.time),
     },
     {
       icon: MapPin,
@@ -43,7 +44,7 @@ export function EventDataTab({ event }: EventDataTabProps) {
     {
       icon: Tag,
       label: 'Categoria',
-      value: event.category,
+      value: nomeDaCategoria(event.category),
     },
   ];
 
@@ -58,7 +59,7 @@ export function EventDataTab({ event }: EventDataTabProps) {
       case 'finished':
         return { label: 'Encerrado', variant: 'outline' as const };
       default:
-        return { label: event.status, variant: 'outline' as const };
+        return { label: 'Outra situação', variant: 'outline' as const };
     }
   };
 

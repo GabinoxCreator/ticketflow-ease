@@ -8,6 +8,8 @@ import { useEventCoupons, type EventCoupon } from '@/hooks/useEventCoupons';
 import { CouponDialog } from '@/components/producer/CouponDialog';
 import { AvisoCupomLoteSubsidiado } from './AvisoCupomLoteSubsidiado';
 import { linkDoCupom } from '@/lib/cupomDoLink';
+import { descontoDoCupom } from '@/lib/painelDoProdutor';
+import { AcoesComNome } from '@/components/producer/AcoesComNome';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -78,21 +80,20 @@ export function EventCouponsTab({ eventId, eventSlug }: Props) {
                     {exhausted && <Badge variant="destructive">Esgotado</Badge>}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {isPercent ? `${c.discount_value}% OFF` : `R$ ${Number(c.discount_value).toFixed(2)} OFF`}
+                    {descontoDoCupom(c.discount_type, c.discount_value)}
                     {' · '}
                     {c.uses_count}{c.max_uses != null ? ` / ${c.max_uses}` : ''} usos
                     {c.valid_until && ` · até ${formatDate(c.valid_until)}`}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" title="Copiar link do cupom" aria-label="Copiar link do cupom" onClick={() => copiarLink(c.code)}>
-                  <Link2 className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setDialogOpen(true); }}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}>
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                <AcoesComNome
+                  de={`o cupom ${c.code}`}
+                  acoes={[
+                    { nome: 'Copiar link', icone: Link2, onClick: () => copiarLink(c.code) },
+                    { nome: 'Editar', icone: Pencil, onClick: () => { setEditing(c); setDialogOpen(true); } },
+                    { nome: 'Excluir', icone: Trash2, perigo: true, onClick: () => setDeleteId(c.id) },
+                  ]}
+                />
               </div>
             );
           })}

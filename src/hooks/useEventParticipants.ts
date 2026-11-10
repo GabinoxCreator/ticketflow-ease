@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { mensagemDeErro } from '@/lib/painelDoProdutor';
 
 export interface Ticket {
   id: string;
@@ -100,7 +101,7 @@ export function useEventParticipants(eventId: string | undefined) {
       toast.success('Status do ingresso atualizado!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao atualizar ingresso: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao atualizar ingresso'));
     },
   });
 

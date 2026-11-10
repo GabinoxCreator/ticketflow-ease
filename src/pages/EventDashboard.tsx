@@ -101,7 +101,7 @@ export default function EventDashboard() {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/produtor/dashboard' },
+    { label: 'Visão Geral', href: '/produtor/dashboard' },
     { label: 'Meus Eventos', href: '/produtor/eventos' },
     { label: event.title },
   ];
@@ -109,7 +109,7 @@ export default function EventDashboard() {
   return (
     <ProducerLayout breadcrumbs={breadcrumbs}>
       <Helmet>
-        <title>{event.title} - Dashboard | FestPag</title>
+        <title>{event.title} - Painel do produtor | FestPag</title>
       </Helmet>
 
       <EventDashboardHeader 

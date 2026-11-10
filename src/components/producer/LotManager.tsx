@@ -38,6 +38,8 @@ import { cn } from '@/lib/utils';
 import { isLotEnded, isLotSoldOut } from '@/lib/lot-availability';
 import { toast } from 'sonner';
 import { problemaDoGrupo, tamanhoDoGrupo } from '@/lib/lote-em-grupo';
+import { AcoesComNome } from '@/components/producer/AcoesComNome';
+import { TaxaAVista } from '@/components/producer/TaxaAVista';
 
 // datetime-local não entende ISO com fuso ("2026-10-17T13:00:00+00:00");
 // converte o valor guardado (UTC) para o formato local do input, e vice-versa.
@@ -101,6 +103,8 @@ interface LotManagerProps {
   onUpdate: (id: string, data: Partial<LotFormData>) => void;
   onDelete: (id: string) => void;
   isLoading?: boolean;
+  /** Evento dos lotes, para mostrar quanto o comprador paga com a taxa dele (OS-408). */
+  eventId?: string;
 }
 
 const emptyLot: LotFormData = {
@@ -118,7 +122,7 @@ const emptyLot: LotFormData = {
 
 type Flow = 'new_sector' | 'add_to_sector' | 'edit';
 
-export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotManagerProps) {
+export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading, eventId }: LotManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<EventLot | null>(null);
   const [formData, setFormData] = useState<LotFormData>(emptyLot);
@@ -351,31 +355,16 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                               );
                             })()}
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn("h-8 w-8", lot.manually_sold_out ? "text-emerald-500 hover:text-emerald-500" : "text-orange-500 hover:text-orange-500")}
-                              title={lot.manually_sold_out ? 'Reativar vendas' : 'Marcar como esgotado'}
-                              aria-label={lot.manually_sold_out ? `Reativar vendas de ${lot.name}` : `Marcar ${lot.name} como esgotado`}
-                              onClick={() => {
-                                if (lot.manually_sold_out) {
-                                  onUpdate(lot.id, { manually_sold_out: false });
-                                } else {
-                                  setLotParaEsgotar(lot);
-                                  setPerguntaEsgotar(true);
-                                }
-                              }}
-                            >
-                              {lot.manually_sold_out ? <CheckCircle2 className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(lot)}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Excluir lote" aria-label="Excluir lote" onClick={() => { setLotParaExcluir(lot); setPerguntaExcluir(true); }}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          <AcoesComNome
+                            de={`o ingresso ${lot.name}`}
+                            acoes={[
+                              lot.manually_sold_out
+                                ? { nome: 'Reativar vendas', icone: CheckCircle2, cor: 'text-emerald-500 hover:text-emerald-500', onClick: () => onUpdate(lot.id, { manually_sold_out: false }) }
+                                : { nome: 'Marcar como esgotado', icone: Ban, cor: 'text-orange-500 hover:text-orange-500', onClick: () => { setLotParaEsgotar(lot); setPerguntaEsgotar(true); } },
+                              { nome: 'Editar', icone: Edit, onClick: () => handleOpenDialog(lot) },
+                              { nome: 'Excluir', icone: Trash2, perigo: true, onClick: () => { setLotParaExcluir(lot); setPerguntaExcluir(true); } },
+                            ]}
+                          />
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -446,7 +435,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
                 ? 'Editar Ingresso'
                 : flow === 'new_sector' && step === 1
                 ? 'Novo Setor'
-                : `Novo Ingresso em ${formData.sector_name || ''}`}
+                : 'Novo ingresso'}
             </DialogTitle>
           </DialogHeader>
 
@@ -569,7 +558,15 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading }: LotMa
               <div className="space-y-2">
                 <Label>Preço Original</Label>
                 <Input type="number" step="0.01" min="0" value={formData.original_price || ''} onChange={(e) => setFormData({ ...formData, original_price: parseFloat(e.target.value) || undefined })} />
+                <p className="text-xs text-muted-foreground">Preço cheio, aparece riscado.</p>
               </div>
+              <TaxaAVista
+                preco={formData.price}
+                eventId={eventId ?? editingLot?.event_id ?? lots[0]?.event_id}
+                // `modo_taxa` vem do banco no lote, mas ainda não está no tipo EventLot.
+                modoTaxa={(editingLot as { modo_taxa?: string | null } | null)?.modo_taxa}
+                className="col-span-2 -mt-2 text-xs text-muted-foreground"
+              />
             </div>
 
             {/* Quantity */}

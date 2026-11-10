@@ -703,7 +703,7 @@ export default function ProducerSettings() {
                     <LineChart className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold">Trackeamento</h2>
+                    <h2 className="text-lg font-semibold">Rastreamento</h2>
                     <p className="text-xs text-muted-foreground">
                       Configure o Meta Pixel para rastrear conversões das suas campanhas no Facebook e Instagram Ads.
                     </p>

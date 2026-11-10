@@ -82,8 +82,9 @@ export function EventOverviewTab({
       iconBg: 'bg-purple-500/15',
     },
     {
-      title: 'Taxa de Conversão',
-      value: `${conversionRate}%`,
+      // "Ocupação" = vendidos sobre a capacidade (antes "Taxa de Conversão"; a conta é a mesma).
+      title: 'Ocupação',
+      value: `${String(conversionRate).replace('.', ',')}%`,
       icon: TrendingUp,
       iconColor: 'text-amber-400',
       iconBg: 'bg-amber-500/15',
@@ -133,7 +134,7 @@ export function EventOverviewTab({
         <div className="lg:col-span-2">
           <GlassCard>
             <div className="p-1">
-              <SalesChart data={chartData} />
+              <SalesChart data={chartData} periodo="dia" />
             </div>
           </GlassCard>
         </div>

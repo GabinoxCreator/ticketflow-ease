@@ -106,8 +106,8 @@ export default function Dashboard() {
             }
           />
           <EventStatsCard
-            title="Taxa de Conversão"
-            value={conversionRate !== null ? `${conversionRate}%` : '—'}
+            title="Ocupação"
+            value={conversionRate !== null ? `${String(conversionRate).replace('.', ',')}%` : '—'}
             description={
               conversionRate !== null
                 ? 'vendidos / capacidade'

@@ -61,7 +61,13 @@ export default function LocaisMapas() {
   };
 
   return (
-    <ProducerLayout>
+    <ProducerLayout
+      breadcrumbs={[
+        { label: 'Visão Geral', href: '/produtor/dashboard' },
+        { label: 'Locais', href: '/produtor/locais' },
+        { label: venue?.name ? `Mapas de ${venue.name}` : 'Mapas' },
+      ]}
+    >
       <div className="p-4 md:p-8 space-y-6">
         <div className="space-y-2">
           <Button variant="ghost" size="sm" asChild className="-ml-2">

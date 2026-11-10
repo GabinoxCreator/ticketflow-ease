@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
+import { mensagemDeErro } from '@/lib/painelDoProdutor';
 
 type SeatTypeRow = Database['public']['Tables']['seat_types']['Row'];
 type SeatTypeInsert = Database['public']['Tables']['seat_types']['Insert'];
@@ -138,7 +139,7 @@ export function useSeatTypes() {
       toast.success('Tipo de assento criado com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao criar tipo de assento: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao criar tipo de assento'));
     },
   });
 
@@ -171,7 +172,7 @@ export function useSeatTypes() {
       toast.success('Tipo de assento atualizado com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao atualizar tipo de assento: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao atualizar tipo de assento'));
     },
   });
 
@@ -245,7 +246,7 @@ export function useSeatTypes() {
       }
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao criar templates: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao criar os modelos'));
     },
   });
 

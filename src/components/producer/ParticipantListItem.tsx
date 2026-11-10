@@ -25,14 +25,14 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
         return (
           <Badge className="bg-blue-500 hover:bg-blue-600">
             <Clock className="h-3 w-3 mr-1" />
-            Não Validado
+            Ainda não entrou
           </Badge>
         );
       case 'used':
         return (
           <Badge className="bg-green-500 hover:bg-green-600">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Validado
+            Entrou
           </Badge>
         );
       case 'cancelled':
@@ -86,7 +86,7 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
           )}
           {ticket.validated_at && (
             <p className="text-xs text-muted-foreground">
-              Validado em {format(new Date(ticket.validated_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+              Entrou em {format(new Date(ticket.validated_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
             </p>
           )}
         </div>
@@ -101,13 +101,13 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
             {ticket.status === 'valid' && (
               <DropdownMenuItem onClick={() => onUpdateStatus(ticket.id, 'used')}>
                 <CheckCircle className="h-4 w-4 mr-2" />
-                Marcar como Validado
+                Marcar que entrou
               </DropdownMenuItem>
             )}
             {ticket.status === 'used' && (
               <DropdownMenuItem onClick={() => onUpdateStatus(ticket.id, 'valid')}>
                 <Clock className="h-4 w-4 mr-2" />
-                Desfazer Validação
+                Desfazer a entrada
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

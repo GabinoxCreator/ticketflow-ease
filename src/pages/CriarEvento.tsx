@@ -8,6 +8,7 @@ import {
   Globe, Lock
 } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { TaxaAVista } from '@/components/producer/TaxaAVista';
 import { ImageUpload } from '@/components/producer/ImageUpload';
 import { TimeSelect } from '@/components/producer/TimeSelect';
 import { Button } from '@/components/ui/button';
@@ -342,7 +343,7 @@ export default function CriarEvento() {
   return (
     <ProducerLayout
       breadcrumbs={[
-        { label: 'Dashboard', href: '/produtor/dashboard' },
+        { label: 'Visão Geral', href: '/produtor/dashboard' },
         { label: 'Meus Eventos', href: '/produtor/eventos' },
         { label: 'Criar Evento' },
       ]}
@@ -714,6 +715,7 @@ export default function CriarEvento() {
                         onBlur={(e) => { if (e.target.value === '') updateLot(lot.id, { price: 0 }); }}
                         className="h-10 rounded-lg bg-background/50 border-border/60"
                       />
+                      <TaxaAVista preco={lot.price} className="text-[11px] leading-snug text-muted-foreground" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground">Quantidade *</Label>

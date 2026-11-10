@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, Search, ArrowUpRight, Loader2, Download } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { situacaoDoRepasse } from '@/lib/painelDoProdutor';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +51,13 @@ export default function FinanceiroEvento() {
   }, [eventPayouts, search]);
 
   return (
-    <ProducerLayout>
+    <ProducerLayout
+      breadcrumbs={[
+        { label: 'Visão Geral', href: '/produtor/dashboard' },
+        { label: 'Financeiro', href: '/produtor/financeiro' },
+        { label: event?.title ?? 'Evento' },
+      ]}
+    >
       <Helmet>
         <title>{event ? `${event.title} · Financeiro` : 'Financeiro do Evento'} | FestPag</title>
       </Helmet>
@@ -206,7 +213,7 @@ export default function FinanceiroEvento() {
                         <div className="text-right flex-shrink-0">
                           <div className="font-semibold text-sm">- {formatBRL(Number(p.net_amount))}</div>
                           <div className="text-[10px] uppercase text-muted-foreground tracking-wider">
-                            {p.status === 'paid' ? 'Pago' : p.status}
+                            {situacaoDoRepasse(p.status)}
                           </div>
                         </div>
                         <PayoutPdfButton

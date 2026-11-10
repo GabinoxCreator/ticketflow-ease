@@ -51,7 +51,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
     if (daysUntil <= 7) {
       return <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20">{daysUntil} {daysUntil === 1 ? 'dia' : 'dias'}</Badge>;
     }
-    return <Badge className="bg-gradient-to-r from-primary to-pink-500 text-white border-none shadow-lg shadow-primary/20">Ativo</Badge>;
+    return <Badge className="bg-gradient-to-r from-primary to-pink-500 text-white border-none shadow-lg shadow-primary/20">Publicado</Badge>;
   };
 
   return (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Users, Plus, Pencil, Trash2, Power, PowerOff, Calendar } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { AcoesComNome } from '@/components/producer/AcoesComNome';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -213,45 +214,27 @@ function CollaboratorCard({ collaborator }: { collaborator: Collaborator }) {
               {assignedEvents.length} evento(s) vinculado(s)
             </p>
           </div>
-          <div className="flex items-center gap-1">
-            <Dialog open={showEvents} onOpenChange={setShowEvents}>
-              <DialogTrigger asChild>
-                <Button size="icon" variant="ghost" title="Gerenciar eventos">
-                  <Calendar className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Eventos de {collaborator.name}</DialogTitle>
-                </DialogHeader>
-                <ManageEventsDialog
-                  collaborator={collaborator}
-                  onClose={() => setShowEvents(false)}
-                />
-              </DialogContent>
-            </Dialog>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleToggleActive}
-              title={collaborator.is_active ? 'Desativar' : 'Ativar'}
-            >
-              {collaborator.is_active ? (
-                <PowerOff className="w-4 h-4" />
-              ) : (
-                <Power className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setShowDelete(true)}
-              title="Excluir"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+          <AcoesComNome
+            de={`o colaborador ${collaborator.name}`}
+            acoes={[
+              { nome: 'Eventos', icone: Calendar, onClick: () => setShowEvents(true) },
+              collaborator.is_active
+                ? { nome: 'Desativar', icone: PowerOff, onClick: handleToggleActive }
+                : { nome: 'Ativar', icone: Power, onClick: handleToggleActive },
+              { nome: 'Excluir', icone: Trash2, perigo: true, onClick: () => setShowDelete(true) },
+            ]}
+          />
+          <Dialog open={showEvents} onOpenChange={setShowEvents}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Eventos de {collaborator.name}</DialogTitle>
+              </DialogHeader>
+              <ManageEventsDialog
+                collaborator={collaborator}
+                onClose={() => setShowEvents(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
 

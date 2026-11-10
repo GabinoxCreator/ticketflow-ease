@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { mensagemDeErro } from '@/lib/painelDoProdutor';
 
 // Quando a edge recusa (status fora de 2xx), o supabase-js devolve só "Edge Function
 // returned a non-2xx status code", em inglês. A frase certa (ex.: "Já existe um
@@ -72,7 +73,7 @@ export function useCollaborators() {
       toast.success('Colaborador criado com sucesso!');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Erro ao criar colaborador');
+      toast.error(mensagemDeErro(error) || 'Erro ao criar colaborador');
     },
   });
 
@@ -101,7 +102,7 @@ export function useCollaborators() {
       toast.success('Colaborador atualizado com sucesso!');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Erro ao atualizar colaborador');
+      toast.error(mensagemDeErro(error) || 'Erro ao atualizar colaborador');
     },
   });
 

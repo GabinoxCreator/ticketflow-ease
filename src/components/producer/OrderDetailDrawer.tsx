@@ -13,6 +13,7 @@ import { useOrderTickets } from '@/hooks/useOrderTickets';
 import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
 import { CancelPaidOrderDialog } from '@/components/producer/CancelPaidOrderDialog';
 import { generateManualSaleTicketsPDF } from '@/utils/manualSaleTicketsPdf';
+import { formaDePagamento, situacaoDoIngresso, formatBRL as brl, SITUACAO_DO_PEDIDO } from '@/lib/painelDoProdutor';
 
 interface Props {
   order: Order;
@@ -22,23 +23,8 @@ interface Props {
   eventMeta: { title: string; date: string; time: string; venue: string; city: string; state: string };
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  dinheiro: 'Dinheiro',
-  pix: 'PIX',
-  cartao: 'Cartão',
-  cartao_credito: 'Cartão de Crédito',
-  cartao_debito: 'Cartão de Débito',
-  transferencia: 'Transferência',
-  outro: 'Outro',
-};
-
-const brl = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
-const STATUS_LABELS: Record<string, string> = {
-  paid: 'Pago', completed: 'Pago', pending: 'Pendente', cancelled: 'Cancelado',
-  refunded: 'Reembolsado', failed: 'Falhou', expired: 'Expirado', charged_back: 'Chargeback',
-};
+// As situações do pedido moram em painelDoProdutor (um nome por coisa, OS-408).
+const STATUS_LABELS = SITUACAO_DO_PEDIDO;
 
 export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -78,9 +64,8 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
   // total = ingresso − desconto + taxa  ⇒  ingresso = total + desconto − taxa
   const ingresso = total + discount - fee;
 
-  const paymentLabel = isManual
-    ? (order.manual_payment_method ? PAYMENT_LABELS[order.manual_payment_method] ?? order.manual_payment_method : '—')
-    : (order.payment_method || '—');
+  // Em português, nunca o código do banco ("pix", "card"...) (OS-408).
+  const paymentLabel = (isManual ? formaDePagamento(order.manual_payment_method) : formaDePagamento(order.payment_method)) ?? '—';
 
   return (
     <>
@@ -90,7 +75,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
             <SheetTitle className="flex items-center gap-2 flex-wrap">
               Pedido
               <Badge variant={isPaid ? 'default' : 'outline'} className={isPaid ? 'bg-green-500 hover:bg-green-600' : ''}>
-                {STATUS_LABELS[order.status] ?? order.status}
+                {STATUS_LABELS[order.status] ?? 'Outra situação'}
               </Badge>
               {isManual && <Badge className="bg-primary/15 text-primary border border-primary/30">Manual</Badge>}
               {order.sale_origin === 'courtesy' && <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30">Cortesia</Badge>}
@@ -141,7 +126,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
                         <p className="text-xs text-muted-foreground truncate">{t.holder_name}{t.seat_label ? ` · ${t.seat_label}` : ''}</p>
                       </div>
                       {t.status !== 'valid' && (
-                        <Badge variant="outline" className="text-[10px]">{STATUS_LABELS[t.status] ?? t.status}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{situacaoDoIngresso(t.status)}</Badge>
                       )}
                     </li>
                   ))}

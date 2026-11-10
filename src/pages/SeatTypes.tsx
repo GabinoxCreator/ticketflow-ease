@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { formatBRL } from '@/lib/painelDoProdutor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -242,7 +243,7 @@ export default function SeatTypes() {
                       <div className="min-w-0">
                         <CardTitle className="text-base font-semibold truncate">{st.name}</CardTitle>
                         <p className="text-xs text-muted-foreground truncate">
-                          {st.shape === 'circle' ? 'Círculo' : 'Retângulo'} • {st.default_width}×{st.default_height}px
+                          {st.shape === 'circle' ? 'Círculo' : 'Retângulo'}
                         </p>
                       </div>
                     </div>
@@ -272,8 +273,8 @@ export default function SeatTypes() {
                     </Badge>
                     <Badge variant="secondary" className="text-xs gap-1">
                       <Tag className="h-3 w-3" />
-                      R$ {Number(st.base_price).toFixed(2)}
-                      {Number(st.extra_price) > 0 && ` + R$ ${Number(st.extra_price).toFixed(2)}`}
+                      {formatBRL(st.base_price)}
+                      {Number(st.extra_price) > 0 && ` + ${formatBRL(st.extra_price)} por lugar extra`}
                     </Badge>
                     {!st.is_active && (
                       <Badge variant="outline" className="text-xs">Inativo</Badge>

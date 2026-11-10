@@ -15,6 +15,7 @@ export function EventLotsTab({ eventId }: EventLotsTabProps) {
 
   return (
     <LotManager
+      eventId={eventId}
       lots={lots || []}
       onAdd={(data) => createLot.mutate(data)}
       onUpdate={(id, data) => updateLot.mutate({ id, data })}

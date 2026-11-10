@@ -14,13 +14,20 @@ import { TrendingUp } from 'lucide-react';
 
 interface SalesChartProps {
   data: { date: string; vendas: number; receita: number }[];
+  /** O que é cada ponto do eixo. O título acompanha: "por mês" ou "por dia" (OS-408). */
+  periodo?: 'mes' | 'dia';
 }
 
 // Um formatador s\u00F3 formata: nunca trocar valor espec\u00EDfico aqui (ver OS-108, 02/10/2026).
 const formatBRL = (n: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
-export function SalesChart({ data }: SalesChartProps) {
+// Eixo da receita em reais, sem o "k" do inglês: 800 → "R$ 800"; 16110 → "R$ 16,1 mil".
+const eixoEmReais = (v: number) =>
+  v >= 1000 ? `R$ ${String(Math.round(v / 100) / 10).replace('.', ',')} mil` : `R$ ${Math.round(v)}`;
+
+export function SalesChart({ data, periodo = 'mes' }: SalesChartProps) {
+  const porPeriodo = periodo === 'dia' ? 'por dia' : 'por mês';
   const [metric, setMetric] = useState<'vendas' | 'receita'>('vendas');
   const hasData = data.some((d) => d.vendas > 0 || d.receita > 0);
 
@@ -34,7 +41,7 @@ export function SalesChart({ data }: SalesChartProps) {
             <TrendingUp className="w-4 h-4 text-primary" />
           </div>
           <CardTitle className="text-base md:text-lg truncate">
-            {metric === 'vendas' ? 'Vendas por Mês' : 'Receita por Mês'}
+            {metric === 'vendas' ? `Vendas ${porPeriodo}` : `Receita ${porPeriodo}`}
           </CardTitle>
         </div>
 
@@ -96,13 +103,14 @@ export function SalesChart({ data }: SalesChartProps) {
                   tickLine={false}
                 />
                 <YAxis
-                  width={40}
+                  width={metric === 'receita' ? 72 : 40}
+                  allowDecimals={false}
                   fontSize={11}
                   tick={{ fill: 'hsl(var(--muted-foreground))' }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) =>
-                    metric === 'receita' ? `R$${Math.round(v / 1000)}k` : String(v)
+                    metric === 'receita' ? eixoEmReais(v) : String(v)
                   }
                 />
                 <Tooltip
@@ -118,9 +126,10 @@ export function SalesChart({ data }: SalesChartProps) {
                     return [value, 'Vendas'];
                   }}
                 />
+                {/* Linha reta entre os pontos (OS-408): a curva suavizada desenhava valor que não existiu. */}
                 {metric === 'vendas' ? (
                   <Area
-                    type="monotone"
+                    type="linear"
                     dataKey="vendas"
                     stroke="hsl(var(--primary))"
                     fillOpacity={1}
@@ -129,7 +138,7 @@ export function SalesChart({ data }: SalesChartProps) {
                   />
                 ) : (
                   <Area
-                    type="monotone"
+                    type="linear"
                     dataKey="receita"
                     stroke="hsl(var(--accent))"
                     fillOpacity={1}

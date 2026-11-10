@@ -51,8 +51,8 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
 
   const stats = [
     { label: 'Total de Ingressos', value: tickets?.length || 0, icon: Users, iconBg: 'bg-primary/15', iconColor: 'text-primary' },
-    { label: 'Não Validados', value: validTickets?.length || 0, icon: Clock, iconBg: 'bg-blue-500/15', iconColor: 'text-blue-400' },
-    { label: 'Validados', value: usedTickets?.length || 0, icon: CheckCircle, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
+    { label: 'Ainda não entraram', value: validTickets?.length || 0, icon: Clock, iconBg: 'bg-blue-500/15', iconColor: 'text-blue-400' },
+    { label: 'Entraram', value: usedTickets?.length || 0, icon: CheckCircle, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
     { label: 'Cancelados', value: cancelledTickets?.length || 0, icon: XCircle, iconBg: 'bg-red-500/15', iconColor: 'text-red-400' },
   ];
 
@@ -117,11 +117,11 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
             Todos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{tickets?.length || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="valid" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm text-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-            <span className="leading-tight">Não<br className="sm:hidden"/> Validados</span>
+            <span className="leading-tight">Ainda não<br className="sm:hidden"/> entraram</span>
             <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{validTickets?.length || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="used" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-            Validados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{usedTickets?.length || 0}</Badge>
+            Entraram <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{usedTickets?.length || 0}</Badge>
           </TabsTrigger>
           <TabsTrigger value="cancelled" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
             Cancelados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{cancelledTickets?.length || 0}</Badge>
@@ -138,7 +138,7 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
 
         <TabsContent value="valid" className="mt-4 space-y-3">
           {filterTickets(validTickets || []).length === 0
-            ? renderEmpty('Nenhum ingresso aguardando validação.')
+            ? renderEmpty('Ninguém esperando para entrar.')
             : filterTickets(validTickets || []).map((ticket) => (
                 <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={handleUpdateStatus} />
               ))}
@@ -146,7 +146,7 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
 
         <TabsContent value="used" className="mt-4 space-y-3">
           {filterTickets(usedTickets || []).length === 0
-            ? renderEmpty('Nenhum ingresso validado ainda.')
+            ? renderEmpty('Ninguém entrou ainda.')
             : filterTickets(usedTickets || []).map((ticket) => (
                 <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={handleUpdateStatus} />
               ))}
