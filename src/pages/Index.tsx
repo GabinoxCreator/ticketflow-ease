@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useSearchParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import EventCard from '@/components/EventCard';
 import Footer from '@/components/Footer';
@@ -12,6 +13,11 @@ import { nomeDaCategoria } from '@/lib/categorias-de-evento';
 import { CarrosselDeBanners } from '@/components/home/CarrosselDeBanners';
 import { eventoParaCard } from '@/lib/evento-para-card';
 
+// Busca do topo (OS-410): compara sem maiúscula e sem acento ("sao jose" acha
+// "São José").
+const semAcento = (texto: string) =>
+  (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 const Index = () => {
   const { data: dbEvents, isLoading } = usePublicEvents();
 
@@ -21,10 +27,42 @@ const Index = () => {
   // Filtro da barra de categorias (23/09/2026). Fica só na tela: os eventos já
   // estão na memória, então trocar de categoria não vai ao servidor.
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<string | null>(null);
-  const eventosNaTela = useMemo(
-    () => (categoriaSelecionada ? events.filter((e) => e.category === categoriaSelecionada) : events),
-    [events, categoriaSelecionada],
+
+  // Busca do topo (OS-410, 09/11/2026). O cabeçalho manda para `/?search=<termo>`
+  // e até aqui ninguém lia o termo: a pessoa digitava e nada acontecia. O filtro
+  // é na tela, como o de categoria, sobre o que a vitrine já traz: título, local,
+  // cidade e estado. O nome da produtora NÃO entra: a vitrine pública não o traz
+  // (`producer_profiles` é fechada para quem não está logado). Cada palavra
+  // digitada precisa aparecer em algum desses campos. Busca e categoria valem juntas.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const termoBuscado = (searchParams.get('search') || '').trim();
+  const palavrasBuscadas = useMemo(
+    () => semAcento(termoBuscado).split(/\s+/).filter(Boolean),
+    [termoBuscado],
   );
+  const eventosNaTela = useMemo(() => {
+    let lista = categoriaSelecionada ? events.filter((e) => e.category === categoriaSelecionada) : events;
+    if (palavrasBuscadas.length > 0) {
+      lista = lista.filter((e) => {
+        const ondeProcurar = semAcento(`${e.title} ${e.venue} ${e.city} ${e.state}`);
+        return palavrasBuscadas.every((palavra) => ondeProcurar.includes(palavra));
+      });
+    }
+    return lista;
+  }, [events, categoriaSelecionada, palavrasBuscadas]);
+
+  const limparBusca = () => {
+    const semBusca = new URLSearchParams(searchParams);
+    semBusca.delete('search');
+    setSearchParams(semBusca);
+  };
+
+  // Quem busca quer ver o resultado: a lista fica abaixo do carrossel, então a
+  // tela desce até ela a cada busca nova.
+  useEffect(() => {
+    if (!termoBuscado) return;
+    document.getElementById('eventos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [termoBuscado]);
 
   return (
     <>
@@ -72,12 +110,29 @@ const Index = () => {
           <section id="eventos" className="scroll-mt-24 py-12">
             <div className="container px-4">
               <div className="text-center mb-10">
-                <h2 className="font-display font-bold text-3xl md:text-4xl mb-3">
-                  Próximos <span className="gradient-text">Eventos</span>
-                </h2>
-                <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-                  Não perca os melhores eventos da região
-                </p>
+                {termoBuscado ? (
+                  <>
+                    <h2 className="font-display font-bold text-3xl md:text-4xl mb-3 break-words">
+                      Resultado para <span className="gradient-text">"{termoBuscado}"</span>
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={limparBusca}
+                      className="text-primary hover:underline text-sm font-medium"
+                    >
+                      Limpar busca
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="font-display font-bold text-3xl md:text-4xl mb-3">
+                      Próximos <span className="gradient-text">Eventos</span>
+                    </h2>
+                    <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+                      Não perca os melhores eventos da região
+                    </p>
+                  </>
+                )}
               </div>
 
               {isLoading ? (
@@ -88,7 +143,24 @@ const Index = () => {
                 <div className="text-center py-16 rounded-3xl border border-border/40 bg-card/30 backdrop-blur-sm">
                   {/* Com categoria escolhida, a tela EXPLICA o vazio. Sem filtro,
                     * fica como sempre foi — não é este o trabalho de mudar isso. */}
-                  {categoriaSelecionada ? (
+                  {termoBuscado ? (
+                    <>
+                      <p className="text-muted-foreground text-base md:text-lg break-words px-4">
+                        Nenhum evento encontrado para "{termoBuscado}"
+                        {categoriaSelecionada ? ` em ${nomeDaCategoria(categoriaSelecionada)}` : ''}.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategoriaSelecionada(null);
+                          limparBusca();
+                        }}
+                        className="text-primary hover:underline text-sm mt-3 font-medium"
+                      >
+                        Ver todos os eventos
+                      </button>
+                    </>
+                  ) : categoriaSelecionada ? (
                     <>
                       <p className="text-muted-foreground text-base md:text-lg">
                         Ainda não temos evento em {nomeDaCategoria(categoriaSelecionada)}.

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { openCookiePreferences } from '@/lib/cookieConsent';
 import { razaoSocialComCnpj } from '@/lib/identidade-festpag';
-import { Mail, Phone } from 'lucide-react';
+import { Mail, MessageCircle } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 
 const Footer = () => {
@@ -10,14 +10,12 @@ const Footer = () => {
   const footerLinks = {
     plataforma: [
       { label: 'Para Produtores', href: '/area-do-produtor' },
-      { label: 'Para Consumidores', href: '/' },
     ],
     suporte: [
       { label: 'Central de Ajuda', href: '/ajuda' },
       { label: 'Entenda a taxa', href: '/taxa' },
       // OS-374: o porquê da facial, a base legal e o que fazemos com ela (seção 7).
       { label: 'Reconhecimento facial', href: '/privacidade#reconhecimento-facial' },
-      { label: 'Termos de Uso', href: '/termos' },
     ],
     legal: [
       { label: 'Política de Privacidade', href: '/privacidade' },
@@ -86,12 +84,17 @@ const Footer = () => {
                 </a>
               </li>
               <li>
+                {/* É o WhatsApp do atendimento (o resto do site já o chama assim),
+                    não um telefone de ligação: o link abre a conversa (OS-410). */}
                 <a
-                  href="tel:+551153046659"
+                  href="https://wa.me/551153046659"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="WhatsApp (11) 5304-6659"
                   className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground transition-colors"
                 >
-                  <Phone className="w-4 h-4" />
-                  (11) 5304-6659
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp (11) 5304-6659
                 </a>
               </li>
             </ul>

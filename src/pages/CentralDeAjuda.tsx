@@ -25,11 +25,16 @@ const clientesFaq: FAQ[] = [
   },
   {
     q: 'Como faço o check-in no evento?',
-    a: 'Basta apresentar o QR Code do ingresso (no celular ou impresso) na entrada do evento. A equipe do produtor faz a leitura e libera sua entrada.',
+    a: 'Basta apresentar o QR Code do ingresso (no celular ou impresso) na entrada do evento. A equipe do produtor faz a leitura e libera sua entrada. Nos eventos com entrada pela facial, quem cadastrou a facial entra por ela.',
   },
   {
     q: 'O que é a taxa de serviço que aparece na compra?',
-    a: 'É o que a FestPag cobra para colocar e manter o evento à venda: publicação, venda pela internet, processamento do pagamento, envio do ingresso, suporte e controle de acesso. Ela é paga por quem compra, aparece somada e separada antes de você confirmar, e o produtor recebe o valor cheio do ingresso. A explicação completa está na página Entenda a taxa (/taxa).',
+    a: (
+      <>
+        É o que a FestPag cobra para colocar e manter o evento à venda: publicação, venda pela internet, processamento do pagamento, envio do ingresso, suporte e controle de acesso. Ela é paga por quem compra e aparece somada e separada antes de você confirmar. Quando o ingresso traz o selo "Sem taxa", nenhuma taxa de serviço é somada a ele. A explicação completa está na página{' '}
+        <Link to="/taxa" className="text-primary hover:underline">Entenda a taxa</Link>.
+      </>
+    ),
   },
   {
     q: 'Paguei via PIX, em quanto tempo o ingresso fica liberado?',
@@ -41,13 +46,15 @@ const clientesFaq: FAQ[] = [
   },
   {
     q: 'Posso transferir meu ingresso para outra pessoa?',
-    a: 'Sim. Em Meus Ingressos, abra o ingresso e use "Transferir": a pessoa recebe um link, aceita e o ingresso passa a ser dela. O QR antigo deixa de valer, então o ingresso não entra duas vezes.',
+    a: 'Sim. Em Meus Ingressos, abra o ingresso e use "Transferir": informe o CPF e o WhatsApp de quem vai receber. A pessoa recebe um link que vale por 24 horas, e só quem tem aquele CPF consegue aceitar. Ao aceitar, o QR antigo deixa de valer e um novo é gerado no nome dela. Cada ingresso pode ser transferido uma vez, e só antes de ser usado na entrada.',
   },
   {
     q: 'Como pedir reembolso?',
     a: (
       <>
-        Pelo e-mail{' '}
+        Em{' '}
+        <Link to="/meus-ingressos" className="text-primary hover:underline">Meus Ingressos</Link>
+        , pelo botão "Cancelar e pedir reembolso" da compra. Se preferir, escreva para{' '}
         <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>
         . {RESUMO_REEMBOLSO.prazo} {RESUMO_REEMBOLSO.taxa} As regras completas estão na{' '}
         <Link to="/reembolso" className="text-primary hover:underline">Política de Reembolso</Link>.
@@ -56,7 +63,7 @@ const clientesFaq: FAQ[] = [
   },
   {
     q: 'Esqueci minha senha. Como recupero?',
-    a: 'Na tela de login, clique em "Esqueci minha senha" e siga o passo a passo com o código enviado por e-mail.',
+    a: 'Na tela de login, clique em "Esqueci minha senha" e siga o passo a passo com o código enviado por e-mail. Se a sua conta ainda não tem e-mail, fale com a FestPag pelo WhatsApp (11) 5304-6659.',
   },
   {
     q: 'Não recebi o e-mail de confirmação.',
@@ -74,7 +81,7 @@ const clientesFaq: FAQ[] = [
   },
   {
     q: 'Meus dados de pagamento ficam seguros?',
-    a: 'Sim. O processamento é feito por gateway certificado (Mercado Pago). A FestPag não armazena dados completos do cartão.',
+    a: 'Sim. O pagamento é feito por um processador de pagamentos certificado. A FestPag não armazena dados completos do cartão.',
   },
 ];
 
@@ -85,29 +92,29 @@ const produtoresFaq: FAQ[] = [
       <>
         Acesse a{' '}
         <Link to="/area-do-produtor" className="text-primary hover:underline">Área do Produtor</Link>
-        , faça login e clique em <strong>Criar Evento</strong>. O assistente em 4 etapas guia você por dados básicos, ingressos, imagem e publicação.
+        , faça login e clique em <strong>Criar Evento</strong>. O assistente em 4 etapas guia você por Dados do Evento, Data e Local, Ingressos e Revisão.
       </>
     ),
   },
   {
     q: 'Quando meu evento aparece no site?',
-    a: 'Depois que você publica o evento no painel (botão Publicar). Eventos em rascunho não aparecem para o público.',
+    a: 'Depois que você publica o evento no painel (botão Publicar Evento). Eventos em rascunho não aparecem para o público.',
   },
   {
     q: 'Como configuro os lotes e ingressos?',
-    a: 'No painel do evento, aba Lotes: cadastre nome, preço, quantidade e datas de venda. Você pode criar vários lotes (1º lote, 2º lote, etc.) com quantidade limitada.',
+    a: 'No painel do evento, aba Ingressos: cadastre nome, preço, quantidade e datas de venda. Você pode criar vários lotes (1º lote, 2º lote, etc.) com quantidade limitada.',
   },
   {
     q: 'Como recebo o dinheiro das vendas?',
-    a: 'Após o evento, descontada a taxa da plataforma, o valor é transferido para a conta bancária cadastrada nas suas configurações. A taxa padrão é de 10%, e pode ser diferente se houver condição combinada para a sua conta ou para o evento — o valor que vale para você é o do seu contrato ou proposta.',
+    a: 'A taxa de serviço é paga por quem compra, somada ao preço do ingresso, a não ser nos lotes vendidos sem taxa para o comprador. Você recebe o valor de face dos ingressos vendidos, menos os descontos de cupom e os reembolsos. Para receber, peça o saque em Financeiro, na Área do Produtor. O valor vai para a conta cadastrada para os repasses.',
   },
   {
     q: 'Onde cadastro minha conta bancária para repasse?',
-    a: 'Em Configurações dentro da Área do Produtor, na seção de dados bancários.',
+    a: 'Em Financeiro, dentro da Área do Produtor, na aba "Dados & PIN".',
   },
   {
     q: 'Como funciona o check-in com a equipe?',
-    a: 'Cadastre colaboradores em Equipe. Eles recebem login próprio e usam o app para escanear QR Codes na portaria, buscar por nome/CPF e validar listas de convidados.',
+    a: 'Cadastre os colaboradores no menu Colaboradores. Cada um recebe um login próprio e entra em festpag.digital/colaborador, pelo navegador do celular, para ler os QR Codes dos ingressos na portaria e conferir as listas de convidados.',
   },
   {
     q: 'Posso criar cupons de desconto?',
@@ -122,16 +129,12 @@ const produtoresFaq: FAQ[] = [
     a: 'No painel do evento, abas Visão Geral e Pedidos mostram vendas, faturamento, ingressos vendidos e status de pagamento.',
   },
   {
-    q: 'Como registro vendas feitas na portaria (dinheiro/maquininha)?',
-    a: 'Use a aba Vendas na Portaria dentro do painel do evento — o estoque do lote é atualizado automaticamente.',
-  },
-  {
     q: 'O que é o PIN financeiro?',
-    a: 'Uma camada extra de segurança para acessar a aba financeira. Configure em Configurações; ele é solicitado sempre que abrir os dados financeiros.',
+    a: 'Uma camada extra de segurança: o PIN protege a troca da conta que recebe os repasses e do CPF/CNPJ da produtora. Você cria o seu em Financeiro, na aba "Dados & PIN".',
   },
   {
     q: 'Como edito um evento já publicado?',
-    a: 'No painel, clique em Editar Evento. Alterações relevantes (data, local) devem ser comunicadas aos compradores pelo produtor.',
+    a: 'No painel do evento, clique em Editar. Alterações relevantes (data, local) devem ser comunicadas aos compradores pelo produtor.',
   },
 ];
 

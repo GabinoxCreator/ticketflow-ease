@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, User, LogOut, LayoutDashboard, Calendar, ChevronDown, ChevronRight, Ticket, ArrowUpRight, Sparkles, Wallet, Loader2, Store } from 'lucide-react';
@@ -27,7 +27,8 @@ const Header = () => {
    * a conta errada. O botão continua existindo, mas apontando para o fluxo
    * certo de quem está ali.
    */
-  const naAreaDoProdutor = useLocation().pathname.startsWith('/area-do-produtor');
+  const location = useLocation();
+  const naAreaDoProdutor = location.pathname.startsWith('/area-do-produtor');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [openingWallet, setOpeningWallet] = useState(false);
@@ -50,10 +51,24 @@ const Header = () => {
     }
   };
 
+  // Busca (OS-410): quem lê o termo e filtra é a home (`Index.tsx`). O campo
+  // acompanha o endereço: abrir `/?search=samba` já mostra "samba" aqui, e
+  // "Limpar busca" na home esvazia o campo.
+  const termoNoEndereco =
+    location.pathname === '/' ? new URLSearchParams(location.search).get('search') || '' : '';
+  useEffect(() => {
+    setSearchQuery(termoNoEndereco);
+  }, [termoNoEndereco]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/?search=${encodeURIComponent(searchQuery)}`);
+    const termo = searchQuery.trim();
+    if (termo) {
+      navigate(`/?search=${encodeURIComponent(termo)}`);
+      setIsSearchOpen(false);
+    } else if (termoNoEndereco) {
+      // Campo apagado e Enter, com uma busca na tela: volta a mostrar tudo.
+      navigate('/');
       setIsSearchOpen(false);
     }
   };
@@ -87,7 +102,7 @@ const Header = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Procure um evento, artista, produtor ou cidade"
+                placeholder="Procure um evento, local ou cidade"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-10 pl-10 pr-4 bg-secondary border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all"
@@ -345,7 +360,7 @@ const Header = () => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Procure um evento, artista, produtor ou cidade"
+                  placeholder="Procure um evento, local ou cidade"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full h-16 pl-14 pr-4 bg-card border border-border rounded-2xl text-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
