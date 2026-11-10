@@ -58,7 +58,7 @@ export function EventOverviewTab({
 
   const statsCards = [
     {
-      title: 'Receita Total',
+      title: 'Vendido',
       value: formatCurrency(totalRevenue),
       icon: DollarSign,
       iconColor: 'text-primary',

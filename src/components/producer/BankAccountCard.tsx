@@ -135,6 +135,8 @@ export function BankAccountCard() {
       toast.success('Dados bancários salvos com sucesso!');
       // O aviso do Financeiro (o que falta para pedir repasse) muda com a conta.
       queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
+      // A janela de saque do Financeiro mostra para onde vai o dinheiro (OS-408).
+      queryClient.invalidateQueries({ queryKey: ['conta-de-repasse'] });
     }
     return r;
   };

@@ -73,7 +73,7 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
     { label: 'Total de Pedidos', value: orders?.length || 0, icon: ClipboardList, iconBg: 'bg-primary/15', iconColor: 'text-primary' },
     { label: 'Pagos', value: paidOrders?.length || 0, icon: CheckCircle2, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
     { label: 'Pendentes', value: pendingOrders?.length || 0, icon: Clock, iconBg: 'bg-amber-500/15', iconColor: 'text-amber-400' },
-    { label: 'Receita', value: formatCurrency(totalRevenue), icon: DollarSign, iconBg: 'bg-gradient-to-br from-primary/20 to-pink-500/20', iconColor: 'text-primary', gradient: true },
+    { label: 'Vendido', value: formatCurrency(totalRevenue), icon: DollarSign, iconBg: 'bg-gradient-to-br from-primary/20 to-pink-500/20', iconColor: 'text-primary', gradient: true },
   ];
 
   const renderEmpty = (msg: string) => (

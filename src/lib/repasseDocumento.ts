@@ -38,14 +38,14 @@ export type PendenciaRepasse =
 export const AVISO_REPASSE =
   'Para pedir repasse, precisamos do CPF ou CNPJ da produtora e da conta que vai receber. Suas vendas continuam normais.';
 
-const CADASTRE_A_CONTA = 'Cadastre a conta que vai receber na aba Dados & PIN.';
+const CADASTRE_A_CONTA = 'Cadastre a conta que vai receber na aba Conta bancária e PIN.';
 
 export const MENSAGEM_PENDENCIA_REPASSE: Record<PendenciaRepasse, string> = {
   missing_document: 'Falta o CPF ou CNPJ da produtora. Preencha em Configurações para pedir o repasse.',
   invalid_document: 'O CPF ou CNPJ da produtora está com número errado. Corrija em Configurações.',
   no_bank_account: CADASTRE_A_CONTA,
   // Conta antiga sem o CPF/CNPJ do titular: a conta só vale com ele, então a
-  // frase é a mesma (abrir Dados & PIN, Editar, o campo é obrigatório).
+  // frase é a mesma (abrir Conta bancária e PIN, Editar, o campo é obrigatório).
   missing_holder_document: CADASTRE_A_CONTA,
 };
 

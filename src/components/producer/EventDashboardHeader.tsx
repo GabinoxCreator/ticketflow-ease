@@ -172,7 +172,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
                   <p className="text-lg font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent truncate">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue)}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">Receita Total</p>
+                  <p className="text-[11px] text-muted-foreground">Vendido</p>
                 </div>
               </div>
 

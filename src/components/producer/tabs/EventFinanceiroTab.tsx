@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, DollarSign, Banknote, Ticket, ShoppingBag, QrCode, CreditCard, Info, Hand, Store } from 'lucide-react';
+import { Loader2, ShoppingBag, QrCode, CreditCard, Info, Hand, Store } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventLots } from '@/hooks/useEventLots';
 import { useLotSales, sumLotSales } from '@/hooks/useLotSales';
 import { computeProducerFinance, isPaidStatus, orderTicketNet, saleOrigin } from '@/lib/producerFinance';
 import { attachProducerValues } from '@/lib/orderProducerValues';
+import { useProducerFinance } from '@/hooks/useProducerFinance';
+import { ReguaEmCartoes } from '@/components/producer/ReguaDoDinheiro';
 
 // Formata em BRL. NUNCA colocar troca de valor especifico aqui: um formatador so formata.
 // Havia quatro substituicoes cravadas neste ponto (ex.: 50.585,00 aparecia como 50.085,00)
@@ -57,6 +59,10 @@ export function EventFinanceiroTab({ eventId }: Props) {
   const { lots } = useEventLots(eventId);
   // Vendidos de verdade (pago, sem cortesia), não o contador de estoque do lote.
   const { data: vendasPorLote } = useLotSales(eventId ? [eventId] : []);
+
+  // Os cinco números da régua: a mesma fonte do Financeiro (OS-408).
+  const { data: financa, isLoading: financaLoading } = useProducerFinance();
+  const doEvento = financa?.events.find((e) => e.id === eventId);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['event-financeiro', eventId],
@@ -209,58 +215,23 @@ export function EventFinanceiroTab({ eventId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Top KPIs */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <DollarSign className="w-4 h-4" /> Vendas Totais
-            </div>
-            <div className="text-3xl font-bold mt-2 break-words">{formatBRL(stats.total)}</div>
-            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-              <div className="flex justify-between gap-2"><span>Online</span><span className="tabular-nums">{formatBRL(stats.online)}</span></div>
-              <div className="flex justify-between gap-2"><span>Venda Física (Totem/SmartPOS)</span><span className="tabular-nums">{formatBRL(stats.fisica)}</span></div>
-              <div className="flex justify-between gap-2"><span>Manual</span><span className="tabular-nums">{formatBRL(stats.manual)}</span></div>
-              {stats.recebidoDireto > 0 && (
-                <div className="flex justify-between gap-2 pt-1 border-t border-border/40">
-                  <span>Recebido direto por você <span className="opacity-70">(manual e dinheiro)</span></span>
-                  <span className="tabular-nums">{formatBRL(stats.recebidoDireto)}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <Banknote className="w-4 h-4" /> Repasse ao Produtor
-            </div>
-            <div className="text-3xl font-bold mt-2 break-words text-blue-600">{formatBRL(stats.repasse)}</div>
-            {stats.recebidoDireto > 0 ? (
-              <p className="text-xs text-muted-foreground mt-1">
-                Vendas {formatBRL(stats.total)} menos {formatBRL(stats.recebidoDireto)} que você já recebeu direto
-                {stats.recebidoDiretoCount > 0 ? ` (${stats.recebidoDiretoCount} ${stats.recebidoDiretoCount === 1 ? 'venda' : 'vendas'}: manual e dinheiro)` : ''}
-                {' '}— esse valor não passou pela FestPag, por isso não entra no repasse. A taxa de conveniência e o juro de parcelamento são pagos pelo comprador.
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-1">Igual às vendas — a taxa de conveniência e o juro de parcelamento são pagos pelo comprador</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-              <Ticket className="w-4 h-4" /> Ingressos Vendidos
-            </div>
-            <div className="text-3xl font-bold mt-2 break-words">{stats.ticketsSold ?? '—'}<span className="text-lg text-muted-foreground">/{stats.capacity}</span></div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.courtesies > 0
-                ? `Pagos · mais ${stats.courtesies} ${stats.courtesies === 1 ? 'cortesia' : 'cortesias'}`
-                : 'Pagos, sem cortesia'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* A régua do dinheiro (OS-408): as cinco palavras, na mesma ordem de toda tela.
+          Os números vêm de useProducerFinance, o mesmo lugar do Financeiro: "A receber
+          da FestPag" é o que falta pagar, igual lá (decisão do Gabriel em 09/11: "Só o
+          que falta"). Antes este cartão dizia "Repasse ao Produtor" com o total do evento,
+          sem descontar o que já tinha sido pago. */}
+      <ReguaEmCartoes
+        carregando={financaLoading}
+        numeros={{
+          vendido: doEvento ? doEvento.netOnline + doEvento.netManual : stats.total,
+          taxaDoComprador: doEvento ? doEvento.fee : null,
+          juro: doEvento?.interest,
+          recebidoDireto: doEvento ? doEvento.receivedDirectly : stats.recebidoDireto,
+          // Membro da produtora que não é o dono não enxerga os repasses: "—", nunca um número errado.
+          aReceber: doEvento ? doEvento.available : null,
+          jaPago: doEvento ? doEvento.paidOut : null,
+        }}
+      />
 
       {/* Ingressos */}
       <Card>
@@ -275,7 +246,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
               )}
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Valor Arrecadado</p>
+              <p className="text-muted-foreground text-xs">Vendido</p>
               <p className="text-2xl font-bold tabular-nums break-words">{formatBRL(stats.total)}</p>
             </div>
           </div>

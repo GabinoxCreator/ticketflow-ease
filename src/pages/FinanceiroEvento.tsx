@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, Search, ArrowUpRight, Loader2, Download } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { situacaoDoRepasse } from '@/lib/painelDoProdutor';
+import { ReguaEmLista } from '@/components/producer/ReguaDoDinheiro';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,65 +99,24 @@ export default function FinanceiroEvento() {
             {/* Balance card */}
             <Card>
               <CardContent className="p-6">
+                {/* A régua do dinheiro (OS-408): as cinco palavras, na mesma ordem de toda tela.
+                    "A receber da FestPag" é o número grande: é o que o produtor lê para pedir o saque. */}
                 <div className="text-center mb-5">
-                  <div className="text-sm text-muted-foreground">Balanço Disponível</div>
+                  <div className="text-sm text-muted-foreground">A receber da FestPag</div>
                   <div className="text-4xl font-bold mt-1 text-foreground break-words">
                     {formatBRL(event.available)}
                   </div>
-                  {event.receivedDirectly > 0 && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Não entram aqui {formatBRL(event.receivedDirectly)} que você já recebeu direto (venda manual e dinheiro).
-                    </p>
-                  )}
                 </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Receita Bruta</span>
-                    <span className="font-medium">{formatBRL(event.gross)}</span>
-                  </div>
-                  {event.grossManual > 0 && (
-                    <>
-                      <div className="flex justify-between pl-4 text-xs text-muted-foreground">
-                        <span>↳ Online</span>
-                        <span>{formatBRL(event.grossOnline)}</span>
-                      </div>
-                      <div className="flex justify-between pl-4 text-xs text-muted-foreground">
-                        <span>↳ Manual</span>
-                        <span>{formatBRL(event.grossManual)}</span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Taxa de conveniência <span className="text-xs">· paga pelo comprador</span></span>
-                    <span className="font-medium text-destructive">- {formatBRL(event.fee)}</span>
-                  </div>
-                  {/* As linhas abaixo existem para a conta fechar na régua: bruto − taxa
-                      − juro − recebido direto = líquido. Número sem linha vira pergunta. */}
-                  {event.interest > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Juro de parcelamento <span className="text-xs">· pago pelo comprador</span></span>
-                      <span className="font-medium text-destructive">- {formatBRL(event.interest)}</span>
-                    </div>
-                  )}
-                  {event.receivedDirectly > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Recebido direto por você <span className="text-xs">· manual e dinheiro</span></span>
-                      <span className="font-medium text-destructive">- {formatBRL(event.receivedDirectly)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t border-border pt-3">
-                    <span className="font-semibold">Repasse (valor dos ingressos)</span>
-                    <span className="font-semibold">{formatBRL(event.net)}</span>
-                  </div>
-                  {event.paidOut > 0 && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <ArrowUpRight className="w-3.5 h-3.5" /> Já enviado
-                      </span>
-                      <span>- {formatBRL(event.paidOut)}</span>
-                    </div>
-                  )}
-                </div>
+                <ReguaEmLista
+                  numeros={{
+                    vendido: event.netOnline + event.netManual,
+                    taxaDoComprador: event.fee,
+                    juro: event.interest,
+                    recebidoDireto: event.receivedDirectly,
+                    aReceber: event.available,
+                    jaPago: event.paidOut,
+                  }}
+                />
               </CardContent>
             </Card>
 

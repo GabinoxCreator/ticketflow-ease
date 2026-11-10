@@ -41,7 +41,7 @@ export function SalesChart({ data, periodo = 'mes' }: SalesChartProps) {
             <TrendingUp className="w-4 h-4 text-primary" />
           </div>
           <CardTitle className="text-base md:text-lg truncate">
-            {metric === 'vendas' ? `Vendas ${porPeriodo}` : `Receita ${porPeriodo}`}
+            {metric === 'vendas' ? `Vendas ${porPeriodo}` : `Vendido ${porPeriodo}`}
           </CardTitle>
         </div>
 
@@ -66,7 +66,7 @@ export function SalesChart({ data, periodo = 'mes' }: SalesChartProps) {
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            Receita
+            Vendido
           </button>
         </div>
       </CardHeader>
@@ -122,7 +122,7 @@ export function SalesChart({ data, periodo = 'mes' }: SalesChartProps) {
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
                   formatter={(value: number, name: string) => {
-                    if (name === 'receita') return [formatBRL(value), 'Receita'];
+                    if (name === 'receita') return [formatBRL(value), 'Vendido'];
                     return [value, 'Vendas'];
                   }}
                 />
