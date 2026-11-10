@@ -70,6 +70,27 @@ export interface UserTicket {
    * `cancelled` e isto diz se o dinheiro já voltou.
    */
   reembolso?: ReembolsoDoIngresso | null;
+  /**
+   * Situação do pedido deste ingresso (OS-410). NULO quando não deu para ler
+   * (consulta caiu, ou o pedido é de outra pessoa, como no ingresso recebido
+   * por transferência): aí o ingresso aparece como sempre apareceu.
+   */
+  pedido?: { status: string; total_amount: number | null } | null;
+}
+
+/**
+ * Ingresso cancelado porque o pagamento não aconteceu (PIX que venceu, cartão
+ * recusado): não é um ingresso que a pessoa perdeu, então não vai para a aba
+ * "Cancelados". Mesma regra do painel do produtor (`useEventParticipants`,
+ * OS-155). Sem o pedido lido, não esconde nada.
+ */
+export function canceladoSemPagamento(t: UserTicket): boolean {
+  return t.status === 'cancelled' && (t.pedido?.status === 'expired' || t.pedido?.status === 'failed');
+}
+
+/** Pedido de total zero (cortesia): não tem dinheiro para devolver. Sem o pedido lido, falso. */
+export function pedidoSemValor(t: UserTicket): boolean {
+  return t.pedido != null && Number(t.pedido.total_amount ?? 0) <= 0;
 }
 
 /**
@@ -202,6 +223,25 @@ export function useUserTickets() {
         for (const t of lista) t.reembolso = porTicket.get(t.id) ?? null;
       } catch { /* sem o aviso de reembolso, mas com os ingressos na tela */ }
 
+      // Situação do pedido de cada ingresso (OS-410). Mesma regra das consultas
+      // acima: separada e tolerante a falha. A pessoa lê só os pedidos dela
+      // (a tela /pedido/:id usa a mesma leitura); ingresso recebido por
+      // transferência fica sem o pedido e aparece como sempre.
+      try {
+        const idsDosPedidos = [...new Set(lista.map((t) => t.order_id).filter(Boolean))];
+        if (idsDosPedidos.length > 0) {
+          const { data: pedidos, error: erroPedidos } = await (supabase as any)
+            .from('orders')
+            .select('id, status, total_amount')
+            .in('id', idsDosPedidos);
+          if (!erroPedidos) {
+            const porId = new Map<string, { status: string; total_amount: number | null }>();
+            for (const p of pedidos ?? []) porId.set(p.id, { status: p.status, total_amount: p.total_amount });
+            for (const t of lista) t.pedido = porId.get(t.order_id) ?? null;
+          }
+        }
+      } catch { /* sem a situação do pedido, os ingressos aparecem como antes */ }
+
       return lista;
     },
     enabled: !!user,
@@ -232,7 +272,7 @@ export function useUserTickets() {
   }) || [];
 
 
-  const cancelledTickets = tickets?.filter(t => t.status === 'cancelled') || [];
+  const cancelledTickets = tickets?.filter(t => t.status === 'cancelled' && !canceladoSemPagamento(t)) || [];
 
   // Os que EU transferi. Ficam como registro: quem enviou precisa ver que o
   // ingresso foi para alguém, em vez de vê-lo simplesmente sumir da tela

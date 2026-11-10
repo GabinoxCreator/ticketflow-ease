@@ -30,7 +30,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <Link to="/" className="inline-block mb-4">
+            <Link to="/" className="inline-block mb-4" aria-label="FestPag: página inicial">
               <img src={logoFestpag} alt="FestPag" className="h-8 w-auto" />
             </Link>
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">

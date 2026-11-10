@@ -92,7 +92,7 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20 gap-4">
           {/* Logo */}
-          <Link to="/" className="flex-shrink-0">
+          <Link to="/" className="flex-shrink-0" aria-label="FestPag: página inicial">
             <img src={logoFestpag} alt="FestPag" className="h-[70px] md:h-[84px] w-auto" />
           </Link>
 
@@ -117,6 +117,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={() => setIsSearchOpen(true)}
+              aria-label="Buscar eventos"
               className="md:hidden text-muted-foreground hover:text-foreground"
             >
               <Search className="w-5 h-5" />

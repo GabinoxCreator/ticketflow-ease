@@ -87,6 +87,11 @@ const getAnonymousId = () => {
   return id;
 };
 
+/** "sábado, 12 de dezembro de 2026" → "Sábado, 12 de dezembro de 2026". */
+function primeiraMaiuscula(texto: string): string {
+  return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
+}
+
 /**
  * Tira do nome do lote o pedaço que o cabeçalho do grupo já diz.
  *
@@ -478,14 +483,33 @@ const EventDetails = () => {
     setIsCheckoutOpen(true);
   };
 
+  // Evento com mais de um setor (OS-410): o nome do lote na seleção e no
+  // resumo do pagamento leva o setor na frente ("Premium · 2º lote"). Sem isso,
+  // "2º lote" sozinho não diz se é o VIP ou o Premium. Só exibição: o servidor
+  // recebe o id do lote, nunca este nome.
+  const setoresDoEvento = new Set(
+    activeLots.map((l) => (l as any).sector_name?.trim()).filter((s: string | undefined) => !!s),
+  );
+  const nomeComSetor = (lot: (typeof activeLots)[number] | undefined): string => {
+    const nome = lot?.name || '';
+    const setor = (lot as any)?.sector_name?.trim();
+    if (!lot || !setor || setoresDoEvento.size < 2) return nome;
+    // O lote já traz o setor no nome ("INGRESSO DUPLO LOTE PROMOCIONAL" no setor
+    // "INGRESSO DUPLO", Samba do Nobre): não repete.
+    const simples = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (simples(nome).includes(simples(setor))) return nome;
+    return `${setor} · ${semRepetirOGrupo(nome, setor)}`;
+  };
+
   const cartItems: ItemDoCarrinho[] = Object.entries(selectedLots).map(([lotId, quantity]) => {
     const lot = activeLots.find((l) => l.id === lotId);
     // Lote em grupo: a quantidade é de grupos, e o nome diz quantos ingressos
     // cada um leva, para o resumo não parecer "2 × Dupla 1" sem explicação.
     const n = tamanhoDoGrupo(lot as any);
+    const nome = nomeComSetor(lot);
     return {
       lotId,
-      lotName: n > 1 ? `${lot?.name || ''} (${nomeDoGrupo(n).toLowerCase()}: ${n} ingressos)` : (lot?.name || ''),
+      lotName: n > 1 ? `${nome} (${nomeDoGrupo(n).toLowerCase()}: ${n} ingressos)` : nome,
       quantity,
       ingressosPorUnidade: n > 1 ? n : undefined,
       price: lot?.price || 0,
@@ -653,7 +677,9 @@ const EventDetails = () => {
                   <div className="flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 shrink-0" />
-                      <span className="text-sm capitalize break-words">{formatDate(event.date)}</span>
+                      {/* Só a 1ª letra maiúscula (OS-410): a classe `capitalize`
+                          escrevia "Sábado, 12 De Dezembro De 2026". */}
+                      <span className="text-sm break-words">{primeiraMaiuscula(formatDate(event.date))}</span>
                     </div>
                     {/* Na página única, sem a lista carregada não se mostra só o horário da 1ª sessão. */}
                     {(!pagina || horariosDaPagina) && (

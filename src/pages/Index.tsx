@@ -83,6 +83,9 @@ const Index = () => {
       <div className="min-h-screen">
         <Header />
         <main className="pt-20">
+          {/* Título principal da página para leitor de tela e Google (OS-410).
+              Não muda o desenho: a home abre direto no carrossel. */}
+          <h1 className="sr-only">FestPag: ingressos para festas, shows e eventos</h1>
           {/* Hero Banner */}
             {/* O carrossel vira o primeiro bloco da página (pedido do Gabriel,
             * 24/09 — referência: a home da Sympla). A frase institucional

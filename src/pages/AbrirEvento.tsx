@@ -6,6 +6,7 @@
 // motivo. Feito para o celular. Tudo salva sozinho e o mesmo link continua de onde
 // parou. PÚBLICA de propósito: quem recebe ainda não tem conta (a equipe cria depois).
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -298,7 +299,7 @@ function resumo(id: string, r: RespostasAbertura): string {
 
 // ---------------------------------------------------------------- a página
 
-export default function AbrirEvento() {
+function AbrirEventoConteudo() {
   const { token = '' } = useParams<{ token: string }>();
   const [abertura, setAbertura] = useState<Abertura | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -492,5 +493,18 @@ export default function AbrirEvento() {
         </footer>
       )}
     </div>
+  );
+}
+
+// Título da aba e do Google (OS-410): esta página não tinha nenhum e herdava
+// o genérico do site. Uma tela de dentro que tenha título próprio vale por cima.
+export default function AbrirEvento() {
+  return (
+    <>
+      <Helmet>
+        <title>Abrir evento | FestPag</title>
+      </Helmet>
+      <AbrirEventoConteudo />
+    </>
   );
 }
