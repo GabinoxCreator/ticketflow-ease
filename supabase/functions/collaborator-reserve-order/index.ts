@@ -1,4 +1,4 @@
-// redeploy 2026-07-03e — força redeploy p/ carregar _shared/eventFee.ts (taxa por método)
+// redeploy 2026-11-09 OS-412: força redeploy p/ carregar _shared/eventFee.ts (dinheiro cobra a taxa)
 // Usa Deno.serve built-in (import de std/http removido p/ evitar timeout do bundler
 // no host deno.land, que estava travando deploys — mesmo motivo do confirm-payment).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -203,7 +203,8 @@ Deno.serve(async (req) => {
 
     // Taxa administrativa (repassada ao cliente), MESMA fonte/fórmula das edges online
     // (event_fee_overrides via resolveFee; fallback 10%). Método vem do body (o totem
-    // manda ao chamar): card_credit/card_debit → 'card', pix → 'pix'. Sem método →
+    // e a maquininha mandam ao chamar): card_credit/card_debit → 'card', pix → 'pix',
+    // cash → a regra de TAXA_DO_DINHEIRO_SEGUE (OS-412: hoje a do Pix). Sem método →
     // sem taxa (compat com chamadas antigas). Totem não tem cupom → discount = 0.
     const feeMethod = feeMethodFromPaymentMethod(payment_method);
     const fee = feeMethod ? await resolveFee(supabase, event_id, feeMethod) : { percent: 0, fixed: 0 };

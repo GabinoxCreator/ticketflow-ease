@@ -35,10 +35,19 @@ export function computeServiceFee(subtotal: number, fee: EventFee): number {
   return Math.max(0, Math.round((subtotal * fee.percent / 100 + fee.fixed) * 100) / 100);
 }
 
-// Mapeia o payment_method do totem (card_credit/card_debit/pix) para o método da
-// taxa ('card'/'pix'). Retorna null se ausente/desconhecido (chamador → sem taxa).
+// Dinheiro (venda em espécie na maquininha, payment_method 'cash') cobra a taxa
+// do evento como cartão e Pix (OS-412, decisão do Gabriel de 09/11/2026). Quando o
+// evento tem taxa diferente no Pix e no cartão (ex.: Porcada, Pix 0% e cartão 10%),
+// o dinheiro segue a regra escrita AQUI, numa linha só. Hoje: a do Pix (dinheiro não
+// passa por adquirente). [A CONFIRMAR pelo Gabriel] Para seguir o cartão: 'card'.
+export const TAXA_DO_DINHEIRO_SEGUE: FeeMethod = 'pix';
+
+// Mapeia o payment_method da maquininha/totem (card_credit/card_debit/pix/cash)
+// para o método da taxa ('card'/'pix'). Retorna null se ausente/desconhecido
+// (chamador → sem taxa).
 export function feeMethodFromPaymentMethod(paymentMethod: unknown): FeeMethod | null {
   if (paymentMethod === 'pix') return 'pix';
   if (paymentMethod === 'card' || paymentMethod === 'card_credit' || paymentMethod === 'card_debit') return 'card';
+  if (paymentMethod === 'cash') return TAXA_DO_DINHEIRO_SEGUE;
   return null;
 }
