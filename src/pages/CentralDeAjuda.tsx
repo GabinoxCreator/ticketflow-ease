@@ -110,7 +110,8 @@ const produtoresFaq: FAQ[] = [
   },
   {
     q: 'Onde cadastro minha conta bancária para repasse?',
-    a: 'Em Financeiro, dentro da Área do Produtor, na aba "Dados & PIN".',
+    // Nome da aba vindo da OS-408 (commit c657066): sobe junto ou depois dela.
+    a: 'Em Financeiro, dentro da Área do Produtor, na aba "Conta bancária e PIN".',
   },
   {
     q: 'Como funciona o check-in com a equipe?',
@@ -130,7 +131,7 @@ const produtoresFaq: FAQ[] = [
   },
   {
     q: 'O que é o PIN financeiro?',
-    a: 'Uma camada extra de segurança: o PIN protege a troca da conta que recebe os repasses e do CPF/CNPJ da produtora. Você cria o seu em Financeiro, na aba "Dados & PIN".',
+    a: 'Uma camada extra de segurança: o PIN protege a troca da conta que recebe os repasses e do CPF/CNPJ da produtora. Você cria o seu em Financeiro, na aba "Conta bancária e PIN", e ele também é pedido para abrir o Financeiro.',
   },
   {
     q: 'Como edito um evento já publicado?',
