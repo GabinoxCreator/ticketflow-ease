@@ -15,7 +15,10 @@ export type DocumentoLegal = 'termos' | 'privacidade' | 'reembolso';
 
 /** Data da última atualização de cada documento, no formato do banco (AAAA-MM-DD). */
 export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
-  termos: '2026-04-14',
+  /* 10/11/2026 (OS-410): "tickets" virou "ingressos" e a seção 8 aponta para a
+   * Política de Reembolso. A data estava parada desde 14/04, com o texto mudado
+   * em 13/07 e 03/09. */
+  termos: '2026-11-10',
   /* 01/10/2026: a política dizia "não guardamos a sua foto" e guardamos desde
    * sempre. Corrigido, mais o compartilhamento com o fornecedor facial, a foto
    * na lista de dados coletados e o prazo em que ela fica.
@@ -28,8 +31,8 @@ export const VERSOES_LEGAIS: Record<DocumentoLegal, string> = {
    * com o CPF e a data de nascimento do produtor na Política (OS-400, seções 2, 5 e 9).
    * Só a data do texto muda: nada neste arquivo obriga quem já aceitou a aceitar de novo,
    * o aceite grava a versão que a pessoa viu. */
-  privacidade: diaDoCorte() ?? '2026-11-07',
-  reembolso: '2026-09-30',
+  privacidade: diaDoCorte() ?? '2026-11-10', // 10/11: OS-410 (seções 2, 4, 5, 6 desligada e 10)
+  reembolso: '2026-11-10', // 10/11: OS-410 (seções 2, 5, 6 e 7)
 };
 
 export const CAMINHOS_LEGAIS: Record<DocumentoLegal, string> = {
@@ -94,9 +97,9 @@ export const RESUMO_REEMBOLSO = {
   prazo:
     'O reembolso pode ser pedido em até 7 dias corridos após a compra, desde que ainda faltem mais de 7 dias para o evento. Fora desse prazo, o pedido é aceito até 48 horas antes do início do evento.',
   taxa:
-    'Na desistência do comprador é devolvido o valor dos ingressos; a taxa de serviço não é reembolsável.',
+    'A taxa de serviço é devolvida quando o reembolso é pedido até o fim do 7º dia depois da compra; depois disso, é devolvido o valor dos ingressos e a taxa de serviço não é reembolsável.',
   produtor:
     'Se o evento for cancelado, adiado ou alterado pelo produtor, o reembolso é integral.',
   /** A versão curta, para a tela de pagamento. */
-  taxaNoPagamento: 'Em caso de desistência da compra, a taxa de serviço não é reembolsável.',
+  taxaNoPagamento: 'Pedindo o reembolso depois do 7º dia da compra, a taxa de serviço não é devolvida.',
 } as const;

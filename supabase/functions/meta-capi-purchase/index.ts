@@ -27,6 +27,10 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 
+// Versão do banner de cookies cujo aceite autoriza este envio. Igual a
+// CONSENT_VERSION em src/lib/cookieConsent.ts: subiu lá, sobe aqui no mesmo commit.
+const VERSAO_DO_ACEITE = '1.2';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
@@ -144,13 +148,21 @@ serve(async (req) => {
   if (pedido.user_id) {
     const { data: perfil } = await admin
       .from('profiles')
-      .select('marketing_consent, fbp, fbc')
+      .select('marketing_consent, marketing_consent_version, fbp, fbc')
       .eq('id', pedido.user_id)
       .maybeSingle();
     if (perfil?.marketing_consent !== true) {
       log('sem consentimento de marketing — não enviado', { orderId });
       await registrar(admin, orderId, { sucesso: false, motivo: 'sem consentimento de marketing' });
       return json({ ok: true, pulado: 'sem consentimento' });
+    }
+    // O aceite tem de ser o do texto que diz que a compra vai ao produtor (OS-410,
+    // decisão do Gabriel de 10/11: "Os dois juntos nesta ordem"). Aceite de versão
+    // anterior não vale: a pessoa decide de novo no banner. Fail-closed.
+    if (perfil?.marketing_consent_version !== VERSAO_DO_ACEITE) {
+      log('consentimento de versão anterior — não enviado', { orderId });
+      await registrar(admin, orderId, { sucesso: false, motivo: `consentimento de versão anterior (precisa ${VERSAO_DO_ACEITE})` });
+      return json({ ok: true, pulado: 'consentimento de versão anterior' });
     }
     identificadores = { fbp: perfil?.fbp ?? null, fbc: perfil?.fbc ?? null };
   } else {

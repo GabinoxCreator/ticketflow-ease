@@ -13,7 +13,12 @@ export interface CookieConsent {
 
 const STORAGE_KEY = 'festpag_cookie_consent';
 // 1.1 (12/08/2026): escopo passou a incluir o Google Tag Manager além do Pixel
-export const CONSENT_VERSION = '1.1';
+// 1.2 (10/11/2026, OS-410, decisão do Gabriel "Subir para 1.2"): o banner passou a
+// dizer que, com o aceite de marketing, a confirmação da compra vai para a conta de
+// anúncios do produtor do evento (a `meta-capi-purchase` faz isso desde 29/09). Todo
+// visitante decide de novo. ⚠️ A `meta-capi-purchase` exige esta mesma versão
+// (VERSAO_DO_ACEITE lá): subiu aqui, sobe lá no mesmo commit.
+export const CONSENT_VERSION = '1.2';
 export const CONSENT_CHANGED_EVENT = 'cookie-consent-changed';
 export const OPEN_PREFERENCES_EVENT = 'open-cookie-preferences';
 

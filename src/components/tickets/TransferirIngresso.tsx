@@ -91,7 +91,7 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
     }
     const zap = telefone.replace(/\D/g, '');
     if (zap.length < 10) {
-      toast.error('Informe o WhatsApp de quem vai receber — é por ele que a pessoa recebe o link.');
+      toast.error('Informe o WhatsApp de quem vai receber: é por ele que a pessoa recebe o link.');
       return;
     }
     setEnviando(true);
@@ -237,7 +237,7 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
                 <Input id="t-cpf" inputMode="numeric" placeholder="000.000.000-00"
                   value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} />
                 <p className="text-[11px] text-muted-foreground">
-                  Só quem tiver este CPF consegue aceitar — é o que protege o link.
+                  Só quem tiver este CPF consegue aceitar: é o que protege o link.
                 </p>
               </div>
               {/* ⚠️ SÓ CPF E WHATSAPP, os dois obrigatórios (Gabriel, 21/08).
@@ -251,7 +251,7 @@ export function TransferirIngresso({ ticket, onChange }: Props) {
                 <Input id="t-tel" inputMode="numeric" placeholder="(17) 99999-9999"
                   value={telefone} onChange={(e) => setTelefone(formatTelefone(e.target.value))} />
                 <p className="text-[11px] text-muted-foreground">
-                  É por aqui que a pessoa recebe o link — abrimos a conversa com a mensagem pronta.
+                  É por aqui que a pessoa recebe o link: abrimos a conversa com a mensagem pronta.
                 </p>
               </div>
 

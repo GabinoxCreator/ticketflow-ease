@@ -962,7 +962,11 @@ export function FluxoConta({
                 )}
 
                 <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <ShieldCheck className="h-4 w-4 text-emerald-500" /> Seus dados ficam só com a FestPag.
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  <span>
+                    Seus dados são tratados conforme a nossa{' '}
+                    <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Política de Privacidade</a>.
+                  </span>
                 </p>
               </form>
             )}

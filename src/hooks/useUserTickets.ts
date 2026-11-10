@@ -106,9 +106,9 @@ export function ticketEventDisplay(event: UserTicket['event']) {
     title: event?.title ?? 'Evento não disponível',
     dateLabel: event?.date
       ? formatEventDate(event.date, { day: '2-digit', month: 'long' })
-      : '—',
-    timeLabel: event?.time ? event.time.slice(0, 5) : '—',
-    placeLabel: event ? `${event.venue} — ${event.city}/${event.state}` : 'Local não informado',
+      : 'Sem data',
+    timeLabel: event?.time ? event.time.slice(0, 5) : 'Sem horário',
+    placeLabel: event ? `${event.venue}, ${event.city}/${event.state}` : 'Local não informado',
     imageUrl: event?.image_url ?? null,
     /** `null` quando não há evento legível: não dá para linkar o que não abre. */
     href: event ? `/evento/${event.slug ?? event.id}` : null,

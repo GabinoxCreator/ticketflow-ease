@@ -229,7 +229,7 @@ const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false, 
           {expanded && (
             <div className="px-3 sm:px-4 pb-4 pt-1 space-y-3 border-t border-border/40 bg-muted/10">
               <p className="text-xs text-muted-foreground pt-3 px-1">
-                Cada ingresso abaixo tem um QR code único — toque em "Usar Ingresso" para apresentar.
+                Cada ingresso abaixo tem um QR code único. Toque em "Usar Ingresso" para apresentar.
               </p>
               {tickets.map((t) => (
                 <TicketCardSimple key={t.id} ticket={t} compact onTransferChange={onTransferChange} />
@@ -320,7 +320,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }:
       stampColor: '',
       bannerBg: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400',
       bannerIcon: CheckCircle2,
-      bannerText: 'Ingresso válido — Pronto para uso',
+      bannerText: 'Ingresso válido, pronto para uso',
       ctaLabel: 'Usar Ingresso',
       ctaIcon: Smartphone,
       ctaVariant: 'gradient' as const,
@@ -385,7 +385,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }:
 
   const handleShare = async () => {
     const shareData = {
-      title: `Ingresso — ${ev.title}`,
+      title: `Ingresso: ${ev.title}`,
       text: `Meu ingresso para ${ev.title} em ${ev.dateLabel} às ${ev.timeLabel}.`,
       // Sem evento legível não há página para abrir: compartilha Meus Ingressos.
       url: window.location.origin + (ev.href ?? '/meus-ingressos'),
@@ -965,7 +965,7 @@ const MeusIngressos = () => {
             <section className="mt-10">
               <h2 className="font-display font-bold text-lg mb-1">Ingressos que você transferiu</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Estes já estão com outra pessoa. Ficam aqui só como registro — o QR agora é de quem recebeu.
+                Estes já estão com outra pessoa. Ficam aqui só como registro: o QR agora é de quem recebeu.
               </p>
               <div className="space-y-3">
                 {transferidos.map((t) => (
