@@ -33,6 +33,12 @@ export interface FaceLine {
    * Quem chama decide, comparando as parcelas escolhidas com a faixa sem juros.
    */
   modoTaxa: string;
+  /**
+   * Percentual da taxa de conveniência que o PRODUTOR absorveu nesta linha
+   * (lote 'absorve'), congelado no ato (OS-426). null = o comprador pagou a
+   * taxa por cima. É o que o repasse desconta da face.
+   */
+  taxaAbsorvidaPct?: number | null;
 }
 
 export interface CreditTerms {
@@ -91,8 +97,23 @@ export async function captureSaleTerms(
         unit_face: Number(l.unitFace) || 0,
         quantity: Math.max(1, Math.trunc(Number(l.quantity) || 1)),
         modo_taxa: l.modoTaxa === 'absorve' ? 'absorve' : 'cliente_paga',
+        ...(Number.isFinite(Number(l.taxaAbsorvidaPct)) && l.taxaAbsorvidaPct !== null
+          && l.taxaAbsorvidaPct !== undefined
+          ? { taxa_absorvida_pct: Number(l.taxaAbsorvidaPct) } : {}),
       }));
-      const { error } = await client.from('order_line_face').insert(rows);
+      let { error } = await client.from('order_line_face').insert(rows);
+      // Só "coluna não existe" (edge publicada antes da migration) tenta de
+      // novo. Qualquer outro erro NÃO repete: a tabela não tem chave única por
+      // pedido, e uma resposta perdida depois de um insert que deu certo
+      // gravaria a face duas vezes e dobraria o repasse. ⚠️ Sem a coluna, a
+      // venda no cartão grava 'cliente_paga' sem percentual e o repasse paga a
+      // face cheia: a migration sobe ANTES da edge (Doca 396).
+      const colunaNaoExiste = error && (error.code === 'PGRST204' || error.code === '42703');
+      if (colunaNaoExiste && rows.some((r) => 'taxa_absorvida_pct' in r)) {
+        log('face_insert_retry_sem_taxa_absorvida', { orderId, code: error.code });
+        ({ error } = await client.from('order_line_face').insert(
+          rows.map(({ taxa_absorvida_pct: _t, ...r }: Record<string, unknown>) => r)));
+      }
       if (error) log('face_insert_failed', { orderId, code: error.code, message: String(error.message).slice(0, 200) });
     }
 
