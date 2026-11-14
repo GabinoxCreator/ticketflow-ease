@@ -79,6 +79,8 @@ export default function Financeiro() {
   const showContent = !hasPin || isUnlocked;
   const { data: finance, isLoading: financeLoading } = useProducerFinance();
   const { data: pendencias = [] } = usePendenciasRepasse();
+  // OS-417: com a trava da casa, o botão fica travado e só a frase do contrato aparece.
+  const saqueTravado = pendencias.includes('saque_travado');
 
   const filteredEvents = useMemo(() => {
     if (!finance?.events) return [];
@@ -161,7 +163,13 @@ export default function Financeiro() {
               </div>
 
               {/* Trava de documento e conta (OS-157): só aparece quando falta algo. */}
-              {pendencias.length > 0 && (
+              {saqueTravado && (
+                <Alert className="border-primary/30 bg-primary/5">
+                  <Banknote className="h-4 w-4 !text-primary" />
+                  <AlertDescription>{MENSAGEM_PENDENCIA_REPASSE.saque_travado}</AlertDescription>
+                </Alert>
+              )}
+              {!saqueTravado && pendencias.length > 0 && (
                 <Alert className="border-amber-500/50 bg-amber-500/5">
                   <AlertTriangle className="h-4 w-4 !text-amber-500" />
                   <AlertDescription className="space-y-2">
@@ -307,7 +315,7 @@ export default function Financeiro() {
                                   size="sm"
                                   variant="secondary"
                                   className="hidden sm:inline-flex flex-shrink-0 gap-1.5"
-                                  disabled={event.available <= 0}
+                                  disabled={event.available <= 0 || saqueTravado}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -327,7 +335,7 @@ export default function Financeiro() {
                                 size="sm"
                                 variant="secondary"
                                 className="sm:hidden w-full mt-3 gap-1.5"
-                                disabled={event.available <= 0}
+                                disabled={event.available <= 0 || saqueTravado}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
