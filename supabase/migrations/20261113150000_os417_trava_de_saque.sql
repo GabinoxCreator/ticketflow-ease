@@ -112,6 +112,9 @@ $pr$;
 revoke all on function public.pendencias_de_repasse(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.pendencias_de_repasse(uuid, uuid) to service_role;
 
+comment on function public.pendencias_de_repasse(uuid, uuid) is
+  'O que falta para a produtora pedir repasse: saque_travado (OS-417, sempre primeiro), missing_document, invalid_document, no_bank_account, missing_holder_document. Vazio = pode pedir.';
+
 
 -- ── 3. Ligar e desligar (só a casa) ─────────────────────────────────────────
 create or replace function public.casa_travar_saque(_producer_profile_id uuid, _motivo text)
@@ -209,6 +212,9 @@ begin
   if not found then
     return jsonb_build_object('ok', false, 'error', 'event_not_found');
   end if;
+  if _event.producer_profile_id is null then
+    return jsonb_build_object('ok', false, 'error', 'event_sem_produtora');
+  end if;
 
   _disponivel := public.base_de_repasse(_event_id)
     - (select coalesce(sum(net_amount), 0) from public.payouts
@@ -254,3 +260,20 @@ $cr$;
 
 revoke all on function public.casa_pedir_repasse(uuid, numeric, text) from public, anon, authenticated;
 grant execute on function public.casa_pedir_repasse(uuid, numeric, text) to service_role;
+
+
+-- ── 5. Confere as permissões (a migration falha se algo ficou aberto) ──────
+do $confere$
+begin
+  if has_table_privilege('authenticated', 'public.travas_de_saque', 'select')
+     or has_table_privilege('anon', 'public.travas_de_saque', 'select') then
+    raise exception 'OS-417: travas_de_saque ficou legível pela API pública';
+  end if;
+  if has_function_privilege('authenticated', 'public.casa_travar_saque(uuid, text)', 'execute')
+     or has_function_privilege('authenticated', 'public.casa_destravar_saque(uuid, text)', 'execute')
+     or has_function_privilege('authenticated', 'public.casa_pedir_repasse(uuid, numeric, text)', 'execute')
+     or has_function_privilege('anon', 'public.casa_pedir_repasse(uuid, numeric, text)', 'execute') then
+    raise exception 'OS-417: função da casa ficou aberta à API pública';
+  end if;
+end;
+$confere$;
