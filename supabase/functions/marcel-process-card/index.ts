@@ -20,7 +20,7 @@ import { validateCPF, unformatCPF } from "../_shared/cpf.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 import { applyOrderApproved } from "../_shared/applyOrderApproved.ts";
-import { resolverPreco, carrinhoAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoPedido, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace, eventoAVendaNoMarcel } from "../_shared/carrinhoMarcel.ts";
+import { resolverPreco, carrinhoAbsorve, reservarEstoque, devolverEstoque, CarrinhoInvalido, temPassePermanente, tetoDeParcelas, parcelasSemJurosDoPedido, cartaoAbsorvidoAte, reservarProdutos, devolverProdutos, gravarItensDeProduto, linhasDeFace, eventoAVendaNoMarcel } from "../_shared/carrinhoMarcel.ts";
 import { exigirUsuario, MesaInvalida } from "../_shared/mesaMarcel.ts";
 import { limiteDeCobranca } from "../_shared/limiteDeCobranca.ts";
 import { rateLimitResponse } from "../_shared/rateLimit.ts";
@@ -114,14 +114,21 @@ serve(async (req) => {
     // Antes só existiam os extremos, e a saída tinha sido travar o lote em 3x —
     // o que matava a venda de quem queria pagar em seis. Agora as duas faixas
     // vêm da MESMA tabela versionada, cada uma com o seu `absorve`.
+    //
+    // OS-426 (Gabriel, 12/11/2026): "sem taxa" (`modo_taxa = 'absorve'`) tira
+    // SÓ a taxa de conveniência. O custo do cartão e o juro de parcela são
+    // sempre do comprador, a não ser na faixa `parcelas_sem_juros` que o lote
+    // combinou. Antes, lote 'absorve' sem faixa zerava o custo do cartão de 1x
+    // a 10x, e esse custo saía de dentro do que a casa recebe.
+    const absorvidoAte = cartaoAbsorvidoAte(semJuros, teto);
     let lista: OpcaoParcela[];
     try {
-      if (semJuros > 0 && semJuros < teto) {
-        const semJuro = (await faixa(true, semJuros));
-        const comJuro = (await faixa(false, teto)).filter((o) => o.parcelas > semJuros);
+      if (absorvidoAte > 0 && absorvidoAte < teto) {
+        const semJuro = (await faixa(true, absorvidoAte));
+        const comJuro = (await faixa(false, teto)).filter((o) => o.parcelas > absorvidoAte);
         lista = [...semJuro, ...comJuro].sort((a, b) => a.parcelas - b.parcelas);
       } else {
-        lista = await faixa(absorve, teto);
+        lista = await faixa(absorvidoAte >= teto, teto);
       }
     } catch (opcErr) {
       log('Falha ao montar parcelas', { opcErr });
@@ -387,7 +394,11 @@ serve(async (req) => {
     // paga). Copiar o `modo_taxa` do lote gravaria 'absorve' na venda de 10x, e
     // o motor de repasse descontaria do produtor um custo que o cliente já
     // pagou — erro que só apareceria no fechamento, com a venda feita.
-    const clientePagouOJuro = semJuros > 0 && n > semJuros;
+    // OS-426: sem faixa (`absorvidoAte` = 0) o comprador pagou o cartão
+    // em qualquer parcela, então a linha grava 'cliente_paga' mesmo em lote
+    // "sem taxa". A taxa de conveniência absorvida vai à parte, em
+    // `taxa_absorvida_pct` (linhasDeFace), e é ela que o repasse desconta.
+    const clientePagouOJuro = n > absorvidoAte;
     await captureSaleTerms(admin, order.id,
       linhasDeFace(preco, (i) => (clientePagouOJuro ? 'cliente_paga' : i.modoTaxa)),
       { installments: n, brandRaw: bandeira, provider: 'marcel', method: 'card',

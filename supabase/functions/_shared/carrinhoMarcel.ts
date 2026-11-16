@@ -84,6 +84,14 @@ export interface PrecoResolvido {
   cupomId: string | null;
   /** face − desconto + taxa administrativa. Base do cartão; total do PIX. */
   subtotal: number;
+  /**
+   * Percentual da taxa de conveniência deste evento e deste meio (OS-426).
+   * Em linha 'absorve' é o que sai do repasse do produtor: a taxa não foi
+   * somada para o comprador, então o produtor recebe a face menos ela.
+   * Vai gravado na venda (`order_line_face.taxa_absorvida_pct`) para uma
+   * mudança de taxa depois não mexer no repasse de quem já comprou.
+   */
+  taxaPercent: number;
 }
 
 export class CarrinhoInvalido extends Error {
@@ -483,7 +491,8 @@ export async function resolverPreco(
     Math.round((Math.max(totalFace - desconto, 0) + taxaAdministrativa) * 100) / 100,
   );
 
-  return { linhas, produtos, totalFace, taxaAdministrativa, desconto, cupomId, subtotal };
+  return { linhas, produtos, totalFace, taxaAdministrativa, desconto, cupomId, subtotal,
+    taxaPercent: taxa.percent };
 }
 
 /** Todo o carrinho é de lote que o produtor absorve? Decide se o custo do
@@ -536,7 +545,11 @@ export function produtorAbsorve(linhas: LinhaCarrinho[]): boolean {
 }
 
 /**
- * O produtor absorve o custo do cartão do pedido INTEIRO?
+ * Todo o carrinho é 'absorve' (a taxa de conveniência sai de dentro da face)?
+ *
+ * ⚠️ Desde a OS-426 (12/11/2026) isto NÃO decide mais quem paga o custo do
+ * cartão: 'absorve' tira só a conveniência. Processamento e juro de parcela
+ * são do comprador, a não ser na faixa `parcelas_sem_juros` combinada no lote.
  *
  * Só quando tudo o que está no carrinho é 'absorve', ingresso e produto. Um
  * único item em que o cliente paga leva o pedido para "cliente paga": é o
@@ -547,6 +560,18 @@ export function carrinhoAbsorve(preco: PrecoResolvido): boolean {
   if (preco.linhas.length === 0 && preco.produtos.length === 0) return false;
   return preco.linhas.every((l) => l.modoTaxa === 'absorve')
     && preco.produtos.every((p) => p.modoTaxa === 'absorve');
+}
+
+/**
+ * Até quantas parcelas o comprador NÃO paga o custo do cartão (OS-426).
+ *
+ * Só a faixa `parcelas_sem_juros` combinada no lote tira esse custo do
+ * comprador. "Sem taxa" (`modo_taxa = 'absorve'`) não entra aqui: ele tira só a
+ * taxa de conveniência (regra do Gabriel, 12/11/2026). 0 = o comprador paga o
+ * custo do cartão desde 1x; igual ao teto = sem juros em todas as parcelas.
+ */
+export function cartaoAbsorvidoAte(semJuros: number, teto: number): number {
+  return semJuros > 0 ? Math.min(semJuros, teto) : 0;
 }
 
 /**
@@ -699,14 +724,19 @@ export async function gravarItensDeProduto(
  *  produto vai com `lotId` nulo e o próprio nome, e é assim que
  *  `order_producer_value` passa a incluí-lo sem mudar uma linha. */
 export function linhasDeFace(preco: PrecoResolvido, modoDoLote?: (l: LinhaCarrinho) => string) {
+  // A taxa absorvida segue o LOTE (quem paga a conveniência), nunca o
+  // `modoDoLote` desta venda, que diz só quem pagou o custo do cartão (OS-426).
+  const absorvida = (modo: string) => (modo === 'absorve' ? preco.taxaPercent : null);
   return [
     ...preco.linhas.map((i) => ({
       lotId: i.lotId, lotName: i.lotName, unitFace: i.price, quantity: i.quantity,
       modoTaxa: modoDoLote ? modoDoLote(i) : i.modoTaxa,
+      taxaAbsorvidaPct: absorvida(i.modoTaxa),
     })),
     ...preco.produtos.map((p) => ({
       lotId: null, lotName: p.label, unitFace: p.price, quantity: p.quantity,
       modoTaxa: p.modoTaxa,
+      taxaAbsorvidaPct: absorvida(p.modoTaxa),
     })),
   ];
 }
