@@ -106,7 +106,10 @@ const produtoresFaq: FAQ[] = [
   },
   {
     q: 'Como recebo o dinheiro das vendas?',
-    a: 'A taxa de serviço é paga por quem compra, somada ao preço do ingresso, a não ser nos lotes vendidos sem taxa para o comprador. Você recebe o valor de face dos ingressos vendidos, menos os descontos de cupom e os reembolsos. Para receber, peça o saque em Financeiro, na Área do Produtor. O valor vai para a conta cadastrada para os repasses.',
+    // OS-431 (15/11/2026): desde a OS-426 (13/11) o repasse desconta a taxa de serviço
+    // nos lotes "Sem taxa" (`order_producer_value`: face × percentual do evento, antes
+    // do cupom). O texto anterior prometia a face inteira também nesses lotes.
+    a: 'Normalmente a taxa de serviço é paga por quem compra, somada ao preço do ingresso, e você recebe o valor de face dos ingressos vendidos, menos os descontos de cupom e os reembolsos. Nos lotes vendidos sem taxa para o comprador (selo "Sem taxa"), quem paga a taxa de serviço é você: ela é descontada do que você recebe, calculada sobre o valor de face, antes do cupom. Para receber, peça o saque em Financeiro, na Área do Produtor. O valor vai para a conta cadastrada para os repasses.',
   },
   {
     q: 'Onde cadastro minha conta bancária para repasse?',
