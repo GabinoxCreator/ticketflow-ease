@@ -15,14 +15,29 @@ import { formatBRL } from '@/lib/painelDoProdutor';
  * `useProducerFinance` (a mesma conta do pedido de repasse no banco). Nenhuma conta
  * mora aqui. "A receber da FestPag" é o que ainda falta pagar (decisão do Gabriel
  * em 09/11: "Só o que falta"), por isso vem sempre junto de "Já pago".
+ *
+ * Taxa absorvida (OS-431, 15/11/2026, depois da OS-426 de 13/11): nos lotes "Sem
+ * taxa" o produtor paga a taxa de serviço, e `order_producer_value` já a desconta
+ * (face × percentual do evento, antes do cupom). Por isso "Vendido" chega aqui SEM
+ * ela, e a diferença entre o que o comprador pagou e "Vendido + Taxa do comprador"
+ * (o `juro`, que vem de `interest`) passou a ter duas partes: o custo do cartão e
+ * essa taxa. A régua não separa as duas porque o banco não devolve a taxa absorvida
+ * ao painel; separar aqui seria refazer a conta do repasse no navegador.
  */
 
 export interface NumerosDaRegua {
-  /** Valor dos ingressos de toda venda paga, sem taxa (valor de face). */
+  /**
+   * Valor dos ingressos para o produtor em toda venda paga (`order_producer_value`):
+   * face menos cupom e reembolso e, nos lotes "Sem taxa", menos a taxa de serviço.
+   */
   vendido: number;
   /** Taxa de conveniência paga por quem compra. Não entra na conta do produtor. null = "—". */
   taxaDoComprador: number | null;
-  /** Juro de parcelamento pago por quem compra (vai na mesma linha da taxa). */
+  /**
+   * O que fica fora da conta do produtor além da taxa do comprador (vem de
+   * `useProducerFinance.interest`): custo do cartão (processamento e juro), pago por
+   * quem compra, e, nos lotes "Sem taxa", a taxa de serviço paga pelo produtor.
+   */
   juro?: number;
   /** Venda manual e dinheiro: o produtor recebeu na mão, não passou pela FestPag. */
   recebidoDireto: number;
@@ -39,7 +54,7 @@ const LINHAS = (n: NumerosDaRegua) => [
     chave: 'vendido',
     rotulo: 'Vendido',
     numero: n.vendido,
-    dica: 'Valor dos ingressos de toda venda paga, sem taxa.',
+    dica: 'Valor dos ingressos de toda venda paga, menos cupons e reembolsos. Nos lotes "Sem taxa", a taxa de serviço é paga por você e já saiu daqui.',
     icone: DollarSign,
   },
   {
@@ -48,7 +63,9 @@ const LINHAS = (n: NumerosDaRegua) => [
     numero: n.taxaDoComprador,
     dica:
       'Paga por quem compra. Não entra na sua conta.' +
-      (n.juro && n.juro > 0 ? ` Mais ${formatBRL(n.juro)} de juro de parcelamento, também pago por quem compra.` : ''),
+      (n.juro && n.juro > 0
+        ? ` Também ficam fora da sua conta ${formatBRL(n.juro)}: o custo do cartão, pago por quem compra, e, nos lotes "Sem taxa", a taxa de serviço, paga por você.`
+        : ''),
     icone: Receipt,
   },
   {
