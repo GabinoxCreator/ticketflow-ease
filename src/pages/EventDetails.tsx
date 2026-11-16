@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { cupomDaUrl, guardarCupomDoLink } from '@/lib/cupomDoLink';
@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { useEvent } from '@/hooks/useEvents';
 import { tituloSemSessao, useListaDoEvento, type PaginaDaLista } from '@/hooks/useListaDeAlunos';
 import { getEventEndInstant, horaCurta } from '@/lib/eventTime';
-import { isLotOpenForSale } from '@/lib/lot-availability';
+import { isLotOpenForSale, proximaAbertura, textoDaAbertura } from '@/lib/lot-availability';
 import { safeRandomUUID } from '@/lib/uuid';
 
 import { useEventLots } from '@/hooks/useEventLots';
@@ -294,6 +294,38 @@ const EventDetails = () => {
   // Também ANTES dos returns (é hook). Falha de leitura vira loja vazia.
   const { data: loja } = useVitrineDaLoja(eventId, (event as any)?.payment_provider === 'marcel');
 
+  // Venda que abre numa hora marcada (OS-419): enquanto NENHUM lote está à
+  // venda, um temporizador espera a hora do próximo lote agendado e, na hora,
+  // redesenha a página (o `activeLots` lá embaixo usa o relógio do aparelho,
+  // como sempre) e relê os lotes, para os ingressos aparecerem sem recarregar.
+  // Também é hook: fica ANTES dos returns antecipados.
+  const queryClient = useQueryClient();
+  const [relogioDaAbertura, setRelogioDaAbertura] = useState(0);
+  useEffect(() => {
+    const todos = lots || [];
+    if (todos.some((l) => isLotOpenForSale(l, todos))) return;
+    const proxima = proximaAbertura(todos);
+    if (!proxima) return;
+    const redesenhar = () => setRelogioDaAbertura((n) => n + 1);
+    const falta = proxima.quando.getTime() - Date.now();
+    // Meio segundo depois da hora, para o relógio já ter passado dela. O teto de
+    // 6 h evita o estouro do setTimeout (prazo acima de ~24 dias dispara na hora);
+    // passado o teto, o efeito roda de novo e arma o resto.
+    const timer = window.setTimeout(() => {
+      redesenhar();
+      if (Date.now() >= proxima.quando.getTime()) {
+        queryClient.invalidateQueries({ queryKey: ['event-lots', eventId] });
+      }
+    }, Math.min(Math.max(falta + 500, 0), 6 * 60 * 60 * 1000));
+    // Celular que dormiu com a página aberta: ao voltar, confere de novo.
+    const aoVoltar = () => { if (document.visibilityState === 'visible') redesenhar(); };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', aoVoltar);
+    };
+  }, [lots, eventId, queryClient, relogioDaAbertura]);
+
   const paginaDaSessao = !pagina && (event as any)?.status === 'published' && listaDoEvento?.pagina_slug
     && listaDoEvento.pagina_slug !== slugOrId && listaDoEvento.pagina_slug !== (event as any)?.slug
     ? listaDoEvento.pagina_slug : null;
@@ -334,6 +366,14 @@ const EventDetails = () => {
   const loteRetirada = isEventFinished
     ? null
     : (lots || []).find((l) => l.retirada_publica && l.is_active && Number(l.price) === 0) ?? null;
+  // "Vendas abrem em 16/11 às 06h" (OS-419): só quando NENHUM lote está à venda e
+  // um lote agendado vai abrir. Decisão do Gabriel (12/11): só o aviso, sem nome
+  // de lote e sem preço; o preço aparece quando a venda abrir. Evento de mapa de
+  // poltronas fica como hoje (fora desta ordem).
+  const aberturaDaVenda = !isEventFinished && !hasMap && activeLots.length === 0
+    ? proximaAbertura(lots || [])
+    : null;
+  const vendaAbreEm = aberturaDaVenda ? textoDaAbertura(aberturaDaVenda.quando) : null;
   const retiradaEsgotada = !!loteRetirada && (
     loteRetirada.manually_sold_out
     || loteRetirada.total_quantity - loteRetirada.sold_quantity - (loteRetirada.reserved_quantity || 0) <= 0
@@ -670,6 +710,7 @@ const EventDetails = () => {
                       shareTitle={event.title}
                       shareText={event.short_description || undefined}
                       isBeneficent={isBeneficent}
+                      vendaAbreEm={vendaAbreEm}
                     />
                   )}
 
@@ -795,6 +836,21 @@ const EventDetails = () => {
                     </div>
                   </div>
                 </motion.div>
+              )}
+
+              {/* OS-419: a venda ainda não abriu. Só a hora, sem lote e sem preço
+                  (decisão do Gabriel, 12/11). Na hora, o temporizador lá em cima
+                  troca este bloco pelos ingressos sem recarregar. */}
+              {vendaAbreEm && (
+                <div className="space-y-4">
+                  <h2 className="font-display font-bold text-xl">
+                    {isBeneficent ? 'Convites' : (mapaDaArena?.tituloDosIngressos ?? 'Ingressos')}
+                  </h2>
+                  <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-lg shadow-primary/5 p-5 md:p-6 flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-primary shrink-0" />
+                    <p className="font-semibold leading-snug">Vendas abrem em {vendaAbreEm}</p>
+                  </div>
+                </div>
               )}
 
               {activeLots.length > 0 && (
