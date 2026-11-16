@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import { ManualSaleButton } from '@/components/producer/ManualSaleButton';
 import { CourtesyTicketsButton } from '@/components/producer/admin/CourtesyTicketsButton';
 import { TirarDoArDialog } from '@/components/producer/TirarDoArDialog';
+import { CAIXA_DO_VALOR, VALOR_QUE_CABE_PEQUENO } from '@/components/producer/valorQueCabe';
 
 interface EventDashboardHeaderProps {
   event: Event;
@@ -163,13 +164,15 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
             </div>
 
             {/* Quick Stats — glass mini-cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
-              <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3">
+            {/* Três lado a lado só a partir de 1536 px; abaixo disso o valor em reais ocupa a linha
+                inteira: ao lado da capa ele saía cortado ("R$ 16....", "R$ 103.000,(", OS-408). */}
+            <div className="grid grid-cols-2 2xl:grid-cols-3 gap-3 mt-5">
+              <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3 col-span-2 2xl:col-span-1">
                 <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20">
                   <DollarSign className="h-4 w-4 text-primary" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-lg font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent truncate">
+                <div className={CAIXA_DO_VALOR}>
+                  <p className={`${VALOR_QUE_CABE_PEQUENO} font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent`}>
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue)}
                   </p>
                   <p className="text-[11px] text-muted-foreground">Vendido</p>
@@ -192,7 +195,7 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
               </div>
 
               {!isEventPast && daysUntil >= 0 && (
-                <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3 col-span-2 sm:col-span-1">
+                <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-amber-500/15">
                     <CalendarClock className="h-4 w-4 text-amber-400" />
                   </div>

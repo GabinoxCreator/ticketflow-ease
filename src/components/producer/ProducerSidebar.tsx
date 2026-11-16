@@ -78,7 +78,8 @@ export function ProducerSidebar() {
               isActive={active}
               tooltip={item.title}
               className={cn(
-                'h-11 px-2 rounded-lg transition-all duration-200 relative overflow-hidden',
+                // Tela baixa (notebook 1366×768): itens mais baixos, para "Configurações" caber sem rolar (OS-408).
+                'h-11 [@media(max-height:820px)]:h-9 px-2 rounded-lg transition-all duration-200 relative overflow-hidden',
                 'hover:bg-muted/60',
                 'data-[active=true]:bg-gradient-to-r data-[active=true]:from-primary/15 data-[active=true]:to-accent/10',
                 'data-[active=true]:text-primary data-[active=true]:font-medium',
@@ -108,12 +109,12 @@ export function ProducerSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
-      <SidebarHeader className="border-b border-border/40 py-6">
+      <SidebarHeader className="border-b border-border/40 py-6 [@media(max-height:820px)]:py-3">
         <NavLink
           to="/"
           className={cn(
             'flex items-center justify-center w-full',
-            collapsed ? 'h-12' : 'h-20',
+            collapsed ? 'h-12' : 'h-20 [@media(max-height:820px)]:h-14',
           )}
         >
           <img
@@ -123,7 +124,7 @@ export function ProducerSidebar() {
               'w-auto object-contain transition-all duration-200',
               collapsed
                 ? 'h-12'
-                : 'h-20 drop-shadow-[0_0_8px_hsl(var(--primary)/0.15)]',
+                : 'h-20 [@media(max-height:820px)]:h-14 drop-shadow-[0_0_8px_hsl(var(--primary)/0.15)]',
             )}
           />
         </NavLink>
@@ -132,7 +133,7 @@ export function ProducerSidebar() {
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-2 mb-1">
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-2 mb-1 [@media(max-height:720px)]:hidden">
               Menu Principal
             </SidebarGroupLabel>
           )}
@@ -141,7 +142,7 @@ export function ProducerSidebar() {
 
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-2 mb-1">
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-2 mb-1 [@media(max-height:720px)]:hidden">
               Gestão
             </SidebarGroupLabel>
           )}
@@ -156,7 +157,7 @@ export function ProducerSidebar() {
 
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-2 mb-1">
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-2 mb-1 [@media(max-height:720px)]:hidden">
               Configurações
             </SidebarGroupLabel>
           )}
@@ -176,7 +177,7 @@ export function ProducerSidebar() {
                 'bg-gradient-to-br from-primary/10 via-transparent to-accent/5',
                 'hover:from-primary/15 hover:to-accent/10',
                 'border border-border/40',
-                collapsed ? 'p-2' : 'p-3',
+                collapsed ? 'p-2' : 'p-3 [@media(max-height:720px)]:p-2',
               )}
             >
               <NavLink to="/minha-conta" className="flex items-center gap-3">
@@ -230,7 +231,7 @@ export function ProducerSidebar() {
               tooltip="Sair da conta"
               onClick={handleSignOut}
               className={cn(
-                'h-11 rounded-lg transition-all duration-200',
+                'h-11 [@media(max-height:720px)]:h-9 rounded-lg transition-all duration-200',
                 'bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive',
                 'flex items-center gap-3',
                 collapsed ? 'justify-center px-2' : 'px-2',

@@ -2,6 +2,7 @@ import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, Shopping
 import { SalesChart } from '@/components/producer/SalesChart';
 import { LotSummaryCard } from '@/components/producer/LotSummaryCard';
 import { AdminFeeOverrideCard } from '@/components/producer/AdminFeeOverrideCard';
+import { CAIXA_DO_VALOR, VALOR_QUE_CABE } from '@/components/producer/valorQueCabe';
 
 interface SalesByLot {
   id: string;
@@ -111,15 +112,19 @@ export function EventOverviewTab({
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      {/* Quatro cartões lado a lado só a partir de 1280 px; abaixo disso, dois por linha e o
+          valor em reais na linha inteira: no notebook estreito o valor não cabia (OS-408). */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {statsCards.map((stat) => (
-          <GlassCard key={stat.title}>
+          <GlassCard key={stat.title} className={stat.gradient ? 'col-span-2 xl:col-span-1' : ''}>
             <div className="p-4 flex items-center gap-3">
               <div className={`p-2.5 rounded-xl ${stat.iconBg}`}>
                 <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
               </div>
-              <div className="min-w-0">
-                <p className={`text-xl md:text-2xl font-bold truncate ${stat.gradient ? 'bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent' : ''}`}>
+              {/* Valor em reais: a letra diminui até caber na caixa (cqi = largura da caixa), nunca
+                  sai cortado em nenhuma largura de tela (OS-408). Os outros números seguem como antes. */}
+              <div className={stat.gradient ? CAIXA_DO_VALOR : 'min-w-0'}>
+                <p className={`font-bold ${stat.gradient ? `${VALOR_QUE_CABE} bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent` : 'text-xl md:text-2xl truncate'}`}>
                   {stat.value}
                 </p>
                 <p className="text-[11px] md:text-xs text-muted-foreground">{stat.title}</p>

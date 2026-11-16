@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { Search, Download, CheckCircle, Clock, XCircle, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Search, Download, CheckCircle, Clock, XCircle, Users, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ParticipantListItem } from '@/components/producer/ParticipantListItem';
-import { useEventParticipants, Ticket } from '@/hooks/useEventParticipants';
+import { useEventParticipantsPage, useMudarIngresso, Ticket } from '@/hooks/useEventParticipants';
+import { useEventTotals } from '@/hooks/useEventOrders';
+import { lerTodosOsIngressos, type SituacaoIngresso } from '@/lib/painelDoEvento';
+import { mensagemDeErro } from '@/lib/painelDoProdutor';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventParticipantsTabProps {
@@ -21,22 +25,96 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
   );
 }
 
+const formatNumero = (n: number) => new Intl.NumberFormat('pt-BR').format(n);
+
+/** Espera a pessoa parar de digitar antes de perguntar ao banco. */
+function useDigitado(valor: string, ms = 350) {
+  const [firme, setFirme] = useState(valor);
+  useEffect(() => {
+    const t = setTimeout(() => setFirme(valor), ms);
+    return () => clearTimeout(t);
+  }, [valor, ms]);
+  return firme;
+}
+
+const renderEmpty = (msg: string) => (
+  <GlassCard>
+    <div className="py-12 text-center text-sm text-muted-foreground">{msg}</div>
+  </GlassCard>
+);
+
+/** Uma aba da lista: 50 ingressos por vez, situação e busca filtradas no banco (OS-408). */
+function ListaDeIngressos({ eventId, situacao, busca, vazio, onUpdateStatus }: {
+  eventId: string; situacao: SituacaoIngresso; busca: string; vazio: string;
+  onUpdateStatus: (ticketId: string, status: Ticket['status']) => void;
+}) {
+  const { tickets, total, temMais, carregarMais, carregandoMais, isLoading, error } = useEventParticipantsPage(eventId, { situacao, busca });
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
+      </div>
+    );
+  }
+  if (error) return renderEmpty(mensagemDeErro(error));
+  if (tickets.length === 0) return renderEmpty(busca ? 'Nenhum participante encontrado.' : vazio);
+  return (
+    <>
+      {tickets.map((ticket) => (
+        <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={onUpdateStatus} />
+      ))}
+      {temMais && (
+        <div className="flex flex-col items-center gap-2 pt-2">
+          <p className="text-xs text-muted-foreground">Mostrando {formatNumero(tickets.length)} de {formatNumero(total)}</p>
+          <Button variant="outline" className="rounded-xl" onClick={() => carregarMais()} disabled={carregandoMais}>
+            {carregandoMais && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Carregar mais
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+const ABAS: { value: SituacaoIngresso; vazio: string }[] = [
+  { value: 'todos', vazio: 'Nenhum ingresso vendido ainda.' },
+  { value: 'validos', vazio: 'Ninguém esperando para entrar.' },
+  { value: 'usados', vazio: 'Ninguém entrou ainda.' },
+  { value: 'cancelados', vazio: 'Nenhum ingresso cancelado.' },
+];
+
+const classeDaAba = 'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white';
+
 export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const { tickets, validTickets, usedTickets, cancelledTickets, isLoading, updateTicketStatus } = useEventParticipants(eventId);
+  const busca = useDigitado(searchQuery);
+  const [situacao, setSituacao] = useState<SituacaoIngresso>('todos');
+  const [exportando, setExportando] = useState(false);
+  // Os números dos cartões e das abas vêm do banco (OS-408): não dependem da página carregada.
+  const { data: totais, isLoading, error: erroDosTotais } = useEventTotals(eventId);
+  const updateTicketStatus = useMudarIngresso(eventId);
 
   const handleUpdateStatus = (ticketId: string, status: Ticket['status']) => {
     updateTicketStatus.mutate({ ticketId, status });
   };
 
-  const filterTickets = (ticketList: Ticket[]) => {
-    if (!searchQuery) return ticketList;
-    const query = searchQuery.toLowerCase();
-    return ticketList.filter(ticket =>
-      ticket.holder_name.toLowerCase().includes(query) ||
-      ticket.holder_email?.toLowerCase().includes(query) ||
-      ticket.ticket_code.toLowerCase().includes(query)
-    );
+  // "Exportar Lista" traz TODOS os participantes, lidos em blocos de 500 até acabar.
+  const exportar = async () => {
+    setExportando(true);
+    try {
+      const tickets = await lerTodosOsIngressos(eventId, { situacao: 'todos' });
+      if (tickets.length === 0) return;
+      const headers = ['Nome', 'Email', 'Telefone', 'Código', 'Status', 'Data'];
+      const rows = tickets.map(t => [t.holder_name, t.holder_email || '', t.holder_phone || '', t.ticket_code, t.status, new Date(t.created_at).toLocaleDateString('pt-BR')]);
+      const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'participantes.csv'; a.click(); URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(mensagemDeErro(e));
+    } finally {
+      setExportando(false);
+    }
   };
 
   if (isLoading) {
@@ -49,21 +127,19 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
     );
   }
 
+  const n = (v: number | undefined) => (v == null ? '—' : formatNumero(v));
   const stats = [
-    { label: 'Total de Ingressos', value: tickets?.length || 0, icon: Users, iconBg: 'bg-primary/15', iconColor: 'text-primary' },
-    { label: 'Ainda não entraram', value: validTickets?.length || 0, icon: Clock, iconBg: 'bg-blue-500/15', iconColor: 'text-blue-400' },
-    { label: 'Entraram', value: usedTickets?.length || 0, icon: CheckCircle, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
-    { label: 'Cancelados', value: cancelledTickets?.length || 0, icon: XCircle, iconBg: 'bg-red-500/15', iconColor: 'text-red-400' },
+    { label: 'Total de Ingressos', value: n(totais?.ingressos), icon: Users, iconBg: 'bg-primary/15', iconColor: 'text-primary' },
+    { label: 'Ainda não entraram', value: n(totais?.ingressos_validos), icon: Clock, iconBg: 'bg-blue-500/15', iconColor: 'text-blue-400' },
+    { label: 'Entraram', value: n(totais?.ingressos_usados), icon: CheckCircle, iconBg: 'bg-emerald-500/15', iconColor: 'text-emerald-400' },
+    { label: 'Cancelados', value: n(totais?.ingressos_cancelados), icon: XCircle, iconBg: 'bg-red-500/15', iconColor: 'text-red-400' },
   ];
-
-  const renderEmpty = (msg: string) => (
-    <GlassCard>
-      <div className="py-12 text-center text-sm text-muted-foreground">{msg}</div>
-    </GlassCard>
-  );
 
   return (
     <div className="space-y-6">
+      {/* Sem os totais, os cartões mostram "—" e dizem por quê (a lista e o Exportar seguem). */}
+      {erroDosTotais && <p className="text-sm text-destructive">{mensagemDeErro(erroDosTotais)}</p>}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {stats.map((s) => (
@@ -95,70 +171,37 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
         <Button
           variant="outline"
           className="h-11 rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
-          onClick={() => {
-            if (!tickets || tickets.length === 0) return;
-            const headers = ['Nome', 'Email', 'Telefone', 'Código', 'Status', 'Data'];
-            const rows = tickets.map(t => [t.holder_name, t.holder_email || '', t.holder_phone || '', t.ticket_code, t.status, new Date(t.created_at).toLocaleDateString('pt-BR')]);
-            const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'participantes.csv'; a.click(); URL.revokeObjectURL(url);
-          }}
+          onClick={exportar}
+          disabled={exportando || totais?.ingressos === 0}
         >
-          <Download className="h-4 w-4 mr-2" />
+          {exportando ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
           Exportar Lista
         </Button>
       </div>
 
       {/* Participants Tabs — scrollable horizontally on mobile */}
-      <Tabs defaultValue="all">
+      <Tabs value={situacao} onValueChange={(v) => setSituacao(v as SituacaoIngresso)}>
         <TabsList className="grid grid-cols-4 sm:flex w-full gap-1 p-1 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
-          <TabsTrigger value="all" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-            Todos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{tickets?.length || 0}</Badge>
+          <TabsTrigger value="todos" className={classeDaAba}>
+            Todos <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{n(totais?.ingressos)}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="valid" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm text-center data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
+          <TabsTrigger value="validos" className={`${classeDaAba} text-center`}>
             <span className="leading-tight">Ainda não<br className="sm:hidden"/> entraram</span>
-            <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{validTickets?.length || 0}</Badge>
+            <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{n(totais?.ingressos_validos)}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="used" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-            Entraram <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{usedTickets?.length || 0}</Badge>
+          <TabsTrigger value="usados" className={classeDaAba}>
+            Entraram <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{n(totais?.ingressos_usados)}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="cancelled" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl px-2 sm:px-3 py-2 text-[11px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-pink-500 data-[state=active]:text-white">
-            Cancelados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{cancelledTickets?.length || 0}</Badge>
+          <TabsTrigger value="cancelados" className={classeDaAba}>
+            Cancelados <Badge variant="secondary" className="bg-background/50 text-[10px] sm:text-xs px-1.5">{n(totais?.ingressos_cancelados)}</Badge>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="mt-4 space-y-3">
-          {filterTickets(tickets || []).length === 0
-            ? renderEmpty(searchQuery ? 'Nenhum participante encontrado.' : 'Nenhum ingresso vendido ainda.')
-            : filterTickets(tickets || []).map((ticket) => (
-                <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={handleUpdateStatus} />
-              ))}
-        </TabsContent>
-
-        <TabsContent value="valid" className="mt-4 space-y-3">
-          {filterTickets(validTickets || []).length === 0
-            ? renderEmpty('Ninguém esperando para entrar.')
-            : filterTickets(validTickets || []).map((ticket) => (
-                <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={handleUpdateStatus} />
-              ))}
-        </TabsContent>
-
-        <TabsContent value="used" className="mt-4 space-y-3">
-          {filterTickets(usedTickets || []).length === 0
-            ? renderEmpty('Ninguém entrou ainda.')
-            : filterTickets(usedTickets || []).map((ticket) => (
-                <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={handleUpdateStatus} />
-              ))}
-        </TabsContent>
-
-        <TabsContent value="cancelled" className="mt-4 space-y-3">
-          {filterTickets(cancelledTickets || []).length === 0
-            ? renderEmpty('Nenhum ingresso cancelado.')
-            : filterTickets(cancelledTickets || []).map((ticket) => (
-                <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={handleUpdateStatus} />
-              ))}
-        </TabsContent>
+        {ABAS.map((a) => (
+          <TabsContent key={a.value} value={a.value} className="mt-4 space-y-3">
+            <ListaDeIngressos eventId={eventId} situacao={a.value} busca={busca} vazio={a.vazio} onUpdateStatus={handleUpdateStatus} />
+          </TabsContent>
+        ))}
       </Tabs>
     </div>
   );

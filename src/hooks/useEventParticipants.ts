@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { mensagemDeErro } from '@/lib/painelDoProdutor';
+import { POR_PAGINA, semRepetido, lerPaginaDeIngressos, lerTodosOsIngressos, type FiltroIngressos } from '@/lib/painelDoEvento';
 
 export interface Ticket {
   id: string;
@@ -44,41 +45,14 @@ function mensagemDoErro(bruta: string | undefined): string {
   return 'Não deu para mudar o ingresso. Tente de novo.';
 }
 
-export function useEventParticipants(eventId: string | undefined) {
+/**
+ * Check-in, desfazer e cancelar um ingresso. O produtor não escreve mais na tabela de
+ * ingressos (OS-265): tudo passa pela função da casa, que confere o dono do evento e só
+ * aceita essas três passagens. Ingresso cancelado não volta.
+ */
+export function useMudarIngresso(eventId: string | undefined) {
   const queryClient = useQueryClient();
-
-  const { data: tickets, isLoading, error } = useQuery({
-    queryKey: ['event-participants', eventId],
-    queryFn: async () => {
-      if (!eventId) return [];
-      
-      const { data, error } = await supabase
-        .from('tickets')
-        .select(`
-          *,
-          lot:event_lots(name, price, group_ticket_enabled, group_ticket_quantity),
-          order:orders(status)
-        `)
-        .eq('event_id', eventId)
-        // Apenas tickets de quem efetivamente comprou (exclui pending)
-        .in('status', ['valid', 'used', 'cancelled'])
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      // Ingresso de tentativa (PIX que venceu ou cartão recusado) não é ingresso
-      // cancelado: o comprador nunca pagou. Só aparece o de pedido pago, reembolsado
-      // ou cancelado de verdade (OS-155).
-      return (data as Ticket[]).filter(
-        (t) => !(t.status === 'cancelled' && t.order && ['expired', 'failed'].includes(t.order.status)),
-      );
-    },
-    enabled: !!eventId,
-  });
-
-  // O produtor não escreve mais na tabela de ingressos (OS-265): check-in,
-  // desfazer o check-in e cancelar passam pela função da casa, que confere o
-  // dono do evento e só aceita essas três passagens. Ingresso cancelado não volta.
-  const updateTicketStatus = useMutation({
+  return useMutation({
     mutationFn: async ({ ticketId, status }: { ticketId: string; status: Ticket['status'] }) => {
       const acao = ACAO_POR_STATUS[status];
       if (!acao) throw new Error('Essa mudança não é permitida neste ingresso.');
@@ -98,12 +72,60 @@ export function useEventParticipants(eventId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['event-participants', eventId] });
+      // Tudo o que o evento mostra a partir dos ingressos (OS-408): os totais ("Entraram",
+      // "Cancelados", ocupação), a receita por lote e o gráfico por dia moram em
+      // ['event-orders', evento, ...]; os vendidos por lote, em ['lot-sales', ...].
+      queryClient.invalidateQueries({ queryKey: ['event-orders', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['lot-sales'] });
       toast.success('Status do ingresso atualizado!');
     },
     onError: (error: Error) => {
       toast.error(mensagemDeErro(error, 'Erro ao atualizar ingresso'));
     },
   });
+}
+
+/**
+ * Participantes em PÁGINAS de 50 (OS-408, etapa 4): a situação e a busca são filtradas
+ * no banco, com a mesma regra de antes (ingresso de tentativa não paga não aparece).
+ */
+export function useEventParticipantsPage(eventId: string | undefined, filtro: FiltroIngressos = { situacao: 'todos' }) {
+  const termo = (filtro.busca || '').trim();
+  const consulta = useInfiniteQuery({
+    queryKey: ['event-participants', eventId, 'pagina', filtro.situacao, termo],
+    queryFn: ({ pageParam }) =>
+      lerPaginaDeIngressos(eventId as string, { situacao: filtro.situacao, busca: termo }, pageParam, pageParam + POR_PAGINA - 1),
+    initialPageParam: 0,
+    getNextPageParam: (ultima, todas) => {
+      const lidas = todas.reduce((s, p) => s + p.linhas.length, 0);
+      return ultima.linhas.length > 0 && lidas < ultima.total ? lidas : undefined;
+    },
+    enabled: !!eventId,
+  });
+  const paginas = consulta.data?.pages ?? [];
+  return {
+    tickets: semRepetido(paginas.flatMap((p) => p.linhas)),
+    total: paginas.length ? paginas[paginas.length - 1].total : 0,
+    temMais: !!consulta.hasNextPage,
+    carregarMais: () => consulta.fetchNextPage(),
+    carregandoMais: consulta.isFetchingNextPage,
+    isLoading: consulta.isLoading,
+    error: consulta.error,
+  };
+}
+
+/**
+ * A lista INTEIRA de participantes (lida em blocos de 500, nunca cortada pelo teto).
+ * Hoje só a aba de check-in antiga usa (fora do painel desde 20/08); as telas do painel
+ * usam a página acima.
+ */
+export function useEventParticipants(eventId: string | undefined) {
+  const { data: tickets, isLoading, error } = useQuery({
+    queryKey: ['event-participants', eventId, 'tudo'],
+    queryFn: () => lerTodosOsIngressos(eventId as string, { situacao: 'todos' }),
+    enabled: !!eventId,
+  });
+  const updateTicketStatus = useMudarIngresso(eventId);
 
   const validTickets = tickets?.filter(t => t.status === 'valid') || [];
   const usedTickets = tickets?.filter(t => t.status === 'used') || [];
