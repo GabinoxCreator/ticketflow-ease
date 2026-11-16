@@ -82,12 +82,18 @@ export function montarTexto(c: Caso): string {
 
   // A regra que o sistema aplicou, dita em uma linha: quem aprova confere sem
   // abrir a Política.
+  // As mesmas três frases da tela do admin (AdminReembolsos.tsx): a casa lê o
+  // aviso e a tela e tem de achar a mesma regra. Quem decide `devolve_taxa` é
+  // `reembolso_regra`: a taxa volta quando o pedido sai até o fim do 7º dia da
+  // compra; depois disso, só o ingresso.
   const janela = r.regra?.janela === 'arrependimento'
     ? 'Desistência dentro dos 7 dias da compra'
-    : 'Fora dos 7 dias, pedido até 48h antes do evento';
+    : r.devolve_taxa
+      ? 'Pedido até 48h antes do evento, dentro dos 7 dias da compra'
+      : 'Fora dos 7 dias, pedido até 48h antes do evento';
   linhas.push(`Regra: ${janela}.`);
   if (r.devolve_taxa) {
-    linhas.push(`Comprou com a Política antiga: a taxa volta junto (${dinheiro(r.valor_ingressos)} de ingresso + ${dinheiro(r.valor_taxa)} de taxa).`);
+    linhas.push(`Taxa de serviço volta: desistiu nos 7 dias da compra (${dinheiro(r.valor_ingressos)} de ingresso + ${dinheiro(r.valor_taxa)} de taxa).`);
   } else {
     linhas.push(`Volta só o valor do ingresso. A taxa de serviço (${dinheiro(r.valor_taxa)}) fica.`);
   }
