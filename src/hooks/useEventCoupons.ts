@@ -25,6 +25,16 @@ export interface CouponFormData {
   is_active?: boolean;
 }
 
+// OS-420: o banco recusa cupom com o mesmo código de outro do evento, mesmo que
+// a diferença seja só espaço ou acento ("PACHA 10" e "PACHÁ10"), com o erro
+// 23505 (o gatilho `event_coupons_trava_duplicata` e o índice único).
+const FRASE_DUPLICADO = 'Já existe um cupom com esse código neste evento.';
+
+function mensagemDoErro(e: any): string {
+  if (e?.code === '23505') return FRASE_DUPLICADO;
+  return e?.message || 'tente de novo';
+}
+
 export function useEventCoupons(eventId: string | undefined) {
   const qc = useQueryClient();
 
@@ -63,7 +73,10 @@ export function useEventCoupons(eventId: string | undefined) {
       qc.invalidateQueries({ queryKey: ['event-coupons', eventId] });
       toast.success('Cupom criado com sucesso!');
     },
-    onError: (e: Error) => toast.error(`Erro ao criar cupom: ${e.message}`),
+    onError: (e: any) => {
+      const msg = mensagemDoErro(e);
+      toast.error(msg === FRASE_DUPLICADO ? msg : `Erro ao criar cupom: ${msg}`);
+    },
   });
 
   const updateCoupon = useMutation({
@@ -83,7 +96,10 @@ export function useEventCoupons(eventId: string | undefined) {
       qc.invalidateQueries({ queryKey: ['event-coupons', eventId] });
       toast.success('Cupom atualizado!');
     },
-    onError: (e: Error) => toast.error(`Erro ao atualizar: ${e.message}`),
+    onError: (e: any) => {
+      const msg = mensagemDoErro(e);
+      toast.error(msg === FRASE_DUPLICADO ? msg : `Erro ao atualizar: ${msg}`);
+    },
   });
 
   const deleteCoupon = useMutation({
