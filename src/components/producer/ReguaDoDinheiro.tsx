@@ -23,7 +23,40 @@ import { formatBRL } from '@/lib/painelDoProdutor';
  * (o `juro`, que vem de `interest`) passou a ter duas partes: o custo do cartão e
  * essa taxa. A régua não separa as duas porque o banco não devolve a taxa absorvida
  * ao painel; separar aqui seria refazer a conta do repasse no navegador.
+ *
+ * Taxa do dinheiro (OS-416, 16/11/2026): numa venda em dinheiro na maquininha o
+ * produtor fica com tudo o que o comprador pagou, inclusive a parte que é da FestPag (no lote normal,
+ * a taxa do comprador, OS-412; no lote "Sem taxa", a taxa paga por ele, OS-426). Essa
+ * taxa entra em "Recebido direto por você" (o que ele tem na mão) e sai de "A receber
+ * da FestPag". Assim a conta de baixo continua fechando sem linha nova. Quando ela
+ * passa do que a FestPag ainda tinha a transferir, "A receber" fica negativo e a
+ * frase diz quanto ele deve (decisão do Gabriel de 16/11, "Mostrar aos dois"). As
+ * frases só aparecem quando houve taxa no dinheiro e moram juntas em
+ * `FRASES_DA_TAXA_DO_DINHEIRO`.
  */
+
+/**
+ * As frases da taxa do dinheiro (OS-416), todas aprovadas pelo Gabriel em 16/11/2026:
+ * A e B ("Aprovar as duas", com "taxa das vendas em dinheiro" pelo "Trocar nas duas",
+ * porque no lote "Sem taxa" quem paga a taxa é o produtor), a frase da dívida
+ * ("Número negativo + frase") e, quando a dívida passa da taxa do dinheiro (parte dela
+ * vem de outra coisa, como reembolso depois do repasse), a que separa ("Frase que
+ * separa"). "Taxa das vendas em dinheiro" é só a da maquininha ("Só a maquininha").
+ */
+const FRASES_DA_TAXA_DO_DINHEIRO = {
+  recebidoDireto: (taxa: number) =>
+    ` Inclui ${formatBRL(taxa)} de taxa das vendas em dinheiro, que é da FestPag e sai do que você tem a receber.`,
+  aReceber: (taxa: number) =>
+    ` Já descontamos aqui os ${formatBRL(taxa)} de taxa das vendas em dinheiro, que ficou com você.`,
+  /**
+   * No lugar da frase inteira do "A receber" quando ele dá negativo. Dívida até a
+   * taxa do dinheiro: ela é a causa. Dívida maior: a frase diz que é só uma parte.
+   */
+  divida: (deve: number, taxa: number) =>
+    deve <= taxa + 0.005
+      ? `Você deve ${formatBRL(deve)} à FestPag. A taxa das vendas em dinheiro (${formatBRL(taxa)}) ficou com você e passou do que ainda tínhamos para transferir.`
+      : `Você deve ${formatBRL(deve)} à FestPag. Parte disso é a taxa das vendas em dinheiro (${formatBRL(taxa)}), que ficou com você.`,
+};
 
 export interface NumerosDaRegua {
   /**
@@ -39,9 +72,27 @@ export interface NumerosDaRegua {
    * quem compra, e, nos lotes "Sem taxa", a taxa de serviço paga pelo produtor.
    */
   juro?: number;
-  /** Venda manual e dinheiro: o produtor recebeu na mão, não passou pela FestPag. */
+  /**
+   * Venda manual e dinheiro: o produtor recebeu na mão, não passou pela FestPag. No
+   * dinheiro, inclui a taxa das vendas em dinheiro (OS-416).
+   */
   recebidoDireto: number;
-  /** O que a FestPag ainda vai transferir. null = não deu para saber (mostra "—"). */
+  /**
+   * Taxa das vendas em dinheiro na maquininha (OS-416): está em "Recebido direto" e
+   * sai de "A receber". Só serve para as frases; 0 ou ausente = não aparecem.
+   */
+  taxaDoDinheiro?: number;
+  /**
+   * Parte da taxa do dinheiro que já saiu do "A receber" mostrado (frase B). Ausente =
+   * `taxaDoDinheiro`. No total do Financeiro é só a dos eventos que não estão devendo:
+   * cada evento é uma conta, e a dívida de um não abate o saldo de outro.
+   */
+  taxaNoAReceber?: number;
+  /**
+   * O que a FestPag ainda vai transferir. null = não deu para saber (mostra "—").
+   * Negativo = o produtor deve à FestPag (só num evento com taxa no dinheiro; o total
+   * do Financeiro soma só o que dá para sacar).
+   */
   aReceber: number | null;
   /** Repasses já transferidos. null = não deu para saber (mostra "—"). */
   jaPago: number | null;
@@ -72,14 +123,25 @@ const LINHAS = (n: NumerosDaRegua) => [
     chave: 'direto',
     rotulo: 'Recebido direto por você',
     numero: n.recebidoDireto,
-    dica: 'Venda manual e dinheiro. Não passou pela FestPag.',
+    dica:
+      'Venda manual e dinheiro. Não passou pela FestPag.' +
+      (n.taxaDoDinheiro && n.taxaDoDinheiro > 0 ? FRASES_DA_TAXA_DO_DINHEIRO.recebidoDireto(n.taxaDoDinheiro) : ''),
     icone: Hand,
   },
   {
     chave: 'receber',
     rotulo: 'A receber da FestPag',
     numero: n.aReceber,
-    dica: 'O que a FestPag ainda vai transferir para você.',
+    dica:
+      // Negativo só existe com taxa no dinheiro (useProducerFinance): é dívida.
+      n.aReceber != null && n.aReceber < 0 && n.taxaDoDinheiro && n.taxaDoDinheiro > 0
+        ? FRASES_DA_TAXA_DO_DINHEIRO.divida(-n.aReceber, n.taxaDoDinheiro)
+        : 'O que a FestPag ainda vai transferir para você.' +
+          // Sem o número (membro da produtora que não é o dono vê "—"), a frase não diz
+          // que "já descontamos aqui": não há "aqui" na tela.
+          (n.aReceber != null && (n.taxaNoAReceber ?? n.taxaDoDinheiro ?? 0) > 0
+            ? FRASES_DA_TAXA_DO_DINHEIRO.aReceber(n.taxaNoAReceber ?? n.taxaDoDinheiro)
+            : ''),
     icone: Banknote,
   },
   {

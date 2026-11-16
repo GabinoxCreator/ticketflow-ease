@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type PlatformNet = { gross: number; mpCost: number; net: number };
+/**
+ * `gross` e `net`: taxa que está na mão da FestPag. `cashFee` (OS-416): taxa das
+ * vendas em dinheiro na maquininha, que ficou com o produtor e sai do repasse dele.
+ */
+export type PlatformNet = { gross: number; mpCost: number; net: number; cashFee: number };
 
 export function useAdminPlatformNet() {
   return useQuery({
@@ -14,6 +18,7 @@ export function useAdminPlatformNet() {
         gross: Number(obj.gross) || 0,
         mpCost: Number(obj.mpCost) || 0,
         net: Number(obj.net) || 0,
+        cashFee: Number(obj.cashFee) || 0,
       };
     },
   });

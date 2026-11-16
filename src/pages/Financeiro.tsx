@@ -49,9 +49,10 @@ const PAYOUT_ERROR_MESSAGES: Record<string, string> = {
 };
 
 const formatBRL = (v: number) => {
-  const [intPart, fracPart] = v.toFixed(2).split('.');
+  // Negativo (OS-416: o produtor deve à FestPag) sai "-R$ 77,80", como na régua.
+  const [intPart, fracPart] = Math.abs(v).toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `R$\u00A0${intWithDots},${fracPart}`;
+  return `${v < 0 && Math.abs(v) >= 0.005 ? '-' : ''}R$\u00A0${intWithDots},${fracPart}`;
 };
 
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
@@ -240,6 +241,8 @@ export default function Financeiro() {
                   taxaDoComprador: finance?.totals.fee || 0,
                   juro: finance?.totals.interest || 0,
                   recebidoDireto: finance?.totals.receivedDirectly || 0,
+                  taxaDoDinheiro: finance?.totals.cashFee || 0,
+                  taxaNoAReceber: finance?.totals.cashFeeNoAReceber || 0,
                   aReceber: finance ? finance.totals.available : null,
                   jaPago: finance ? finance.totals.paidOut : null,
                 }}
