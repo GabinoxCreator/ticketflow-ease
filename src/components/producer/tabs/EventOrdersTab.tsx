@@ -9,7 +9,10 @@ import { OrderListItem } from '@/components/producer/OrderListItem';
 import { OrderDetailDrawer } from '@/components/producer/OrderDetailDrawer';
 import { useEventOrders, useEventTotals, useTentativasDoEvento, Order } from '@/hooks/useEventOrders';
 import { reasonOf } from '@/lib/orderAttempts';
-import { lerTodosOsPedidos, POR_PAGINA, type SituacaoPedido } from '@/lib/painelDoEvento';
+import { lerTodosOsPedidos, POR_PAGINA, temFiltroDoPedido, type SituacaoPedido, type FiltrosDoPedido } from '@/lib/painelDoEvento';
+import { FiltrosDoPedidoBarra } from '@/components/producer/FiltrosDaLista';
+import { useEventLots } from '@/hooks/useEventLots';
+import { useEventCoupons } from '@/hooks/useEventCoupons';
 import { mensagemDeErro } from '@/lib/painelDoProdutor';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CAIXA_DO_VALOR, VALOR_QUE_CABE } from '@/components/producer/valorQueCabe';
@@ -49,23 +52,26 @@ const renderEmpty = (msg: string) => (
   </GlassCard>
 );
 
-function CarregarMais({ mostrando, total, onClick, carregando }: { mostrando: number; total: number; onClick: () => void; carregando: boolean }) {
+function CarregarMais({ mostrando, total, onClick, carregando, temMais = true }: { mostrando: number; total: number; onClick: () => void; carregando: boolean; temMais?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-2 pt-2">
       <p className="text-xs text-muted-foreground">Mostrando {formatNumero(mostrando)} de {formatNumero(total)}</p>
-      <Button variant="outline" className="rounded-xl" onClick={onClick} disabled={carregando}>
-        {carregando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-        Carregar mais
-      </Button>
+      {temMais && (
+        <Button variant="outline" className="rounded-xl" onClick={onClick} disabled={carregando}>
+          {carregando && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Carregar mais
+        </Button>
+      )}
     </div>
   );
 }
 
 /** Uma aba da lista: 50 pedidos por vez, situação e busca filtradas no banco (OS-408). */
-function ListaDePedidos({ eventId, situacao, busca, vazio, onSelect }: {
-  eventId: string; situacao: SituacaoPedido; busca: string; vazio: string; onSelect: (o: Order) => void;
+function ListaDePedidos({ eventId, situacao, busca, filtros, vazio, onSelect }: {
+  eventId: string; situacao: SituacaoPedido; busca: string; filtros: FiltrosDoPedido; vazio: string; onSelect: (o: Order) => void;
 }) {
-  const { orders, total, temMais, carregarMais, carregandoMais, isLoading, error, updateOrderStatus } = useEventOrders(eventId, { situacao, busca });
+  const { orders, total, temMais, carregarMais, carregandoMais, isLoading, error, updateOrderStatus } = useEventOrders(eventId, { ...filtros, situacao, busca });
+  const filtrado = temFiltroDoPedido(filtros);
   const handleUpdateStatus = (orderId: string, status: Order['status']) => updateOrderStatus.mutate({ orderId, status });
 
   if (isLoading) {
@@ -76,22 +82,24 @@ function ListaDePedidos({ eventId, situacao, busca, vazio, onSelect }: {
     );
   }
   if (error) return renderEmpty(mensagemDeErro(error));
-  if (orders.length === 0) return renderEmpty(busca ? 'Nenhum pedido encontrado com esses termos.' : vazio);
+  if (orders.length === 0) return renderEmpty(busca ? 'Nenhum pedido encontrado com esses termos.' : filtrado ? 'Nenhum pedido com esses filtros.' : vazio);
   return (
     <>
       {orders.map((order) => (
         <OrderListItem key={order.id} order={order} onSelect={onSelect} onUpdateStatus={handleUpdateStatus} />
       ))}
-      {temMais && <CarregarMais mostrando={orders.length} total={total} onClick={carregarMais} carregando={carregandoMais} />}
+      {/* Com filtro, a contagem aparece sempre (quantos pedidos o filtro achou no banco). */}
+      {(temMais || filtrado) && <CarregarMais mostrando={orders.length} total={total} onClick={carregarMais} carregando={carregandoMais} temMais={temMais} />}
     </>
   );
 }
 
 /** "Não concluídos": compara TODAS as tentativas com TODOS os pagos (lidos em blocos). */
-function Tentativas({ eventId, busca, onSelect }: { eventId: string; busca: string; onSelect: (o: Order) => void }) {
-  const { data, isLoading, error } = useTentativasDoEvento(eventId, true);
+function Tentativas({ eventId, busca, filtros, onSelect }: { eventId: string; busca: string; filtros: FiltrosDoPedido; onSelect: (o: Order) => void }) {
+  const { data, isLoading, error } = useTentativasDoEvento(eventId, true, filtros);
   const [mostrar, setMostrar] = useState(POR_PAGINA);
-  useEffect(() => setMostrar(POR_PAGINA), [busca]);
+  useEffect(() => setMostrar(POR_PAGINA), [busca, filtros]);
+  const filtrado = temFiltroDoPedido(filtros);
 
   const q = busca.trim().toLowerCase();
   const casa = (nome?: string | null, email?: string | null, fone?: string | null) =>
@@ -149,12 +157,12 @@ function Tentativas({ eventId, busca, onSelect }: { eventId: string; busca: stri
         <>
           <h3 className="text-sm font-medium text-muted-foreground pt-2">Todas as tentativas</h3>
           {tentativas.length === 0
-            ? renderEmpty(q ? 'Nenhum pedido encontrado com esses termos.' : 'Nenhuma tentativa sem pagamento.')
+            ? renderEmpty(q ? 'Nenhum pedido encontrado com esses termos.' : filtrado ? 'Nenhum pedido com esses filtros.' : 'Nenhuma tentativa sem pagamento.')
             : tentativas.slice(0, mostrar).map((order) => (
                 <OrderListItem key={order.id} order={order} onSelect={onSelect} boughtLater={data.boughtLater.has(order.id)} />
               ))}
-          {tentativas.length > mostrar && (
-            <CarregarMais mostrando={mostrar} total={tentativas.length} onClick={() => setMostrar((m) => m + POR_PAGINA)} carregando={false} />
+          {(tentativas.length > mostrar || (filtrado && tentativas.length > 0)) && (
+            <CarregarMais mostrando={Math.min(mostrar, tentativas.length)} total={tentativas.length} onClick={() => setMostrar((m) => m + POR_PAGINA)} carregando={false} temMais={tentativas.length > mostrar} />
           )}
         </>
       )}
@@ -175,6 +183,10 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
   const busca = useDigitado(searchQuery);
   const [situacao, setSituacao] = useState<SituacaoPedido>('todos');
   const [exportando, setExportando] = useState(false);
+  // Período, ingresso, forma de pagamento e cupom (OS-408, etapa 5): filtrados no banco.
+  const [filtros, setFiltros] = useState<FiltrosDoPedido>({});
+  const { lots } = useEventLots(eventId);
+  const { coupons } = useEventCoupons(eventId);
   // Os números dos cartões e das abas vêm do banco (OS-408): não dependem da página carregada.
   const { data: totais, isLoading: totaisCarregando, error: erroDosTotais } = useEventTotals(eventId);
 
@@ -308,6 +320,13 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
         </Button>
       </div>
 
+      <FiltrosDoPedidoBarra
+        filtros={filtros}
+        onChange={setFiltros}
+        lotes={(lots || []).map((l) => ({ id: l.id, name: l.name, sector_name: l.sector_name }))}
+        cupons={coupons.map((c) => ({ id: c.id, code: c.code }))}
+      />
+
       {/* Orders Tabs — scrollable horizontally on mobile */}
       <Tabs value={situacao} onValueChange={(v) => setSituacao(v as SituacaoPedido)}>
         <TabsList className="grid grid-cols-3 sm:flex w-full gap-1 p-1 h-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
@@ -330,12 +349,12 @@ export function EventOrdersTab({ eventId, event }: EventOrdersTabProps) {
                 </div>
               </div>
             )}
-            <ListaDePedidos eventId={eventId} situacao={a.value} busca={busca} vazio={a.vazio} onSelect={openOrder} />
+            <ListaDePedidos eventId={eventId} situacao={a.value} busca={busca} filtros={filtros} vazio={a.vazio} onSelect={openOrder} />
           </TabsContent>
         ))}
 
         <TabsContent value="nao_concluidos" className="mt-4 space-y-3">
-          <Tentativas eventId={eventId} busca={busca} onSelect={openOrder} />
+          <Tentativas eventId={eventId} busca={busca} filtros={filtros} onSelect={openOrder} />
         </TabsContent>
       </Tabs>
 

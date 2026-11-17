@@ -92,9 +92,9 @@ export function useMudarIngresso(eventId: string | undefined) {
 export function useEventParticipantsPage(eventId: string | undefined, filtro: FiltroIngressos = { situacao: 'todos' }) {
   const termo = (filtro.busca || '').trim();
   const consulta = useInfiniteQuery({
-    queryKey: ['event-participants', eventId, 'pagina', filtro.situacao, termo],
+    queryKey: ['event-participants', eventId, 'pagina', filtro.situacao, termo, filtro.loteId || ''],
     queryFn: ({ pageParam }) =>
-      lerPaginaDeIngressos(eventId as string, { situacao: filtro.situacao, busca: termo }, pageParam, pageParam + POR_PAGINA - 1),
+      lerPaginaDeIngressos(eventId as string, { situacao: filtro.situacao, busca: termo, loteId: filtro.loteId || null }, pageParam, pageParam + POR_PAGINA - 1),
     initialPageParam: 0,
     getNextPageParam: (ultima, todas) => {
       const lidas = todas.reduce((s, p) => s + p.linhas.length, 0);

@@ -39,6 +39,7 @@ import { isLotEnded, isLotSoldOut } from '@/lib/lot-availability';
 import { toast } from 'sonner';
 import { problemaDoGrupo, tamanhoDoGrupo } from '@/lib/lote-em-grupo';
 import { AcoesComNome } from '@/components/producer/AcoesComNome';
+import { CampoDataHora } from '@/components/producer/CampoDataHora';
 import { TaxaAVista } from '@/components/producer/TaxaAVista';
 
 // datetime-local não entende ISO com fuso ("2026-10-17T13:00:00+00:00");
@@ -604,7 +605,8 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading, eventId
               {formData.sales_start_type === 'scheduled' && (
                 <div className="space-y-2">
                   <Label>Data de início</Label>
-                  <Input type="datetime-local" value={formData.start_date || ''} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} />
+                  {/* Calendário e horário do projeto, como no assistente (OS-408 etapa 5, 5.9). */}
+                  <CampoDataHora nome="Data de início" valor={formData.start_date} onChange={(v) => setFormData({ ...formData, start_date: v })} />
                 </div>
               )}
 
@@ -626,7 +628,7 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading, eventId
 
               <div className="space-y-2">
                 <Label>Fim das vendas (opcional)</Label>
-                <Input type="datetime-local" value={formData.end_date || ''} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} />
+                <CampoDataHora nome="Fim das vendas" valor={formData.end_date} onChange={(v) => setFormData({ ...formData, end_date: v })} horaPadrao="23:59" rotuloVazio="Selecione (opcional)" podeLimpar />
                 <p className="text-xs text-muted-foreground">
                   Nesse horário o lote sai do site, da maquininha e da portaria. Em branco, vende até esgotar.
                 </p>

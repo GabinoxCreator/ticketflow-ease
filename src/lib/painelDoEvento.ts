@@ -29,7 +29,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Order } from '@/hooks/useEventOrders';
 import type { Ticket } from '@/hooks/useEventParticipants';
-import { computeProducerFinance } from '@/lib/producerFinance';
+import { computeProducerFinance, orderTicketNet } from '@/lib/producerFinance';
 import { attachProducerValues } from '@/lib/orderProducerValues';
 
 /** Quantas linhas cada página da tela mostra. */
@@ -39,9 +39,68 @@ export const BLOCO = 500;
 
 export type SituacaoPedido = 'todos' | 'pagos' | 'pendentes' | 'cancelados' | 'nao_concluidos';
 export type SituacaoIngresso = 'todos' | 'validos' | 'usados' | 'cancelados';
+export type FormaDoPedido = 'pix' | 'cartao' | 'dinheiro' | 'cortesia';
 
-export interface FiltroPedidos { situacao: SituacaoPedido; busca?: string }
-export interface FiltroIngressos { situacao: SituacaoIngresso; busca?: string }
+/**
+ * Filtros da lista de pedidos (OS-408, etapa 5, item 5.4): período, ingresso (lote),
+ * forma de pagamento e cupom. Rodam NO BANCO, como filtros da API por cima da lista
+ * (da função `painel_evento_pedidos` ou, sem ela, da tabela): a página de 50 e a
+ * contagem já vêm filtradas. Nenhuma função nova.
+ */
+export interface FiltrosDoPedido {
+  /** Começo do período (instante ISO, inclusive). */
+  de?: string | null;
+  /** Fim do período (instante ISO, exclusive: o começo do dia seguinte ao último). */
+  ate?: string | null;
+  loteId?: string | null;
+  forma?: FormaDoPedido | null;
+  cupomId?: string | null;
+}
+export interface FiltroPedidos extends FiltrosDoPedido { situacao: SituacaoPedido; busca?: string }
+/** Participantes: situação, busca e o ingresso (lote), item 5.5. */
+export interface FiltroIngressos { situacao: SituacaoIngresso; busca?: string; loteId?: string | null }
+
+/**
+ * Forma de pagamento → filtro da API. O banco guarda a forma de vários jeitos (ver
+ * `formaDePagamento` em painelDoProdutor.ts): 'pix' e 'pix:<id>' (Mercado Pago antigo),
+ * 'card', 'card_credit', 'card_debit', 'card:<id>', 'credit_card' (site e maquininha),
+ * 'cash' (maquininha) e, na venda manual, `payment_method='manual'` com a forma em
+ * `manual_payment_method` ('pix', 'dinheiro', 'cartao'...). Cortesia é pela origem.
+ */
+export const FORMA_NO_BANCO: Record<Exclude<FormaDoPedido, 'cortesia'>, string> = {
+  pix: 'payment_method.like.pix*,manual_payment_method.eq.pix',
+  cartao: 'payment_method.like.card*,payment_method.in.(credit_card,debit_card),manual_payment_method.like.cart*,manual_payment_method.like.card*,manual_payment_method.in.(credit_card,debit_card)',
+  dinheiro: 'payment_method.in.(cash,dinheiro),manual_payment_method.in.(dinheiro,cash)',
+};
+
+export const temFiltroDoPedido = (f: FiltrosDoPedido) => !!(f.de || f.ate || f.loteId || f.forma || f.cupomId);
+
+/** O que entra na chave do cache (só os filtros ligados). */
+export const chaveDosFiltros = (f: FiltrosDoPedido) => [f.de || '', f.ate || '', f.loteId || '', f.forma || '', f.cupomId || ''].join('|');
+
+interface Filtravel<B> {
+  gte: (coluna: string, valor: string) => B;
+  lt: (coluna: string, valor: string) => B;
+  eq: (coluna: string, valor: string) => B;
+  or: (filtros: string) => B;
+}
+
+/** Põe os filtros do pedido na consulta (vale igual para a função e para a tabela). */
+function comFiltrosDoPedido<B>(consulta: B, f: FiltrosDoPedido): B {
+  let q = consulta as unknown as Filtravel<B>;
+  const passo = (b: B) => (q = b as unknown as Filtravel<B>);
+  if (f.de) passo(q.gte('created_at', f.de));
+  if (f.ate) passo(q.lt('created_at', f.ate));
+  if (f.cupomId) passo(q.eq('coupon_id', f.cupomId));
+  if (f.forma === 'cortesia') passo(q.eq('sale_origin', 'courtesy'));
+  else if (f.forma) passo(q.or(FORMA_NO_BANCO[f.forma]));
+  // Pedido que tem pelo menos um ingresso daquele lote (junção "inner" com os ingressos).
+  if (f.loteId) passo(q.eq('tickets.lot_id', f.loteId));
+  return q as unknown as B;
+}
+
+/** Com filtro de ingresso, o pedido traz junto o lote dos ingressos (só para filtrar). */
+const selectDoPedido = (f: FiltrosDoPedido) => (f.loteId ? `${SELECT_PEDIDO}, tickets!inner(lot_id)` : SELECT_PEDIDO);
 
 /** As mesmas situações da função do banco (migration 20261116100000). */
 const STATUS_DO_PEDIDO: Record<SituacaoPedido, string[] | null> = {
@@ -180,22 +239,27 @@ export function filtrarPedidos(lista: Order[], filtro: FiltroPedidos): Order[] {
 }
 
 const pedidosNoBanco = (eventId: string, filtro: FiltroPedidos, contar = false) =>
-  rpc<Order[]>(
-    'painel_evento_pedidos',
-    { _event_id: eventId, _situacao: filtro.situacao, _busca: termoDe(filtro.busca) ? filtro.busca!.trim() : null },
-    contar ? { count: 'exact' } : undefined,
+  comFiltrosDoPedido(
+    rpc<Order[]>(
+      'painel_evento_pedidos',
+      { _event_id: eventId, _situacao: filtro.situacao, _busca: termoDe(filtro.busca) ? filtro.busca!.trim() : null },
+      contar ? { count: 'exact' } : undefined,
+    ),
+    filtro,
   )
-    .select(SELECT_PEDIDO)
+    .select(selectDoPedido(filtro))
     .order('created_at', { ascending: false })
     .order('id', { ascending: false });
 
-/** A tabela inteira, em blocos (conta antiga, só quando a função não está no ar). */
-function lerPedidosDaTabela(eventId: string): Promise<Order[]> {
+/**
+ * A tabela inteira, em blocos (conta antiga, só quando a função não está no ar). Os
+ * filtros da etapa 5 (período, ingresso, forma, cupom) vão no próprio pedido à API, do
+ * mesmo jeito que na função; a situação e a busca são filtradas aqui (`filtrarPedidos`).
+ */
+function lerPedidosDaTabela(eventId: string, filtros: FiltrosDoPedido = {}): Promise<Order[]> {
   return lerTudoEmBlocos<Order>(
     (de, ate) =>
-      supabase
-        .from('orders')
-        .select(SELECT_PEDIDO)
+      comFiltrosDoPedido(supabase.from('orders').select(selectDoPedido(filtros)), filtros)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -209,7 +273,7 @@ export async function lerPaginaDePedidos(eventId: string, filtro: FiltroPedidos,
   if (!error) return { linhas: (data || []) as Order[], total: count ?? de + (data?.length || 0) };
   if (alemDoFim(error)) return { linhas: [], total: de };
   if (!usarContaAntiga(error)) throw erroDeLeitura(error, 'os pedidos');
-  const todos = filtrarPedidos(await lerPedidosDaTabela(eventId), filtro);
+  const todos = filtrarPedidos(await lerPedidosDaTabela(eventId, filtro), filtro);
   return { linhas: todos.slice(de, ate + 1), total: todos.length };
 }
 
@@ -219,7 +283,7 @@ export async function lerTodosOsPedidos(eventId: string, filtro: FiltroPedidos):
     return await lerTudoEmBlocos<Order>((de, ate) => pedidosNoBanco(eventId, filtro).range(de, ate), 'os pedidos', true);
   } catch (e) {
     if (!usarContaAntiga(e as { code?: string })) throw e;
-    return filtrarPedidos(await lerPedidosDaTabela(eventId), filtro);
+    return filtrarPedidos(await lerPedidosDaTabela(eventId, filtro), filtro);
   }
 }
 
@@ -242,22 +306,28 @@ export function filtrarIngressos(lista: Ticket[], filtro: FiltroIngressos): Tick
   );
 }
 
+/** Filtro do ingresso (lote), item 5.5: vale igual para a função e para a tabela. */
+function comLote<B>(consulta: B, loteId?: string | null): B {
+  return loteId ? ((consulta as unknown as Filtravel<B>).eq('lot_id', loteId)) : consulta;
+}
+
 const ingressosNoBanco = (eventId: string, filtro: FiltroIngressos, contar = false) =>
-  rpc<Ticket[]>(
-    'painel_evento_ingressos',
-    { _event_id: eventId, _situacao: filtro.situacao, _busca: termoDe(filtro.busca) ? filtro.busca!.trim() : null },
-    contar ? { count: 'exact' } : undefined,
+  comLote(
+    rpc<Ticket[]>(
+      'painel_evento_ingressos',
+      { _event_id: eventId, _situacao: filtro.situacao, _busca: termoDe(filtro.busca) ? filtro.busca!.trim() : null },
+      contar ? { count: 'exact' } : undefined,
+    ),
+    filtro.loteId,
   )
     .select(SELECT_INGRESSO)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false });
 
-function lerIngressosDaTabela(eventId: string): Promise<Ticket[]> {
+function lerIngressosDaTabela(eventId: string, loteId?: string | null): Promise<Ticket[]> {
   return lerTudoEmBlocos<Ticket>(
     (de, ate) =>
-      supabase
-        .from('tickets')
-        .select(SELECT_INGRESSO)
+      comLote(supabase.from('tickets').select(SELECT_INGRESSO), loteId)
         .eq('event_id', eventId)
         // Só quem efetivamente comprou (pendente não entra)
         .in('status', ['valid', 'used', 'cancelled'])
@@ -273,7 +343,7 @@ export async function lerPaginaDeIngressos(eventId: string, filtro: FiltroIngres
   if (!error) return { linhas: (data || []) as Ticket[], total: count ?? de + (data?.length || 0) };
   if (alemDoFim(error)) return { linhas: [], total: de };
   if (!usarContaAntiga(error)) throw erroDeLeitura(error, 'os participantes');
-  const todos = filtrarIngressos(await lerIngressosDaTabela(eventId), filtro);
+  const todos = filtrarIngressos(await lerIngressosDaTabela(eventId, filtro.loteId), filtro);
   return { linhas: todos.slice(de, ate + 1), total: todos.length };
 }
 
@@ -282,7 +352,7 @@ export async function lerTodosOsIngressos(eventId: string, filtro: FiltroIngress
     return await lerTudoEmBlocos<Ticket>((de, ate) => ingressosNoBanco(eventId, filtro).range(de, ate), 'os participantes', true);
   } catch (e) {
     if (!usarContaAntiga(e as { code?: string })) throw e;
-    return filtrarIngressos(await lerIngressosDaTabela(eventId), filtro);
+    return filtrarIngressos(await lerIngressosDaTabela(eventId, filtro.loteId), filtro);
   }
 }
 
@@ -391,4 +461,44 @@ export async function lerVendasParaContas(eventId: string): Promise<{ pagos: Ped
     pagos: (await attachProducerValues(pagosSemValor)) as PedidoPago[],
     ingressos: ingressos.filter((t) => ingressoConta(t as unknown as Ticket)),
   };
+}
+
+// ── Cupons: quanto cada um vendeu (OS-408, etapa 5, item 5.6) ────────────────
+
+export interface VendidoDoCupom {
+  /** Pedidos pagos com o cupom (cortesia não entra). */
+  pedidos: number;
+  /**
+   * "Vendido, com desconto" (decisão do Gabriel de 10/11): o valor dos ingressos sem a
+   * taxa do comprador, já com o desconto do cupom tirado, do MESMO jeito do "Vendido" da
+   * régua (o valor do ingresso para o produtor que o banco calcula, `order_producer_value`,
+   * lido por `attachProducerValues`; somado por `orderTicketNet`). Nenhuma conta nova.
+   */
+  vendido: number;
+}
+
+/** Por cupom (id): os pedidos pagos que usaram o cupom e quanto venderam. Lido em blocos. */
+export async function lerVendidoPorCupom(eventId: string): Promise<Record<string, VendidoDoCupom>> {
+  type Linha = { id: string; coupon_id: string; status: string; total_amount: number; service_fee_amount: number | null; sale_origin: string | null };
+  const pagos = await lerTudoEmBlocos<Linha>(
+    (de, ate) =>
+      supabase
+        .from('orders')
+        .select('id, coupon_id, status, total_amount, service_fee_amount, sale_origin')
+        .eq('event_id', eventId)
+        .in('status', ['paid', 'completed'])
+        .not('coupon_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(de, ate) as unknown as PromiseLike<Resposta<Linha[]>>,
+    'os pedidos com cupom',
+  );
+  const comValor = await attachProducerValues(pagos.filter((p) => p.sale_origin !== 'courtesy'));
+  const porCupom: Record<string, VendidoDoCupom> = {};
+  for (const p of comValor) {
+    const c = (porCupom[p.coupon_id] ??= { pedidos: 0, vendido: 0 });
+    c.pedidos += 1;
+    c.vendido = Math.round((c.vendido + orderTicketNet(p)) * 100) / 100;
+  }
+  return porCupom;
 }

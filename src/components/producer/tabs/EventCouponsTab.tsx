@@ -8,7 +8,8 @@ import { useEventCoupons, type EventCoupon } from '@/hooks/useEventCoupons';
 import { CouponDialog } from '@/components/producer/CouponDialog';
 import { AvisoCupomLoteSubsidiado } from './AvisoCupomLoteSubsidiado';
 import { linkDoCupom } from '@/lib/cupomDoLink';
-import { descontoDoCupom } from '@/lib/painelDoProdutor';
+import { descontoDoCupom, formatBRL } from '@/lib/painelDoProdutor';
+import { useVendidoPorCupom } from '@/hooks/useEventOrders';
 import { AcoesComNome } from '@/components/producer/AcoesComNome';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -19,6 +20,9 @@ interface Props { eventId: string; eventSlug?: string | null; }
 
 export function EventCouponsTab({ eventId, eventSlug }: Props) {
   const { coupons, isLoading, createCoupon, updateCoupon, deleteCoupon } = useEventCoupons(eventId);
+  // Quanto cada cupom vendeu (OS-408, etapa 5, item 5.6): "Vendido, com desconto", a mesma
+  // conta do "Vendido" da régua, só dos pedidos pagos que usaram o cupom.
+  const { data: vendidoPorCupom, isLoading: carregandoVendido, error: erroVendido } = useVendidoPorCupom(eventId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EventCoupon | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -84,6 +88,22 @@ export function EventCouponsTab({ eventId, eventSlug }: Props) {
                     {' · '}
                     {c.uses_count}{c.max_uses != null ? ` / ${c.max_uses}` : ''} usos
                     {c.valid_until && ` · até ${formatDate(c.valid_until)}`}
+                  </p>
+                  <p className="text-sm">
+                    {carregandoVendido ? (
+                      <span className="text-muted-foreground">Vendido: …</span>
+                    ) : erroVendido ? (
+                      <span className="text-muted-foreground">Vendido: —</span>
+                    ) : (
+                      <>
+                        <span className="text-muted-foreground">Vendido:</span>{' '}
+                        <span className="font-semibold">{formatBRL(vendidoPorCupom?.[c.id]?.vendido ?? 0)}</span>
+                        <span className="text-muted-foreground">
+                          {' · '}
+                          {vendidoPorCupom?.[c.id]?.pedidos ?? 0} {(vendidoPorCupom?.[c.id]?.pedidos ?? 0) === 1 ? 'pedido pago' : 'pedidos pagos'}
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
                 <AcoesComNome

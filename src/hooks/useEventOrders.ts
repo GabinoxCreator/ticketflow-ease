@@ -7,7 +7,10 @@ import {
   lerPaginaDePedidos,
   lerTodosOsPedidos,
   lerTotaisDoEvento,
+  lerVendidoPorCupom,
+  chaveDosFiltros,
   type FiltroPedidos,
+  type FiltrosDoPedido,
 } from '@/lib/painelDoEvento';
 
 export interface OrderReviewReason {
@@ -61,10 +64,11 @@ export interface Order {
  */
 export function useEventOrders(eventId: string | undefined, filtro: FiltroPedidos = { situacao: 'todos' }) {
   const termo = (filtro.busca || '').trim();
+  // Período, ingresso, forma de pagamento e cupom (etapa 5) também filtram no banco.
   const consulta = useInfiniteQuery({
-    queryKey: ['event-orders', eventId, 'pagina', filtro.situacao, termo],
+    queryKey: ['event-orders', eventId, 'pagina', filtro.situacao, termo, chaveDosFiltros(filtro)],
     queryFn: ({ pageParam }) =>
-      lerPaginaDePedidos(eventId as string, { situacao: filtro.situacao, busca: termo }, pageParam, pageParam + POR_PAGINA - 1),
+      lerPaginaDePedidos(eventId as string, { ...filtro, busca: termo }, pageParam, pageParam + POR_PAGINA - 1),
     initialPageParam: 0,
     getNextPageParam: (ultima, todas) => {
       const lidas = todas.reduce((s, p) => s + p.linhas.length, 0);
@@ -119,16 +123,30 @@ export function useEventTotals(eventId: string | undefined) {
  * tentativas com TODOS os pagos, então aqui se lê tudo (em blocos de 500), só quando a
  * aba é aberta.
  */
-export function useTentativasDoEvento(eventId: string | undefined, ligado: boolean) {
+export function useTentativasDoEvento(eventId: string | undefined, ligado: boolean, filtros: FiltrosDoPedido = {}) {
   return useQuery({
-    queryKey: ['event-orders', eventId, 'tentativas'],
+    queryKey: ['event-orders', eventId, 'tentativas', chaveDosFiltros(filtros)],
     queryFn: async () => {
+      // Os filtros da etapa 5 valem para as tentativas mostradas; "comprou depois"
+      // continua comparando com TODOS os pagos do evento.
       const [tentativas, pagos] = await Promise.all([
-        lerTodosOsPedidos(eventId as string, { situacao: 'nao_concluidos' }),
+        lerTodosOsPedidos(eventId as string, { ...filtros, situacao: 'nao_concluidos' }),
         lerTodosOsPedidos(eventId as string, { situacao: 'pagos' }),
       ]);
       return { tentativas, ...analyzeAttempts(tentativas, pagos) };
     },
     enabled: !!eventId && ligado,
+  });
+}
+
+/**
+ * Quanto cada cupom vendeu (etapa 5, item 5.6). Mora sob ['event-orders', evento]: uma
+ * venda, cortesia ou cancelamento que atualiza os pedidos atualiza isto junto.
+ */
+export function useVendidoPorCupom(eventId: string | undefined) {
+  return useQuery({
+    queryKey: ['event-orders', eventId, 'por-cupom'],
+    queryFn: () => lerVendidoPorCupom(eventId as string),
+    enabled: !!eventId,
   });
 }

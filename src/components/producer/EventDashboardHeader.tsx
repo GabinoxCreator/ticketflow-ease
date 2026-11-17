@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock, Globe, EyeOff, DollarSign, Ticket as TicketIcon, CalendarClock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Edit, ExternalLink, Clock, Globe, EyeOff, CalendarClock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
@@ -10,17 +10,17 @@ import { ptBR } from 'date-fns/locale';
 import { ManualSaleButton } from '@/components/producer/ManualSaleButton';
 import { CourtesyTicketsButton } from '@/components/producer/admin/CourtesyTicketsButton';
 import { TirarDoArDialog } from '@/components/producer/TirarDoArDialog';
-import { CAIXA_DO_VALOR, VALOR_QUE_CABE_PEQUENO } from '@/components/producer/valorQueCabe';
 
 interface EventDashboardHeaderProps {
   event: Event;
-  totalRevenue: number;
-  /** Pago, sem cortesia. null = contagem falhou (mostra "—"). */
-  ticketsSold: number | null;
-  courtesies?: number;
 }
 
-export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtesies = 0 }: EventDashboardHeaderProps) {
+/**
+ * Topo do evento. OS-408 etapa 5 (5.7): capa menor e SEM os números (Vendido, ingressos
+ * vendidos), que já estão na Visão Geral logo abaixo: assim as abas aparecem sem rolar no
+ * notebook. Os dias que faltam ficam numa linha da informação do evento.
+ */
+export function EventDashboardHeader({ event }: EventDashboardHeaderProps) {
   const navigate = useNavigate();
   const publishEvent = usePublishEvent();
   const unpublishEvent = useUnpublishEvent();
@@ -121,9 +121,9 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
       <div className="relative rounded-2xl border border-primary/10 bg-card/40 backdrop-blur-xl overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
-        <div className="flex flex-col md:flex-row">
-          {/* Event Image */}
-          <div className="relative w-full h-52 md:w-72 md:h-auto md:min-h-[18rem] flex-shrink-0">
+        <div className="flex flex-col sm:flex-row">
+          {/* Capa: menor (OS-408 etapa 5): no celular uma faixa baixa, no computador um quadro ao lado. */}
+          <div className="relative w-full h-28 sm:w-40 sm:h-auto md:w-48 flex-shrink-0">
             {event.image_url ? (
               <>
                 <img
@@ -131,22 +131,22 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
                   alt={event.title}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-card/80 via-card/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-card/80 via-card/20 to-transparent" />
               </>
             ) : (
-              <div className="w-full h-full bg-muted/30 flex items-center justify-center min-h-[12rem]">
+              <div className="w-full h-full bg-muted/30 flex items-center justify-center min-h-[7rem]">
                 <Calendar className="h-10 w-10 text-muted-foreground" />
               </div>
             )}
           </div>
 
           {/* Event Info */}
-          <div className="flex-1 p-5 md:p-6 min-w-0">
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="flex-1 p-4 md:p-5 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               {getStatusBadge()}
             </div>
 
-            <h1 className="text-2xl md:text-3xl font-bold mb-3 break-words">{event.title}</h1>
+            <h1 className="text-xl md:text-2xl font-bold mb-2 break-words">{event.title}</h1>
 
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground text-sm">
               <div className="flex items-center gap-1.5">
@@ -161,51 +161,14 @@ export function EventDashboardHeader({ event, totalRevenue, ticketsSold, courtes
                 <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
                 <span className="truncate">{event.venue}, {event.city}</span>
               </div>
-            </div>
-
-            {/* Quick Stats — glass mini-cards */}
-            {/* Três lado a lado só a partir de 1536 px; abaixo disso o valor em reais ocupa a linha
-                inteira: ao lado da capa ele saía cortado ("R$ 16....", "R$ 103.000,(", OS-408). */}
-            <div className="grid grid-cols-2 2xl:grid-cols-3 gap-3 mt-5">
-              <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3 col-span-2 2xl:col-span-1">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-pink-500/20">
-                  <DollarSign className="h-4 w-4 text-primary" />
-                </div>
-                <div className={CAIXA_DO_VALOR}>
-                  <p className={`${VALOR_QUE_CABE_PEQUENO} font-bold bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent`}>
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue)}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">Vendido</p>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/15">
-                  <TicketIcon className="h-4 w-4 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold">{ticketsSold ?? '—'}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Vendidos
-                    {ticketsSold != null && courtesies > 0 && (
-                      <> · {courtesies} {courtesies === 1 ? 'cortesia' : 'cortesias'}</>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {!isEventPast && daysUntil >= 0 && (
-                <div className="rounded-xl border border-primary/10 bg-background/40 p-3 flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-amber-500/15">
-                    <CalendarClock className="h-4 w-4 text-amber-400" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{daysUntil}</p>
-                    <p className="text-[11px] text-muted-foreground">Dias Restantes</p>
-                  </div>
+              {!isEventPast && daysUntil > 7 && (
+                <div className="flex items-center gap-1.5">
+                  <CalendarClock className="h-4 w-4 text-amber-400" />
+                  {daysUntil} dias restantes
                 </div>
               )}
             </div>
+
           </div>
         </div>
       </div>

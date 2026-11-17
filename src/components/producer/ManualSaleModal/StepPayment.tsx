@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,14 +27,25 @@ interface Props {
   onConfirm: () => void;
   isSubmitting: boolean;
   courtesy?: boolean;
+  /**
+   * Resposta perdida ("sem confirmação"): o pedido pode ter entrado. O botão de confirmar fica
+   * parado até a janela fechar (quem quiser tentar de novo fecha, confere em Pedidos e abre de
+   * novo) e o aviso fica escrito embaixo. Revisão 2 da etapa 5.
+   */
+  semConfirmacao?: string | null;
 }
 
 const fmtBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
 const METHODS: PaymentState['method'][] = ['pix', 'dinheiro', 'transferencia', 'cartao', 'outro'];
 
-export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, onConfirm, isSubmitting, courtesy = false }: Props) {
+export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, onConfirm, isSubmitting, courtesy = false, semConfirmacao = null }: Props) {
   const { lots } = useEventLots(eventId);
+  // O aviso de "sem confirmação" aparece de repente: rola a janela até ele (e os botões logo abaixo).
+  const avisoRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (semConfirmacao) avisoRef.current?.scrollIntoView({ block: 'nearest', behavior: 'instant' as ScrollBehavior });
+  }, [semConfirmacao]);
   const [feeData, setFeeData] = useState<{ percent: number; fixed: number } | null>(null);
 
   useEffect(() => {
@@ -148,7 +159,7 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
       {/* Resumo final */}
       <div className="rounded-xl border border-primary/10 bg-background/40 p-3 text-sm space-y-2">
         <div>
-          <p className="text-muted-foreground text-xs">Comprador</p>
+          <p className="text-muted-foreground text-xs">{courtesy ? 'Convidado' : 'Comprador'}</p>
           <p>{buyer.name} <span className="text-muted-foreground">({buyer.cpf})</span></p>
           <p className="text-xs text-muted-foreground">{buyer.email}{buyer.whatsapp ? ` · ${buyer.whatsapp}` : ''}</p>
         </div>
@@ -178,11 +189,17 @@ export function StepPayment({ eventId, buyer, tickets, value, onChange, onBack, 
         </div>
       </div>
 
+      {/* Acima dos botões e trazido para a vista quando aparece: embaixo deles ficava fora da
+          área visível da janela (revisão 3 da etapa 5). */}
+      {semConfirmacao && (
+        <p ref={avisoRef} className="text-xs text-amber-600 dark:text-amber-400 text-right scroll-mb-4" data-testid="sem-confirmacao">{semConfirmacao}</p>
+      )}
+
       <div className="flex items-center justify-between gap-2 pt-2">
         <Button variant="ghost" onClick={onBack} disabled={isSubmitting}>← Voltar</Button>
         <Button
           onClick={onConfirm}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !!semConfirmacao}
           className="bg-gradient-to-r from-primary to-pink-500 hover:opacity-90 text-white"
         >
           {isSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando…</> : (courtesy ? '✓ Gerar cortesia' : '✓ Confirmar e gerar ingressos')}

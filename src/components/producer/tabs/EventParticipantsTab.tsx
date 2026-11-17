@@ -11,6 +11,8 @@ import { useEventTotals } from '@/hooks/useEventOrders';
 import { lerTodosOsIngressos, type SituacaoIngresso } from '@/lib/painelDoEvento';
 import { mensagemDeErro } from '@/lib/painelDoProdutor';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FiltroDeLote } from '@/components/producer/FiltrosDaLista';
+import { useEventLots } from '@/hooks/useEventLots';
 
 interface EventParticipantsTabProps {
   eventId: string;
@@ -44,11 +46,11 @@ const renderEmpty = (msg: string) => (
 );
 
 /** Uma aba da lista: 50 ingressos por vez, situação e busca filtradas no banco (OS-408). */
-function ListaDeIngressos({ eventId, situacao, busca, vazio, onUpdateStatus }: {
-  eventId: string; situacao: SituacaoIngresso; busca: string; vazio: string;
+function ListaDeIngressos({ eventId, situacao, busca, loteId, vazio, onUpdateStatus }: {
+  eventId: string; situacao: SituacaoIngresso; busca: string; loteId: string | null; vazio: string;
   onUpdateStatus: (ticketId: string, status: Ticket['status']) => void;
 }) {
-  const { tickets, total, temMais, carregarMais, carregandoMais, isLoading, error } = useEventParticipantsPage(eventId, { situacao, busca });
+  const { tickets, total, temMais, carregarMais, carregandoMais, isLoading, error } = useEventParticipantsPage(eventId, { situacao, busca, loteId });
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -57,19 +59,22 @@ function ListaDeIngressos({ eventId, situacao, busca, vazio, onUpdateStatus }: {
     );
   }
   if (error) return renderEmpty(mensagemDeErro(error));
-  if (tickets.length === 0) return renderEmpty(busca ? 'Nenhum participante encontrado.' : vazio);
+  if (tickets.length === 0) return renderEmpty(busca || loteId ? 'Nenhum participante encontrado.' : vazio);
   return (
     <>
       {tickets.map((ticket) => (
         <ParticipantListItem key={ticket.id} ticket={ticket} onUpdateStatus={onUpdateStatus} />
       ))}
-      {temMais && (
+      {/* Com o filtro de ingresso, a contagem aparece sempre (quantos o banco achou). */}
+      {(temMais || !!loteId) && (
         <div className="flex flex-col items-center gap-2 pt-2">
           <p className="text-xs text-muted-foreground">Mostrando {formatNumero(tickets.length)} de {formatNumero(total)}</p>
-          <Button variant="outline" className="rounded-xl" onClick={() => carregarMais()} disabled={carregandoMais}>
-            {carregandoMais && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Carregar mais
-          </Button>
+          {temMais && (
+            <Button variant="outline" className="rounded-xl" onClick={() => carregarMais()} disabled={carregandoMais}>
+              {carregandoMais && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Carregar mais
+            </Button>
+          )}
         </div>
       )}
     </>
@@ -90,6 +95,9 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
   const busca = useDigitado(searchQuery);
   const [situacao, setSituacao] = useState<SituacaoIngresso>('todos');
   const [exportando, setExportando] = useState(false);
+  // Filtro por ingresso (lote), OS-408 etapa 5, item 5.5: no banco.
+  const [loteId, setLoteId] = useState<string | null>(null);
+  const { lots } = useEventLots(eventId);
   // Os números dos cartões e das abas vêm do banco (OS-408): não dependem da página carregada.
   const { data: totais, isLoading, error: erroDosTotais } = useEventTotals(eventId);
   const updateTicketStatus = useMudarIngresso(eventId);
@@ -168,6 +176,9 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
             className="pl-10 h-11 rounded-xl bg-background/50 border-border/60"
           />
         </div>
+        <div className="sm:w-56 [&_button]:h-11">
+          <FiltroDeLote lotes={(lots || []).map((l) => ({ id: l.id, name: l.name, sector_name: l.sector_name }))} valor={loteId} onChange={setLoteId} />
+        </div>
         <Button
           variant="outline"
           className="h-11 rounded-xl bg-card/40 backdrop-blur-xl border-primary/10 hover:bg-card/60"
@@ -199,7 +210,7 @@ export function EventParticipantsTab({ eventId }: EventParticipantsTabProps) {
 
         {ABAS.map((a) => (
           <TabsContent key={a.value} value={a.value} className="mt-4 space-y-3">
-            <ListaDeIngressos eventId={eventId} situacao={a.value} busca={busca} vazio={a.vazio} onUpdateStatus={handleUpdateStatus} />
+            <ListaDeIngressos eventId={eventId} situacao={a.value} busca={busca} loteId={loteId} vazio={a.vazio} onUpdateStatus={handleUpdateStatus} />
           </TabsContent>
         ))}
       </Tabs>

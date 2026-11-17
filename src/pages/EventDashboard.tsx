@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
@@ -27,6 +27,27 @@ export default function EventDashboard() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  // Trocar de aba não joga a página para o topo da capa (OS-408 etapa 5, 5.7): se a faixa
+  // das abas já saiu da tela por cima (a pessoa rolou para baixo), a página volta só até
+  // ela; se a faixa está à vista, nada rola.
+  // A área das abas tem no mínimo a altura da tela: assim a aba nova, enquanto carrega (curta),
+  // não encolhe a página e não a puxa para cima, para a capa. Por garantia, a área das abas fica
+  // fora da "âncora de rolagem" do navegador (overflow-anchor: none), para ele não empurrar a
+  // página quando o que está acima da lista cresce ao terminar de carregar.
+  const faixaDasAbas = useRef<HTMLDivElement>(null);
+  const rolarAteAsAbas = useRef(false);
+  const trocarAba = (aba: string) => {
+    const faixa = faixaDasAbas.current;
+    rolarAteAsAbas.current = !!faixa && faixa.getBoundingClientRect().top < 0;
+    setActiveTab(aba);
+  };
+  useLayoutEffect(() => {
+    if (!rolarAteAsAbas.current) return;
+    rolarAteAsAbas.current = false;
+    // Na hora, sem animação: o site tem rolagem suave (index.css), e a animação, no meio da troca
+    // de aba (a página encolhe e cresce enquanto a aba carrega), às vezes parava no lugar errado.
+    faixaDasAbas.current?.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior });
+  }, [activeTab]);
   const { user } = useAuth();
   // Atalho "Venda manual" da visão geral: a mesma janela do botão do topo (OS-408).
   const [vendaManualAberta, setVendaManualAberta] = useState(false);
@@ -112,14 +133,10 @@ export default function EventDashboard() {
         <title>{event.title} - Painel do produtor | FestPag</title>
       </Helmet>
 
-      <EventDashboardHeader 
-        event={event} 
-        totalRevenue={stats.totalRevenue}
-        ticketsSold={stats.totalTicketsSold}
-        courtesies={stats.totalCourtesies}
-      />
+      <EventDashboardHeader event={event} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={trocarAba} className="min-h-screen [overflow-anchor:none]">
+        <div ref={faixaDasAbas} className="scroll-mt-2" />
         {/* No celular as abas viram uma faixa que rola de lado, com o nome escrito (OS-408):
             antes eram só ícones, e o produtor não sabia qual era qual. */}
         <TabsList className="flex justify-start sm:flex-wrap w-full gap-1 p-1 mb-6 h-auto overflow-x-auto bg-card/40 backdrop-blur-xl border border-primary/10 rounded-2xl">
@@ -146,7 +163,7 @@ export default function EventDashboard() {
             conversionRate={stats.conversionRate}
             salesByLot={stats.salesByLot}
             salesByDay={stats.salesByDay}
-            onTabChange={setActiveTab}
+            onTabChange={trocarAba}
             onVendaManual={podeVenderManual ? () => setVendaManualAberta(true) : undefined}
           />
         </TabsContent>

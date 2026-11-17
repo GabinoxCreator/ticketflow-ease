@@ -5,9 +5,10 @@ import { ptBR } from 'date-fns/locale';
 import {
   CalendarIcon, ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2, Edit2, Flame,
   Users, Clock, MapPin, ImageIcon, Sparkles, CalendarDays, Ticket, Eye, Send, FileText,
-  Globe, Lock
+  Globe, Lock, CalendarPlus
 } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { CabecalhoDaPagina } from '@/components/producer/CabecalhoDaPagina';
 import { TaxaAVista } from '@/components/producer/TaxaAVista';
 import { ImageUpload } from '@/components/producer/ImageUpload';
 import { TimeSelect } from '@/components/producer/TimeSelect';
@@ -348,24 +349,20 @@ export default function CriarEvento() {
         { label: 'Criar Evento' },
       ]}
     >
-      <div className="max-w-5xl mx-auto px-2 md:px-0 pb-8">
-        {/* HEADER */}
-        <div className="flex items-start gap-3 mb-5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/produtor/eventos')}
-            className="shrink-0 mt-0.5 h-10 w-10 rounded-xl bg-card/50 border border-primary/10 backdrop-blur-xl hover:bg-card/80"
-            aria-label="Voltar"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-[hsl(250,85%,70%)] to-[hsl(330,85%,65%)] bg-clip-text text-transparent">
-              Criar Novo Evento
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Configure seu evento em 4 passos rápidos</p>
-          </div>
+      <div className="pb-8">
+        {/* Cabeçalho no padrão do painel (OS-408 etapa 5, 5.9); o voltar fica à direita. */}
+        <div className="mb-5">
+          <CabecalhoDaPagina
+            icone={CalendarPlus}
+            titulo="Criar Novo Evento"
+            descricao="Configure seu evento em 4 passos rápidos"
+            acao={
+              <Button variant="ghost" size="sm" onClick={() => navigate('/produtor/eventos')} className="rounded-xl">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar para Eventos
+              </Button>
+            }
+          />
         </div>
 
         {/* STEPPER */}

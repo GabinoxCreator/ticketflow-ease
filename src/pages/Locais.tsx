@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Plus, MoreVertical, Pencil, Trash2, Map as MapIcon } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { CabecalhoDaPagina } from '@/components/producer/CabecalhoDaPagina';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,21 +45,13 @@ export default function Locais() {
 
   return (
     <ProducerLayout>
-      <div className="p-4 md:p-8 space-y-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-              <MapPin className="w-7 h-7 text-primary" />
-              Locais
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Cadastre locais reutilizáveis. Cada local pode ter vários mapas de assentos.
-            </p>
-          </div>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="w-4 h-4" /> Novo local
-          </Button>
-        </div>
+      <div className="space-y-6">
+        <CabecalhoDaPagina
+          icone={MapPin}
+          titulo="Locais"
+          descricao="Cadastre locais reutilizáveis. Cada local pode ter vários mapas de assentos."
+          acao={<Button onClick={openCreate} className="gap-2"><Plus className="w-4 h-4" /> Novo local</Button>}
+        />
 
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Carregando...</div>

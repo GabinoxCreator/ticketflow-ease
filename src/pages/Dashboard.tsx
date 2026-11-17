@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEvents } from '@/hooks/useEvents';
 import { useProducerStats } from '@/hooks/useProducerStats';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PrimeirosPassos, usePrimeirosPassos } from '@/components/producer/PrimeirosPassos';
 
 const formatBRL = (n: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
@@ -43,6 +44,12 @@ export default function Dashboard() {
     nextEventDate,
     monthlySales,
   } = useProducerStats();
+
+  // Primeiros passos (OS-408 etapa 5, 5.2): enquanto faltar um dos quatro. Sem evento, no
+  // lugar do gráfico vazio; com evento, no topo, sem tirar o gráfico.
+  const primeiros = usePrimeirosPassos((events?.length ?? 0) > 0);
+  const mostrarPassos = !isLoading && primeiros.mostrar;
+  const semEvento = !isLoading && (events?.length ?? 0) === 0;
 
   const nextEventLabel = nextEventDate
     ? formatEventDate(nextEventDate, { day: '2-digit', month: 'short' })
@@ -76,6 +83,10 @@ export default function Dashboard() {
             Criar Evento
           </Button>
         </div>
+
+        {mostrarPassos && !semEvento && (
+          <PrimeirosPassos passos={primeiros.passos} feitos={primeiros.feitos} compacto />
+        )}
 
         {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -128,7 +139,9 @@ export default function Dashboard() {
         {/* Chart and Recent Events */}
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="min-w-0">
-            <SalesChart data={monthlySales} />
+            {mostrarPassos && semEvento
+              ? <PrimeirosPassos passos={primeiros.passos} feitos={primeiros.feitos} />
+              : <SalesChart data={monthlySales} />}
           </div>
 
           <Card className="min-w-0 relative overflow-hidden bg-card/60 backdrop-blur border-primary/10">

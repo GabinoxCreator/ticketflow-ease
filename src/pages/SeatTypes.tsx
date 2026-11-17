@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { CabecalhoDaPagina } from '@/components/producer/CabecalhoDaPagina';
 import { formatBRL } from '@/lib/painelDoProdutor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -188,27 +189,14 @@ export default function SeatTypes() {
         <title>Tipos de Assento | FestPag</title>
       </Helmet>
 
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-background to-pink-500/10 p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center shadow-lg shrink-0">
-                <Armchair className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Tipos de Assento</h1>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Configure mesas, cadeiras, bistrôs e outros tipos de reserva para seus eventos
-                </p>
-              </div>
-            </div>
-            <Button onClick={openCreate} className="shrink-0">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Tipo
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-6">
+        {/* Cabeçalho no padrão do painel (OS-408 etapa 5, 5.9) */}
+        <CabecalhoDaPagina
+          icone={Armchair}
+          titulo="Tipos de Assento"
+          descricao="Configure mesas, cadeiras, bistrôs e outros tipos de reserva para seus eventos"
+          acao={<Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Novo Tipo</Button>}
+        />
 
         {/* List */}
         {isLoading ? (

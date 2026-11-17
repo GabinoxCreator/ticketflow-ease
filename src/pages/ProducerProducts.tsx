@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { CabecalhoDaPagina } from '@/components/producer/CabecalhoDaPagina';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -157,27 +158,14 @@ export default function ProducerProducts() {
         <title>Produtos | FestPag</title>
       </Helmet>
 
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-background to-pink-500/10 p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center shadow-lg shrink-0">
-                <ShoppingBag className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Produtos</h1>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Cadastre camisetas, copos e outros produtos uma vez e venda em qualquer evento
-                </p>
-              </div>
-            </div>
-            <Button onClick={openCreate} className="shrink-0">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Produto
-            </Button>
-          </div>
-        </div>
+      <div className="space-y-6">
+        {/* Cabeçalho no padrão do painel (OS-408 etapa 5, 5.9) */}
+        <CabecalhoDaPagina
+          icone={ShoppingBag}
+          titulo="Produtos"
+          descricao="Cadastre camisetas, copos e outros produtos uma vez e venda em qualquer evento"
+          acao={<Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Novo Produto</Button>}
+        />
 
         {/* List */}
         {isLoading ? (
