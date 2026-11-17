@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// A linha de `event_coupons` que a função `buscar_cupom` devolve (só o que esta
+// edge lê).
+interface CupomAchado {
+  id: string;
+  code: string;
+  discount_type: string;
+  discount_value: number | string;
+  max_uses: number | null;
+  uses_count: number;
+  valid_until: string | null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -50,18 +62,25 @@ serve(async (req) => {
 
     const normalized = code.trim().toUpperCase();
 
-    // Código EXATO (OS-269). Antes era `ilike`, que trata `%` e `_` como curinga
-    // (e o PostgREST ainda troca `*` por `%`): mandar "%" devolvia um cupom do
-    // evento sem saber o código. O cupom é gravado sempre em maiúsculas (a tela do
-    // produtor converte ao criar e ao editar; 23 de 23 assim em 21/10), e o banco
-    // não deixa dois com o mesmo código no evento (índice em `upper(code)`).
+    // Texto absurdo nem consulta o banco (o banco também recusa mais de 40
+    // letras depois de tirar espaço e acento).
+    if (!normalized || normalized.length > 100) {
+      return new Response(
+        JSON.stringify({ valid: false, message: 'Cupom inválido' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // OS-420: a comparação ignora espaço e acento ("PACHÁ 10" acha PACHA10 e
+    // PACHÁ10), pela função `buscar_cupom` do banco (migration
+    // 20261115235200). Continua SEM curinga (OS-269): é igualdade no código
+    // normalizado, nunca `ilike`; `%`, `_` e `*` ficam no texto e não casam com
+    // nada. Só cupom ativo; quando dois do mesmo evento viram o mesmo código, o
+    // banco escolhe o digitado exatamente igual, depois o que ainda vale, depois
+    // o mais antigo.
     const { data, error } = await supabase
-      .from('event_coupons')
-      .select('id, code, discount_type, discount_value, max_uses, uses_count, valid_until, is_active')
-      .eq('event_id', eventId)
-      .eq('is_active', true)
-      .eq('code', normalized)
-      .maybeSingle();
+      .rpc('buscar_cupom', { p_event_id: eventId, p_codigo: normalized })
+      .maybeSingle<CupomAchado>();
 
     if (error) throw error;
 
