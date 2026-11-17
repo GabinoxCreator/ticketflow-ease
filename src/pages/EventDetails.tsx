@@ -73,6 +73,7 @@ import { LojaDoEvento } from '@/components/event/LojaDoEvento';
 import { useVitrineDaLoja } from '@/hooks/useVitrineDaLoja';
 import { ehLinhaDaLoja, type ItemDoCarrinho } from '@/lib/loja/carrinho';
 import { useFacialPendente } from '@/hooks/useFacialPendente';
+import { preCarregar, carregarMapaDePoltronas } from '@/lib/sobDemanda';
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -163,6 +164,10 @@ const EventDetails = () => {
     (event as any).seat_map_public !== false;
 
   const { data: seatSectors } = useEventSeatAvailability(hasMap ? eventId : undefined);
+  // OS-435: evento COM poltrona já baixa o mapa enquanto a pessoa lê a página (o mapa
+  // é baixado à parte); evento sem poltrona não baixa nada a mais. Falha aqui não faz
+  // nada (ver src/lib/sobDemanda.ts).
+  useEffect(() => { if (hasMap) preCarregar(carregarMapaDePoltronas); }, [hasMap]);
 
   // Barra de arrecadação (curada por SQL) — só consulta no evento beneficente.
   // Hook no topo (antes dos early returns) p/ não quebrar a ordem dos hooks.

@@ -1,3 +1,4 @@
+import { Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import MarketingConsentSync from "@/components/MarketingConsentSync";
@@ -10,66 +11,88 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ColaboradorAuthProvider } from "@/contexts/ColaboradorAuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { ColaboradorProtectedRoute } from "@/components/colaborador/ColaboradorProtectedRoute";
-import Index from "./pages/Index";
 import EventDetails from "./pages/EventDetails";
-import EventMapPage from "./pages/EventMapPage";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
-import Dashboard from "./pages/Dashboard";
-import DashboardEventos from "./pages/DashboardEventos";
-import CriarEvento from "./pages/CriarEvento";
-import EditarEvento from "./pages/EditarEvento";
-import EventDashboard from "./pages/EventDashboard";
-import CheckoutSuccess from "./pages/CheckoutSuccess";
-import Financeiro from "./pages/Financeiro";
-import FinanceiroEvento from "./pages/FinanceiroEvento";
-import MeusIngressos from "./pages/MeusIngressos";
-import TransferenciaIngresso from "./pages/TransferenciaIngresso";
-import CortesiaLink from "./pages/CortesiaLink";
 import PedidoStatus from "./pages/PedidoStatus";
-import SeatCheckout from "./pages/SeatCheckout";
-import MinhaConta from "./pages/MinhaConta";
-import ColaboradoresManager from "./pages/ColaboradoresManager";
-import ColaboradorLogin from "./pages/colaborador/ColaboradorLogin";
-import ColaboradorEventos from "./pages/colaborador/ColaboradorEventos";
-import ColaboradorEvento from "./pages/colaborador/ColaboradorEvento";
-import GuestListPublicForm from "./pages/GuestListPublicForm";
-import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
-import FacialPeloLink from "./pages/FacialPeloLink";
-import EntendaATaxa from "./pages/EntendaATaxa";
-import TermosDeUso from "./pages/TermosDeUso";
-import PoliticaReembolso from "./pages/PoliticaReembolso";
-import CentralDeAjuda from "./pages/CentralDeAjuda";
-import AreaDoProdutor from "./pages/AreaDoProdutor";
-import ProducerAuth from "./pages/ProducerAuth";
-import ProducerSettings from "./pages/ProducerSettings";
-import ProdutorPublicoPage from "./pages/ProdutorPublico";
-import SeatTypes from "./pages/SeatTypes";
-import ProducerProducts from "./pages/ProducerProducts";
-import Locais from "./pages/Locais";
-import LocaisMapas from "./pages/LocaisMapas";
-import MapEditorPage from "./pages/producer/MapEditorPage";
 import AdminProtectedRoute from "./components/admin/AdminProtectedRoute";
-import AdminLogin from "./pages/admin/AdminLogin";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminProdutores from "./pages/admin/AdminProdutores";
-import AdminProdutorDetalhe from "./pages/admin/AdminProdutorDetalhe";
-import AdminAberturas from "./pages/admin/AdminAberturas";
-import AdminAberturaDetalhe from "./pages/admin/AdminAberturaDetalhe";
-import AbrirEvento from "./pages/AbrirEvento";
-import AdminEventoDetalhe from "./pages/admin/AdminEventoDetalhe";
-import AdminRepasses from "./pages/admin/AdminRepasses";
-import AdminReembolsos from "./pages/admin/AdminReembolsos";
-import AdminConfiguracoes from "./pages/admin/AdminConfiguracoes";
-import AdminSaude from "./pages/admin/AdminSaude";
-import AdminChecklist from "./pages/admin/AdminChecklist";
-import AdminEquipe from "./pages/admin/AdminEquipe";
-import AdminLeads from "./pages/admin/AdminLeads";
-import { AdminLayout } from "./components/admin/AdminLayout";
 import SectionProtectedRoute from "./components/admin/SectionProtectedRoute";
-import LandingLp from "./pages/LandingLp";
-import LandingLp2 from "./pages/LandingLp2";
 import { FundoDaPagina } from '@/components/FundoDaPagina';
+import { sobDemanda, preCarregar, carregarMapaDePoltronas, carregarCheckoutDePoltronas } from "@/lib/sobDemanda";
+import { ProtecaoDasRotas } from "@/components/ProtecaoDasRotas";
+
+// Cada tela é um pedaço próprio, baixado só quando a pessoa vai para ela (OS-435).
+// Ficam no pedaço inicial (import normal, acima) a página do evento, com o checkout,
+// o login e o carrinho dentro dela, e a tela do pedido (/pedido/:id, para onde o Pix e
+// o cartão levam): é o caminho de quem chega do anúncio e compra, e nada nele pode
+// depender de um pedaço baixar depois. Tela nova no roteador entra aqui embaixo, como
+// as outras. Ver src/lib/sobDemanda.ts (a recarga única quando um pedaço não baixa).
+const Index = sobDemanda(() => import("./pages/Index"));
+const Auth = sobDemanda(() => import("./pages/Auth"));
+const NotFound = sobDemanda(() => import("./pages/NotFound"));
+const Dashboard = sobDemanda(() => import("./pages/Dashboard"));
+const DashboardEventos = sobDemanda(() => import("./pages/DashboardEventos"));
+const CriarEvento = sobDemanda(() => import("./pages/CriarEvento"));
+const EditarEvento = sobDemanda(() => import("./pages/EditarEvento"));
+const EventDashboard = sobDemanda(() => import("./pages/EventDashboard"));
+const CheckoutSuccess = sobDemanda(() => import("./pages/CheckoutSuccess"));
+const Financeiro = sobDemanda(() => import("./pages/Financeiro"));
+const FinanceiroEvento = sobDemanda(() => import("./pages/FinanceiroEvento"));
+const MeusIngressos = sobDemanda(() => import("./pages/MeusIngressos"));
+const TransferenciaIngresso = sobDemanda(() => import("./pages/TransferenciaIngresso"));
+const CortesiaLink = sobDemanda(() => import("./pages/CortesiaLink"));
+const MinhaConta = sobDemanda(() => import("./pages/MinhaConta"));
+const ColaboradoresManager = sobDemanda(() => import("./pages/ColaboradoresManager"));
+const ColaboradorLogin = sobDemanda(() => import("./pages/colaborador/ColaboradorLogin"));
+const ColaboradorEventos = sobDemanda(() => import("./pages/colaborador/ColaboradorEventos"));
+const ColaboradorEvento = sobDemanda(() => import("./pages/colaborador/ColaboradorEvento"));
+const GuestListPublicForm = sobDemanda(() => import("./pages/GuestListPublicForm"));
+const PoliticaPrivacidade = sobDemanda(() => import("./pages/PoliticaPrivacidade"));
+const FacialPeloLink = sobDemanda(() => import("./pages/FacialPeloLink"));
+const EntendaATaxa = sobDemanda(() => import("./pages/EntendaATaxa"));
+const TermosDeUso = sobDemanda(() => import("./pages/TermosDeUso"));
+const PoliticaReembolso = sobDemanda(() => import("./pages/PoliticaReembolso"));
+const CentralDeAjuda = sobDemanda(() => import("./pages/CentralDeAjuda"));
+const AreaDoProdutor = sobDemanda(() => import("./pages/AreaDoProdutor"));
+const ProducerAuth = sobDemanda(() => import("./pages/ProducerAuth"));
+const ProducerSettings = sobDemanda(() => import("./pages/ProducerSettings"));
+const ProdutorPublicoPage = sobDemanda(() => import("./pages/ProdutorPublico"));
+const SeatTypes = sobDemanda(() => import("./pages/SeatTypes"));
+const ProducerProducts = sobDemanda(() => import("./pages/ProducerProducts"));
+const Locais = sobDemanda(() => import("./pages/Locais"));
+const LocaisMapas = sobDemanda(() => import("./pages/LocaisMapas"));
+const MapEditorPage = sobDemanda(() => import("./pages/producer/MapEditorPage"));
+const AdminLogin = sobDemanda(() => import("./pages/admin/AdminLogin"));
+const AdminDashboard = sobDemanda(() => import("./pages/admin/AdminDashboard"));
+const AdminProdutores = sobDemanda(() => import("./pages/admin/AdminProdutores"));
+const AdminProdutorDetalhe = sobDemanda(() => import("./pages/admin/AdminProdutorDetalhe"));
+const AdminAberturas = sobDemanda(() => import("./pages/admin/AdminAberturas"));
+const AdminAberturaDetalhe = sobDemanda(() => import("./pages/admin/AdminAberturaDetalhe"));
+const AbrirEvento = sobDemanda(() => import("./pages/AbrirEvento"));
+const AdminEventoDetalhe = sobDemanda(() => import("./pages/admin/AdminEventoDetalhe"));
+const AdminRepasses = sobDemanda(() => import("./pages/admin/AdminRepasses"));
+const AdminReembolsos = sobDemanda(() => import("./pages/admin/AdminReembolsos"));
+const AdminConfiguracoes = sobDemanda(() => import("./pages/admin/AdminConfiguracoes"));
+const AdminSaude = sobDemanda(() => import("./pages/admin/AdminSaude"));
+const AdminChecklist = sobDemanda(() => import("./pages/admin/AdminChecklist"));
+const AdminEquipe = sobDemanda(() => import("./pages/admin/AdminEquipe"));
+const AdminLeads = sobDemanda(() => import("./pages/admin/AdminLeads"));
+// Telas de poltrona: o mapa e o checkout de poltronas (ver src/lib/sobDemanda.ts). A
+// página do evento com poltrona já baixa o mapa (EventDetails.tsx); aqui, na tela do
+// mapa, o checkout de poltronas começa a baixar (medido no 4G lento: sem isso, o
+// "Reservar" esperava o arquivo baixar). Quem não escolhe poltrona não baixa nada a mais.
+const EventMapPage = sobDemanda(carregarMapaDePoltronas);
+const SeatCheckout = sobDemanda(carregarCheckoutDePoltronas);
+function PreCargaDoCheckoutDePoltronas() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (pathname.startsWith("/evento/") && pathname.endsWith("/mapa")) preCarregar(carregarCheckoutDePoltronas);
+  }, [pathname]);
+  return null;
+}
+const AdminLayout = sobDemanda(() =>
+  import("./components/admin/AdminLayout").then((m) => ({ default: m.AdminLayout })),
+);
+const LandingLp = sobDemanda(() => import("./pages/LandingLp"));
+const LandingLp2 = sobDemanda(() => import("./pages/LandingLp2"));
 
 // Preserves query string when redirecting legacy /auth → /login
 // (ex.: /auth?mode=forgot → /login?mode=forgot)
@@ -98,6 +121,12 @@ const App = () => (
                 * `fixed z-0`. Ver o comentário lá — sem isto, ou o fundo cobre a
                 * página, ou ele some atrás dela. */}
               <div className="relative z-10">
+              {/* Enquanto o pedaço da tela baixa, nada aparece no lugar dela (o fundo da
+                * página continua). Só acontece na 1ª ida a cada tela (OS-435). Se a tela
+                * não baixa nem depois da recarga única, a proteção mostra no lugar dela o
+                * aviso aprovado ("Tentar de novo"), sem derrubar o resto do site. */}
+              <ProtecaoDasRotas>
+              <Suspense fallback={null}>
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
@@ -207,7 +236,10 @@ const App = () => (
                 <Route path="/:slugProdutor" element={<ProdutorPublicoPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
+              </ProtecaoDasRotas>
               </div>
+              <PreCargaDoCheckoutDePoltronas />
               <CookieConsentBanner />
               <MarketingConsentSync />
             </ColaboradorAuthProvider>
