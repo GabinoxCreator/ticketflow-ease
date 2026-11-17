@@ -1124,6 +1124,7 @@ export type Database = {
           created_at: string
           description: string | null
           end_date: string | null
+          escondido: boolean
           event_day_id: string | null
           event_id: string
           fake_scarcity_enabled: boolean | null
@@ -1154,6 +1155,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string | null
+          escondido?: boolean
           event_day_id?: string | null
           event_id: string
           fake_scarcity_enabled?: boolean | null
@@ -1184,6 +1186,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string | null
+          escondido?: boolean
           event_day_id?: string | null
           event_id?: string
           fake_scarcity_enabled?: boolean | null
@@ -1892,6 +1895,53 @@ export type Database = {
         }
         Relationships: []
       }
+      links_de_venda: {
+        Row: {
+          cancelado_em: string | null
+          cancelado_por: string | null
+          criado_em: string
+          criado_por: string | null
+          event_id: string
+          expira_em: string
+          id: string
+          itens: Json
+          nota: string | null
+          token: string
+        }
+        Insert: {
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          event_id: string
+          expira_em: string
+          id?: string
+          itens: Json
+          nota?: string | null
+          token: string
+        }
+        Update: {
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          criado_em?: string
+          criado_por?: string | null
+          event_id?: string
+          expira_em?: string
+          id?: string
+          itens?: Json
+          nota?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "links_de_venda_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       listas_alunos: {
         Row: {
           abre_em: string
@@ -2337,6 +2387,7 @@ export type Database = {
           event_id: string
           expires_at: string | null
           id: string
+          link_de_venda_id: string | null
           manual_fee_applied: boolean
           manual_payment_method: string | null
           manual_payment_note: string | null
@@ -2375,6 +2426,7 @@ export type Database = {
           event_id: string
           expires_at?: string | null
           id?: string
+          link_de_venda_id?: string | null
           manual_fee_applied?: boolean
           manual_payment_method?: string | null
           manual_payment_note?: string | null
@@ -2413,6 +2465,7 @@ export type Database = {
           event_id?: string
           expires_at?: string | null
           id?: string
+          link_de_venda_id?: string | null
           manual_fee_applied?: boolean
           manual_payment_method?: string | null
           manual_payment_note?: string | null
@@ -2459,6 +2512,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_link_de_venda_id_fkey"
+            columns: ["link_de_venda_id"]
+            isOneToOne: false
+            referencedRelation: "links_de_venda"
             referencedColumns: ["id"]
           },
         ]
@@ -4051,8 +4111,13 @@ export type Database = {
         Returns: number
       }
       _conferir_pin: { Args: { _pin: string; _user_id: string }; Returns: Json }
+      _eh_a_casa: { Args: never; Returns: boolean }
       _pedido_so_da_casa: { Args: { _order_id: string }; Returns: boolean }
       _pin_email_da_conta: { Args: { _user_id: string }; Returns: string }
+      _situacao_do_link_de_venda: {
+        Args: { _link: Database["public"]["Tables"]["links_de_venda"]["Row"] }
+        Returns: string
+      }
       abertura_criar_rascunho: {
         Args: { _abertura_id: string; _producer_profile_id?: string }
         Returns: string
@@ -4084,10 +4149,19 @@ export type Database = {
         Args: { p_path: string; p_payout_id: string }
         Returns: Json
       }
+      admin_cancelar_link_de_venda: {
+        Args: { _link_id: string }
+        Returns: Json
+      }
       admin_corrigir_cpf: {
         Args: { _cpf: string; _motivo: string; _user_id: string }
         Returns: Json
       }
+      admin_criar_link_de_venda: {
+        Args: { _event_id: string; _itens: Json; _nota?: string }
+        Returns: Json
+      }
+      admin_links_de_venda: { Args: { _event_id: string }; Returns: Json }
       admin_list_payouts: {
         Args: { p_status?: string }
         Returns: {
@@ -4173,6 +4247,28 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      buscar_cupom: {
+        Args: { p_codigo: string; p_event_id: string }
+        Returns: {
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          event_id: string
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          updated_at: string
+          uses_count: number
+          valid_until: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "event_coupons"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       calcular_repasse: {
         Args: {
           _brand_group?: string
@@ -4200,6 +4296,7 @@ export type Database = {
         Args: { _transfer_id: string; _user_id: string }
         Returns: Json
       }
+      cartao_a_vista_cents: { Args: { _base_cents: number }; Returns: number }
       check_rate_limit: {
         Args: {
           _block_seconds: number
@@ -4273,6 +4370,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cupom_normalizado: { Args: { p_codigo: string }; Returns: string }
       decrement_sold_quantity_legacy: {
         Args: { _lot_id: string; _qty: number }
         Returns: boolean
@@ -4515,6 +4613,7 @@ export type Database = {
       json_ou_nulo: { Args: { _texto: string }; Returns: Json }
       ler_segredo: { Args: { _nome: string }; Returns: string }
       lgpd_retention_sweep: { Args: never; Returns: undefined }
+      link_de_venda_ver: { Args: { _token: string }; Returns: Json }
       link_e_de_pagina: { Args: { _slug: string }; Returns: boolean }
       lista_pela_pagina: { Args: { _slug: string }; Returns: Json }
       loja_habilitada: { Args: never; Returns: boolean }
@@ -4585,6 +4684,83 @@ export type Database = {
       order_products_confirmar: { Args: { _order_id: string }; Returns: number }
       order_products_devolver: { Args: { _order_id: string }; Returns: number }
       order_products_liberar: { Args: { _order_id: string }; Returns: number }
+      painel_evento_ingressos: {
+        Args: { _busca?: string; _event_id: string; _situacao?: string }
+        Returns: {
+          abada_redeemed_at: string | null
+          abada_redeemed_by: string | null
+          created_at: string
+          event_id: string
+          event_seat_id: string | null
+          holder_cpf: string | null
+          holder_email: string | null
+          holder_name: string
+          holder_phone: string | null
+          id: string
+          lot_id: string | null
+          order_id: string
+          seat_label: string | null
+          status: string
+          ticket_code: string
+          user_id: string | null
+          validated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tickets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      painel_evento_pedidos: {
+        Args: { _busca?: string; _event_id: string; _situacao?: string }
+        Returns: {
+          collaborator_id: string | null
+          coupon_id: string | null
+          created_at: string
+          customer_cpf: string | null
+          customer_email: string
+          customer_name: string
+          customer_phone: string | null
+          discount_amount: number
+          event_id: string
+          expires_at: string | null
+          id: string
+          link_de_venda_id: string | null
+          manual_fee_applied: boolean
+          manual_payment_method: string | null
+          manual_payment_note: string | null
+          manual_sold_by: string | null
+          mp_payment_id: string | null
+          mp_status_detail: string | null
+          payment_method: string | null
+          pos_authorization_code: string | null
+          pos_card_brand: string | null
+          pos_nsu: string | null
+          pos_nsu_host: string | null
+          pos_terminal_id: string | null
+          provider_authorization_code: string | null
+          provider_pix_code: string | null
+          provider_transaction_id: string | null
+          retirada_por_link: boolean
+          review_flagged_at: string | null
+          review_reason: Json | null
+          review_status: string | null
+          sale_origin: string
+          service_fee_amount: number
+          status: string
+          total_amount: number
+          updated_at: string
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      painel_evento_totais: { Args: { _event_id: string }; Returns: Json }
       pendencias_de_repasse: {
         Args: { _producer_profile_id: string; _user_id: string }
         Returns: string[]
