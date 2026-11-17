@@ -7,12 +7,17 @@ interface Props {
   shareTitle: string;
   shareText?: string;
   isBeneficent?: boolean;
+  /**
+   * Nenhum ingresso à venda ainda e a venda abre numa hora marcada (OS-419):
+   * "16/11 às 06h". Toma o lugar de "Confira os ingressos disponíveis".
+   */
+  vendaAbreEm?: string | null;
 }
 
 const formatPrice = (price: number) =>
   price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export const PriceAndShareBar = ({ fromPrice, shareTitle, shareText, isBeneficent }: Props) => {
+export const PriceAndShareBar = ({ fromPrice, shareTitle, shareText, isBeneficent, vendaAbreEm }: Props) => {
   const handleShare = async () => {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     try {
@@ -35,6 +40,8 @@ export const PriceAndShareBar = ({ fromPrice, shareTitle, shareText, isBeneficen
             <p className="text-xs text-muted-foreground uppercase tracking-wider">{isBeneficent ? 'CONVITE A PARTIR DE' : 'A partir de'}</p>
             <p className="font-bold text-2xl gradient-text">{formatPrice(fromPrice)}</p>
           </>
+        ) : vendaAbreEm ? (
+          <p className="font-semibold text-sm text-foreground">Vendas abrem em {vendaAbreEm}</p>
         ) : (
           <p className="text-muted-foreground text-sm">Confira os ingressos disponíveis</p>
         )}

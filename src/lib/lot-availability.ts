@@ -73,3 +73,69 @@ export function isLotOpenForSale(
 
   return true;
 }
+
+// ---------------------------------------------------------------------------
+// Quando a venda abre (OS-419, 12/11/2026). SÓ LEITURA, ao lado da regra acima:
+// não muda o que está à venda, só diz à página do evento quando o próximo lote
+// agendado abre, para ela avisar "Vendas abrem em 16/11 às 06h" em vez de sumir
+// com os ingressos. O servidor continua recusando compra antes da hora.
+// ---------------------------------------------------------------------------
+
+/** Campo da OS-405 (lote escondido): pode ainda não existir na linha do banco. */
+type LoteComEscondido = LotForAvailability & { escondido?: boolean | null };
+
+export interface ProximaAbertura {
+  /** O instante em que o(s) lote(s) abre(m). */
+  quando: Date;
+  /** Todos os lotes que abrem nesse mesmo instante (só para a conta; a tela não mostra). */
+  lotes: LotForAvailability[];
+}
+
+/**
+ * O lote agendado que abre primeiro, e todos os que abrem na mesma hora.
+ *
+ * Entra só lote que poderia ser vendido quando abrir: ativo, agendado
+ * ('scheduled') com `start_date` no futuro, fora da retirada pública (OS-313) e
+ * do lote escondido (OS-405), não esgotado e sem data de fim vencida (nem data
+ * de fim antes da abertura, que nunca chegaria a vender). Lote encadeado
+ * ('after_lot') não tem hora marcada e fica de fora. Sem nenhum: `null`.
+ */
+export function proximaAbertura(
+  lots: LotForAvailability[],
+  now: Date = new Date(),
+): ProximaAbertura | null {
+  const candidatos = (lots || []).filter((lote) => {
+    const l = lote as LoteComEscondido;
+    if (!l.is_active || l.retirada_publica || l.escondido) return false;
+    if (l.sales_start_type !== 'scheduled' || !l.start_date) return false;
+    const abre = new Date(l.start_date);
+    if (Number.isNaN(abre.getTime()) || abre <= now) return false;
+    if (isLotSoldOut(l) || isLotEnded(l, now)) return false;
+    if (l.end_date && new Date(l.end_date) <= abre) return false;
+    return true;
+  });
+  if (candidatos.length === 0) return null;
+
+  const primeiro = Math.min(...candidatos.map((l) => new Date(l.start_date!).getTime()));
+  return {
+    quando: new Date(primeiro),
+    lotes: candidatos.filter((l) => new Date(l.start_date!).getTime() === primeiro),
+  };
+}
+
+/**
+ * "16/11 às 06h" ou "16/11 às 06h30", na hora de Brasília (como o resto do site).
+ */
+export function textoDaAbertura(quando: Date): string {
+  const partes = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(quando);
+  const p = (tipo: string) => partes.find((x) => x.type === tipo)?.value ?? '';
+  const minutos = p('minute');
+  return `${p('day')}/${p('month')} às ${p('hour')}h${minutos === '00' ? '' : minutos}`;
+}
