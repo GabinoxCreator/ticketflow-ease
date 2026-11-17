@@ -13,11 +13,13 @@ interface Props {
   result: ManualSaleResult;
   onClose: () => void;
   onNew: () => void;
+  /** Cortesia: quem recebe é o convidado (OS-408). */
+  courtesy?: boolean;
 }
 
 const fmtBRL = (n: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
 
-export function SuccessScreen({ event, result, onClose, onNew }: Props) {
+export function SuccessScreen({ event, result, onClose, onNew, courtesy = false }: Props) {
   const [pdfLoading, setPdfLoading] = useState(false);
 
   // Aggregate items by lot_name for the message
@@ -130,7 +132,7 @@ export function SuccessScreen({ event, result, onClose, onNew }: Props) {
         <div className="space-y-1.5">
           <a href={waLink} target="_blank" rel="noopener noreferrer" className="block">
             <Button className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white">
-              <MessageCircle className="h-4 w-4 mr-2" /> Abrir WhatsApp do comprador
+              <MessageCircle className="h-4 w-4 mr-2" /> {courtesy ? 'Abrir WhatsApp do convidado' : 'Abrir WhatsApp do comprador'}
             </Button>
           </a>
           <p className="text-[11px] text-muted-foreground">

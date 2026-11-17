@@ -9,6 +9,7 @@ import { getEventEndInstant } from '@/lib/eventTime';
 import { fetchLotSales, sumLotSales } from '@/hooks/useLotSales';
 import { fetchPaidOrdersWithProducerValue } from '@/lib/orderProducerValues';
 import { computeProducerFinance } from '@/lib/producerFinance';
+import { mensagemDeErro } from '@/lib/painelDoProdutor';
 
 
 export type EventType = 'ingresso' | 'mesa' | 'hibrido';
@@ -196,7 +197,7 @@ export function useEvents() {
       toast.success('Evento criado com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao criar evento: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao criar evento'));
     },
   });
 
@@ -217,7 +218,7 @@ export function useEvents() {
       toast.success('Evento atualizado com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao atualizar evento: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao atualizar evento'));
     },
   });
 
@@ -234,8 +235,14 @@ export function useEvents() {
       queryClient.invalidateQueries({ queryKey: ['producer-events'] });
       toast.success('Evento excluído com sucesso!');
     },
-    onError: (error: Error) => {
-      toast.error(`Erro ao excluir evento: ${error.message}`);
+    onError: (error: Error & { hint?: string }) => {
+      // A recusa do banco para evento com pedido já vem em português e completa
+      // (gatilho trg_evento_com_pedido_nao_se_apaga): mostra como veio (OS-408).
+      if (error.hint === 'evento_com_pedidos' || /não pode ser excluído/i.test(error.message ?? '')) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error(mensagemDeErro(error, 'Erro ao excluir evento'));
     },
   });
 

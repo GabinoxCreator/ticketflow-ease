@@ -1,8 +1,17 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useInfiniteQuery, useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { computeProducerFinance } from '@/lib/producerFinance';
-import { attachProducerValues } from '@/lib/orderProducerValues';
+import { analyzeAttempts } from '@/lib/orderAttempts';
+import {
+  POR_PAGINA,
+  semRepetido,
+  lerPaginaDePedidos,
+  lerTodosOsPedidos,
+  lerTotaisDoEvento,
+  lerVendidoPorCupom,
+  chaveDosFiltros,
+  type FiltroPedidos,
+  type FiltrosDoPedido,
+} from '@/lib/painelDoEvento';
 
 export interface OrderReviewReason {
   expected?: number;
@@ -45,24 +54,25 @@ export interface Order {
   review_flagged_at?: string | null;
 }
 
-export function useEventOrders(eventId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  const { data: orders, isLoading, error } = useQuery({
-    queryKey: ['event-orders', eventId],
-    queryFn: async () => {
-      if (!eventId) return [];
-      
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, event_coupons(code)')
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      // Valor do ingresso para o produtor (face, sem taxa e sem juro) vem do
-      // banco — é o que alimenta o total do cabeçalho e a receita por lote.
-      return (await attachProducerValues((data || []) as Order[])) as Order[];
+/**
+ * Pedidos do evento em PÁGINAS de 50 (OS-408, etapa 4): a situação (aba) e a busca são
+ * filtradas no banco; "carregar mais" pede a próxima página. Antes vinha a lista inteira
+ * de uma vez, e acima do teto de linhas da API a lista e os totais saíam cortados.
+ *
+ * A chave começa com ['event-orders', evento]: quem já invalida essa chave (venda
+ * manual, cancelamento, cortesia) atualiza as páginas, os totais e as tentativas juntos.
+ */
+export function useEventOrders(eventId: string | undefined, filtro: FiltroPedidos = { situacao: 'todos' }) {
+  const termo = (filtro.busca || '').trim();
+  // Período, ingresso, forma de pagamento e cupom (etapa 5) também filtram no banco.
+  const consulta = useInfiniteQuery({
+    queryKey: ['event-orders', eventId, 'pagina', filtro.situacao, termo, chaveDosFiltros(filtro)],
+    queryFn: ({ pageParam }) =>
+      lerPaginaDePedidos(eventId as string, { ...filtro, busca: termo }, pageParam, pageParam + POR_PAGINA - 1),
+    initialPageParam: 0,
+    getNextPageParam: (ultima, todas) => {
+      const lidas = todas.reduce((s, p) => s + p.linhas.length, 0);
+      return ultima.linhas.length > 0 && lidas < ultima.total ? lidas : undefined;
     },
     enabled: !!eventId,
   });
@@ -84,29 +94,59 @@ export function useEventOrders(eventId: string | undefined) {
     },
   });
 
-  const paidOrders = orders?.filter(o => o.status === 'paid' || o.status === 'completed') || [];
-  const pendingOrders = orders?.filter(o => o.status === 'pending') || [];
-  // "Cancelados" = só o que foi cancelado ou devolvido de verdade.
-  const cancelledOrders = orders?.filter(o => ['cancelled','refunded','charged_back'].includes(o.status)) || [];
-  // "Não concluídos" = tentativas que nunca foram pagas (PIX venceu, cartão recusado).
-  const attemptOrders = orders?.filter(o => o.status === 'expired' || o.status === 'failed') || [];
-  const failedOrders = orders?.filter(o => o.status === 'failed') || [];
-  const flaggedOrders = orders?.filter(o => !!o.review_status) || [];
-
-  // Fonte única: valor do ingresso (sem taxa), pago, sem cortesia. Ver src/lib/producerFinance.ts
-  const totalRevenue = computeProducerFinance(paidOrders).total;
-
+  const paginas = consulta.data?.pages ?? [];
+  const orders = semRepetido(paginas.flatMap((p) => p.linhas));
   return {
     orders,
-    paidOrders,
-    pendingOrders,
-    cancelledOrders,
-    attemptOrders,
-    failedOrders,
-    flaggedOrders,
-    totalRevenue,
-    isLoading,
-    error,
+    /** Quantos pedidos o filtro tem no banco (não o tamanho da página). */
+    total: paginas.length ? paginas[paginas.length - 1].total : 0,
+    temMais: !!consulta.hasNextPage,
+    carregarMais: () => consulta.fetchNextPage(),
+    carregandoMais: consulta.isFetchingNextPage,
+    isLoading: consulta.isLoading,
+    error: consulta.error,
     updateOrderStatus,
   };
+}
+
+/** Os números dos cartões do evento (pedidos e ingressos), vindos do banco. */
+export function useEventTotals(eventId: string | undefined) {
+  return useQuery({
+    queryKey: ['event-orders', eventId, 'totais'],
+    queryFn: () => lerTotaisDoEvento(eventId as string),
+    enabled: !!eventId,
+  });
+}
+
+/**
+ * Aba "Não concluídos": quem comprou depois e quem não voltou precisa comparar TODAS as
+ * tentativas com TODOS os pagos, então aqui se lê tudo (em blocos de 500), só quando a
+ * aba é aberta.
+ */
+export function useTentativasDoEvento(eventId: string | undefined, ligado: boolean, filtros: FiltrosDoPedido = {}) {
+  return useQuery({
+    queryKey: ['event-orders', eventId, 'tentativas', chaveDosFiltros(filtros)],
+    queryFn: async () => {
+      // Os filtros da etapa 5 valem para as tentativas mostradas; "comprou depois"
+      // continua comparando com TODOS os pagos do evento.
+      const [tentativas, pagos] = await Promise.all([
+        lerTodosOsPedidos(eventId as string, { ...filtros, situacao: 'nao_concluidos' }),
+        lerTodosOsPedidos(eventId as string, { situacao: 'pagos' }),
+      ]);
+      return { tentativas, ...analyzeAttempts(tentativas, pagos) };
+    },
+    enabled: !!eventId && ligado,
+  });
+}
+
+/**
+ * Quanto cada cupom vendeu (etapa 5, item 5.6). Mora sob ['event-orders', evento]: uma
+ * venda, cortesia ou cancelamento que atualiza os pedidos atualiza isto junto.
+ */
+export function useVendidoPorCupom(eventId: string | undefined) {
+  return useQuery({
+    queryKey: ['event-orders', eventId, 'por-cupom'],
+    queryFn: () => lerVendidoPorCupom(eventId as string),
+    enabled: !!eventId,
+  });
 }

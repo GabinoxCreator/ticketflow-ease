@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { CabecalhoDaPagina } from '@/components/producer/CabecalhoDaPagina';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +34,6 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useImageUpload } from '@/hooks/useImageUpload';
-import festpagLogo from '@/assets/logo-festpag.png';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CHAVE_PENDENCIAS_REPASSE, documentoValido, soDigitos } from '@/lib/repasseDocumento';
 import {
@@ -59,6 +59,14 @@ function normalizarSlug(texto: string): string {
 function limparInstagram(texto: string): string {
   const semLink = texto.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '');
   return semLink.split(/[/?#\s]/)[0].replace(/[^A-Za-z0-9._]/g, '').slice(0, 30);
+}
+
+// As iniciais da produtora quando não há logo: a MESMA regra da página do evento
+// (src/components/event/ProdutorDoEvento.tsx), para a prévia mostrar o que o comprador vê
+// (OS-408 etapa 5, 5.8; antes a prévia sem logo mostrava a logo da FestPag).
+function iniciais(nome: string): string {
+  const partes = nome.replace(/[^\p{L}\p{N} ]/gu, ' ').split(' ').filter(Boolean);
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '?';
 }
 
 const MENSAGEM_SLUG: Record<'curto' | 'reservado' | 'ocupado', string> = {
@@ -330,6 +338,7 @@ export default function ProducerSettings() {
       }
 
       toast.success('Configurações salvas!');
+      setSalvoAgora(estadoDaTela);
       queryClient.invalidateQueries({ queryKey: ['producer-profile'] });
       // O aviso do Financeiro (o que falta para pedir repasse) muda com o documento.
       queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
@@ -341,8 +350,31 @@ export default function ProducerSettings() {
     return { ok: true };
   };
 
-  const previewLogo = logoUrl || festpagLogo;
   const previewName = brandName || 'Nome da sua produtora';
+
+  // "Salvar" sempre à vista (OS-408 etapa 5, 5.8): com alguma mudança sem salvar, uma
+  // barra presa embaixo da tela traz o mesmo botão. Compara o que está na tela com o que
+  // veio do banco (ou com o que acabou de ser salvo, se o banco ainda não foi relido).
+  const estadoDaTela = JSON.stringify([
+    nome, whatsapp,
+    ...(effectiveProducerId
+      ? [brandName, logoUrl || null, legalName, document, orgEmail, orgPhone, metaPixelId, trackingEnabled, slugMudou, paginaMudou, capiToken.trim()]
+      : []),
+  ]);
+  const estadoDoBanco = JSON.stringify([
+    profile?.nome_completo || '', profile?.whatsapp || '',
+    ...(effectiveProducerId
+      ? [
+          producerProfile?.brand_name || '', producerProfile?.logo_url || null, producerProfile?.legal_name || '',
+          producerProfile?.document || '', producerProfile?.email || '', producerProfile?.phone || '',
+          (producerProfile as any)?.meta_pixel_id || '', !!(producerProfile as any)?.tracking_enabled, false, false, '',
+        ]
+      : []),
+  ]);
+  const [salvoAgora, setSalvoAgora] = useState<string | null>(null);
+  useEffect(() => { setSalvoAgora(null); }, [effectiveProducerId]);
+  const carregado = !!profile && (!effectiveProducerId || !!producerProfile);
+  const temMudanca = carregado && estadoDaTela !== estadoDoBanco && estadoDaTela !== salvoAgora;
 
   return (
     <ProducerLayout>
@@ -350,21 +382,9 @@ export default function ProducerSettings() {
         <title>Configurações | FestPag</title>
       </Helmet>
 
-      <div className="space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-background to-pink-500/10 p-6 sm:p-8">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center shadow-lg shrink-0">
-              <SettingsIcon className="h-6 w-6 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Configurações da Conta</h1>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Gerencie seu perfil e os dados da sua produtora
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className={`space-y-6 ${temMudanca ? 'pb-24' : ''}`}>
+        {/* Cabeçalho no padrão do painel (OS-408 etapa 5, 5.9) */}
+        <CabecalhoDaPagina icone={SettingsIcon} titulo="Configurações da Conta" descricao="Gerencie seu perfil e os dados da sua produtora" />
 
         <Card className="rounded-2xl border-border/60 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary to-pink-500" />
@@ -493,8 +513,12 @@ export default function ProducerSettings() {
                         Pré-visualização (Realização)
                       </p>
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                          <img src={previewLogo} alt={previewName} className="h-full w-full object-cover" />
+                        <div className="h-11 w-11 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0" data-testid="previa-da-logo">
+                          {logoUrl ? (
+                            <img src={logoUrl} alt={previewName} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="font-bold text-sm text-muted-foreground">{iniciais(brandName)}</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-sm truncate">{previewName}</p>
@@ -703,7 +727,7 @@ export default function ProducerSettings() {
                     <LineChart className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-semibold">Trackeamento</h2>
+                    <h2 className="text-lg font-semibold">Rastreamento</h2>
                     <p className="text-xs text-muted-foreground">
                       Configure o Meta Pixel para rastrear conversões das suas campanhas no Facebook e Instagram Ads.
                     </p>
@@ -832,6 +856,24 @@ export default function ProducerSettings() {
           </CardContent>
         </Card>
       </div>
+      {/* Barra do "Salvar", presa embaixo da tela, só quando há mudança (5.8). */}
+      {temMudanca && (
+        <div
+          role="region"
+          aria-label="Mudanças sem salvar"
+          className="fixed bottom-4 left-4 right-4 sm:left-auto z-40 flex items-center justify-between sm:justify-end gap-3 rounded-2xl border border-primary/30 bg-card/95 backdrop-blur-xl px-4 py-3 shadow-2xl shadow-primary/20"
+        >
+          <p className="text-sm text-muted-foreground">Há mudanças sem salvar.</p>
+          <Button
+            onClick={handleSaveAll}
+            disabled={saving || isUploading}
+            className="bg-gradient-to-r from-primary to-pink-500 hover:opacity-90 shrink-0"
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Salvar Configurações
+          </Button>
+        </div>
+      )}
       <PinConfirmDialog
         open={pedindoPin}
         descricao={PIN_PARA_TROCAR_DOCUMENTO}

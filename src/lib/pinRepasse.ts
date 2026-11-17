@@ -94,7 +94,7 @@ export function mensagemDoPin(codigo: string | undefined): string {
     case 'pin_incorreto': return PIN_INCORRETO;
     case 'bloqueado': return PIN_BLOQUEADO;
     case 'sem_pin': return PIN_CRIE_ANTES;
-    case 'pin_refazer': return 'Por segurança, crie o seu PIN de novo na aba Dados & PIN.';
+    case 'pin_refazer': return 'Por segurança, crie o seu PIN de novo na aba Conta bancária e PIN.';
     case 'pin_invalido': return 'O PIN deve ter 4 dígitos';
     case 'pin_atual_obrigatorio': return 'Digite seu PIN atual';
     case 'campos_obrigatorios': return 'Preencha todos os campos obrigatórios';
@@ -148,7 +148,7 @@ export function mensagemDaRecuperacao(r: RespostaRecuperar): string {
     case 'desafio_nao_confere': return 'Esse código não vale mais. Peça outro.';
     case 'muitos_pedidos': return 'Muitos pedidos seguidos. Espere alguns minutos e tente de novo.';
     case 'sem_email': return `Este PIN não tem e-mail guardado. Escreva para ${EMAIL_SUPORTE} e a FestPag libera um PIN novo.`;
-    case 'sem_pin': return 'Você ainda não tem PIN. Crie um na aba Dados & PIN.';
+    case 'sem_pin': return 'Você ainda não tem PIN. Crie um na aba Conta bancária e PIN.';
     case 'pin_invalido': return 'O PIN deve ter 4 dígitos';
     default: return 'Não conseguimos mandar o e-mail agora. Tente de novo em alguns minutos.';
   }

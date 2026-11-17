@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Wallet, Loader2, Search, TrendingUp, ArrowUpRight, Calendar, Banknote, AlertTriangle } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Wallet, Loader2, Search, Calendar, Banknote, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { PinSetupCard } from '@/components/producer/PinSetupCard';
 import { BankAccountCard } from '@/components/producer/BankAccountCard';
@@ -28,9 +28,13 @@ import {
   CHAVE_PENDENCIAS_REPASSE,
   MENSAGEM_PENDENCIA_REPASSE,
   usePendenciasRepasse,
+  type PendenciaRepasse,
 } from '@/lib/repasseDocumento';
-import { atualizarMeuPin, useMeuPin } from '@/lib/pinRepasse';
-import { useQueryClient } from '@tanstack/react-query';
+import { atualizarMeuPin, useMeuPin, AVISO_PIN } from '@/lib/pinRepasse';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { ReguaEmCartoes } from '@/components/producer/ReguaDoDinheiro';
+import { situacaoDoRepasse } from '@/lib/painelDoProdutor';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -52,12 +56,42 @@ const formatBRL = (v: number) => {
 
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
 
+const TIPO_DE_CHAVE: Record<string, string> = {
+  cpf: 'CPF', cnpj: 'CNPJ', email: 'E-mail', telefone: 'Telefone', aleatoria: 'Chave aleatória',
+};
+
+interface ContaDeRepasse {
+  bank_name: string; agency: string; account_number: string; account_holder_name: string;
+  pix_key: string; pix_key_type: string;
+}
+
+// Pendência que se resolve em Configurações (documento da produtora); as outras, na
+// aba da conta.
+const PENDENCIA_EM_CONFIGURACOES: PendenciaRepasse[] = ['missing_document', 'invalid_document'];
+
 export default function Financeiro() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedEvent, setSelectedEvent] = useState<{ id: string; title: string; available: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  // Para onde vai o saque (OS-408): a mesma conta que o pedido de repasse usa no
+  // banco (`request_payout` lê a conta do usuário logado).
+  const { data: conta, isLoading: contaCarregando, isFetching: contaRelendo } = useQuery({
+    queryKey: ['conta-de-repasse', user?.id],
+    enabled: !!user?.id,
+    queryFn: async (): Promise<ContaDeRepasse | null> => {
+      const { data, error } = await supabase
+        .from('producer_bank_accounts' as any)
+        .select('bank_name, agency, account_number, account_holder_name, pix_key, pix_key_type')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as unknown as ContaDeRepasse) ?? null;
+    },
+  });
 
   // OS-166: "tem PIN?" vem do banco (meu_pin); o navegador não lê o PIN guardado.
   // Se a consulta falhar, a tela abre sem a trava, como antes: quem protege a
@@ -79,6 +113,29 @@ export default function Financeiro() {
   const showContent = !hasPin || isUnlocked;
   const { data: finance, isLoading: financeLoading } = useProducerFinance();
   const { data: pendencias = [] } = usePendenciasRepasse();
+
+  // Saque pedido e ainda não pago, por evento (decisão do Gabriel em 09/11: "Botão
+  // desconta"). "A receber da FestPag" continua com ele dentro (o dinheiro ainda não
+  // chegou). O banco só aceita UM pedido aberto por evento (índice único
+  // `uniq_payout_requested_per_event`; o request_payout responde `already_requested`):
+  // com um pedido aberto, o que dá para pedir agora é zero.
+  const pedidoPorEvento = useMemo(() => {
+    const m = new Map<string, number>();
+    (finance?.payouts ?? []).filter((p) => p.status === 'requested' && p.event_id)
+      .forEach((p) => m.set(p.event_id!, (m.get(p.event_id!) ?? 0) + Number(p.net_amount || 0)));
+    return m;
+  }, [finance]);
+  const podePedir = (ev: { id: string; available: number }) => (pedidoPorEvento.has(ev.id) ? 0 : Math.max(0, ev.available));
+  const rotuloDoSaque = (ev: { id: string; available: number }) =>
+    pedidoPorEvento.has(ev.id) ? 'Saque pedido' : 'Solicitar Saque';
+
+  // Abriu a janela: a conta e as pendências são lidas de novo, porque o produtor pode
+  // ter acabado de cadastrar ou trocar a conta na outra aba (revisão da OS-408).
+  useEffect(() => {
+    if (!selectedEvent) return;
+    queryClient.invalidateQueries({ queryKey: ['conta-de-repasse'] });
+    queryClient.invalidateQueries({ queryKey: [CHAVE_PENDENCIAS_REPASSE] });
+  }, [selectedEvent, queryClient]);
 
   const filteredEvents = useMemo(() => {
     if (!finance?.events) return [];
@@ -175,79 +232,53 @@ export default function Financeiro() {
                 </Alert>
               )}
 
-              {/* Global Balance */}
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-                      <TrendingUp className="w-4 h-4" /> Receita Líquida
-                    </div>
-                    <div className="text-3xl font-bold mt-2 break-words">
-                      {financeLoading ? '—' : formatBRL(finance?.totals.net || 0)}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-                      <ArrowUpRight className="w-4 h-4" /> Já Repassado
-                    </div>
-                    <div className="text-3xl font-bold mt-2 break-words">
-                      {financeLoading ? '—' : formatBRL(finance?.totals.paidOut || 0)}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
-                      <Wallet className="w-4 h-4" /> Disponível
-                    </div>
-                    <div className="text-3xl font-bold mt-2 break-words">
-                      {financeLoading ? '—' : formatBRL(finance?.totals.available || 0)}
-                    </div>
-                    {!financeLoading && (finance?.totals.receivedDirectly || 0) > 0 && (
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        Fora daqui: {formatBRL(finance!.totals.receivedDirectly)} que você já recebeu direto
-                        (venda manual e dinheiro) — esse valor não passou pela FestPag e não entra no saque.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+              {/* A régua do dinheiro (OS-408): as cinco palavras, na mesma ordem de toda tela. */}
+              <ReguaEmCartoes
+                carregando={financeLoading}
+                numeros={{
+                  vendido: (finance?.totals.netOnline || 0) + (finance?.totals.netManual || 0),
+                  taxaDoComprador: finance?.totals.fee || 0,
+                  juro: finance?.totals.interest || 0,
+                  recebidoDireto: finance?.totals.receivedDirectly || 0,
+                  aReceber: finance ? finance.totals.available : null,
+                  jaPago: finance ? finance.totals.paidOut : null,
+                }}
+              />
 
-              {/* Composição da Receita Líquida (Online vs Manual) */}
-              {!financeLoading && finance && finance.totals.grossManual > 0 && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Receita Online</div>
-                      <div className="text-xl font-bold mt-1 break-words">
-                        {formatBRL(finance.totals.netOnline)}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Bruto {formatBRL(finance.totals.grossOnline)} · pagamentos pelo site (valor dos ingressos, sem taxa e sem juro)
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Receita Manual</div>
-                      <div className="text-xl font-bold mt-1 break-words">
-                        {formatBRL(finance.totals.netManual)}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Bruto {formatBRL(finance.totals.grossManual)} · vendas registradas por você — já recebidas direto, fora do repasse
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+              {/* Saques pedidos (OS-408): antes só apareciam dentro de cada evento. */}
+              {!financeLoading && (finance?.payouts.length ?? 0) > 0 && (
+                <Card data-testid="saques-pedidos">
+                  <CardContent className="p-4 space-y-2">
+                    <h2 className="font-semibold text-sm">Saques pedidos</h2>
+                    <ul className="divide-y divide-border">
+                      {finance!.payouts.map((p) => {
+                        const ev = finance!.events.find((e) => e.id === p.event_id);
+                        const quando = p.paid_at || p.created_at;
+                        return (
+                          <li key={p.id} className="py-2 flex items-center justify-between gap-3 text-sm">
+                            <div className="min-w-0">
+                              <div className="font-medium truncate">{ev?.title ?? 'Evento'}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {quando ? format(new Date(quando), "dd/MM/yyyy", { locale: ptBR }) : ''}
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="font-semibold tabular-nums">{formatBRL(Number(p.net_amount))}</div>
+                              <div className="text-[11px] text-muted-foreground">{situacaoDoRepasse(p.status)}</div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Tabs */}
               <Tabs value={aba} onValueChange={setAba} className="w-full">
                 <TabsList className="grid grid-cols-2 w-full sm:w-auto">
                   <TabsTrigger value="por-evento">Por Evento</TabsTrigger>
-                  <TabsTrigger value="dados">Dados & PIN</TabsTrigger>
+                  <TabsTrigger value="dados">Conta bancária e PIN</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="por-evento" className="mt-4 space-y-4">
@@ -296,46 +327,44 @@ export default function Financeiro() {
                                   </div>
                                 </div>
                                 <div className="hidden sm:flex flex-col items-end flex-shrink-0">
-                                  <div className="font-semibold">{formatBRL(event.net)}</div>
-                                  <div className="text-xs text-muted-foreground">Receita Líquida</div>
+                                  <div className="font-semibold">{formatBRL(event.netOnline + event.netManual)}</div>
+                                  <div className="text-xs text-muted-foreground">Vendido</div>
                                 </div>
                                 <div className="flex flex-col items-end flex-shrink-0">
                                   <div className="font-semibold">{formatBRL(event.available)}</div>
-                                  <div className="text-xs text-muted-foreground">Disponível</div>
+                                  <div className="text-xs text-muted-foreground">A receber da FestPag</div>
                                 </div>
                                 <Button
                                   size="sm"
-                                  variant="secondary"
                                   className="hidden sm:inline-flex flex-shrink-0 gap-1.5"
-                                  disabled={event.available <= 0}
+                                  disabled={podePedir(event) <= 0}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    setSelectedEvent({ id: event.id, title: event.title, available: event.available });
+                                    setSelectedEvent({ id: event.id, title: event.title, available: podePedir(event) });
                                   }}
                                 >
                                   <Banknote className="w-4 h-4" />
-                                  Solicitar Saque
+                                  {rotuloDoSaque(event)}
                                 </Button>
                               </div>
                               {/* mobile-only net + saque */}
                               <div className="flex sm:hidden justify-between mt-3 pt-3 border-t border-border text-xs">
-                                <span className="text-muted-foreground">Receita Líquida</span>
-                                <span className="font-medium">{formatBRL(event.net)}</span>
+                                <span className="text-muted-foreground">Vendido</span>
+                                <span className="font-medium">{formatBRL(event.netOnline + event.netManual)}</span>
                               </div>
                               <Button
                                 size="sm"
-                                variant="secondary"
                                 className="sm:hidden w-full mt-3 gap-1.5"
-                                disabled={event.available <= 0}
+                                disabled={podePedir(event) <= 0}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setSelectedEvent({ id: event.id, title: event.title, available: event.available });
+                                  setSelectedEvent({ id: event.id, title: event.title, available: podePedir(event) });
                                 }}
                               >
                                 <Banknote className="w-4 h-4" />
-                                Solicitar Saque
+                                {rotuloDoSaque(event)}
                               </Button>
                             </CardContent>
                           </Card>
@@ -358,22 +387,80 @@ export default function Financeiro() {
         </>
       )}
 
+      {/* Janela do saque (OS-408): diz para onde vai o dinheiro e, se falta algo, o
+          quê, em vez de deixar o servidor recusar. Sem PIN só avisa: o saque segue
+          (decisão do Gabriel em 09/11: "Avisa e deixa pedir"). O prazo do repasse
+          não entra aqui: só vai a texto de cliente depois de ajustar os dias (06/11). */}
       <AlertDialog open={selectedEvent != null} onOpenChange={(open) => { if (!open && !isSubmitting) setSelectedEvent(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Solicitar Saque</AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedEvent ? `Confirmar saque de ${formatBRL(selectedEvent.available)}?` : ''}
+            <AlertDialogTitle>Solicitar saque</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground" data-testid="janela-do-saque">
+                {selectedEvent && (
+                  <p>
+                    <span className="font-semibold text-foreground">{formatBRL(selectedEvent.available)}</span> de {selectedEvent.title}
+                  </p>
+                )}
+                {contaCarregando ? (
+                  <p className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Conferindo a conta que vai receber...</p>
+                ) : conta && conta.bank_name ? (
+                  <div className="rounded-lg border p-3 space-y-0.5" data-testid="destino-do-saque">
+                    <p className="font-medium text-foreground">Vai para</p>
+                    {conta.pix_key ? (
+                      <p>PIX ({TIPO_DE_CHAVE[conta.pix_key_type] ?? 'chave'}): {conta.pix_key}</p>
+                    ) : (
+                      <p>{conta.bank_name} · agência {conta.agency} · conta {conta.account_number}</p>
+                    )}
+                    <p>Titular: {conta.account_holder_name}</p>
+                  </div>
+                ) : null}
+                {pendencias.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 space-y-1" data-testid="falta-para-o-saque">
+                    <p className="font-medium text-foreground">Falta para pedir o saque</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {pendencias.map((p) => <li key={p}>{MENSAGEM_PENDENCIA_REPASSE[p]}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {pendencias.length === 0 && !hasPin && meuPin && (
+                  <div className="rounded-lg border p-3 flex gap-2" data-testid="aviso-pin-no-saque">
+                    <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                    <p>
+                      <span className="font-medium text-foreground">{AVISO_PIN.titulo}.</span> Ele protege a conta que recebe os seus repasses. Você pode pedir este saque agora e criar o PIN depois.
+                    </p>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isSubmitting}
-              onClick={(e) => { e.preventDefault(); handleConfirmPayout(); }}
-            >
-              {isSubmitting ? 'Solicitando...' : 'Confirmar'}
-            </AlertDialogAction>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isSubmitting}>Voltar</AlertDialogCancel>
+            {pendencias.length > 0 ? (
+              <AlertDialogAction
+                onClick={() => {
+                  setSelectedEvent(null);
+                  if (pendencias.some((p) => PENDENCIA_EM_CONFIGURACOES.includes(p))) navigate('/produtor/configuracoes');
+                  else setAba('dados');
+                }}
+              >
+                {pendencias.some((p) => PENDENCIA_EM_CONFIGURACOES.includes(p)) ? 'Ir para Configurações' : 'Ir para Conta bancária e PIN'}
+              </AlertDialogAction>
+            ) : (
+              <>
+                {!hasPin && meuPin && (
+                  <Button variant="outline" disabled={isSubmitting} onClick={() => { setSelectedEvent(null); setAba('dados'); }}>
+                    {AVISO_PIN.botao}
+                  </Button>
+                )}
+                <AlertDialogAction
+                  disabled={isSubmitting || contaCarregando || contaRelendo}
+                  onClick={(e) => { e.preventDefault(); handleConfirmPayout(); }}
+                >
+                  {isSubmitting ? 'Solicitando...' : 'Confirmar saque'}
+                </AlertDialogAction>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

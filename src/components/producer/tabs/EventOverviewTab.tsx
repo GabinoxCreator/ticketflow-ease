@@ -1,7 +1,8 @@
-import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, Download, QrCode, Eye, BarChart3 } from 'lucide-react';
+import { DollarSign, Ticket, Package, TrendingUp, ClipboardList, Users, ShoppingBag, Wallet, Eye, BarChart3 } from 'lucide-react';
 import { SalesChart } from '@/components/producer/SalesChart';
 import { LotSummaryCard } from '@/components/producer/LotSummaryCard';
 import { AdminFeeOverrideCard } from '@/components/producer/AdminFeeOverrideCard';
+import { CAIXA_DO_VALOR, VALOR_QUE_CABE } from '@/components/producer/valorQueCabe';
 
 interface SalesByLot {
   id: string;
@@ -26,6 +27,8 @@ interface EventOverviewTabProps {
   salesByLot: SalesByLot[];
   salesByDay: { date: string; label: string; revenue: number; tickets: number }[];
   onTabChange: (tab: string) => void;
+  /** Abre a janela de venda manual. Sem ela (quem não é o dono do evento), o atalho não aparece. */
+  onVendaManual?: () => void;
 }
 
 function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -48,6 +51,7 @@ export function EventOverviewTab({
   salesByLot,
   salesByDay,
   onTabChange,
+  onVendaManual,
 }: EventOverviewTabProps) {
   // Um formatador s\u00F3 formata: nunca trocar valor espec\u00EDfico aqui (ver OS-108, 02/10/2026).
   const formatCurrency = (value: number) =>
@@ -55,7 +59,7 @@ export function EventOverviewTab({
 
   const statsCards = [
     {
-      title: 'Receita Total',
+      title: 'Vendido',
       value: formatCurrency(totalRevenue),
       icon: DollarSign,
       iconColor: 'text-primary',
@@ -79,8 +83,9 @@ export function EventOverviewTab({
       iconBg: 'bg-purple-500/15',
     },
     {
-      title: 'Taxa de Conversão',
-      value: `${conversionRate}%`,
+      // "Ocupação" = vendidos sobre a capacidade (antes "Taxa de Conversão"; a conta é a mesma).
+      title: 'Ocupação',
+      value: `${String(conversionRate).replace('.', ',')}%`,
       icon: TrendingUp,
       iconColor: 'text-amber-400',
       iconBg: 'bg-amber-500/15',
@@ -90,8 +95,10 @@ export function EventOverviewTab({
   const quickActions = [
     { label: 'Pedidos', icon: ClipboardList, onClick: () => onTabChange('orders') },
     { label: 'Participantes', icon: Users, onClick: () => onTabChange('participants') },
-    { label: 'Check-in', icon: QrCode, onClick: () => onTabChange('checkin') },
-    { label: 'Portaria', icon: Download, onClick: () => onTabChange('doorsales') },
+    // "Check-in" e "Portaria" saíram daqui (OS-408): apontavam para abas retiradas
+    // em 20/08 e o clique não levava a lugar nenhum.
+    ...(onVendaManual ? [{ label: 'Venda manual', icon: ShoppingBag, onClick: onVendaManual }] : []),
+    { label: 'Financeiro', icon: Wallet, onClick: () => onTabChange('financeiro') },
     { label: 'Ver Evento', icon: Eye, onClick: () => window.open(`/evento/${eventSlug ?? eventId}`, '_blank') },
     { label: 'Listas', icon: BarChart3, onClick: () => onTabChange('lists') },
   ];
@@ -105,15 +112,19 @@ export function EventOverviewTab({
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      {/* Quatro cartões lado a lado só a partir de 1280 px; abaixo disso, dois por linha e o
+          valor em reais na linha inteira: no notebook estreito o valor não cabia (OS-408). */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {statsCards.map((stat) => (
-          <GlassCard key={stat.title}>
+          <GlassCard key={stat.title} className={stat.gradient ? 'col-span-2 xl:col-span-1' : ''}>
             <div className="p-4 flex items-center gap-3">
               <div className={`p-2.5 rounded-xl ${stat.iconBg}`}>
                 <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
               </div>
-              <div className="min-w-0">
-                <p className={`text-xl md:text-2xl font-bold truncate ${stat.gradient ? 'bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent' : ''}`}>
+              {/* Valor em reais: a letra diminui até caber na caixa (cqi = largura da caixa), nunca
+                  sai cortado em nenhuma largura de tela (OS-408). Os outros números seguem como antes. */}
+              <div className={stat.gradient ? CAIXA_DO_VALOR : 'min-w-0'}>
+                <p className={`font-bold ${stat.gradient ? `${VALOR_QUE_CABE} bg-gradient-to-r from-primary to-pink-500 bg-clip-text text-transparent` : 'text-xl md:text-2xl truncate'}`}>
                   {stat.value}
                 </p>
                 <p className="text-[11px] md:text-xs text-muted-foreground">{stat.title}</p>
@@ -128,7 +139,7 @@ export function EventOverviewTab({
         <div className="lg:col-span-2">
           <GlassCard>
             <div className="p-1">
-              <SalesChart data={chartData} />
+              <SalesChart data={chartData} periodo="dia" />
             </div>
           </GlassCard>
         </div>

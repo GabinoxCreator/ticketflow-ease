@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -13,6 +15,7 @@ import { useOrderTickets } from '@/hooks/useOrderTickets';
 import { CancelManualSaleDialog } from '@/components/producer/CancelManualSaleDialog';
 import { CancelPaidOrderDialog } from '@/components/producer/CancelPaidOrderDialog';
 import { generateManualSaleTicketsPDF } from '@/utils/manualSaleTicketsPdf';
+import { formaDePagamento, situacaoDoIngresso, formatBRL as brl, SITUACAO_DO_PEDIDO } from '@/lib/painelDoProdutor';
 
 interface Props {
   order: Order;
@@ -22,23 +25,8 @@ interface Props {
   eventMeta: { title: string; date: string; time: string; venue: string; city: string; state: string };
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  dinheiro: 'Dinheiro',
-  pix: 'PIX',
-  cartao: 'Cartão',
-  cartao_credito: 'Cartão de Crédito',
-  cartao_debito: 'Cartão de Débito',
-  transferencia: 'Transferência',
-  outro: 'Outro',
-};
-
-const brl = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
-const STATUS_LABELS: Record<string, string> = {
-  paid: 'Pago', completed: 'Pago', pending: 'Pendente', cancelled: 'Cancelado',
-  refunded: 'Reembolsado', failed: 'Falhou', expired: 'Expirado', charged_back: 'Chargeback',
-};
+// As situações do pedido moram em painelDoProdutor (um nome por coisa, OS-408).
+const STATUS_LABELS = SITUACAO_DO_PEDIDO;
 
 export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Props) {
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -75,12 +63,37 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
   const total = Number(order.total_amount);
   const fee = Number(order.service_fee_amount || 0);
   const discount = Number(order.discount_amount || 0);
-  // total = ingresso − desconto + taxa  ⇒  ingresso = total + desconto − taxa
-  const ingresso = total + discount - fee;
 
-  const paymentLabel = isManual
-    ? (order.manual_payment_method ? PAYMENT_LABELS[order.manual_payment_method] ?? order.manual_payment_method : '—')
-    : (order.payment_method || '—');
+  // Valor dos ingressos = a FACE gravada na hora da venda (OS-408 etapa 5, 5.4), lida pela
+  // função de sempre (`producer_order_values`, a mesma do "Vendido"). Na rota do Marcel o
+  // cartão grava o seu custo (e o juro da parcela) DENTRO do total: a conta antiga
+  // "total + desconto − taxa" punha esse custo no valor dos ingressos (Oktoberfest: ingresso
+  // de R$ 200 aparecia como R$ 229). Pedido sem face gravada (antigo, manual): a conta antiga,
+  // que nessas rotas é a própria face.
+  const leFace = order.sale_origin !== 'courtesy';
+  const { data: faceDoPedido, isLoading: lendoFace, isError: faceFalhou } = useQuery({
+    queryKey: ['face-do-pedido', order.id],
+    enabled: open && leFace,
+    staleTime: 60_000,
+    retry: 1,
+    queryFn: async () => {
+      const rpc = supabase.rpc.bind(supabase) as unknown as (fn: string, a: Record<string, unknown>) => Promise<{ data: { face_amount: number | string | null }[] | null; error: unknown }>;
+      const { data, error } = await rpc('producer_order_values', { p_order_ids: [order.id] });
+      if (error) throw error;
+      const f = data?.[0]?.face_amount;
+      return f == null || f === '' || !Number.isFinite(Number(f)) ? null : Number(f);
+    },
+  });
+  // Enquanto a face não chega, "…" no lugar do valor; se a leitura falha, o aviso no lugar do
+  // número (nunca o valor da conta antiga, que no cartão leva o custo do cartão junto). Revisão 1.
+  const faceIncerta = leFace && (lendoFace || faceFalhou);
+  const face = leFace ? faceDoPedido ?? null : null;
+  const ingresso = face ?? total + discount - fee;
+  // O que sobra entre o total e (ingressos − desconto + taxa) é o custo do cartão (e o juro).
+  const custoDoCartao = face != null ? Math.round((total - (face - discount) - fee) * 100) / 100 : 0;
+
+  // Em português, nunca o código do banco ("pix", "card"...) (OS-408).
+  const paymentLabel = (isManual ? formaDePagamento(order.manual_payment_method) : formaDePagamento(order.payment_method)) ?? '—';
 
   return (
     <>
@@ -90,12 +103,15 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
             <SheetTitle className="flex items-center gap-2 flex-wrap">
               Pedido
               <Badge variant={isPaid ? 'default' : 'outline'} className={isPaid ? 'bg-green-500 hover:bg-green-600' : ''}>
-                {STATUS_LABELS[order.status] ?? order.status}
+                {STATUS_LABELS[order.status] ?? 'Outra situação'}
               </Badge>
               {isManual && <Badge className="bg-primary/15 text-primary border border-primary/30">Manual</Badge>}
               {order.sale_origin === 'courtesy' && <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30">Cortesia</Badge>}
             </SheetTitle>
             <SheetDescription>
+              {/* Número do pedido: o mesmo "Pedido #XXXXXXXX" que o comprador vê ao terminar a compra. */}
+              <span className="font-mono text-foreground">Pedido #{order.id.slice(0, 8).toUpperCase()}</span>
+              {' · '}
               {format(new Date(order.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </SheetDescription>
           </SheetHeader>
@@ -141,7 +157,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
                         <p className="text-xs text-muted-foreground truncate">{t.holder_name}{t.seat_label ? ` · ${t.seat_label}` : ''}</p>
                       </div>
                       {t.status !== 'valid' && (
-                        <Badge variant="outline" className="text-[10px]">{STATUS_LABELS[t.status] ?? t.status}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{situacaoDoIngresso(t.status)}</Badge>
                       )}
                     </li>
                   ))}
@@ -149,19 +165,23 @@ export function OrderDetailDrawer({ order, open, onOpenChange, eventMeta }: Prop
               )}
             </section>
 
-            {/* Bloco financeiro — taxa aparece SÓ aqui, dentro do card do pedido */}
+            {/* Bloco financeiro — taxa aparece SÓ aqui, dentro do card do pedido.
+                OS-408 etapa 5 (5.4): as quatro linhas sempre, com os nomes da régua, só com o
+                que o pedido guarda (valor, desconto, taxa e total). */}
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Financeiro deste pedido</h3>
               <div className="space-y-1.5 text-sm rounded-lg border bg-card/50 p-3">
-                <div className="flex justify-between"><span className="text-muted-foreground">Ingresso(s)</span><span>{brl(ingresso)}</span></div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-emerald-500">
-                    <span className="flex items-center gap-1"><Tag className="h-3.5 w-3.5" />Desconto{order.event_coupons?.code ? ` (${order.event_coupons.code})` : ''}</span>
-                    <span>−{brl(discount)}</span>
-                  </div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Valor dos ingressos</span><span data-testid="valor-dos-ingressos">{faceIncerta ? (lendoFace ? '…' : '—') : brl(ingresso)}</span></div>
+                {faceFalhou && (
+                  <p className="text-xs text-destructive">Não deu para ler o valor dos ingressos. Confira a internet e tente de novo.</p>
                 )}
-                {fee > 0 && (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Taxa de conveniência</span><span>{brl(fee)}</span></div>
+                <div className={`flex justify-between ${discount > 0 ? 'text-emerald-500' : ''}`}>
+                  <span className={`flex items-center gap-1 ${discount > 0 ? '' : 'text-muted-foreground'}`}><Tag className="h-3.5 w-3.5" />Desconto{order.event_coupons?.code ? ` (${order.event_coupons.code})` : ''}</span>
+                  <span>{discount > 0 ? `−${brl(discount)}` : brl(0)}</span>
+                </div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Taxa do comprador</span><span>{brl(fee)}</span></div>
+                {!faceIncerta && custoDoCartao > 0.004 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Custo do cartão</span><span>{brl(custoDoCartao)}</span></div>
                 )}
                 <div className="flex justify-between font-semibold border-t pt-1.5 mt-1.5"><span>Total pago</span><span>{brl(total)}</span></div>
               </div>

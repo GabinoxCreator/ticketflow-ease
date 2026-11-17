@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { mensagemDeErro } from '@/lib/painelDoProdutor';
 
 export interface EventLot {
   id: string;
@@ -128,7 +129,7 @@ export function useEventLots(eventId: string | undefined) {
       toast.success('Lote criado com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao criar lote: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao criar lote'));
     },
   });
 
@@ -149,7 +150,7 @@ export function useEventLots(eventId: string | undefined) {
       toast.success('Lote atualizado com sucesso!');
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao atualizar lote: ${error.message}`);
+      toast.error(mensagemDeErro(error, 'Erro ao atualizar lote'));
     },
   });
 
@@ -169,7 +170,7 @@ export function useEventLots(eventId: string | undefined) {
     onError: (error: Error) => {
       // Lote que já vendeu o banco recusa (OS-297) com a frase de como parar de
       // vender; são duas frases, e os 4 s padrão do aviso não dão para ler.
-      toast.error(`Erro ao excluir lote: ${error.message}`, { duration: 10000 });
+      toast.error(mensagemDeErro(error, 'Erro ao excluir lote'), { duration: 10000 });
     },
   });
 

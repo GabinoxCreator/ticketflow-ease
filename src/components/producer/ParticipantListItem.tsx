@@ -25,14 +25,14 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
         return (
           <Badge className="bg-blue-500 hover:bg-blue-600">
             <Clock className="h-3 w-3 mr-1" />
-            Não Validado
+            Ainda não entrou
           </Badge>
         );
       case 'used':
         return (
           <Badge className="bg-green-500 hover:bg-green-600">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Validado
+            Entrou
           </Badge>
         );
       case 'cancelled':
@@ -48,18 +48,20 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
   };
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-card/80 transition-colors">
+    // No celular a linha empilha (OS-408): antes o nome espremido ao lado do lote quebrava
+    // em três linhas. O código do ingresso aparece inteiro; só corta se faltar espaço.
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border bg-card hover:bg-card/80 transition-colors">
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-3 mb-1">
-          <h4 className="font-medium">{ticket.holder_name}</h4>
+        <div className="flex items-center gap-x-3 gap-y-1 mb-1 flex-wrap">
+          <h4 className="font-medium break-words min-w-0">{ticket.holder_name}</h4>
           {getStatusBadge()}
         </div>
         
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           {ticket.holder_email && (
-            <div className="flex items-center gap-1">
-              <Mail className="h-3 w-3" />
-              {ticket.holder_email}
+            <div className="flex items-center gap-1 min-w-0 max-w-full">
+              <Mail className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{ticket.holder_email}</span>
             </div>
           )}
           {ticket.holder_phone && (
@@ -68,15 +70,15 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
               {ticket.holder_phone}
             </div>
           )}
-          <div className="flex items-center gap-1">
-            <QrCode className="h-3 w-3" />
-            <code className="text-xs bg-muted px-1 rounded">{ticket.ticket_code.slice(0, 8)}...</code>
+          <div className="flex items-center gap-1 min-w-0 max-w-full">
+            <QrCode className="h-3 w-3 flex-shrink-0" />
+            <code className="text-xs bg-muted px-1 rounded truncate">{ticket.ticket_code}</code>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="text-right">
+      <div className="flex items-center gap-4 justify-between sm:justify-end">
+        <div className="text-left sm:text-right">
           <p className="font-medium">{ticket.lot?.name || 'Lote'}</p>
           {ticket.lot?.price && (
             <p className="text-sm text-muted-foreground">
@@ -86,7 +88,7 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
           )}
           {ticket.validated_at && (
             <p className="text-xs text-muted-foreground">
-              Validado em {format(new Date(ticket.validated_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+              Entrou em {format(new Date(ticket.validated_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
             </p>
           )}
         </div>
@@ -101,13 +103,13 @@ export function ParticipantListItem({ ticket, onUpdateStatus }: ParticipantListI
             {ticket.status === 'valid' && (
               <DropdownMenuItem onClick={() => onUpdateStatus(ticket.id, 'used')}>
                 <CheckCircle className="h-4 w-4 mr-2" />
-                Marcar como Validado
+                Marcar que entrou
               </DropdownMenuItem>
             )}
             {ticket.status === 'used' && (
               <DropdownMenuItem onClick={() => onUpdateStatus(ticket.id, 'valid')}>
                 <Clock className="h-4 w-4 mr-2" />
-                Desfazer Validação
+                Desfazer a entrada
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatEventDate } from '@/lib/eventTime';
 
@@ -10,17 +11,18 @@ import {
   ArrowRight,
   Receipt,
   Sparkles,
-  BarChart3,
 } from 'lucide-react';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
 import { EventStatsCard } from '@/components/producer/EventStatsCard';
 import { SalesChart } from '@/components/producer/SalesChart';
 import { EventListItem } from '@/components/producer/EventListItem';
+import { ExcluirEventoDialog } from '@/components/producer/ExcluirEventoDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEvents } from '@/hooks/useEvents';
 import { useProducerStats } from '@/hooks/useProducerStats';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PrimeirosPassos, usePrimeirosPassos } from '@/components/producer/PrimeirosPassos';
 
 const formatBRL = (n: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
@@ -28,6 +30,8 @@ const formatBRL = (n: number) =>
 export default function Dashboard() {
   const navigate = useNavigate();
   const { events, activeEvents, isLoading, deleteEvent } = useEvents();
+  // "Excluir" do menu do evento: antes apagava num clique, sem pergunta (OS-408).
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const {
     totalRevenue,
     totalTicketsSold,
@@ -40,6 +44,12 @@ export default function Dashboard() {
     nextEventDate,
     monthlySales,
   } = useProducerStats();
+
+  // Primeiros passos (OS-408 etapa 5, 5.2): enquanto faltar um dos quatro. Sem evento, no
+  // lugar do gráfico vazio; com evento, no topo, sem tirar o gráfico.
+  const primeiros = usePrimeirosPassos((events?.length ?? 0) > 0);
+  const mostrarPassos = !isLoading && primeiros.mostrar;
+  const semEvento = !isLoading && (events?.length ?? 0) === 0;
 
   const nextEventLabel = nextEventDate
     ? formatEventDate(nextEventDate, { day: '2-digit', month: 'short' })
@@ -74,10 +84,14 @@ export default function Dashboard() {
           </Button>
         </div>
 
+        {mostrarPassos && !semEvento && (
+          <PrimeirosPassos passos={primeiros.passos} feitos={primeiros.feitos} compacto />
+        )}
+
         {/* Stats Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <EventStatsCard
-            title="Receita Total"
+            title="Vendido"
             value={totalRevenue != null ? formatBRL(totalRevenue) : '—'}
             icon={DollarSign}
             trend={
@@ -103,8 +117,8 @@ export default function Dashboard() {
             }
           />
           <EventStatsCard
-            title="Taxa de Conversão"
-            value={conversionRate !== null ? `${conversionRate}%` : '—'}
+            title="Ocupação"
+            value={conversionRate !== null ? `${String(conversionRate).replace('.', ',')}%` : '—'}
             description={
               conversionRate !== null
                 ? 'vendidos / capacidade'
@@ -125,7 +139,9 @@ export default function Dashboard() {
         {/* Chart and Recent Events */}
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="min-w-0">
-            <SalesChart data={monthlySales} />
+            {mostrarPassos && semEvento
+              ? <PrimeirosPassos passos={primeiros.passos} feitos={primeiros.feitos} />
+              : <SalesChart data={monthlySales} />}
           </div>
 
           <Card className="min-w-0 relative overflow-hidden bg-card/60 backdrop-blur border-primary/10">
@@ -177,7 +193,7 @@ export default function Dashboard() {
                     <EventListItem
                       key={event.id}
                       event={event}
-                      onDelete={(id) => deleteEvent.mutate(id)}
+                      onDelete={(id) => setDeleteId(id)}
                     />
                   ))}
                 </div>
@@ -192,11 +208,10 @@ export default function Dashboard() {
             <CardTitle className="text-base md:text-lg">Ações Rápidas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-3">
               {[
                 { icon: Plus, label: 'Criar Evento', path: '/produtor/criar-evento' },
                 { icon: CalendarDays, label: 'Gerenciar Eventos', path: '/produtor/eventos' },
-                { icon: BarChart3, label: 'Ver Relatórios', path: '/produtor/eventos' },
                 { icon: DollarSign, label: 'Pagamentos', path: '/produtor/financeiro' },
               ].map((a) => (
                 <button
@@ -214,6 +229,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <ExcluirEventoDialog
+        eventId={deleteId}
+        eventTitle={events?.find((e) => e.id === deleteId)?.title}
+        onOpenChange={(aberta) => { if (!aberta) setDeleteId(null); }}
+        onConfirm={(id) => { deleteEvent.mutate(id); setDeleteId(null); }}
+      />
     </ProducerLayout>
   );
 }

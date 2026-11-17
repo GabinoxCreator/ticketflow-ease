@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Order } from '@/hooks/useEventOrders';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formaDePagamento, formatBRL, SITUACAO_DO_PEDIDO } from '@/lib/painelDoProdutor';
 interface OrderListItemProps {
   order: Order;
   // O drawer NÃO vive mais aqui dentro (evita o clique de fechar borbulhar até o
@@ -13,16 +14,6 @@ interface OrderListItemProps {
   /** Aba "Não concluídos": a mesma pessoa tem pedido pago neste evento. */
   boughtLater?: boolean;
 }
-
-const PAYMENT_LABELS: Record<string, string> = {
-  dinheiro: 'Dinheiro',
-  pix: 'PIX',
-  cartao: 'Cartão',
-  cartao_credito: 'Cartão de Crédito',
-  cartao_debito: 'Cartão de Débito',
-  transferencia: 'Transferência',
-  outro: 'Outro',
-};
 
 export function OrderListItem({ order, onSelect, boughtLater }: OrderListItemProps) {
   const isManual = order.sale_origin === 'manual';
@@ -40,19 +31,19 @@ export function OrderListItem({ order, onSelect, boughtLater }: OrderListItemPro
       case 'refunded':
         return <Badge variant="outline">Reembolsado</Badge>;
       case 'failed':
-        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">Cartão recusado</Badge>;
+        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">{SITUACAO_DO_PEDIDO.failed}</Badge>;
       case 'expired':
-        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">PIX venceu</Badge>;
+        return <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">{SITUACAO_DO_PEDIDO.expired}</Badge>;
       case 'charged_back':
-        return <Badge variant="outline" className="border-orange-500/40 text-orange-500">Chargeback</Badge>;
+        return <Badge variant="outline" className="border-orange-500/40 text-orange-500">{SITUACAO_DO_PEDIDO.charged_back}</Badge>;
       default:
         return null;
     }
   };
 
-  const paymentLabel = order.manual_payment_method
-    ? PAYMENT_LABELS[order.manual_payment_method] ?? order.manual_payment_method
-    : null;
+  // Forma de pagamento em português (OS-408): o banco guarda "pix", "card", "cash"...
+  const paymentLabel = formaDePagamento(order.manual_payment_method);
+  const formaOnline = formaDePagamento(order.payment_method);
 
   const discountAmount = Number(order.discount_amount || 0);
   const couponCode = order.event_coupons?.code;
@@ -131,7 +122,7 @@ export function OrderListItem({ order, onSelect, boughtLater }: OrderListItemPro
             <Badge className="bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500/20 font-normal">
               <Tag className="h-3 w-3 mr-1" />
               {couponCode ? `Cupom ${couponCode} · ` : 'Desconto '}
-              −{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discountAmount)}
+              −{formatBRL(discountAmount)}
             </Badge>
           </div>
         )}
@@ -157,10 +148,10 @@ export function OrderListItem({ order, onSelect, boughtLater }: OrderListItemPro
       <div className="flex items-center gap-3 sm:gap-4 justify-between sm:justify-end">
         <div className="text-right">
           <p className="font-semibold">
-            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(order.total_amount))}
+            {formatBRL(order.total_amount)}
           </p>
-          {!isManual && order.payment_method && (
-            <p className="text-xs text-muted-foreground">{order.payment_method}</p>
+          {!isManual && !isCourtesy && formaOnline && (
+            <p className="text-xs text-muted-foreground">{formaOnline}</p>
           )}
         </div>
         <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />

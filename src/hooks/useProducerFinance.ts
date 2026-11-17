@@ -24,9 +24,11 @@ export interface EventFinance {
   /** Recebido em espécie: contado nas vendas, FORA do repasse (decisão 02/09/2026). */
   cash: number;
   /**
-   * Juro de parcelamento que o comprador pagou (está em `gross`, não é de
-   * ninguém aqui: nem do produtor, nem taxa da plataforma). Só existe no cartão
-   * parcelado da rota do Marcel.
+   * O que está em `gross` e fica fora da conta do produtor além da taxa do
+   * comprador: o custo do cartão (processamento e juro) da rota do Marcel e,
+   * desde a OS-426 (13/11/2026), a taxa de serviço que o produtor paga nos lotes
+   * "Sem taxa" (o banco já a tira do valor do ingresso). Não é só juro: a régua
+   * diz as duas partes (OS-431).
    */
   interest: number;
   /**
@@ -199,9 +201,10 @@ export function useProducerFinance() {
         // request_payout, que é quem gera o valor a pagar.
         const cashOnline = cashOnlineByEvent.get(e.id) || 0;
         const net = Math.max(0, on.net - cashOnline);
-        // O que sobra entre "bruto − taxa" e o valor de face é o juro de
-        // parcela que o comprador pagou — precisa aparecer como linha para a
-        // conta fechar na régua, senão o produtor pergunta "cadê o resto?".
+        // O que sobra entre "bruto − taxa" e o valor do ingresso para o produtor:
+        // o custo do cartão que o comprador pagou e, nos lotes "Sem taxa", a taxa
+        // de serviço que o banco já tirou do produtor (OS-426). Precisa aparecer
+        // para a conta fechar, senão o produtor pergunta "cadê o resto?".
         const interest = Math.max(0, gross - fee - (on.net + man.net));
         const receivedDirectly = man.net + cashOnline;
         const paidOut = paidByEvent.get(e.id) || 0;

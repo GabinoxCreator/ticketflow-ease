@@ -8,6 +8,9 @@ import { useEventCoupons, type EventCoupon } from '@/hooks/useEventCoupons';
 import { CouponDialog } from '@/components/producer/CouponDialog';
 import { AvisoCupomLoteSubsidiado } from './AvisoCupomLoteSubsidiado';
 import { linkDoCupom } from '@/lib/cupomDoLink';
+import { descontoDoCupom, formatBRL } from '@/lib/painelDoProdutor';
+import { useVendidoPorCupom } from '@/hooks/useEventOrders';
+import { AcoesComNome } from '@/components/producer/AcoesComNome';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,6 +20,9 @@ interface Props { eventId: string; eventSlug?: string | null; }
 
 export function EventCouponsTab({ eventId, eventSlug }: Props) {
   const { coupons, isLoading, createCoupon, updateCoupon, deleteCoupon } = useEventCoupons(eventId);
+  // Quanto cada cupom vendeu (OS-408, etapa 5, item 5.6): "Vendido, com desconto", a mesma
+  // conta do "Vendido" da régua, só dos pedidos pagos que usaram o cupom.
+  const { data: vendidoPorCupom, isLoading: carregandoVendido, error: erroVendido } = useVendidoPorCupom(eventId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EventCoupon | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -78,21 +84,36 @@ export function EventCouponsTab({ eventId, eventSlug }: Props) {
                     {exhausted && <Badge variant="destructive">Esgotado</Badge>}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {isPercent ? `${c.discount_value}% OFF` : `R$ ${Number(c.discount_value).toFixed(2)} OFF`}
+                    {descontoDoCupom(c.discount_type, c.discount_value)}
                     {' · '}
                     {c.uses_count}{c.max_uses != null ? ` / ${c.max_uses}` : ''} usos
                     {c.valid_until && ` · até ${formatDate(c.valid_until)}`}
                   </p>
+                  <p className="text-sm">
+                    {carregandoVendido ? (
+                      <span className="text-muted-foreground">Vendido: …</span>
+                    ) : erroVendido ? (
+                      <span className="text-muted-foreground">Vendido: —</span>
+                    ) : (
+                      <>
+                        <span className="text-muted-foreground">Vendido:</span>{' '}
+                        <span className="font-semibold">{formatBRL(vendidoPorCupom?.[c.id]?.vendido ?? 0)}</span>
+                        <span className="text-muted-foreground">
+                          {' · '}
+                          {vendidoPorCupom?.[c.id]?.pedidos ?? 0} {(vendidoPorCupom?.[c.id]?.pedidos ?? 0) === 1 ? 'pedido pago' : 'pedidos pagos'}
+                        </span>
+                      </>
+                    )}
+                  </p>
                 </div>
-                <Button variant="ghost" size="icon" title="Copiar link do cupom" aria-label="Copiar link do cupom" onClick={() => copiarLink(c.code)}>
-                  <Link2 className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => { setEditing(c); setDialogOpen(true); }}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}>
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                <AcoesComNome
+                  de={`o cupom ${c.code}`}
+                  acoes={[
+                    { nome: 'Copiar link', icone: Link2, onClick: () => copiarLink(c.code) },
+                    { nome: 'Editar', icone: Pencil, onClick: () => { setEditing(c); setDialogOpen(true); } },
+                    { nome: 'Excluir', icone: Trash2, perigo: true, onClick: () => setDeleteId(c.id) },
+                  ]}
+                />
               </div>
             );
           })}

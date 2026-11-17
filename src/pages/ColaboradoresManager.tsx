@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Users, Plus, Pencil, Trash2, Power, PowerOff, Calendar } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Power, PowerOff, Calendar, Copy, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { ENDERECO_DO_COLABORADOR, textoDoAcesso, linkDoWhatsApp } from '@/lib/acessoDoColaborador';
 import { ProducerLayout } from '@/components/producer/ProducerLayout';
+import { CabecalhoDaPagina } from '@/components/producer/CabecalhoDaPagina';
+import { AcoesComNome } from '@/components/producer/AcoesComNome';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,25 +33,69 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useCollaborators, useCollaboratorEvents, Collaborator } from '@/hooks/useCollaborators';
 import { useEvents } from '@/hooks/useEvents';
 
+/**
+ * Logo depois de criar: o acesso pronto para mandar (OS-408 etapa 5, item 5.3). Endereço
+ * completo, "Copiar acesso" e "Enviar pelo WhatsApp" (o produtor escolhe o contato). A
+ * senha só existe aqui: fechou, não volta.
+ */
+function AcessoPronto({ nome, texto, onClose }: { nome: string; texto: string; onClose: () => void }) {
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success('Acesso copiado');
+    } catch {
+      toast.message('Copie o acesso', { description: texto });
+    }
+  };
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Mande o acesso para {nome}. A senha só aparece agora.</p>
+      <div className="rounded-lg border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words" data-testid="acesso-do-colaborador">
+        {texto}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button type="button" variant="outline" onClick={copiar} className="gap-2">
+          <Copy className="w-4 h-4" /> Copiar acesso
+        </Button>
+        <Button asChild type="button" className="gap-2 bg-[#25D366] hover:bg-[#1ebe57] text-white">
+          <a href={linkDoWhatsApp(texto)} target="_blank" rel="noopener noreferrer">
+            <MessageCircle className="w-4 h-4" /> Enviar pelo WhatsApp
+          </a>
+        </Button>
+      </div>
+      <div className="flex justify-end pt-2">
+        <Button type="button" variant="ghost" onClick={onClose}>Fechar</Button>
+      </div>
+    </div>
+  );
+}
+
 function AddCollaboratorDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  // Depois de criar, a mesma janela mostra o acesso pronto (a senha só existe aqui).
+  const [acesso, setAcesso] = useState<string | null>(null);
   
   const { createCollaborator } = useCollaborators();
   const { events, isLoading: eventsLoading } = useEvents();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createCollaborator.mutateAsync({
+    const criado = await createCollaborator.mutateAsync({
       name,
       username,
       password,
       eventIds: selectedEvents,
     });
-    onClose();
+    // O servidor guarda o usuário em minúsculas e sem espaço nas pontas: vale o que ele devolveu.
+    const usuario = (criado && typeof criado.username === 'string' && criado.username) || username.trim().toLowerCase();
+    const nomesDosEventos = events.filter((ev) => selectedEvents.includes(ev.id)).map((ev) => ev.title);
+    setAcesso(textoDoAcesso({ eventos: nomesDosEventos, usuario, senha: password }));
   };
+
+  if (acesso) return <AcessoPronto nome={name} texto={acesso} onClose={onClose} />;
 
   const toggleEvent = (eventId: string) => {
     setSelectedEvents(prev =>
@@ -213,45 +261,27 @@ function CollaboratorCard({ collaborator }: { collaborator: Collaborator }) {
               {assignedEvents.length} evento(s) vinculado(s)
             </p>
           </div>
-          <div className="flex items-center gap-1">
-            <Dialog open={showEvents} onOpenChange={setShowEvents}>
-              <DialogTrigger asChild>
-                <Button size="icon" variant="ghost" title="Gerenciar eventos">
-                  <Calendar className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Eventos de {collaborator.name}</DialogTitle>
-                </DialogHeader>
-                <ManageEventsDialog
-                  collaborator={collaborator}
-                  onClose={() => setShowEvents(false)}
-                />
-              </DialogContent>
-            </Dialog>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleToggleActive}
-              title={collaborator.is_active ? 'Desativar' : 'Ativar'}
-            >
-              {collaborator.is_active ? (
-                <PowerOff className="w-4 h-4" />
-              ) : (
-                <Power className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setShowDelete(true)}
-              title="Excluir"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+          <AcoesComNome
+            de={`o colaborador ${collaborator.name}`}
+            acoes={[
+              { nome: 'Eventos', icone: Calendar, onClick: () => setShowEvents(true) },
+              collaborator.is_active
+                ? { nome: 'Desativar', icone: PowerOff, onClick: handleToggleActive }
+                : { nome: 'Ativar', icone: Power, onClick: handleToggleActive },
+              { nome: 'Excluir', icone: Trash2, perigo: true, onClick: () => setShowDelete(true) },
+            ]}
+          />
+          <Dialog open={showEvents} onOpenChange={setShowEvents}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Eventos de {collaborator.name}</DialogTitle>
+              </DialogHeader>
+              <ManageEventsDialog
+                collaborator={collaborator}
+                onClose={() => setShowEvents(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
 
@@ -285,16 +315,11 @@ export default function ColaboradoresManager() {
         <title>Colaboradores | FestPag</title>
       </Helmet>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Users className="w-6 h-6" />
-              Colaboradores
-            </h1>
-            <p className="text-muted-foreground">
-              Gerencie os colaboradores que podem validar ingressos na portaria
-            </p>
-          </div>
+        <CabecalhoDaPagina
+          icone={Users}
+          titulo="Colaboradores"
+          descricao="Gerencie os colaboradores que podem validar ingressos na portaria"
+          acao={
           <Dialog open={showAdd} onOpenChange={setShowAdd}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -309,7 +334,8 @@ export default function ColaboradoresManager() {
               <AddCollaboratorDialog onClose={() => setShowAdd(false)} />
             </DialogContent>
           </Dialog>
-        </div>
+          }
+        />
 
         <Card>
           <CardHeader>
@@ -319,7 +345,13 @@ export default function ColaboradoresManager() {
             <p>1. Crie um colaborador com um nome de usuário e senha</p>
             <p>2. Vincule os eventos que ele terá acesso</p>
             <p>3. Compartilhe as credenciais com o colaborador</p>
-            <p>4. O colaborador acessa <strong>/colaborador</strong> para fazer login e validar ingressos</p>
+            <p>
+              4. O colaborador acessa{' '}
+              <a href={ENDERECO_DO_COLABORADOR} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-2 break-all">
+                {ENDERECO_DO_COLABORADOR}
+              </a>{' '}
+              para fazer login e validar ingressos
+            </p>
           </CardContent>
         </Card>
 
