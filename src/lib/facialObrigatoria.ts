@@ -47,7 +47,10 @@ export const CONDICOES_PARA_LIGAR = {
   /** A Política de Privacidade do caminho D (o texto ligado de `PoliticaPrivacidade.tsx`)
    *  aprovada pelo Gabriel, palavra por palavra. APROVADA em 03/11/2026 na caixinha
    *  ("Aprovar como está"), com o texto da Doca 346. Mexeu no texto ligado: volta a
-   *  `false` até ele aprovar de novo. */
+   *  `false` até ele aprovar de novo. 10/11/2026 (OS-410): as partes comuns mudaram
+   *  (dados de outras pessoas, Meta para o produtor, código por e-mail, Excluir minha
+   *  conta) e a seção 6 ligada ganhou a frase da Meta; o Gabriel decidiu na caixinha
+   *  "Alinha a seção 6 e mantém": a aprovação continua. */
   politicaCaminhoDAprovada: true,
   /** A foto obrigatória não vira autorização de pagar com o rosto: o `facial-enroll`
    *  marca a finalidade "entrada" e a `festcash-push-facial` recusa essa foto. Código

@@ -390,7 +390,7 @@ export function CartaoMarcelForm({
           <div className="text-xs leading-relaxed">
             <p className="font-semibold text-amber-300">Não consegui calcular as parcelas agora.</p>
             <p className="text-muted-foreground mt-0.5">
-              Recarregue a página e tente de novo. Se continuar, fale com quem te enviou o link —
+              Recarregue a página e tente de novo. Se continuar, fale com quem te enviou o link e
               não conclua o pagamento sem ver o valor das parcelas.
             </p>
           </div>

@@ -69,8 +69,8 @@ export default function PoliticaReembolso() {
                 </p>
                 <p>
                   Este direito é válido <strong>desde que ainda faltem mais de 7 dias para a realização
-                  do evento</strong>. Nesta hipótese, será devolvido o <strong>valor integral dos
-                  ingressos</strong>. A taxa de serviço da plataforma não é reembolsável (ver seção 7).
+                  do evento</strong>. Nesta hipótese, são devolvidos o <strong>valor integral dos
+                  ingressos</strong> e a taxa de serviço (ver seção 7).
                 </p>
               </section>
 
@@ -112,7 +112,22 @@ export default function PoliticaReembolso() {
                   5. Como solicitar o reembolso
                 </h2>
                 <p>
-                  Para solicitar o reembolso, envie um e-mail para{' '}
+                  Para solicitar o reembolso, entre na sua conta, abra{' '}
+                  <a href="/meus-ingressos" className="text-primary hover:underline">Meus Ingressos</a>{' '}
+                  e use o botão <strong>"Cancelar e pedir reembolso"</strong> da compra. Ali você escolhe
+                  quais ingressos devolver e vê quanto volta antes de enviar.
+                </p>
+                <p>O pedido pelo site segue estas regras:</p>
+                <ul className="list-disc pl-6 space-y-1">
+                  <li>mesa e dupla só são devolvidas inteiras: todos os lugares ou ingressos dela entram juntos no pedido;</li>
+                  <li>ingresso já transferido para outra pessoa, ou em transferência, não entra no pedido;</li>
+                  <li>ingresso com abadá já retirado não entra no pedido;</li>
+                  <li>compra feita direto com o organizador ou na portaria não é reembolsada pelo site: o cancelamento é com o organizador do evento;</li>
+                  <li>compra que inclui produtos da loja do evento é cancelada pelo atendimento;</li>
+                  <li>enquanto o pedido está em análise, os ingressos escolhidos ficam bloqueados: não entram no evento e não podem ser transferidos.</li>
+                </ul>
+                <p>
+                  Se preferir, envie um e-mail para{' '}
                   <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">
                     suporte@festpag.digital
                   </a>{' '}
@@ -122,7 +137,7 @@ export default function PoliticaReembolso() {
                   <li>nome completo do comprador;</li>
                   <li>CPF utilizado na compra;</li>
                   <li>nome e data do evento;</li>
-                  <li>número do pedido (encontrado no e-mail de confirmação);</li>
+                  <li>número do pedido, se tiver (aparece na tela do pedido, logo depois da compra);</li>
                   <li>motivo do pedido de reembolso.</li>
                 </ul>
                 <p>
@@ -142,8 +157,7 @@ export default function PoliticaReembolso() {
                     aparecer na fatura em até 2 (dois) ciclos, conforme regras de cada bandeira/banco.
                   </li>
                   <li>
-                    <strong>PIX:</strong> a devolução será feita na chave/conta de origem em até 7
-                    (sete) dias úteis após a aprovação da solicitação.
+                    <strong>PIX:</strong> a devolução será feita na chave PIX que você informar, em até 7 (sete) dias úteis após a aprovação da solicitação.
                   </li>
                 </ul>
                 <p>
@@ -158,15 +172,19 @@ export default function PoliticaReembolso() {
                   7. Taxas e valores não reembolsáveis
                 </h2>
                 <p>
-                  <strong>A taxa de serviço da plataforma não é reembolsável</strong> quando o
-                  reembolso é pedido pelo comprador (desistência dentro do prazo de arrependimento ou
-                  solicitação até 48h antes do evento). Ela remunera o serviço de intermediação já
-                  prestado no momento da compra: processamento do pagamento, emissão e envio dos
-                  ingressos e atendimento. Nesses casos, é devolvido o valor dos ingressos.
+                  <strong>A taxa de serviço da plataforma é devolvida quando o reembolso é pedido até o
+                  fim do 7º (sétimo) dia corrido depois da compra</strong>, tanto no arrependimento
+                  (seção 2) quanto na solicitação até 48h antes do evento (seção 3).
                 </p>
                 <p>
-                  A única exceção é o cancelamento, adiamento ou alteração substancial do evento pelo
-                  produtor (seção 4), em que a devolução é integral.
+                  Pedido feito depois desse dia: <strong>a taxa de serviço não é reembolsável</strong>.
+                  Ela remunera o serviço de intermediação já prestado no momento da compra
+                  (processamento do pagamento, emissão e envio dos ingressos e atendimento). Nesses
+                  casos, é devolvido o valor dos ingressos.
+                </p>
+                <p>
+                  Fora desse prazo, a exceção é o cancelamento, adiamento ou alteração substancial do
+                  evento pelo produtor (seção 4), em que a devolução é integral.
                 </p>
                 <p>
                   Encargos de parcelamento seguem as regras da operadora do cartão e não são

@@ -38,7 +38,7 @@ interface GuestListData {
   entries_count: number;
 }
 
-export default function GuestListPublicForm() {
+function GuestListPublicFormConteudo() {
   const { slug } = useParams<{ slug: string }>();
   const [listData, setListData] = useState<GuestListData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -320,5 +320,18 @@ export default function GuestListPublicForm() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Título da aba e do Google (OS-410): esta página não tinha nenhum e herdava
+// o genérico do site. Uma tela de dentro que tenha título próprio vale por cima.
+export default function GuestListPublicForm() {
+  return (
+    <>
+      <Helmet>
+        <title>Lista de convidados | FestPag</title>
+      </Helmet>
+      <GuestListPublicFormConteudo />
+    </>
   );
 }

@@ -514,7 +514,7 @@ export default function SeatCheckout() {
   if (!authLoading && (!user || pedirFacial)) {
     return (
       <>
-        <Helmet><title>Entrar — {event?.title ?? 'Checkout'}</title></Helmet>
+        <Helmet><title>Entrar · {event?.title ?? 'Pagamento'}</title></Helmet>
         <div className="min-h-screen">
           <Header />
           <main className="pt-32 max-w-md mx-auto px-4 text-center space-y-4">
@@ -548,7 +548,7 @@ export default function SeatCheckout() {
 
   return (
     <>
-      <Helmet><title>Checkout — {event.title}</title></Helmet>
+      <Helmet><title>Pagamento · {event.title}</title></Helmet>
       <div className="min-h-screen">
         <Header />
         <main className="pt-24 pb-16 max-w-2xl mx-auto px-4">
@@ -633,7 +633,7 @@ export default function SeatCheckout() {
             ) : (
               <>
                 <h1 className="font-display font-bold text-xl mb-1">{event.title}</h1>
-                <p className="text-sm text-muted-foreground mb-3">{event.venue} — {event.city}/{event.state}</p>
+                <p className="text-sm text-muted-foreground mb-3">{event.venue}, {event.city}/{event.state}</p>
               </>
             )}
             {step === 'cpf' && user && (

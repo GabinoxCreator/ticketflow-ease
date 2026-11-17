@@ -42,7 +42,8 @@ const CookieConsentBanner = () => {
             <p className="text-sm text-muted-foreground">
               Usamos cookies essenciais para o site funcionar (login, compra). Com a sua
               autorização, também usamos cookies de <b>marketing</b> (como o Pixel da Meta e
-              o Google Tag Manager) para medir campanhas. Você pode mudar de ideia quando quiser em
+              o Google Tag Manager) para medir campanhas e para enviar a confirmação da sua compra à
+              conta de anúncios do produtor do evento. Você pode mudar de ideia quando quiser em
               "Preferências de cookies" no rodapé. Saiba mais na{' '}
               <Link to="/privacidade" className="underline hover:text-foreground">
                 Política de Privacidade

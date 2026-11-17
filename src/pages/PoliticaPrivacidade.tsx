@@ -105,6 +105,7 @@ export default function PoliticaPrivacidade() {
                     <li><strong>foto do rosto</strong>, somente de quem opta pelo reconhecimento facial (dado sensível, tratado conforme a seção 7).</li>
                   )}
                 </ul>
+                <p>Quando você pede o reembolso de uma compra paga por PIX, também guardamos a <strong>chave PIX</strong> que você informar para receber a devolução.</p>
                 <p>Esses dados são utilizados para cadastro, compra de ingressos, identificação do titular da compra, comunicação sobre pedidos, suporte e segurança da operação.</p>
 
                 <h3 className="font-semibold text-lg text-foreground mt-6 mb-2">b) Dados de produtores de eventos</h3>
@@ -123,7 +124,9 @@ export default function PoliticaPrivacidade() {
                 <h3 className="font-semibold text-lg text-foreground mt-6 mb-2">c) Dados de colaboradores</h3>
                 <p>Atualmente, para colaboradores vinculados à operação de eventos, podemos armazenar:</p>
                 <ul className="list-disc pl-6 space-y-1">
-                  <li>nome.</li>
+                  <li>nome;</li>
+                  <li>nome de usuário;</li>
+                  <li>senha de acesso, guardada só em forma cifrada (não conseguimos ler a senha).</li>
                 </ul>
                 <p>Esses dados são utilizados para identificação operacional em atividades como check-in e controle de acesso.</p>
 
@@ -139,6 +142,15 @@ export default function PoliticaPrivacidade() {
                   <li>cookies e tecnologias semelhantes.</li>
                 </ul>
                 <p>Esses dados ajudam a melhorar a experiência do usuário, manter a segurança da plataforma, analisar desempenho e apoiar ações de prevenção a fraudes e uso indevido.</p>
+
+                <h3 className="font-semibold text-lg text-foreground mt-6 mb-2">e) Dados de outras pessoas informados numa compra ou num contato</h3>
+                <ul className="list-disc pl-6 space-y-1">
+                  <li><strong>convidado de um pedido:</strong> nome, CPF, e-mail e celular, informados por quem comprou, para o ingresso chegar a quem vai usá-lo;</li>
+                  <li><strong>quem recebe um ingresso por transferência:</strong> CPF e WhatsApp, informados por quem transfere; só quem tem aquele CPF consegue aceitar;</li>
+                  <li><strong>acompanhante de uma cortesia:</strong> nome, CPF e e-mail, informados por quem retira a cortesia, para o ingresso do acompanhante chegar a ele;</li>
+                  <li><strong>nos eventos de escola com lista de alunos:</strong> o CPF do aluno, informado pela família na compra e conferido na lista enviada pela escola, que traz o nome do aluno e o celular do responsável;</li>
+                  <li><strong>quem pede uma apresentação comercial pelo formulário do site:</strong> nome, cidade, tipo de evento e telefone, para a nossa equipe responder.</li>
+                </ul>
               </section>
 
               {/* 3 */}
@@ -162,7 +174,7 @@ export default function PoliticaPrivacidade() {
               {/* 4 */}
               <section>
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">4. Pagamentos</h2>
-                <p>Os pagamentos realizados na plataforma são processados por parceiros especializados, de acordo com as integrações adotadas pela FestPag. Atualmente utilizamos a <strong>Safe2Pay</strong>; eventos criados antes da migração podem continuar sendo processados pelo <strong>Mercado Pago</strong>. Nessas operações, dados financeiros e transacionais podem ser tratados por esses parceiros para viabilizar o pagamento com segurança.</p>
+                <p>Os pagamentos realizados na plataforma são processados por parceiros especializados, de acordo com as integrações adotadas pela FestPag. Atualmente utilizamos a <strong>Safe2Pay</strong>. Nessas operações, dados financeiros e transacionais podem ser tratados por esses parceiros para viabilizar o pagamento com segurança.</p>
                 <p>A FestPag não utiliza esta política para substituir as políticas do parceiro de pagamento. O tratamento realizado pelo processador de pagamento também está sujeito às regras e políticas próprias dele.</p>
               </section>
 
@@ -176,7 +188,8 @@ export default function PoliticaPrivacidade() {
                   <li><strong>Com parceiros de pagamento:</strong> atualmente a <strong>Safe2Pay</strong> e, em eventos anteriores à migração, o <strong>Mercado Pago</strong>, para processar cobranças, confirmações, estornos, repasses e rotinas financeiras.</li>
                   <li><strong>Com parceiro de pagamentos que confere os dados em base oficial:</strong> no cadastro do produtor, o CPF e a data de nascimento (pessoa física) ou o CNPJ (pessoa jurídica) são enviados a um parceiro de pagamentos, que confere os dados em base oficial do governo, para conferir a identidade do produtor e pagar o repasse com segurança. A data de nascimento informada no cadastro de produtor é usada só nessa conferência e não é guardada pela FestPag.</li>
                   <li><strong>Com fornecedores de tecnologia e infraestrutura:</strong> incluindo o <strong>Supabase</strong> (banco de dados, autenticação e hospedagem do backend), a <strong>Meta/Facebook</strong> e o <strong>Google</strong> (Tag Manager), estes dois últimos apenas quando você autoriza cookies de marketing (ver seção 6), para hospedagem, autenticação, monitoramento, medição de campanhas e funcionamento da plataforma.</li>
-                  <li><strong>Com fornecedores de comunicação:</strong> serviços de envio de e-mail e de mensagens por WhatsApp, usados para mandar o seu ingresso, o código de acesso à conta e avisos sobre a sua compra.</li>
+                  <li><strong>Com a Meta, para o produtor do evento:</strong> se você autorizou os cookies de marketing (seção 6) e o produtor do evento usa o Pixel da Meta, a confirmação da sua compra (evento, valor e quantidade de ingressos) é enviada pelo nosso servidor à conta de anúncios desse produtor, com o seu e-mail, telefone, nome e um identificador da sua conta embaralhados (hash), e os identificadores de anúncio da Meta guardados no seu navegador. Serve para o produtor medir os anúncios dele. Sem a sua autorização, nada disso é enviado.</li>
+                  <li><strong>Com fornecedores de comunicação:</strong> serviços de envio de e-mail e de mensagens por WhatsApp, usados para mandar o seu ingresso e avisos sobre a sua compra. O código de acesso à conta vai por e-mail.</li>
                   {obrigatoria ? (
                     <>
                       <li><strong>Com o fornecedor de reconhecimento facial:</strong> se você tiver feito o cadastro facial. Ele recebe a sua foto e os dados que identificam a sua conta (CPF, e-mail e telefone), para confirmar que é você na entrada do evento. Detalhes na seção 7.</li>
@@ -200,11 +213,11 @@ export default function PoliticaPrivacidade() {
                 <p>Você pode <strong>aceitar, recusar ou alterar</strong> sua escolha a qualquer momento pelo link "Preferências de cookies" no rodapé do site. Recusar os cookies de marketing não afeta a compra de ingressos.</p>
                 {obrigatoria ? (
                   <p>
-                    <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil: o Pixel da Meta e o Google Tag Manager transferem dados de navegação para os Estados Unidos; a nossa infraestrutura de banco de dados e de arquivos (Supabase, contratada por meio da Lovable) guarda os dados da plataforma, <strong>inclusive a foto do cadastro facial</strong>, em servidores na <strong>Irlanda (União Europeia)</strong>, e essas empresas têm sede nos Estados Unidos e em Singapura. O fornecedor de reconhecimento facial recebe a foto num serviço hospedado em São Paulo (Brasil). Essas transferências observam a LGPD (art. 33) e ocorrem só para as finalidades descritas nesta Política.
+                    <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil: o Pixel da Meta e o Google Tag Manager transferem dados de navegação para os Estados Unidos (no caso da Meta, também a confirmação de compra descrita na seção 5); a nossa infraestrutura de banco de dados e de arquivos (Supabase, contratada por meio da Lovable) guarda os dados da plataforma, <strong>inclusive a foto do cadastro facial</strong>, em servidores na <strong>Irlanda (União Europeia)</strong>, e essas empresas têm sede nos Estados Unidos e em Singapura. O fornecedor de reconhecimento facial recebe a foto num serviço hospedado em São Paulo (Brasil). Essas transferências observam a LGPD (art. 33) e ocorrem só para as finalidades descritas nesta Política.
                   </p>
                 ) : (
                   <p>
-                    <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil: o Pixel da Meta e o Google Tag Manager transferem dados de navegação para os Estados Unidos, e nossa infraestrutura de backend (Supabase) pode armazenar dados em servidores no exterior. O fornecedor de reconhecimento facial, quando você cadastra o rosto, também pode tratar esses dados fora do Brasil. Essas transferências observam a LGPD (art. 33) e ocorrem para as finalidades descritas nesta Política.
+                    <strong>Transferência internacional de dados:</strong> alguns fornecedores tratam dados fora do Brasil: o Pixel da Meta e o Google Tag Manager transferem dados de navegação para os Estados Unidos (no caso da Meta, também a confirmação de compra descrita na seção 5), e nossa infraestrutura de backend (Supabase) pode armazenar dados em servidores no exterior. O fornecedor de reconhecimento facial, quando você cadastra o rosto, também pode tratar esses dados fora do Brasil. Essas transferências observam a LGPD (art. 33) e ocorrem para as finalidades descritas nesta Política.
                   </p>
                 )}
               </section>
@@ -308,6 +321,9 @@ export default function PoliticaPrivacidade() {
                     </>
                   )}
                 </ul>
+                <p>
+                  Você pode excluir a sua conta pelo botão <strong>"Excluir minha conta"</strong>, em Minha Conta, desde que não haja pedido de reembolso em andamento.
+                </p>
                 <p>
                   Caso você queira exercer seus direitos, entre em contato pelo e-mail:{' '}
                   <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">suporte@festpag.digital</a>.

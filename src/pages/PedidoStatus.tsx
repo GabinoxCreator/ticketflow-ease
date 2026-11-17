@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Clock, Loader2, Ticket, AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
@@ -44,7 +45,7 @@ type OrderRow = {
 
 const POLL_MS = 5000;
 
-export default function PedidoStatus() {
+function PedidoStatusConteudo() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
 
@@ -246,7 +247,10 @@ export default function PedidoStatus() {
             <CheckCircle2 className="w-11 h-11 text-emerald-400" />
           </div>
           <div className="space-y-1.5">
-            <h1 className="font-display font-bold text-2xl">Pagamento confirmado!</h1>
+            {/* Cortesia ou ingresso grátis (total R$ 0,00) não teve pagamento (OS-410). */}
+            <h1 className="font-display font-bold text-2xl">
+              {Number(order.total_amount) > 0 ? 'Pagamento confirmado!' : 'Ingresso garantido!'}
+            </h1>
             <p className="text-muted-foreground text-sm">
               {eventTitle ? <>Sua compra para <b>{eventTitle}</b> já está na sua conta.</> : 'Sua compra já está na sua conta.'}
             </p>
@@ -381,3 +385,16 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 const formatPrice = (p: number) =>
   p.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// Título da aba e do Google (OS-410): esta página não tinha nenhum e herdava
+// o genérico do site. Uma tela de dentro que tenha título próprio vale por cima.
+export default function PedidoStatus() {
+  return (
+    <>
+      <Helmet>
+        <title>Seu pedido | FestPag</title>
+      </Helmet>
+      <PedidoStatusConteudo />
+    </>
+  );
+}

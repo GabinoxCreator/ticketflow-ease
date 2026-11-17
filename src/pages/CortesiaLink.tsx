@@ -286,7 +286,7 @@ export default function CortesiaLink() {
         <div className="absolute inset-x-0 bottom-0 px-5 pb-4 max-w-xl mx-auto">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Ingresso grátis</p>
           <h1 className="font-display text-2xl sm:text-3xl font-bold leading-tight mt-1">
-            {evento?.titulo ?? 'Carregando…'}
+            {evento?.titulo ?? (etapa === 'erro' ? 'Link indisponível' : 'Carregando…')}
           </h1>
         </div>
       </div>

@@ -11,6 +11,7 @@
  * fluxo decide. O produtor continua com a entrada dele em /area-do-produtor/login.
  */
 import React, { useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,4 +99,15 @@ const Auth: React.FC = () => {
   );
 };
 
-export default Auth;
+// Título da aba e do Google (OS-410): esta página não tinha nenhum e herdava
+// o genérico do site. Uma tela de dentro que tenha título próprio vale por cima.
+const AuthComTitulo: React.FC = () => (
+  <>
+    <Helmet>
+      <title>Entrar | FestPag</title>
+    </Helmet>
+    <Auth />
+  </>
+);
+
+export default AuthComTitulo;

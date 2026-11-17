@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { carregarMercadoPago } from '@/lib/mercadoPagoSdk';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -111,11 +112,19 @@ export function SeatCheckoutCard({
 
   useEffect(() => {
     if (!publicKey) return;
+    // O script do Mercado Pago saiu do `index.html` (OS-410): entra na página
+    // só aqui, quando este formulário aparece.
+    carregarMercadoPago();
+    let desmontou = false;
     const checkMP = () => {
+      if (desmontou) return;
       if (window.MercadoPago) setMpReady(true);
       else setTimeout(checkMP, 200);
     };
     checkMP();
+    return () => {
+      desmontou = true;
+    };
   }, [publicKey]);
 
   const formatCardNumber = (value: string) =>

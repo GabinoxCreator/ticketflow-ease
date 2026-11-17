@@ -36,21 +36,21 @@ const solutions: SolutionCard[] = [
     icon: QrCode,
     title: 'Check-in e Portaria',
     description:
-      'Validação por QR Code, listas VIP e operação mobile-first para a sua equipe na portaria.',
+      'Validação por QR Code e listas VIP para a sua equipe na portaria.',
     ctaLabel: 'Ver como funciona',
   },
   {
     icon: Shield,
     title: 'Pagamentos Seguros',
     description:
-      'Pix instantâneo e cartão via Mercado Pago. Repasses claros e sem surpresas para o produtor.',
+      'Pix e cartão de crédito. Repasses claros e sem surpresas para o produtor.',
     ctaLabel: 'Conhecer taxas',
   },
   {
     icon: Users,
     title: 'Equipe e Colaboradores',
     description:
-      'Adicione comissários, porteiros e gerentes com permissões granulares e operação dedicada.',
+      'Adicione os colaboradores que validam os ingressos na portaria.',
     ctaLabel: 'Organizar equipe',
   },
 ];

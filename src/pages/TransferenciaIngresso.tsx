@@ -51,7 +51,7 @@ const formatCpf = (v: string) =>
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
-export default function TransferenciaIngresso() {
+function TransferenciaIngressoConteudo() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -399,5 +399,18 @@ export default function TransferenciaIngresso() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Título da aba e do Google (OS-410): esta página não tinha nenhum e herdava
+// o genérico do site. Uma tela de dentro que tenha título próprio vale por cima.
+export default function TransferenciaIngresso() {
+  return (
+    <>
+      <Helmet>
+        <title>Transferência de ingresso | FestPag</title>
+      </Helmet>
+      <TransferenciaIngressoConteudo />
+    </>
   );
 }

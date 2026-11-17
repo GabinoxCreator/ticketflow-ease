@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import logoFestpag from '@/assets/logo-festpag.png';
 import { motion } from 'framer-motion';
 import { useColaboradorAuth } from '@/contexts/ColaboradorAuthContext';
 
-export default function ColaboradorLogin() {
+function ColaboradorLoginConteudo() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useColaboradorAuth();
   const [username, setUsername] = useState('');
@@ -131,5 +132,18 @@ export default function ColaboradorLogin() {
         </p>
       </motion.div>
     </div>
+  );
+}
+
+// Título da aba e do Google (OS-410): esta página não tinha nenhum e herdava
+// o genérico do site. Uma tela de dentro que tenha título próprio vale por cima.
+export default function ColaboradorLogin() {
+  return (
+    <>
+      <Helmet>
+        <title>Portaria | FestPag</title>
+      </Helmet>
+      <ColaboradorLoginConteudo />
+    </>
   );
 }

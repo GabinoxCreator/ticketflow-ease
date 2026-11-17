@@ -12,6 +12,7 @@ import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import type { AppliedCoupon } from './CheckoutModal';
 import { AvisoDeAceite } from '@/components/legal/AvisoDeAceite';
 import { registrarAceiteDaCompra } from '@/lib/registrar-aceite';
+import { horaCurta } from '@/lib/eventTime';
 
 import { baseDoCupom } from '@/lib/loja/carrinho';
 import { lerCupomDoLink, esquecerCupomDoLink } from '@/lib/cupomDoLink';
@@ -219,7 +220,8 @@ export function CheckoutStepPayment({
             <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {formatDate(eventDate)} · {eventTime}
+                {/* "12:00", nunca "12:00:00" (OS-410). */}
+                {formatDate(eventDate)} · {horaCurta(eventTime)}
               </span>
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">

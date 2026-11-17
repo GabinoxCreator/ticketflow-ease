@@ -46,7 +46,7 @@ export default function TermosDeUso() {
                 <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">2. Quem pode usar a plataforma</h2>
                 <p>A plataforma pode ser utilizada por diferentes perfis de usuário, conforme o contexto de uso:</p>
                 <ul className="list-disc pl-6 space-y-1">
-                  <li>Clientes/compradores, para buscar eventos, comprar ingressos e acessar seus tickets;</li>
+                  <li>Clientes/compradores, para buscar eventos, comprar ingressos e acessar seus ingressos;</li>
                   <li>Produtores, para cadastrar, administrar e operar eventos;</li>
                   <li>Colaboradores, quando vinculados à operação de um evento;</li>
                   <li>Administradores da plataforma, para gestão interna da FestPag.</li>
@@ -76,7 +76,7 @@ export default function TermosDeUso() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li>usar a plataforma de forma lícita e de boa-fé;</li>
                   <li>não praticar fraude, abuso, tentativa de invasão, uso automatizado indevido ou qualquer conduta que prejudique a plataforma, outros usuários ou terceiros;</li>
-                  <li>não utilizar dados, tickets, listas ou credenciais de terceiros sem autorização;</li>
+                  <li>não utilizar dados, ingressos, listas ou credenciais de terceiros sem autorização;</li>
                   <li>respeitar as regras específicas de cada evento, produtor e operação de acesso.</li>
                 </ul>
                 <p>A FestPag poderá restringir, suspender ou encerrar contas que violem estes Termos ou representem risco operacional, financeiro, legal ou reputacional.</p>
@@ -91,14 +91,14 @@ export default function TermosDeUso() {
                   <li>a disponibilidade de ingressos está sujeita a limite de estoque, lotes, setores e regras do evento;</li>
                   <li>o pagamento depende de aprovação do meio de pagamento;</li>
                   <li>o ingresso será vinculado ao pedido aprovado;</li>
-                  <li>o acesso ao evento poderá depender da apresentação do ticket, QR Code, documento pessoal ou cumprimento de regras específicas do organizador.</li>
+                  <li>o acesso ao evento poderá depender da apresentação do ingresso, QR Code, documento pessoal ou cumprimento de regras específicas do organizador.</li>
                 </ul>
                 <p>A FestPag não se responsabiliza por ingressos adquiridos fora dos canais oficiais da plataforma.</p>
               </section>
 
               {/* 6 */}
               <section>
-                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">6. Tickets, QR Code e acesso ao evento</h2>
+                <h2 className="font-display font-semibold text-xl md:text-2xl text-foreground mt-10 mb-3">6. Ingressos, QR Code e acesso ao evento</h2>
                 <p>Após a confirmação do pagamento, o ingresso poderá ser disponibilizado ao cliente na área Meus Ingressos e/ou pelos canais definidos pela plataforma.</p>
                 <p>Cada ingresso poderá possuir:</p>
                 <ul className="list-disc pl-6 space-y-1">
@@ -108,7 +108,7 @@ export default function TermosDeUso() {
                   <li>status de uso.</li>
                 </ul>
                 <p>O QR Code poderá ser validado na entrada do evento. Após o uso, o ingresso poderá ser marcado como utilizado, não sendo permitida nova validação, salvo exceções operacionais autorizadas.</p>
-                <p>Em caso de perda de acesso à conta, inconsistência do ticket ou dificuldade de localização do ingresso, o usuário deverá procurar os canais oficiais de suporte.</p>
+                <p>Em caso de perda de acesso à conta, inconsistência ou dificuldade de localização do ingresso, o usuário deverá procurar os canais oficiais de suporte.</p>
               </section>
 
               {/* 7 */}
@@ -144,6 +144,7 @@ export default function TermosDeUso() {
                   <li>regras específicas informadas na página do evento.</li>
                 </ul>
                 <p>Taxas operacionais, taxas de serviço, custos financeiros, encargos de parcelamento e outros valores acessórios poderão ter tratamento próprio, conforme as condições informadas no momento da compra.</p>
+                <p>Os prazos, as regras e a forma de pedir o reembolso de ingressos comprados pelo site estão na <a href="/reembolso" className="text-primary hover:underline">Política de Reembolso</a>.</p>
               </section>
 
               {/* 9 */}

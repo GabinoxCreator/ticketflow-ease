@@ -171,6 +171,7 @@ export function CarrosselDeBanners({ eventos }: Props) {
                   <div key={`ev-${e.id}`} className={caixa}>
                     <Link
                       to={`/evento/${e.slug || e.id}`}
+                      aria-label={`Ver o evento ${e.title}`}
                       className="block overflow-hidden rounded-2xl shadow-xl ring-1 ring-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       tabIndex={ativo ? 0 : -1}
                     >

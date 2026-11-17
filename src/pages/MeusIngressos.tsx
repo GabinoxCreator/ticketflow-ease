@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { useUserTickets, UserTicket, ticketEventDisplay } from '@/hooks/useUserTickets';
+import { useUserTickets, UserTicket, ticketEventDisplay, pedidoSemValor } from '@/hooks/useUserTickets';
 import { TransferirIngresso } from '@/components/tickets/TransferirIngresso';
 import { ConvidadosDoPedido, useConvidadosDosPedidos } from '@/components/tickets/ConvidadosDoPedido';
 import type { PedidoComConvidados } from '@/lib/convidado';
@@ -75,7 +75,11 @@ const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false, 
 
   // O pedido de reembolso é da COMPRA, não de um ingresso: o botão fica uma vez
   // por compra, e é dentro dele que a pessoa escolhe quais ingressos devolver.
-  const reembolso = permitirReembolso ? <PedirReembolso tickets={tickets} onChange={onTransferChange} /> : null;
+  // Cortesia (pedido de total zero) não tem o que devolver: o banco já recusa
+  // (`reembolso_regra`, `sem_valor_pago`), então o botão nem aparece (OS-410).
+  const reembolso = permitirReembolso && !pedidoSemValor(tickets[0])
+    ? <PedirReembolso tickets={tickets} onChange={onTransferChange} />
+    : null;
 
   if (tickets.length === 1) {
     return <TicketCardSimple ticket={tickets[0]} onTransferChange={onTransferChange} rodape={reembolso} />;
@@ -123,9 +127,31 @@ const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false, 
       <Card className="group relative overflow-hidden border-border/50 bg-card/60 backdrop-blur-xl hover:shadow-glow hover:border-primary/30 transition-all duration-500">
         <div className={`absolute left-0 top-0 bottom-0 w-1 ${sideBar}`} />
         <CardContent className="p-0">
+          {/* Sem arte (OS-410): cabeçalho compacto, sem o quadro cinza alto. */}
+          {!event.imageUrl ? (
+            <div className="flex items-start justify-between gap-3 p-4 pb-0">
+              <div className="min-w-0">
+                <h3
+                  className={`font-display font-bold text-lg text-foreground line-clamp-1 transition-colors ${
+                    event.href ? 'hover:text-primary cursor-pointer' : ''
+                  }`}
+                  onClick={() => event.href && navigate(event.href)}
+                >
+                  {event.title}
+                </h3>
+                {statusBits.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{statusBits.join(' · ')}</p>
+                )}
+              </div>
+              <Badge variant="outline" className="shrink-0 bg-background/70 border-primary/30 text-primary">
+                <Ticket className="w-3 h-3 mr-1" />
+                {tickets.length} ingressos
+              </Badge>
+            </div>
+          ) : (
           <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
             <img
-              src={event.imageUrl || '/placeholder.svg'}
+              src={event.imageUrl}
               alt={event.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
@@ -151,6 +177,7 @@ const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false, 
               )}
             </div>
           </div>
+          )}
 
           <div className="p-4 sm:p-5">
             <div className="grid grid-cols-2 gap-3 mb-4">
@@ -202,7 +229,7 @@ const OrderGroupCard = ({ tickets, onTransferChange, permitirReembolso = false, 
           {expanded && (
             <div className="px-3 sm:px-4 pb-4 pt-1 space-y-3 border-t border-border/40 bg-muted/10">
               <p className="text-xs text-muted-foreground pt-3 px-1">
-                Cada ingresso abaixo tem um QR code único — toque em "Usar Ingresso" para apresentar.
+                Cada ingresso abaixo tem um QR code único. Toque em "Usar Ingresso" para apresentar.
               </p>
               {tickets.map((t) => (
                 <TicketCardSimple key={t.id} ticket={t} compact onTransferChange={onTransferChange} />
@@ -293,7 +320,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }:
       stampColor: '',
       bannerBg: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400',
       bannerIcon: CheckCircle2,
-      bannerText: 'Ingresso válido — Pronto para uso',
+      bannerText: 'Ingresso válido, pronto para uso',
       ctaLabel: 'Usar Ingresso',
       ctaIcon: Smartphone,
       ctaVariant: 'gradient' as const,
@@ -358,7 +385,7 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }:
 
   const handleShare = async () => {
     const shareData = {
-      title: `Ingresso — ${ev.title}`,
+      title: `Ingresso: ${ev.title}`,
       text: `Meu ingresso para ${ev.title} em ${ev.dateLabel} às ${ev.timeLabel}.`,
       // Sem evento legível não há página para abrir: compartilha Meus Ingressos.
       url: window.location.origin + (ev.href ?? '/meus-ingressos'),
@@ -451,10 +478,10 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }:
               {/* Sem evento legível não há foto: um placeholder do tamanho de uma
                   capa empurraria o botão do ingresso para fora da tela. Cabeçalho
                   compacto no lugar. */}
-              {ev.available ? (
+              {ev.available && ev.imageUrl ? (
                 <div className="relative w-full aspect-[16/10] overflow-hidden bg-muted/40">
                   <img
-                    src={ev.imageUrl || '/placeholder.svg'}
+                    src={ev.imageUrl}
                     alt={ev.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
@@ -481,7 +508,13 @@ const TicketCardSimple = ({ ticket, compact = false, onTransferChange, rodape }:
               ) : (
                 <div className="flex items-start justify-between gap-3 p-4 pb-0">
                   <div className="min-w-0">
-                    <h3 className="font-display font-bold text-lg text-foreground line-clamp-1">
+                    {/* O título leva à página do evento, como no cartão com arte (OS-410). */}
+                    <h3
+                      className={`font-display font-bold text-lg text-foreground line-clamp-1 transition-colors ${
+                        ev.href ? 'hover:text-primary cursor-pointer' : ''
+                      }`}
+                      onClick={() => ev.href && navigate(ev.href)}
+                    >
                       {ev.title}
                     </h3>
                     <p className="text-sm text-muted-foreground">{ticket.lot?.name ?? ticket.seat?.seat_type_name ?? ticket.seat?.label ?? 'Mesa'}</p>
@@ -801,7 +834,7 @@ const MeusIngressos = () => {
               <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-accent/15 blur-3xl pointer-events-none" />
 
               <CardContent className="relative p-6 sm:p-8">
-                <div className="flex items-start gap-4 mb-6">
+                <div className="flex items-start gap-4">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow shrink-0">
                     <Ticket className="w-7 h-7 sm:w-8 sm:h-8 text-primary-foreground" />
                   </div>
@@ -815,27 +848,8 @@ const MeusIngressos = () => {
                   </div>
                 </div>
 
-                {/* Stats grid */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                  <div className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm p-3 sm:p-4">
-                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Próximos</div>
-                    <div className="text-2xl sm:text-3xl font-display font-bold text-primary">
-                      {isLoading ? '—' : upcomingTickets.length}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border/50 bg-muted/30 backdrop-blur-sm p-3 sm:p-4">
-                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Anteriores</div>
-                    <div className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-                      {isLoading ? '—' : pastTickets.length}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-destructive/20 bg-destructive/5 backdrop-blur-sm p-3 sm:p-4">
-                    <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1">Cancelados</div>
-                    <div className="text-2xl sm:text-3xl font-display font-bold text-destructive">
-                      {isLoading ? '—' : cancelledTickets.length}
-                    </div>
-                  </div>
-                </div>
+                {/* Os três contadores (Próximos, Anteriores, Cancelados) saíram
+                    em 09/11 (OS-410): repetiam os números das abas logo abaixo. */}
               </CardContent>
             </Card>
           </motion.div>
@@ -951,7 +965,7 @@ const MeusIngressos = () => {
             <section className="mt-10">
               <h2 className="font-display font-bold text-lg mb-1">Ingressos que você transferiu</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Estes já estão com outra pessoa. Ficam aqui só como registro — o QR agora é de quem recebeu.
+                Estes já estão com outra pessoa. Ficam aqui só como registro: o QR agora é de quem recebeu.
               </p>
               <div className="space-y-3">
                 {transferidos.map((t) => (

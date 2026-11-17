@@ -13,6 +13,11 @@
  *
  * Tudo nesta página foi conferido contra o que o sistema faz hoje. Se mudar o
  * comportamento, mude o texto no mesmo commit.
+ *
+ * OS-431 (15/11/2026): desde a OS-426 (13/11) o lote "Sem taxa" tira só a taxa de
+ * serviço de quem compra, e o repasse a desconta do produtor (`order_producer_value`:
+ * face × percentual do evento, antes do cupom). A página deixou de prometer a face
+ * inteira ao produtor nesses ingressos.
  */
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
@@ -38,8 +43,9 @@ export default function EntendaATaxa() {
               Entenda a taxa da FestPag
             </h1>
             <p className="text-muted-foreground text-base mb-10">
-              Em uma frase: a taxa de serviço é paga por quem compra o ingresso, aparece somada
-              antes de você finalizar, e o produtor do evento recebe o valor cheio do ingresso.
+              Em uma frase: a taxa de serviço é paga por quem compra o ingresso e aparece somada
+              antes de você finalizar. Nos ingressos com o selo "Sem taxa", quem paga a taxa é o
+              produtor do evento.
             </p>
 
             <div className="prose prose-sm md:prose-base max-w-none space-y-8 text-foreground/90">
@@ -60,9 +66,14 @@ export default function EntendaATaxa() {
                   Quem paga
                 </h2>
                 <p>
-                  <strong>Quem compra o ingresso.</strong> A taxa não é descontada do produtor: ela
-                  é somada ao preço do ingresso no momento da compra. O produtor recebe o valor de
-                  face do ingresso que ele cadastrou.
+                  <strong>Quem compra o ingresso.</strong> A taxa é somada ao preço do ingresso no
+                  momento da compra, e o produtor recebe o valor de face dos ingressos vendidos,
+                  menos os descontos de cupom e os reembolsos.
+                </p>
+                <p>
+                  A exceção são os ingressos com o selo "Sem taxa": neles, quem paga a taxa de
+                  serviço é o produtor. Ela não é somada para quem compra e é descontada do valor
+                  que o produtor recebe, calculada sobre o valor de face, antes do cupom.
                 </p>
                 <div className="rounded-xl border border-border/60 bg-card/40 p-5 not-prose">
                   <p className="text-sm text-muted-foreground mb-3">Como aparece na sua compra:</p>
@@ -99,7 +110,7 @@ export default function EntendaATaxa() {
                 <p>
                   <strong>O valor exato da sua compra está sempre na tela do checkout</strong>, na
                   linha "Taxa de serviço", antes de você escolher como pagar. Se você é produtor e
-                  quer saber a sua condição, ela está na sua proposta ou no seu contrato — e a nossa
+                  quer saber a sua condição, ela está na sua proposta ou no seu contrato, e a nossa
                   equipe responde pelo{' '}
                   <a href="mailto:suporte@festpag.digital" className="text-primary hover:underline">
                     suporte@festpag.digital
@@ -114,7 +125,7 @@ export default function EntendaATaxa() {
                 </h2>
                 <p>
                   Parcelar é opcional. Quando há juros, eles são cobrados de quem parcela e aparecem
-                  na tela antes da confirmação — o valor à vista e o parcelado ficam lado a lado. O
+                  na tela antes da confirmação: o valor à vista e o parcelado ficam lado a lado. O
                   produtor não paga por isso, e o valor que ele recebe não muda.
                 </p>
               </section>
@@ -126,6 +137,10 @@ export default function EntendaATaxa() {
                 <ul className="list-disc pl-6 space-y-1">
                   <li>
                     <strong>Cortesias e listas de convidados</strong> não pagam taxa de serviço.
+                  </li>
+                  <li>
+                    <strong>Ingressos com o selo "Sem taxa"</strong>: nenhuma taxa de serviço é somada
+                    para quem compra. Ela é paga pelo produtor do evento.
                   </li>
                   <li>
                     <strong>Venda feita pelo próprio produtor</strong> (na portaria, no equipamento
@@ -140,9 +155,10 @@ export default function EntendaATaxa() {
                   Reembolso: a taxa volta?
                 </h2>
                 <p>
-                  Depende de quem pediu. Se a desistência for sua (dentro do prazo de arrependimento
-                  ou até 48h antes do evento), você recebe de volta o valor dos ingressos, e a taxa de
-                  serviço não é devolvida: ela paga o serviço que já foi prestado na hora da compra.
+                  Depende de quando você pede. Pedindo até o fim do 7º dia depois da compra, a taxa de
+                  serviço volta junto com o valor dos ingressos. Depois disso, você recebe de volta o
+                  valor dos ingressos, e a taxa de serviço não é devolvida: ela paga o serviço que já
+                  foi prestado na hora da compra.
                   Se o evento for cancelado, adiado ou alterado de forma substancial pelo produtor, o
                   reembolso é integral, com a taxa. Os prazos e as exceções estão na{' '}
                   <Link to="/reembolso" className="text-primary hover:underline">
