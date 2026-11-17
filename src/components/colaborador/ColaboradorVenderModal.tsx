@@ -52,7 +52,8 @@ export default function ColaboradorVenderModal({
   // Mesma regra da maquininha (collaborator-list-lots): lote com data de fim vencida
   // não aparece para vender na portaria. A data de início não filtra aqui, como sempre.
   // Lote em grupo (dupla) só se vende pelo site (OS-317): aqui sairia 1 ingresso pelo preço do par.
-  const activeLots = (lots || []).filter(l => l.is_active && !isLotEnded(l) && !ehLoteEmGrupo(l));
+  // Lote escondido (OS-405) não vende na portaria: só pelo link de venda do site.
+  const activeLots = (lots || []).filter(l => l.is_active && !l.escondido && !isLotEnded(l) && !ehLoteEmGrupo(l));
   const selectedLot = activeLots.find(l => l.id === lotId);
   const available = selectedLot
     ? selectedLot.total_quantity - selectedLot.sold_quantity - selectedLot.reserved_quantity

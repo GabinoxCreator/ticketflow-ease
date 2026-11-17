@@ -355,6 +355,16 @@ export function LotManager({ lots, onAdd, onUpdate, onDelete, isLoading, eventId
                                 </span>
                               );
                             })()}
+                            {/* Lote escondido (OS-405): não aparece na página do evento; só
+                                sai pelo link de venda que a FestPag gera. */}
+                            {lot.escondido && (
+                              <span
+                                className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border whitespace-nowrap bg-slate-500/10 text-slate-500 border-slate-500/30"
+                                title="Não aparece na página do evento. Só é vendido pelo link que a FestPag gera."
+                              >
+                                Escondido · só por link
+                              </span>
+                            )}
                           </div>
                           <AcoesComNome
                             de={`o ingresso ${lot.name}`}

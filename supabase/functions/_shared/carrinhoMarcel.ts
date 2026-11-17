@@ -11,7 +11,7 @@
 //   custo do crédito (`opcoes_parcelamento`). Aqui para no subtotal: o que o
 //   produtor recebe mais a taxa administrativa da plataforma.
 
-import { CAMPOS_DA_REGRA, lotesAnteriores, mensagemDoFechado, porQueFechado, type LoteAnterior } from './loteAberto.ts';
+import { CAMPOS_DA_REGRA, lotesAnteriores, mensagemDoFechado, mensagemDoLinkFechado, porQueFechado, type LoteAnterior } from './loteAberto.ts';
 import { CAMPOS_DO_GRUPO, tamanhoDoGrupo } from './loteEmGrupo.ts';
 
 export const DEFAULT_FEE_PERCENT = 10;
@@ -68,6 +68,17 @@ export interface ExtrasDoCarrinho {
     /** Tamanho escolhido para cada produto do combo: { eventProductId: variantId }. */
     escolhas?: Record<string, string | null>;
   }>;
+}
+
+/**
+ * Um item do LINK DE VENDA (OS-405), já lido do banco por `_shared/linkDeVenda.ts`.
+ * O preço é o que ficou gravado no link quando a casa o gerou (vale as 24 horas do
+ * link, decisão do Gabriel de 08/11), não o preço de agora do lote.
+ */
+export interface ItemDoLink {
+  lotId: string;
+  quantity: number;
+  preco: number;
 }
 
 export interface PrecoResolvido {
@@ -172,10 +183,19 @@ export async function resolverPreco(
   metodo: 'pix' | 'card',
   couponId?: string | null,
   extras?: ExtrasDoCarrinho | null,
+  // LINK DE VENDA (OS-405). Com ele, o carrinho é o do LINK e nada mais: os lotes, as
+  // quantidades e os preços vêm do registro no banco, e o que veio no corpo (itens,
+  // produtos, combos, cupom) é ignorado. É o único caminho que vende lote escondido.
+  link?: { itens: ItemDoLink[] } | null,
 ): Promise<PrecoResolvido> {
-  const itensLote = Array.isArray(items) ? items : [];
-  const pedidosProduto = Array.isArray(extras?.products) ? extras!.products! : [];
-  const pedidosCombo = Array.isArray(extras?.bundles) ? extras!.bundles! : [];
+  const doLink = !!link;
+  const precoDoLink = new Map<string, number>((link?.itens ?? []).map((i) => [i.lotId, i.preco]));
+  const itensLote = doLink
+    ? link!.itens.map((i) => ({ lotId: i.lotId, quantity: i.quantity }))
+    : (Array.isArray(items) ? items : []);
+  const pedidosProduto = !doLink && Array.isArray(extras?.products) ? extras!.products! : [];
+  const pedidosCombo = !doLink && Array.isArray(extras?.bundles) ? extras!.bundles! : [];
+  if (doLink) couponId = null;
 
   if (itensLote.length === 0 && pedidosProduto.length === 0 && pedidosCombo.length === 0) {
     throw new CarrinhoInvalido('Carrinho vazio');
@@ -336,8 +356,18 @@ export async function resolverPreco(
     if (!lot) throw new CarrinhoInvalido('Lote inválido');
     // A mesma regra da vitrine: ativo, dentro da data de fim, já aberto (agenda
     // ou lote anterior esgotado). Vale também para o ingresso de dentro do combo.
-    const fechado = porQueFechado(lot, anteriores.get(lot.starts_after_lot_id), agora);
-    if (fechado) throw new CarrinhoInvalido(mensagemDoFechado(lot.name, fechado));
+    // Lote escondido (OS-405) cai aqui como fechado: sem o link, não vende.
+    //
+    // Com o LINK, só o "escondido" deixa de pesar. Todo o resto vale como na compra
+    // normal: desativado, cortesia, data de fim, agenda e lote encadeado (decisão do
+    // Gabriel, 08/11: "Não, recusa quando o lote vira"). O preço gravado no link vale
+    // só enquanto o mesmo lote está aberto; virou o lote, o link inteiro é recusado com
+    // a frase que manda pedir um link novo.
+    const fechado = porQueFechado(doLink ? { ...lot, escondido: false } : lot, anteriores.get(lot.starts_after_lot_id), agora);
+    if (fechado) {
+      if (doLink) throw new CarrinhoInvalido(mensagemDoLinkFechado(fechado), 410);
+      throw new CarrinhoInvalido(mensagemDoFechado(lot.name, fechado));
+    }
     const price = face ?? Number(lot.price);
     const linha = price * qty;
     totalFace += linha;
@@ -387,7 +417,16 @@ export async function resolverPreco(
     // painel: quem pagasse a dupla levava 1 ingresso.
     const lot = lots.find((l: any) => l.id === lotId);
     const n = tamanhoDoGrupo(lot);
-    if (n > 1) {
+    if (doLink) {
+      // O link não leva lote em grupo (a função que cria o link recusa). Se o lote
+      // virou grupo depois, não vende: somaria uma regra de preço em cima da outra.
+      if (n > 1) throw new CarrinhoInvalido(`O lote "${lot.name}" não pode ser vendido por este link`, 409);
+      const preco = precoDoLink.get(lotId);
+      if (preco === undefined || !Number.isFinite(preco) || preco <= 0) {
+        throw new CarrinhoInvalido('Link de compra com preço inválido', 500);
+      }
+      linhaDeLote(lotId, qty, preco, null);
+    } else if (n > 1) {
       linhaDeLote(lotId, qty * n, faceDoIngressoDoGrupo(lot, n), null);
     } else {
       linhaDeLote(lotId, qty, null, null);
@@ -612,6 +651,9 @@ export function temPassePermanente(linhas: LinhaCarrinho[]): boolean {
 export async function reservarEstoque(
   client: any,
   linhas: LinhaCarrinho[],
+  // Frase quando falta estoque. Sem ela, a de sempre; o link de venda (OS-405) manda a
+  // dele ("o lote deste link esgotou"), porque quem tem o link precisa pedir outro.
+  semEstoque?: (nomeDoLote: string) => string,
 ): Promise<{ lotId: string; quantity: number }[]> {
   const reservado: { lotId: string; quantity: number }[] = [];
   try {
@@ -620,7 +662,7 @@ export async function reservarEstoque(
         _lot_id: l.lotId, _qty: l.quantity,
       });
       if (error) throw new CarrinhoInvalido('Erro ao reservar ingressos', 500);
-      if (!ok) throw new CarrinhoInvalido(`Quantidade insuficiente para ${l.lotName}`);
+      if (!ok) throw new CarrinhoInvalido(semEstoque ? semEstoque(l.lotName) : `Quantidade insuficiente para ${l.lotName}`);
       reservado.push({ lotId: l.lotId, quantity: l.quantity });
     }
     return reservado;

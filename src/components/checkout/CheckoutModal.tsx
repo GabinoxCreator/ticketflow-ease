@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { validateCPF, unformatCPF } from '@/utils/cpfValidator';
 import { useEventFees, computeFee, baseDaTaxa } from '@/hooks/useEventFees';
 import { savePendingCheckout, readPendingCheckout, clearPendingCheckout } from '@/lib/pendingCheckout';
+import { corpoDoErroDaEdge } from '@/lib/corpoDoErroDaEdge';
 
 type CheckoutStep = 'form' | 'cpf' | 'payment' | 'card' | 'pix' | 'awaiting' | 'success' | 'expired';
 
@@ -49,6 +50,9 @@ interface CheckoutModalProps {
   eventVenue: string;
   items: CartItem[];
   totalAmount: number;
+  /** Compra pelo link de venda (OS-405): o carrinho é o do link, sem cupom. O token
+   *  vai às edges, que cobram o que o link gravou (lote, quantidade e preço). */
+  linkToken?: string;
 }
 
 export function CheckoutModal({
@@ -61,6 +65,7 @@ export function CheckoutModal({
   eventVenue,
   items,
   totalAmount,
+  linkToken,
 }: CheckoutModalProps) {
   const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
@@ -219,9 +224,16 @@ export function CheckoutModal({
           // O servidor confere de novo: sem o aceite, passe permanente não vende.
           passeAceito,
           deviceId,
+          ...(linkToken ? { linkToken } : {}),
         },
       });
-      if (error) throw error;
+      if (error) {
+        // Link de venda usado, vencido ou com pagamento em andamento (OS-405): mostra a
+        // frase do servidor, que diz o que fazer.
+        const corpo = linkToken ? await corpoDoErroDaEdge(error) : null;
+        if (corpo && typeof corpo.error === 'string') throw new Error(corpo.error);
+        throw error;
+      }
       if (data?.error) throw new Error(data.error); // ex.: trava "1 ingresso por CPF"
       setOrderId(data.orderId);
       if (data.paymentId) setPaymentId(String(data.paymentId));
@@ -251,7 +263,7 @@ export function CheckoutModal({
     } finally {
       setIsProcessing(false);
     }
-  }, [eventId, items, customerData, appliedCoupon, paymentProvider, navigate, onClose]);
+  }, [eventId, items, customerData, appliedCoupon, paymentProvider, navigate, onClose, linkToken]);
 
 
   const handlePaymentSelect = async (method: 'pix' | 'card') => {
@@ -476,6 +488,7 @@ export function CheckoutModal({
                 temPassePermanente={temPassePermanente}
                 passeAceito={passeAceito}
                 onPasseAceitoChange={setPasseAceito}
+                semCupom={!!linkToken}
               />
             )}
 
@@ -488,6 +501,7 @@ export function CheckoutModal({
                 totalAmount={finalAmount}
                 couponId={appliedCoupon?.couponId}
                 passeAceito={passeAceito}
+                linkToken={linkToken}
                 customerName={customerData.name}
                 customerEmail={customerData.email}
                 customerPhone={customerData.phone}

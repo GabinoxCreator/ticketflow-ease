@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Ticket, Banknote, Percent, Wallet, Map as MapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatEventDate } from '@/lib/eventTime';
+import { VendaPorLink } from '@/components/admin/VendaPorLink';
 
 const statusColors: Record<string, string> = {
   published: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -349,6 +350,9 @@ const AdminEventoDetalhe: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Lote escondido e link de venda com o carrinho pronto (OS-405) */}
+        <VendaPorLink eventId={ev.id} eventStatus={ev.status} />
 
         {/* Fees */}
         <Card>

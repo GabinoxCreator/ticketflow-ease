@@ -39,6 +39,7 @@ const FinanceiroEvento = sobDemanda(() => import("./pages/FinanceiroEvento"));
 const MeusIngressos = sobDemanda(() => import("./pages/MeusIngressos"));
 const TransferenciaIngresso = sobDemanda(() => import("./pages/TransferenciaIngresso"));
 const CortesiaLink = sobDemanda(() => import("./pages/CortesiaLink"));
+const LinkDeVenda = sobDemanda(() => import("./pages/LinkDeVenda"));
 const MinhaConta = sobDemanda(() => import("./pages/MinhaConta"));
 const ColaboradoresManager = sobDemanda(() => import("./pages/ColaboradoresManager"));
 const ColaboradorLogin = sobDemanda(() => import("./pages/colaborador/ColaboradorLogin"));
@@ -159,6 +160,10 @@ const App = () => (
                     entrega o ingresso. Liga-se num evento ligando `retirada_publica` num
                     lote de preço zero (só a casa liga; o gatilho do banco recusa o resto). */}
                 <Route path="/cortesia/:slug" element={<CortesiaLink />} />
+                {/* Link de venda com o carrinho pronto (OS-405): PÚBLICA de propósito, a
+                    pessoa chega sem conta; a conta é pedida no "Comprar". Só a casa gera o
+                    link (admin do evento), e o servidor cobra o que o link gravou. */}
+                <Route path="/link/:token" element={<LinkDeVenda />} />
                 {/* Link de abertura de evento (OS-221): PÚBLICA de propósito, o produtor
                     ainda não tem conta; a última etapa pede para criar. */}
                 <Route path="/abrir-evento/:token" element={<AbrirEvento />} />

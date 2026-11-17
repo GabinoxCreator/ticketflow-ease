@@ -28,6 +28,8 @@ export interface EventLot {
   starts_after_lot_id: string | null;
   /** Lote que só sai pelo link de cortesia (OS-313): fora da venda normal. */
   retirada_publica?: boolean | null;
+  /** Lote escondido (OS-405): fora da venda normal, só pelo link de venda da casa. */
+  escondido?: boolean | null;
   manually_sold_out: boolean;
 }
 

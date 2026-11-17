@@ -113,7 +113,7 @@ serve(async (req) => {
       const qLotIds = items.map(i => i.lotId);
       const { data: qLots, error: qLotsError } = await supabaseClient
         .from('event_lots')
-        .select('id, name, price, is_active, retirada_publica')
+        .select('id, name, price, is_active, retirada_publica, escondido')
         .in('id', qLotIds)
         .eq('event_id', eventId);
       if (qLotsError || !qLots) throw new Error('Erro ao buscar lotes');
@@ -125,6 +125,8 @@ serve(async (req) => {
         if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
         // Lote do link de cortesia (OS-313) não vende por aqui.
         if (lot.retirada_publica) throw new Error(`Lote "${lot.name}" não está à venda`);
+        // Lote escondido (OS-405) só sai pelo link de venda, nas edges marcel-*.
+        if (lot.escondido) throw new Error(`Lote "${lot.name}" não está à venda`);
         qTotal += Number(lot.price) * item.quantity;
       }
 
@@ -196,7 +198,7 @@ serve(async (req) => {
     const lotIds = items.map(i => i.lotId);
     const { data: lots, error: lotsError } = await supabaseClient
       .from('event_lots')
-      .select('id, name, price, is_active, retirada_publica')
+      .select('id, name, price, is_active, retirada_publica, escondido')
       .in('id', lotIds)
       .eq('event_id', eventId);
     if (lotsError || !lots) throw new Error('Erro ao buscar lotes');
@@ -210,6 +212,8 @@ serve(async (req) => {
       if (!lot.is_active) throw new Error(`Lote "${lot.name}" não está mais disponível`);
       // Lote do link de cortesia (OS-313) não vende por aqui: é de graça e tem trava própria.
       if (lot.retirada_publica) throw new Error(`Lote "${lot.name}" não está à venda`);
+      // Lote escondido (OS-405) só sai pelo link de venda, nas edges marcel-*.
+      if (lot.escondido) throw new Error(`Lote "${lot.name}" não está à venda`);
       totalAmount += Number(lot.price) * item.quantity;
       lineItems.push({ lotId: lot.id, lotName: lot.name, quantity: item.quantity, price: Number(lot.price) });
     }

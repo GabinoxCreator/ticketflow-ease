@@ -16,6 +16,8 @@
 // Esgotado por quantidade NÃO entra aqui: quem garante é a reserva de estoque.
 // Lote de RETIRADA PÚBLICA (OS-313) nunca vende por aqui: ele é do link de cortesia,
 // onde valem a trava de um por pessoa, o cadastro e o convite da facial.
+// Lote ESCONDIDO (OS-405) também não: ele só sai pelo link de venda que a casa gera
+// (`_shared/linkDeVenda.ts`), e quem libera é o `resolverPreco` com o link na mão.
 //
 // Quem usa:
 //   - `porQueFechado` (a regra inteira): o carrinho do Marcel, PIX e cartão do
@@ -27,13 +29,15 @@
 import { CAMPOS_DO_GRUPO, tamanhoDoGrupo } from './loteEmGrupo.ts';
 
 /** Campos de `event_lots` que a regra lê. */
-export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica';
+export const CAMPOS_DA_REGRA = 'is_active, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica, escondido';
 
-export type LoteFechado = 'inativo' | 'encerrado' | 'ainda_nao_abriu' | 'so_pelo_link';
+export type LoteFechado = 'inativo' | 'encerrado' | 'ainda_nao_abriu' | 'so_pelo_link' | 'escondido';
 
 export interface LoteDaRegra {
   is_active: boolean | null;
   retirada_publica?: boolean | null;
+  /** Lote escondido (OS-405): fora de toda venda normal, só pelo link de venda. */
+  escondido?: boolean | null;
   sales_start_type?: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -71,6 +75,7 @@ export function porQueFechado(
 ): LoteFechado | null {
   if (!lote.is_active) return 'inativo';
   if (lote.retirada_publica) return 'so_pelo_link';
+  if (lote.escondido) return 'escondido';
   if (encerrou(lote, agora)) return 'encerrado';
   if (lote.sales_start_type === 'scheduled' && lote.start_date && new Date(lote.start_date) > agora) {
     return 'ainda_nao_abriu';
@@ -107,10 +112,25 @@ export function nomeComSetor(lote: { name: string; sector_name?: string | null }
   return setor ? `${setor} · ${lote.name}` : lote.name;
 }
 
+/**
+ * A frase de quem compra pelo LINK DE VENDA (OS-405) quando um lote do link fechou.
+ * Decisão do Gabriel (08/11, "Não, recusa quando o lote vira"): o link só vende enquanto
+ * o lote de cada item está aberto, pela mesma regra da compra normal; o preço gravado no
+ * link vale só enquanto o mesmo lote está aberto. A frase manda pedir um link novo.
+ */
+export function mensagemDoLinkFechado(motivo: LoteFechado | 'esgotado'): string {
+  if (motivo === 'encerrado') return 'O lote deste link encerrou. Peça um link novo a quem enviou.';
+  if (motivo === 'esgotado') return 'O lote deste link esgotou. Peça um link novo a quem enviou.';
+  if (motivo === 'ainda_nao_abriu') return 'O lote deste link ainda não está à venda. Peça um link novo a quem enviou.';
+  return 'O lote deste link não está mais à venda. Peça um link novo a quem enviou.';
+}
+
 /** A frase que o comprador (ou a equipe da portaria) lê quando o lote fechou. */
 export function mensagemDoFechado(nome: string, motivo: LoteFechado): string {
   if (motivo === 'encerrado') return `As vendas do lote "${nome}" já encerraram`;
   if (motivo === 'ainda_nao_abriu') return `Lote "${nome}" ainda não está à venda`;
   if (motivo === 'so_pelo_link') return `Lote "${nome}" só sai pelo link de cortesia`;
+  // Escondido (OS-405): a mesma frase do inativo. Quem não tem o link não precisa saber
+  // que existe um link.
   return `Lote "${nome}" não está à venda`;
 }

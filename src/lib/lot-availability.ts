@@ -16,6 +16,8 @@ export interface LotForAvailability {
   starts_after_lot_id?: string | null;
   /** Lote que só sai pelo link de cortesia (OS-313): nunca entra na venda normal. */
   retirada_publica?: boolean | null;
+  /** Lote escondido (OS-405): só sai pelo link de venda que a casa gera. */
+  escondido?: boolean | null;
   total_quantity: number;
   sold_quantity: number;
   reserved_quantity?: number | null;
@@ -51,6 +53,9 @@ export function isLotEnded(lot: LotForAvailability, now: Date = new Date()): boo
  * Lote de retirada pública (OS-313) NUNCA está aberto aqui: ele existe só para o link de
  * cortesia, onde valem a trava de um por pessoa e o cadastro. Deixá-lo na vitrine punha
  * ingresso de graça à venda na página do evento, na maquininha e no totem.
+ *
+ * Lote ESCONDIDO (OS-405) também nunca está aberto aqui: ele só se vende pelo link de
+ * venda (/link/<token>), que monta o carrinho sem passar pela vitrine.
  */
 export function isLotOpenForSale(
   lot: LotForAvailability,
@@ -59,6 +64,7 @@ export function isLotOpenForSale(
 ): boolean {
   if (!lot.is_active) return false;
   if (lot.retirada_publica) return false;
+  if (lot.escondido) return false;
 
   if (isLotEnded(lot, now)) return false;
 

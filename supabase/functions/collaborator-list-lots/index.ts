@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // 3) Lotes do evento — só ativos e não esgotados manualmente (filtro no DB), ordenados por name.
     const { data: lots, error } = await supabase
       .from('event_lots')
-      .select(`id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica, ${CAMPOS_DO_GRUPO}`)
+      .select(`id, name, sector_name, price, original_price, total_quantity, sold_quantity, reserved_quantity, is_active, manually_sold_out, sales_start_type, start_date, end_date, starts_after_lot_id, retirada_publica, escondido, ${CAMPOS_DO_GRUPO}`)
       .eq('event_id', event_id)
       .eq('is_active', true)
       .eq('manually_sold_out', false)
@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
     //    mostram só o lote que está à venda agora, igual ao site. Antes só a data de fim
     //    valia aqui (OS-106) e o totem do lançamento do Fogo & Fumaça mostraria os 8
     //    lotes juntos, inclusive o último, mais caro. A reserva aplica a mesma regra.
+    //    Lote escondido (OS-405) também sai daqui: ele só se vende pelo link de venda do site.
     //    available = total - sold - reserved (clamp >= 0).
     const agora = new Date();
     const anteriores = await lotesAnteriores(supabase, lots || []);
