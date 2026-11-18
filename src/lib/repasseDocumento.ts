@@ -33,7 +33,9 @@ export type PendenciaRepasse =
   | 'missing_document'
   | 'invalid_document'
   | 'no_bank_account'
-  | 'missing_holder_document';
+  | 'missing_holder_document'
+  // OS-417: a casa travou o saque (produtor com aporte). Vem sempre primeiro.
+  | 'saque_travado';
 
 export const AVISO_REPASSE =
   'Para pedir repasse, precisamos do CPF ou CNPJ da produtora e da conta que vai receber. Suas vendas continuam normais.';
@@ -47,6 +49,9 @@ export const MENSAGEM_PENDENCIA_REPASSE: Record<PendenciaRepasse, string> = {
   // Conta antiga sem o CPF/CNPJ do titular: a conta só vale com ele, então a
   // frase é a mesma (abrir Conta bancária e PIN, Editar, o campo é obrigatório).
   missing_holder_document: CADASTRE_A_CONTA,
+  // Texto aprovado pelo Gabriel em 11/11/2026 (OS-417, "botão travado, sem aviso").
+  saque_travado:
+    'O saque desta conta é feito pela FestPag depois do evento, como combinado no contrato. Qualquer dúvida, fale com a gente.',
 };
 
 export const CHAVE_PENDENCIAS_REPASSE = 'pendencias-repasse';

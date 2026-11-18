@@ -114,6 +114,11 @@ export default function Financeiro() {
   const showContent = !hasPin || isUnlocked;
   const { data: finance, isLoading: financeLoading } = useProducerFinance();
   const { data: pendencias = [] } = usePendenciasRepasse();
+  // OS-417: com a trava da casa, o botão fica travado e só a frase do contrato aparece.
+  const saqueTravado = pendencias.includes('saque_travado');
+  // A trava não é pendência que o produtor resolve: fica fora da lista "Falta para
+  // pedir o saque" da janela (OS-443, junção da OS-417 com a OS-416).
+  const faltaParaOSaque = pendencias.filter((p) => p !== 'saque_travado');
 
   // Saque pedido e ainda não pago, por evento (decisão do Gabriel em 09/11: "Botão
   // desconta"). "A receber da FestPag" continua com ele dentro (o dinheiro ainda não
@@ -219,7 +224,13 @@ export default function Financeiro() {
               </div>
 
               {/* Trava de documento e conta (OS-157): só aparece quando falta algo. */}
-              {pendencias.length > 0 && (
+              {saqueTravado && (
+                <Alert className="border-primary/30 bg-primary/5">
+                  <Banknote className="h-4 w-4 !text-primary" />
+                  <AlertDescription>{MENSAGEM_PENDENCIA_REPASSE.saque_travado}</AlertDescription>
+                </Alert>
+              )}
+              {!saqueTravado && pendencias.length > 0 && (
                 <Alert className="border-amber-500/50 bg-amber-500/5">
                   <AlertTriangle className="h-4 w-4 !text-amber-500" />
                   <AlertDescription className="space-y-2">
@@ -340,7 +351,7 @@ export default function Financeiro() {
                                 <Button
                                   size="sm"
                                   className="hidden sm:inline-flex flex-shrink-0 gap-1.5"
-                                  disabled={podePedir(event) <= 0}
+                                  disabled={podePedir(event) <= 0 || saqueTravado}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -359,7 +370,7 @@ export default function Financeiro() {
                               <Button
                                 size="sm"
                                 className="sm:hidden w-full mt-3 gap-1.5"
-                                disabled={podePedir(event) <= 0}
+                                disabled={podePedir(event) <= 0 || saqueTravado}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -418,15 +429,19 @@ export default function Financeiro() {
                     <p>Titular: {conta.account_holder_name}</p>
                   </div>
                 ) : null}
-                {pendencias.length > 0 && (
+                {saqueTravado ? (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3" data-testid="saque-travado-na-janela">
+                    <p>{MENSAGEM_PENDENCIA_REPASSE.saque_travado}</p>
+                  </div>
+                ) : faltaParaOSaque.length > 0 && (
                   <div className="rounded-lg border border-amber-500/50 bg-amber-500/5 p-3 space-y-1" data-testid="falta-para-o-saque">
                     <p className="font-medium text-foreground">Falta para pedir o saque</p>
                     <ul className="list-disc pl-5 space-y-1">
-                      {pendencias.map((p) => <li key={p}>{MENSAGEM_PENDENCIA_REPASSE[p]}</li>)}
+                      {faltaParaOSaque.map((p) => <li key={p}>{MENSAGEM_PENDENCIA_REPASSE[p]}</li>)}
                     </ul>
                   </div>
                 )}
-                {pendencias.length === 0 && !hasPin && meuPin && (
+                {!saqueTravado && faltaParaOSaque.length === 0 && !hasPin && meuPin && (
                   <div className="rounded-lg border p-3 flex gap-2" data-testid="aviso-pin-no-saque">
                     <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                     <p>
@@ -439,15 +454,15 @@ export default function Financeiro() {
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel disabled={isSubmitting}>Voltar</AlertDialogCancel>
-            {pendencias.length > 0 ? (
+            {saqueTravado ? null : faltaParaOSaque.length > 0 ? (
               <AlertDialogAction
                 onClick={() => {
                   setSelectedEvent(null);
-                  if (pendencias.some((p) => PENDENCIA_EM_CONFIGURACOES.includes(p))) navigate('/produtor/configuracoes');
+                  if (faltaParaOSaque.some((p) => PENDENCIA_EM_CONFIGURACOES.includes(p))) navigate('/produtor/configuracoes');
                   else setAba('dados');
                 }}
               >
-                {pendencias.some((p) => PENDENCIA_EM_CONFIGURACOES.includes(p)) ? 'Ir para Configurações' : 'Ir para Conta bancária e PIN'}
+                {faltaParaOSaque.some((p) => PENDENCIA_EM_CONFIGURACOES.includes(p)) ? 'Ir para Configurações' : 'Ir para Conta bancária e PIN'}
               </AlertDialogAction>
             ) : (
               <>

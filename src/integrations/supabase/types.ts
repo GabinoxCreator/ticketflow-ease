@@ -2204,6 +2204,7 @@ export type Database = {
           modo_taxa: string
           order_id: string
           quantity: number
+          taxa_absorvida_pct: number | null
           unit_face: number
         }
         Insert: {
@@ -2214,6 +2215,7 @@ export type Database = {
           modo_taxa: string
           order_id: string
           quantity: number
+          taxa_absorvida_pct?: number | null
           unit_face: number
         }
         Update: {
@@ -2224,6 +2226,7 @@ export type Database = {
           modo_taxa?: string
           order_id?: string
           quantity?: number
+          taxa_absorvida_pct?: number | null
           unit_face?: number
         }
         Relationships: [
@@ -3842,6 +3845,102 @@ export type Database = {
           },
         ]
       }
+      vigia_da_gestao: {
+        Row: {
+          alvo: string
+          ativo: boolean
+          confirmar_min: number
+          desde: string | null
+          detalhe: string | null
+          estado: string
+          lembrete_horas: number
+          motivo: string | null
+          parado_min: number
+          pedido_em: string | null
+          pedido_id: number | null
+          pulso_url: string
+          ultimo_aviso_em: string | null
+          ultimo_ok: string | null
+          ultimo_teste: string | null
+          updated_at: string
+          vigiando_desde: string
+        }
+        Insert: {
+          alvo?: string
+          ativo?: boolean
+          confirmar_min?: number
+          desde?: string | null
+          detalhe?: string | null
+          estado?: string
+          lembrete_horas?: number
+          motivo?: string | null
+          parado_min?: number
+          pedido_em?: string | null
+          pedido_id?: number | null
+          pulso_url?: string
+          ultimo_aviso_em?: string | null
+          ultimo_ok?: string | null
+          ultimo_teste?: string | null
+          updated_at?: string
+          vigiando_desde?: string
+        }
+        Update: {
+          alvo?: string
+          ativo?: boolean
+          confirmar_min?: number
+          desde?: string | null
+          detalhe?: string | null
+          estado?: string
+          lembrete_horas?: number
+          motivo?: string | null
+          parado_min?: number
+          pedido_em?: string | null
+          pedido_id?: number | null
+          pulso_url?: string
+          ultimo_aviso_em?: string | null
+          ultimo_ok?: string | null
+          ultimo_teste?: string | null
+          updated_at?: string
+          vigiando_desde?: string
+        }
+        Relationships: []
+      }
+      vigia_da_gestao_avisos: {
+        Row: {
+          created_at: string
+          destino_whatsapp: string | null
+          enviado_em: string | null
+          id: string
+          pedido_id: number | null
+          tentativas: number
+          texto: string
+          tipo: string
+          ultimo_erro: string | null
+        }
+        Insert: {
+          created_at?: string
+          destino_whatsapp?: string | null
+          enviado_em?: string | null
+          id?: string
+          pedido_id?: number | null
+          tentativas?: number
+          texto: string
+          tipo: string
+          ultimo_erro?: string | null
+        }
+        Update: {
+          created_at?: string
+          destino_whatsapp?: string | null
+          enviado_em?: string | null
+          id?: string
+          pedido_id?: number | null
+          tentativas?: number
+          texto?: string
+          tipo?: string
+          ultimo_erro?: string | null
+        }
+        Relationships: []
+      }
       vigia_do_email: {
         Row: {
           alvo: string
@@ -4715,10 +4814,21 @@ export type Database = {
         Args: { _agora: string; _desde: string; _s: Json; _tipo: string }
         Returns: string
       }
+      vigia_gestao_texto: {
+        Args: {
+          _agora: string
+          _desde: string
+          _detalhe: string
+          _motivo: string
+          _tipo: string
+        }
+        Returns: string
+      }
       vigiar_envio_de_email: {
         Args: { _agora?: string; _teste?: boolean }
         Returns: Json
       }
+      vigiar_gestao: { Args: { _agora?: string }; Returns: Json }
       vigiar_relogio_do_pix: { Args: never; Returns: Json }
     }
     Enums: {
