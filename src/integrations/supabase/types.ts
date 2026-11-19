@@ -3749,6 +3749,32 @@ export type Database = {
           },
         ]
       }
+      travas_de_saque: {
+        Row: {
+          motivo: string
+          producer_profile_id: string
+          travado_em: string
+        }
+        Insert: {
+          motivo: string
+          producer_profile_id: string
+          travado_em?: string
+        }
+        Update: {
+          motivo?: string
+          producer_profile_id?: string
+          travado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travas_de_saque_producer_profile_id_fkey"
+            columns: ["producer_profile_id"]
+            isOneToOne: true
+            referencedRelation: "producer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -4297,6 +4323,18 @@ export type Database = {
         Returns: Json
       }
       cartao_a_vista_cents: { Args: { _base_cents: number }; Returns: number }
+      casa_destravar_saque: {
+        Args: { _motivo: string; _producer_profile_id: string }
+        Returns: Json
+      }
+      casa_pedir_repasse: {
+        Args: { _event_id: string; _motivo: string; _valor: number }
+        Returns: Json
+      }
+      casa_travar_saque: {
+        Args: { _motivo: string; _producer_profile_id: string }
+        Returns: Json
+      }
       check_rate_limit: {
         Args: {
           _block_seconds: number
@@ -4973,6 +5011,14 @@ export type Database = {
       slug_produtor_reservado: { Args: { _slug: string }; Returns: boolean }
       slugify: { Args: { _input: string }; Returns: string }
       sweep_expired_event_seat_holds: { Args: never; Returns: number }
+      taxa_do_dinheiro: {
+        Args: { _ate?: string; _event_id: string }
+        Returns: number
+      }
+      taxa_do_dinheiro_do_pedido: {
+        Args: { o: Database["public"]["Tables"]["orders"]["Row"] }
+        Returns: number
+      }
       toggle_event_like: {
         Args: { _anonymous_id: string; _event_id: string }
         Returns: {
