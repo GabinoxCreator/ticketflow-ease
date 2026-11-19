@@ -18,9 +18,10 @@ import { useAuth } from '@/contexts/AuthContext';
 // em EventFinanceiroTab.tsx. Aqui era pior: este formatador roda em cima do "Balanco
 // Disponivel", o numero que o produtor le para decidir o saque. Removidas em 15/08/2026.
 const formatBRL = (v: number) => {
-  const [intPart, fracPart] = v.toFixed(2).split('.');
+  // Negativo (OS-416: o produtor deve à FestPag) sai "-R$ 77,80", como na régua.
+  const [intPart, fracPart] = Math.abs(v).toFixed(2).split('.');
   const intWithDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `R$\u00A0${intWithDots},${fracPart}`;
+  return `${v < 0 && Math.abs(v) >= 0.005 ? '-' : ''}R$\u00A0${intWithDots},${fracPart}`;
 };
 
 const parseDate = (d: string) => new Date(`${d}T12:00:00`);
@@ -113,6 +114,7 @@ export default function FinanceiroEvento() {
                     taxaDoComprador: event.fee,
                     juro: event.interest,
                     recebidoDireto: event.receivedDirectly,
+                    taxaDoDinheiro: event.cashFee,
                     aReceber: event.available,
                     jaPago: event.paidOut,
                   }}

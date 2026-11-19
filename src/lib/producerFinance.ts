@@ -8,13 +8,15 @@
  * Definições canônicas — iguais em TODAS as telas:
  *  - Só pedidos PAGOS entram (status 'paid' | 'completed').
  *  - CORTESIA (sale_origin='courtesy') NUNCA entra em receita.
- *  - "Valor do ingresso" de um pedido = o VALOR DE FACE que o produtor vendeu,
- *    sem a taxa de conveniência e sem juro de parcela. Quem calcula é o BANCO
- *    (função `order_producer_value`, servida ao painel pela RPC
- *    `producer_order_values` — ver src/lib/orderProducerValues.ts):
- *      · com face gravada no ato da venda (`order_line_face`): face − cupom;
- *      · sem face gravada (venda antiga, Mercado Pago, manual): total − taxa,
- *        que nessas rotas é a própria face.
+ *  - "Valor do ingresso" de um pedido = o que o ingresso vale PARA O PRODUTOR:
+ *    a face vendida, sem a taxa de conveniência e sem juro de parcela e, nos
+ *    lotes "Sem taxa" (OS-426), já sem a taxa de serviço que o produtor paga.
+ *    Quem calcula é o BANCO (função `order_producer_value`, servida ao painel
+ *    pela RPC `producer_order_values` — ver src/lib/orderProducerValues.ts):
+ *      · com face gravada no ato da venda (`order_line_face`): face − cupom
+ *        (− a taxa absorvida, nos lotes "Sem taxa");
+ *      · sem face gravada (venda antiga, Mercado Pago, manual, maquininha):
+ *        total − taxa, que nessas rotas é a própria face.
  *    ⚠️ POR QUE NÃO É MAIS `total_amount − service_fee_amount` (08/09/2026): na
  *    rota do Marcel o cartão parcelado grava o JURO dentro de `total_amount`,
  *    e a conta antiga dava o juro inteiro ao produtor. Na Oktoberfest o repasse
@@ -34,9 +36,19 @@
  *    Elas continuam CONTADAS nas vendas (o produtor precisa enxergar o que
  *    vendeu), mas saem do que a FestPag tem a pagar:
  *        repasse = total − recebidoDireto
- *    A mesma regra vale na função `request_payout` do banco, que é quem gera o
- *    valor a pagar de verdade — mudar só aqui deixaria a tela e o pagamento
- *    contando histórias diferentes.
+ *    A mesma regra vale na função `base_de_repasse` do banco (lida por
+ *    `request_payout`), que é quem gera o valor a pagar de verdade — mudar só
+ *    aqui deixaria a tela e o pagamento contando histórias diferentes.
+ *  - TAXA DO DINHEIRO (OS-416, 16/11/2026): numa venda em dinheiro NA MAQUININHA
+ *    (decisão do Gabriel de 16/11, "Só a maquininha": a venda manual em dinheiro
+ *    fica como antes) o produtor fica com tudo o que o comprador pagou, e a
+ *    parte que é da FestPag é "pago − valor do ingresso para o produtor": no
+ *    lote normal, a taxa que o
+ *    comprador pagou (OS-412); no lote "Sem taxa" (decisão do Gabriel de 16/11,
+ *    "Porta segue o lote"), a taxa que o banco já tirou da face (OS-426). Ela
+ *    entra em `recebidoDireto` (o que ele tem na mão = o que o comprador pagou)
+ *    e sai do repasse, a mesma conta de `taxa_do_dinheiro_do_pedido` no banco.
+ *    A conta "repasse = total − recebidoDireto" continua valendo.
  *  - A taxa de conveniência NÃO é um número de resumo: vive só no card do pedido.
  *  - Vendas de portaria (door_sales) são conferência — não entram aqui.
  */
@@ -83,9 +95,11 @@ export function saleOrigin(o: FinanceOrder): 'online' | 'fisica' | 'manual' | 'c
 }
 
 /**
- * Valor do ingresso do pedido para o produtor: face, sem taxa e sem juro.
+ * Valor do ingresso do pedido para o produtor: face, sem taxa de conveniência e
+ * sem juro (nos lotes "Sem taxa", também sem a taxa de serviço que ele paga).
  * Prefere o valor vindo do banco (`producer_value`); sem ele, cai na conta
- * antiga `total − taxa` — correta para tudo que não é cartão parcelado do Marcel.
+ * antiga `total − taxa` — correta para tudo que não é cartão parcelado do Marcel
+ * nem lote "Sem taxa".
  */
 export function orderTicketNet(o: FinanceOrder): number {
   if (o.producer_value != null && o.producer_value !== '') {
@@ -98,6 +112,33 @@ export function orderTicketNet(o: FinanceOrder): number {
 /** Venda que o produtor recebeu DIRETO (fora do caixa da FestPag): manual ou dinheiro. */
 export function isReceivedDirectly(o: FinanceOrder): boolean {
   return saleOrigin(o) === 'manual' || isCashOrder(o);
+}
+
+/**
+ * Venda em dinheiro NA MAQUININHA (`sale_origin` 'smartpos' e `payment_method`
+ * 'cash'): a única cuja taxa sai do repasse (OS-416, decisão do Gabriel de 16/11,
+ * "Só a maquininha"). É o mesmo critério das funções `taxa_do_dinheiro_do_pedido`,
+ * `taxa_do_dinheiro`, `admin_platform_net` e `reembolso_valores` no banco.
+ */
+export function isDinheiroDaMaquininha(o: Pick<FinanceOrder, 'sale_origin' | 'payment_method'>): boolean {
+  const method = (o.payment_method || '').toLowerCase();
+  return (o.sale_origin || 'online') === 'smartpos' && (method === 'cash' || method === 'dinheiro');
+}
+
+/**
+ * Taxa das vendas em DINHEIRO de um pedido (OS-416): o que o produtor tem na mão
+ * além do que é dele = pago (`total_amount`) − valor do ingresso para o produtor
+ * (o do banco, `producer_value`; sem ele, `total − taxa`), nunca negativo. Lote
+ * normal: a taxa do comprador. Lote "Sem taxa": a taxa que o banco tira da face.
+ * É da FestPag e sai do repasse: a MESMA conta da função
+ * `taxa_do_dinheiro_do_pedido` do banco. Fora do dinheiro da maquininha (venda
+ * manual inclusive), pedido não pago ou cortesia: 0.
+ */
+export function taxaDoDinheiroDoPedido(o: FinanceOrder): number {
+  if (!isPaidStatus(o.status) || !isDinheiroDaMaquininha(o)) return 0;
+  const v = Number(o.total_amount || 0) - orderTicketNet(o);
+  if (!Number.isFinite(v) || v <= 0) return 0;
+  return Math.round(v * 100) / 100;
 }
 
 export interface ProducerFinanceSummary {
@@ -113,9 +154,12 @@ export interface ProducerFinanceSummary {
   dinheiro: number;
   /**
    * Tudo que o produtor recebeu direto, sem passar pela FestPag: a venda manual
-   * inteira + o dinheiro das outras origens. Está DENTRO do total e FORA do repasse.
+   * inteira + o dinheiro das outras origens + a taxa do dinheiro (OS-416). Os
+   * ingressos estão DENTRO do total; tudo isso fica FORA do repasse.
    */
   recebidoDireto: number;
+  /** Taxa das vendas em dinheiro: ficou com o produtor e sai do repasse (OS-416). */
+  taxaDoDinheiro: number;
   /** O que a FestPag tem a repassar: total − recebidoDireto. */
   repasse: number;
   onlineCount: number;
@@ -130,7 +174,7 @@ export function computeProducerFinance(
   orders: FinanceOrder[] | null | undefined,
 ): ProducerFinanceSummary {
   const s: ProducerFinanceSummary = {
-    online: 0, fisica: 0, manual: 0, total: 0, dinheiro: 0, recebidoDireto: 0, repasse: 0,
+    online: 0, fisica: 0, manual: 0, total: 0, dinheiro: 0, recebidoDireto: 0, taxaDoDinheiro: 0, repasse: 0,
     onlineCount: 0, fisicaCount: 0, manualCount: 0, dinheiroCount: 0, recebidoDiretoCount: 0,
     paidCount: 0,
   };
@@ -148,6 +192,10 @@ export function computeProducerFinance(
     if (isCashOrder(o)) { s.dinheiro += net; s.dinheiroCount += 1; }
     // O que ficou na mão do produtor (manual inteira + dinheiro das outras).
     if (isReceivedDirectly(o)) { s.recebidoDireto += net; s.recebidoDiretoCount += 1; }
+    // No dinheiro ele ficou também com a taxa, que é da FestPag: entra no que ele
+    // tem na mão e, por isso, sai do repasse (OS-416).
+    const taxa = taxaDoDinheiroDoPedido(o);
+    if (taxa > 0) { s.taxaDoDinheiro += taxa; s.recebidoDireto += taxa; }
   }
   s.total = s.online + s.fisica + s.manual;
   s.repasse = Math.max(0, s.total - s.recebidoDireto);

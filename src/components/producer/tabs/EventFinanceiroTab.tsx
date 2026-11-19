@@ -118,8 +118,9 @@ export function EventFinanceiroTab({ eventId }: Props) {
     const allOrdersRaw = data?.orders || [];
     const doorSales = data?.doorSales || [];
 
-    // Fonte única (src/lib/producerFinance.ts): valor do ingresso sem taxa,
-    // pago, sem cortesia. online / manual / total(=repasse) coerentes com o resto do painel.
+    // Fonte única (src/lib/producerFinance.ts): valor do ingresso para o produtor
+    // (o "Vendido"), pago, sem cortesia. online / manual / total coerentes com o
+    // resto do painel; o repasse é total − recebido direto (com a taxa do dinheiro, OS-416).
     const finance = computeProducerFinance(allOrdersRaw);
 
     // Partições p/ as quebras por meio de pagamento (pagos, sem cortesia)
@@ -179,6 +180,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
       // vendas, fora do repasse (decisões do Gabriel, 18/08 e 02/09/2026)
       dinheiro: finance.dinheiro, dinheiroCount: finance.dinheiroCount,
       recebidoDireto: finance.recebidoDireto, recebidoDiretoCount: finance.recebidoDiretoCount,
+      taxaDoDinheiro: finance.taxaDoDinheiro,
       repasse: finance.repasse,
       pixOnline, cardOnline,
       fisicaCount: finance.fisicaCount,
@@ -227,6 +229,7 @@ export function EventFinanceiroTab({ eventId }: Props) {
           taxaDoComprador: doEvento ? doEvento.fee : null,
           juro: doEvento?.interest,
           recebidoDireto: doEvento ? doEvento.receivedDirectly : stats.recebidoDireto,
+          taxaDoDinheiro: doEvento ? doEvento.cashFee : stats.taxaDoDinheiro,
           // Membro da produtora que não é o dono não enxerga os repasses: "—", nunca um número errado.
           aReceber: doEvento ? doEvento.available : null,
           jaPago: doEvento ? doEvento.paidOut : null,

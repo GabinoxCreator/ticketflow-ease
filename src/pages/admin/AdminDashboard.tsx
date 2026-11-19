@@ -87,10 +87,15 @@ const AdminDashboard: React.FC = () => {
   const netValue = platformNet?.net ?? 0;
   const mpCostValue = platformNet?.mpCost ?? 0;
   const netNegative = netValue < 0;
+  // OS-416: a taxa das vendas em dinheiro na maquininha ficou com o produtor e sai do repasse dele.
+  // Não está na mão da FestPag, por isso fica fora da receita e aparece à parte. O
+  // valor vem do banco (admin_platform_net.cashFee): no lote "Sem taxa" ela não é a
+  // service_fee_amount, é a taxa que a order_producer_value tira da face.
+  const cashFeeValue = platformNet?.cashFee ?? 0;
 
   const financialCards = [
     { title: 'GMV', value: stats?.gmv || 0, icon: DollarSign, highlight: false, kind: 'plain' as const },
-    { title: 'Receita de Taxas (bruta)', value: stats?.platformRevenue || 0, icon: TrendingUp, highlight: false, kind: 'plain' as const },
+    { title: 'Receita de Taxas (bruta)', value: stats?.platformRevenue || 0, icon: TrendingUp, highlight: false, kind: 'fees' as const },
     { title: 'Receita Líquida (após MP)', value: netValue, icon: TrendingUp, highlight: true, kind: 'net' as const },
     { title: 'Repasses Pendentes', value: stats?.pendingPayouts || 0, icon: Banknote, highlight: false, kind: 'plain' as const },
   ];
@@ -179,6 +184,12 @@ const AdminDashboard: React.FC = () => {
                           {isNet && !showSkeleton && (
                             <p className="text-xs text-muted-foreground">
                               − {formatCurrency(mpCostValue)} em taxas Mercado Pago
+                            </p>
+                          )}
+                          {card.kind === 'fees' && cashFeeValue > 0 && (
+                            <p className="text-xs text-muted-foreground" data-testid="taxa-do-dinheiro">
+                              Fora daqui: {formatCurrency(cashFeeValue)} de taxa das vendas em dinheiro, na mão
+                              dos produtores. Sai do repasse.
                             </p>
                           )}
                         </div>

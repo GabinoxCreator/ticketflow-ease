@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { isDinheiroDaMaquininha } from '@/lib/producerFinance';
 
 export interface TopEvent {
   eventId: string;
@@ -22,7 +23,7 @@ export function useAdminStats() {
           supabase.from('events').select('id', { count: 'exact', head: true }),
           supabase
             .from('orders')
-            .select('total_amount, service_fee_amount, payment_method, event_id')
+            .select('total_amount, service_fee_amount, payment_method, sale_origin, event_id')
             .eq('status', 'paid'),
           supabase.from('payouts').select('net_amount, status'),
           supabase
@@ -34,8 +35,12 @@ export function useAdminStats() {
 
       const orders = ordersRes.data || [];
       const gmv = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      // Taxa que está na mão da FestPag. A taxa das vendas em DINHEIRO na
+      // maquininha ficou com o produtor e sai do repasse dele (OS-416): fica fora
+      // daqui, a mesma separação da função admin_platform_net, que devolve o
+      // valor dela em `cashFee`. Venda manual em dinheiro fica como antes.
       const platformRevenue = orders.reduce(
-        (sum, o) => sum + Number(o.service_fee_amount || 0),
+        (sum, o) => sum + (isDinheiroDaMaquininha(o) ? 0 : Number(o.service_fee_amount || 0)),
         0,
       );
 
