@@ -1,13 +1,15 @@
-// redeploy 2026-07-03e — força redeploy p/ carregar _shared/eventFee.ts (taxa por método)
+// redeploy 2026-11-16 OS-432 (sobe com a OS-412): lote "Sem taxa" cobra só a face na porta (_shared/taxaNaPorta.ts) e dinheiro cobra a taxa (_shared/eventFee.ts)
 // Usa Deno.serve built-in (import de std/http removido p/ evitar timeout do bundler
 // no host deno.land, que estava travando deploys — mesmo motivo do confirm-payment).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/collaboratorSession.ts";
 import { getTicketLimitForEvent, countTicketsForCpf } from "../_shared/event-ticket-limits.ts";
 import { unformatCPF, validateCPF } from "../_shared/cpf.ts";
-import { resolveFee, computeServiceFee, feeMethodFromPaymentMethod } from "../_shared/eventFee.ts";
+import { resolveFee, feeMethodFromPaymentMethod } from "../_shared/eventFee.ts";
 import { lotesAnteriores, mensagemDoFechado, porQueFechado } from "../_shared/loteAberto.ts";
 import { CAMPOS_DO_GRUPO, ehLoteEmGrupo, mensagemSoNoSite } from "../_shared/loteEmGrupo.ts";
+import { contaDaPorta } from "../_shared/taxaNaPorta.ts";
+import { captureSaleTerms } from "../_shared/captureSaleTerms.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,6 +117,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Lote "Sem taxa" (`modo_taxa = 'absorve'`) custa só a face na porta (OS-432). Lido
+    // à parte, ANTES de reservar estoque: sem saber o modo do lote não se cobra nada,
+    // porque errar para "normal" cobraria a taxa por cima de quem não deve.
+    const { data: modos, error: modosErr } = await supabase
+      .from('event_lots')
+      .select('id, modo_taxa')
+      .in('id', lotIds);
+    if (modosErr || !modos || modos.length !== lotIds.length) {
+      console.error('[RESERVE] modo_taxa query error:', modosErr);
+      return new Response(JSON.stringify({ error: 'Erro ao validar lotes' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const modoDoLote = new Map((modos as Array<{ id: string; modo_taxa: string | null }>).map((m) => [m.id, m.modo_taxa]));
+
     // PASSO 2b — trava "1 ingresso por CPF" (MESMO módulo/erro dos edges de cobrança online:
     // create-mercadopago-pix, process-card-payment, confra-*). Roda ANTES de reservar estoque.
     // `supabase` é service-role (acima) — obrigatório p/ countTicketsForCpf ignorar RLS.
@@ -203,11 +219,22 @@ Deno.serve(async (req) => {
 
     // Taxa administrativa (repassada ao cliente), MESMA fonte/fórmula das edges online
     // (event_fee_overrides via resolveFee; fallback 10%). Método vem do body (o totem
-    // manda ao chamar): card_credit/card_debit → 'card', pix → 'pix'. Sem método →
+    // e a maquininha mandam ao chamar): card_credit/card_debit → 'card', pix → 'pix',
+    // cash → a regra de TAXA_DO_DINHEIRO_SEGUE (OS-412: hoje a do Pix). Sem método →
     // sem taxa (compat com chamadas antigas). Totem não tem cupom → discount = 0.
+    // OS-432 ("Porta segue o lote", Gabriel 16/11): a taxa incide só nas linhas de lote
+    // normal; o lote "Sem taxa" custa só a face e a taxa dele sai do produtor no
+    // repasse, pelo percentual gravado na linha de face (contaDaPorta, abaixo).
     const feeMethod = feeMethodFromPaymentMethod(payment_method);
-    const fee = feeMethod ? await resolveFee(supabase, event_id, feeMethod) : { percent: 0, fixed: 0 };
-    const serviceFee = computeServiceFee(subtotal, fee);
+    const fee = feeMethod ? await resolveFee(supabase, event_id, feeMethod) : null;
+    const conta = contaDaPorta(lineItems.map((li) => ({
+      lotId: li.lot_id,
+      lotName: lotMap.get(li.lot_id).name,
+      unitPrice: li.unit_price,
+      quantity: li.quantity,
+      modoTaxa: modoDoLote.get(li.lot_id),
+    })), fee);
+    const serviceFee = conta.serviceFee;
     const totalAmount = Math.max(0.01, subtotal - 0 + serviceFee);
 
     // PASSO 4 — criar order pending
@@ -241,6 +268,37 @@ Deno.serve(async (req) => {
       await releaseAll();
       return new Response(JSON.stringify({ error: 'Erro ao criar pedido' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // PASSO 4b — face de cada lote, como o checkout do site grava (OS-426/OS-432), pelo
+    // MESMO helper das edges marcel-*. É dela que o repasse tira a taxa do lote "Sem
+    // taxa" (`order_producer_value`, e no dinheiro `taxa_do_dinheiro_do_pedido`, OS-416).
+    // As condições do pagamento vão junto (o app não manda parcelas: grava 1).
+    const metodoDoTermo = typeof payment_method === 'string' && payment_method.startsWith('card') ? 'card'
+      : payment_method === 'pix' ? 'pix'
+      : payment_method === 'cash' ? 'cash'
+      : 'desconhecido';
+    await captureSaleTerms(supabase, order.id, conta.faceLines, { provider: 'pos', method: metodoDoTermo });
+
+    // O captureSaleTerms nunca lança (no site ele roda com o Pix já gerado). Aqui nada
+    // foi cobrado ainda: se a face de um lote "Sem taxa" não ficou gravada com o
+    // percentual, o repasse pagaria a face cheia e a taxa sumiria. Então confere e,
+    // faltando, desfaz a reserva como na falha dos ingressos, logo abaixo.
+    const esperadas = conta.faceLines.filter((l) => l.taxaAbsorvidaPct !== null && l.taxaAbsorvidaPct !== undefined);
+    if (esperadas.length > 0) {
+      const { data: gravadas, error: faceErr } = await supabase
+        .from('order_line_face')
+        .select('lot_id, taxa_absorvida_pct')
+        .eq('order_id', order.id);
+      const faltando = faceErr || !gravadas ? esperadas : esperadas.filter((l) => !(gravadas as Array<{ lot_id: string | null; taxa_absorvida_pct: number | string | null }>).some((g) =>
+        g.lot_id === l.lotId && g.taxa_absorvida_pct !== null && Number(g.taxa_absorvida_pct) === Number(l.taxaAbsorvidaPct)));
+      if (faltando.length > 0) {
+        console.error('[RESERVE] face "Sem taxa" sem gravar:', faceErr ?? faltando.map((l) => l.lotId));
+        await supabase.from('orders').delete().eq('id', order.id);
+        await releaseAll();
+        return new Response(JSON.stringify({ error: 'Erro ao gravar o pedido' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
     }
 
     // PASSO 5 — criar tickets pending (1 por unidade). ticket_code = default do banco.

@@ -1,4 +1,4 @@
-// redeploy list-lots taxa — expõe event_fees + Deno.serve
+// redeploy 2026-11-16 OS-432: cada lote diz se é "Sem taxa" (sem_taxa), para as telas da maquininha e do totem
 // Usa Deno.serve built-in (import de std/http removido p/ evitar timeout do bundler
 // no host deno.land, que estava travando deploys — mesmo motivo do reserve/confirm).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -6,6 +6,7 @@ import { validateCollaboratorSession, sessionErrorResponse } from "../_shared/co
 import { resolveFee } from "../_shared/eventFee.ts";
 import { lotesAnteriores, nomeComSetor, porQueFechado } from "../_shared/loteAberto.ts";
 import { CAMPOS_DO_GRUPO, ehLoteEmGrupo } from "../_shared/loteEmGrupo.ts";
+import { loteSemTaxa } from "../_shared/taxaNaPorta.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,6 +102,27 @@ Deno.serve(async (req) => {
       .filter((l: any) => l.available > 0)
       .sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR'));
 
+    // 4b) Lote "Sem taxa" (OS-432, decisão do Gabriel de 16/11, "Porta segue o lote"):
+    //     na porta ele custa só a face, em Pix, cartão e dinheiro. Aditivo: cada lote
+    //     diz `sem_taxa`, para a prévia do totem e da maquininha não somar a taxa nele
+    //     (as telas de hoje ignoram o campo; o valor cobrado é sempre o da reserva).
+    //     Lido à parte, sem mexer no select acima.
+    const { data: modos, error: modosErr } = await supabase
+      .from('event_lots')
+      .select('id, modo_taxa')
+      .eq('event_id', event_id);
+    if (modosErr || !modos) {
+      console.error('[LIST-LOTS] modo_taxa query error:', modosErr);
+      return new Response(JSON.stringify({ error: 'Erro ao listar lotes' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const semTaxa = new Set(
+      (modos as Array<{ id: string; modo_taxa: string | null }>)
+        .filter((m) => loteSemTaxa(m.modo_taxa))
+        .map((m) => m.id),
+    );
+    const lotes = formatted.map((l: { id: string }) => ({ ...l, sem_taxa: semTaxa.has(l.id) }));
+
     // 5) Taxa administrativa do evento (repasse), pros dois métodos — MESMA fonte
     //    (event_fee_overrides) do reserve e das edges online (fallback 10%). Aditivo:
     //    o totem usa pra mostrar o valor por card ANTES do clique. Não quebra o shape.
@@ -115,7 +137,7 @@ Deno.serve(async (req) => {
       card_fixed: cardFee.fixed,
     };
 
-    return new Response(JSON.stringify({ lots: formatted, event_fees }),
+    return new Response(JSON.stringify({ lots: lotes, event_fees }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (error) {
     console.error('[LIST-LOTS] error:', error);
