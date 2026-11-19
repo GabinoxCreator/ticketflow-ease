@@ -71,12 +71,22 @@ async function carregarCaso(admin: any, payoutId: string): Promise<Caso | null> 
     else resumo = Array.isArray(data) ? data[0] : data;
   }
 
+  // OS-437: a taxa das vendas em dinheiro (OS-416) que a base acima já descontou. A função
+  // só existe depois da migration da OS-416; sem ela, ou com erro, o aviso sai como antes.
+  let taxaDoDinheiro = 0;
+  if (payout.event_id && resumo) {
+    const { data, error: eTaxa } = await admin.rpc('taxa_do_dinheiro', { _event_id: payout.event_id });
+    if (eTaxa) log('taxa do dinheiro não veio (o aviso sai sem ela)', { erro: eTaxa.message });
+    else taxaDoDinheiro = Number(data ?? 0) || 0;
+  }
+
   return {
     payout,
     produtor: perfil?.brand_name || perfil?.legal_name || 'Produtor sem nome no cadastro',
     evento: evento?.title || 'Evento não identificado',
     dataEvento: evento?.date ?? null,
     resumo,
+    taxaDoDinheiro,
   };
 }
 

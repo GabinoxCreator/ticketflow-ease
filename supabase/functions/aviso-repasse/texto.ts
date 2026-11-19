@@ -14,6 +14,11 @@ export interface Caso {
   evento: string;
   dataEvento: string | null;
   resumo: { base: number; pedidos_pagos: number; ja_pago: number; ja_pedido: number; disponivel: number } | null;
+  /**
+   * Taxa das vendas em dinheiro na maquininha (OS-416): o comprador pagou junto com o
+   * ingresso, ficou com o produtor e JÁ SAIU da base do resumo. 0 ou ausente = nada a dizer.
+   */
+  taxaDoDinheiro?: number;
 }
 
 export const PAINEL = 'https://festpag.digital/admin/repasses';
@@ -69,6 +74,10 @@ export function montarTexto(c: Caso): string {
   if (c.resumo) {
     linhas.push('');
     linhas.push(`Vendido no site (o que custodiamos): ${dinheiro(c.resumo.base)} em ${c.resumo.pedidos_pagos} pedido${c.resumo.pedidos_pagos === 1 ? '' : 's'}`);
+    // OS-437: depois da OS-416 a base já vem sem a taxa das vendas em dinheiro. Sem esta
+    // linha, quem confere o número contra o painel do produtor acha que faltou dinheiro.
+    const taxaDoDinheiro = Number(c.taxaDoDinheiro ?? 0);
+    if (taxaDoDinheiro > 0) linhas.push(`Já sem ${dinheiro(taxaDoDinheiro)} de taxa das vendas em dinheiro, que ficou com o produtor`);
     if (Number(c.resumo.ja_pago) > 0) linhas.push(`Já repassado antes: ${dinheiro(c.resumo.ja_pago)}`);
     if (Number(c.resumo.disponivel) > 0) linhas.push(`Ainda não pedido: ${dinheiro(c.resumo.disponivel)}`);
     // Venda manual e dinheiro ficam de fora da base de propósito (regras de
