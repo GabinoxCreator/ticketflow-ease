@@ -1,0 +1,1549 @@
+/*
+ * A cara do Fogo & Fumaça na página do evento (OS-444, versão 5).
+ *
+ * Duas camadas. A parte do festival vive dentro de `.fogo` (a parte grande) e
+ * `.fogo-faixa` (a faixa curta do topo). E, desde a versão 5 (pedido do Gabriel em
+ * 19/11: a página inteira com a cara do Fogo, só o menu de cima da FestPag), o resto
+ * da página do evento troca de cor por um tema que só liga com a marca
+ * `data-tema-do-evento="fogo"` no `<body>`, posta pelo próprio pedaço do Fogo. Sem a
+ * marca (outro evento, ou este pedaço não baixou), nada daqui muda nada: a página
+ * fica inteira no visual normal. As cores são as da arte do festival aprovada
+ * pelo Gabriel em 18/11 (carvão, brasa, laranja, ouro e creme). A Anton, a letra que
+ * ele indicou à organização como fonte fixa, fica só nos títulos; nome de prato, texto
+ * e lista usam a letra da página.
+ *
+ * Movimento: a linha "queima" conforme a pessoa rola e cada parada acende quando a
+ * brasa chega nela. Sem JavaScript, ou com "reduzir movimento" ligado, tudo já nasce
+ * aceso e parado (a classe `fogo--vivo` é quem liga o movimento). Nada anima sem parar.
+ */
+
+/* avisa ao pedaço que este estilo chegou (ver `estiloChegou`, em BlocosDoEvento.tsx) */
+:root {
+  --estilo-do-fogo: 1;
+}
+
+@font-face {
+  font-family: 'Anton Fogo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../../assets/fogo-e-fumaca/anton-latin.woff2') format('woff2');
+}
+
+.fogo,
+.fogo-faixa {
+  --carvao: #140e0b;
+  --carvao-2: #1f1612;
+  --carvao-3: #2a1d17;
+  --brasa: #e5481b;
+  --laranja: #f0a63c;
+  --ouro: #e8b65a;
+  --creme: #f7f2ea;
+  --texto: #f4ede4;
+  --suave: rgba(244, 237, 228, 0.74);
+  --fio: rgba(232, 182, 90, 0.26);
+  --titulo: 'Anton Fogo', 'Anton', Impact, 'Arial Narrow Bold', 'Arial Narrow', sans-serif;
+}
+
+/* ═════════ o tema: a página inteira do evento com as cores do festival ═════════
+ *
+ * Vale só enquanto o <body> tem `data-tema-do-evento="fogo"` (quem põe é o pedaço do
+ * Fogo, ver `useTemaDoFogo`). Não mexe em componente nenhum: troca as variáveis de cor
+ * do site (as mesmas que `bg-card`, `text-foreground`, `bg-primary`... leem) dentro de
+ * dois lugares: a página do evento, menos o menu de cima, e as janelas que abrem por
+ * cima dela, que o navegador pendura direto no <body> (carrinho, pagamento, login).
+ * Os avisos que somem sozinhos ("Cupom inválido") entram junto: os dois jeitos de
+ * aviso do site moram dentro do #root, fora da página do evento, e por isso têm
+ * seletor próprio. O menu de cima e o aviso de cookies ficam como são.
+ */
+
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > :not(header),
+body[data-tema-do-evento='fogo'] > :not(#root):not(script):not(style):not(noscript):not(iframe),
+body[data-tema-do-evento='fogo'] [data-sonner-toaster],
+body[data-tema-do-evento='fogo'] [role='region'][aria-label^='Notifications'] {
+  --background: 20 29% 6%;
+  --foreground: 34 42% 93%;
+  --card: 18 27% 10%;
+  --card-foreground: 34 42% 93%;
+  --popover: 20 28% 9%;
+  --popover-foreground: 34 42% 93%;
+  --primary: 35 86% 59%;
+  --primary-foreground: 20 44% 7%;
+  --secondary: 19 29% 14%;
+  --secondary-foreground: 34 42% 93%;
+  --muted: 19 29% 13%;
+  --muted-foreground: 30 14% 72%;
+  --accent: 13 79% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 4 90% 66%;
+  --destructive-foreground: 20 44% 7%;
+  --border: 33 38% 22%;
+  --input: 33 38% 30%;
+  --ring: 35 86% 59%;
+  --brand-indigo: 35 86% 59%;
+  --brand-magenta: 13 79% 50%;
+  --gradient-primary: linear-gradient(135deg, #ffd58a 0%, #f0a63c 45%, #e5481b 100%);
+  --gradient-accent: linear-gradient(135deg, #f0a63c 0%, #e5481b 100%);
+  --glow-primary: 0 0 60px rgba(240, 166, 60, 0.18);
+  --glow-accent: 0 0 40px rgba(229, 72, 27, 0.18);
+  color: hsl(var(--foreground));
+}
+
+/* O menu de cima fica como é, e o que ele abre também: o menu da conta (o do avatar) é
+   pendurado no <body> como as janelas, então aqui ele devolve as cores normais do site.
+   Navegador antigo, que não entende `:has`, ignora este bloco: o menu abre escuro e legível.
+   (O `:not(#root)` está aqui só para este bloco pesar mais que o do tema, logo acima.) */
+body[data-tema-do-evento='fogo'] > [data-radix-popper-content-wrapper]:not(#root):has([role='menu']) {
+  --background: inherit;
+  --foreground: inherit;
+  --card: inherit;
+  --card-foreground: inherit;
+  --popover: inherit;
+  --popover-foreground: inherit;
+  --primary: inherit;
+  --primary-foreground: inherit;
+  --secondary: inherit;
+  --secondary-foreground: inherit;
+  --muted: inherit;
+  --muted-foreground: inherit;
+  --accent: inherit;
+  --accent-foreground: inherit;
+  --destructive: inherit;
+  --destructive-foreground: inherit;
+  --border: inherit;
+  --input: inherit;
+  --ring: inherit;
+  --brand-indigo: inherit;
+  --brand-magenta: inherit;
+  --gradient-primary: inherit;
+  --gradient-accent: inherit;
+  --glow-primary: inherit;
+  --glow-accent: inherit;
+  color: inherit;
+}
+
+/* o fundo carvão de ponta a ponta, com o calor da brasa vindo do topo */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(90% 520px at 50% 0, rgba(229, 72, 27, 0.26), transparent 70%),
+    radial-gradient(70% 700px at 100% 38%, rgba(240, 166, 60, 0.06), transparent 70%), #140e0b;
+}
+
+/* grão: tira a cara de cor chapada */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .9  0 0 0 0 .8  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* títulos da página na letra do festival (a Anton só tem um peso) */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > :is(main, footer) :is(h1, h2, h3, h4).font-display {
+  font-family: 'Anton Fogo', 'Anton', Impact, 'Arial Narrow Bold', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > main h1.font-display {
+  font-size: clamp(36px, 10vw, 58px);
+  line-height: 1;
+  color: #f7f2ea;
+}
+
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > main h2.font-display {
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > main h3.font-display.text-xl {
+  font-size: 26px;
+  line-height: 1.05;
+}
+
+/* o botão de destaque do site (gradiente roxo) vira brasa */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > :not(header) .bg-gradient-to-r.text-primary-foreground,
+body[data-tema-do-evento='fogo'] > :not(#root) .bg-gradient-to-r.text-primary-foreground {
+  --tw-gradient-stops: #ffd58a, #f0a63c 48%, #e8742a;
+}
+
+/* na lista de parcelas, a opção destacada fica laranja: o total entre parênteses, que
+   é cinza, passa a seguir a cor da opção para continuar legível */
+body[data-tema-do-evento='fogo'] > :not(#root) [role='option']:focus .text-muted-foreground,
+body[data-tema-do-evento='fogo'] > :not(#root) [role='option'][data-highlighted] .text-muted-foreground {
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* a barrinha de etapa do cadastro tem o roxo escrito direto nela: aqui fica ouro liso
+   (na tela de cadastro o degradê é só do botão de avançar) */
+body[data-tema-do-evento='fogo'] > :not(#root) [role='progressbar'] > div {
+  background: #e8b65a !important;
+}
+
+/* a aba ativa ("Entrar" ou "Criar conta") também fica lisa, com fio e letra ouro */
+body[data-tema-do-evento='fogo'] > :not(#root) button[aria-pressed='true'].bg-gradient-to-r {
+  background-image: none;
+  background-color: #2a1d17;
+  color: #e8b65a;
+  box-shadow: inset 0 0 0 1px rgba(232, 182, 90, 0.55);
+}
+
+/* botão de destaque desabilitado ("Continuar", "Entrar" antes de preencher): o degradê
+   a meia opacidade virava um marrom sujo. Fica liso e apagado, sem degradê. */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > :not(header) .bg-gradient-to-r.text-primary-foreground:disabled,
+body[data-tema-do-evento='fogo'] > :not(#root) .bg-gradient-to-r.text-primary-foreground:disabled {
+  background-image: none;
+  background-color: #2a1d17;
+  color: rgba(244, 237, 228, 0.55);
+  opacity: 1;
+  box-shadow: none;
+  transform: none;
+}
+
+/* A Sora (a letra de título da FestPag) sai das janelas e dos cartões: nome do lote,
+   "Sua seleção", "Pagamento", "Vamos criar a sua conta" ficam na letra da página, em
+   negrito. Os títulos da página (regra da Anton, mais acima) pesam mais e não mudam. */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > :not(header) .font-display,
+body[data-tema-do-evento='fogo'] > :not(#root) .font-display {
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 700;
+}
+
+/* o quadradinho do convite da facial terminava em rosa: termina em brasa */
+body[data-tema-do-evento='fogo'] > :not(#root) .from-primary.to-pink-500 {
+  --tw-gradient-to: #e5481b var(--tw-gradient-to-position);
+}
+
+/* o "+" que dá para tocar ganha fio e sinal ouro (era igual ao "−" desabilitado) */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > main button[aria-label^='Adicionar'].text-foreground,
+body[data-tema-do-evento='fogo'] > :not(#root) button[aria-label='Aumentar']:not(:disabled) {
+  border-color: #e8b65a;
+  color: #e8b65a;
+}
+
+/* avisos que somem sozinhos, no visual do Fogo (o site tem dois jeitos de aviso) */
+body[data-tema-do-evento='fogo'] [data-sonner-toaster] [data-sonner-toast],
+body[data-tema-do-evento='fogo'] [role='region'][aria-label^='Notifications'] > ol > li:not(.destructive) {
+  background: #1f1612 !important;
+  border: 1px solid rgba(232, 182, 90, 0.26) !important;
+  color: #f4ede4 !important;
+}
+
+/* "Produzido por" no celular: os dois botões de contato estavam com metade da altura */
+@media (max-width: 639px) {
+  body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > main a.flex-1.h-11.rounded-xl.border {
+    flex: none;
+    min-height: 44px;
+  }
+
+  /* e sobrava um vazio grande entre ele e o rodapé */
+  body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > main {
+    padding-bottom: 56px;
+  }
+}
+
+/* rodapé: a linha do CNPJ quebra em duas partes parecidas, sem deixar "83" sozinho */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > footer p.mt-1 {
+  text-wrap: balance;
+}
+
+/* O menu de cima continua da FestPag, mas nesta página fica sem transparência (a faixa
+   do Fogo aparecia por trás dele) e com um fio dourado embaixo. */
+body[data-tema-do-evento='fogo'] [data-pagina-do-evento] > header {
+  background-color: hsl(var(--background));
+  border-bottom-color: rgba(232, 182, 90, 0.6);
+}
+
+/* Atrás de tudo também é carvão: no iPhone, puxar a página além do começo ou do fim
+   mostrava uma faixa clara (o fundo do site). A marca vai no <html> e no <body>. */
+html[data-tema-do-evento='fogo'],
+body[data-tema-do-evento='fogo'],
+body[data-tema-do-evento='fogo'] #root [aria-hidden].pointer-events-none.fixed.inset-0.bg-background {
+  background-color: #140e0b;
+}
+
+body[data-tema-do-evento='fogo'] #root [aria-hidden].pointer-events-none.fixed.inset-0.bg-background > * {
+  display: none;
+}
+
+/* ═════════ a faixa curta do topo (antes dos ingressos) ═════════ */
+
+.fogo-faixa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  font: inherit;
+  text-align: left;
+  color: var(--texto);
+  cursor: pointer;
+  background:
+    radial-gradient(120% 160% at 0% 100%, rgba(229, 72, 27, 0.5), transparent 60%),
+    radial-gradient(90% 140% at 100% 0%, rgba(240, 166, 60, 0.16), transparent 60%), var(--carvao);
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 182, 90, 0.3),
+    0 12px 28px rgba(20, 14, 11, 0.22);
+}
+
+.fogo-faixa:focus-visible {
+  outline: 2px solid var(--brasa);
+  outline-offset: 3px;
+}
+
+.fogo-rostos {
+  flex: none;
+  display: flex;
+}
+
+.fogo-rostos img {
+  width: clamp(30px, 9.6vw, 38px);
+  height: clamp(30px, 9.6vw, 38px);
+  margin-left: -13px;
+  border: 2px solid var(--carvao);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--carvao-3);
+}
+
+.fogo-rostos img:first-child {
+  margin-left: 0;
+}
+
+/* no celular: os rostos, os 4 itens em até duas linhas e só a seta (a faixa tem de
+   caber nos 76 px que a página já guardou para ela) */
+.fogo-faixa-texto {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.fogo-faixa-itens {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  font-family: var(--titulo);
+  font-size: clamp(12.5px, 3.85vw, 15px);
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--creme);
+}
+
+/* cada linha: dois itens com um ponto no meio, sem quebrar */
+.fogo-faixa-linha {
+  white-space: nowrap;
+}
+
+.fogo-ponto {
+  margin: 0 3px;
+  font-style: normal;
+  color: var(--laranja);
+}
+
+.fogo-ponto--entre {
+  display: none;
+}
+
+.fogo-faixa-linha:first-child span:first-child {
+  color: var(--laranja);
+}
+
+.fogo-faixa-botao {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-size: 0; /* no celular fica só a seta; o texto continua para leitor de tela */
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+
+/* ═════════ a parte grande ═════════ */
+
+.fogo {
+  --x: 13px; /* centro da linha */
+  --esq: 0px; /* quanto o fundo sangra para cada lado (medido na tela) */
+  --dir: 0px;
+  position: relative;
+  isolation: isolate;
+  padding: 60px 4px 56px;
+  color: var(--texto);
+}
+
+/* A página inteira já é carvão (o tema, lá em cima): aqui fica só o calor da brasa
+   atrás da abertura e do fim, de ponta a ponta da tela. */
+.fogo::before {
+  content: '';
+  position: absolute;
+  inset: 0 calc(-1 * var(--dir)) 0 calc(-1 * var(--esq));
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 340px at 50% 340px, rgba(229, 72, 27, 0.24), transparent 72%),
+    radial-gradient(80% 300px at 50% calc(100% - 300px), rgba(229, 72, 27, 0.12), transparent 72%);
+}
+
+/* zera o básico sem ganhar das classes daqui (o :where não pesa) */
+:where(.fogo) :where(h3, h4, h5, p, ul, ol, figure) {
+  margin: 0;
+}
+
+:where(.fogo) :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+.fogo svg,
+.fogo-faixa svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fogo-faixa svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ───────── abertura ───────── */
+
+.fogo-abertura {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-bottom: 48px;
+}
+
+.fogo-logo {
+  width: min(76vw, 330px);
+  height: auto;
+  filter: drop-shadow(0 10px 28px rgba(229, 72, 27, 0.45));
+}
+
+.fogo-selo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: var(--laranja);
+}
+
+.fogo-selo::before,
+.fogo-selo::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--laranja));
+}
+
+.fogo-selo::after {
+  transform: scaleX(-1);
+}
+
+.fogo-manchete {
+  margin-top: 14px;
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: clamp(46px, 13.5vw, 92px);
+  line-height: 0.98;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--laranja);
+  background: linear-gradient(180deg, #ffd58a 0%, var(--laranja) 46%, var(--brasa) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.fogo-manchete span {
+  display: block;
+}
+
+.fogo-abertura > p:last-child {
+  max-width: 30em;
+  margin-top: 14px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--suave);
+}
+
+/* ───────── a linha que queima ───────── */
+
+.fogo-trilha {
+  --y: 100%;
+  --p: 1;
+  position: relative;
+}
+
+.fogo-trilho,
+.fogo-queima {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--x);
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+}
+
+.fogo-trilho {
+  background: repeating-linear-gradient(180deg, var(--fio) 0 6px, transparent 6px 12px);
+}
+
+.fogo-queima {
+  transform-origin: top;
+  transform: scaleY(var(--p));
+  background: linear-gradient(180deg, var(--ouro), var(--laranja) 55%, var(--brasa));
+  box-shadow: 0 0 14px rgba(240, 166, 60, 0.75);
+}
+
+/* a brasa que desce na ponta da linha (só com o movimento ligado) */
+.fogo-brasa {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  transform: translate3d(0, var(--y), 0);
+  background: radial-gradient(circle, #fff6d8 0%, #ffd58a 30%, var(--laranja) 55%, var(--brasa) 78%);
+  box-shadow:
+    0 0 0 5px rgba(240, 166, 60, 0.16),
+    0 0 26px 6px rgba(229, 72, 27, 0.7);
+  display: none;
+}
+
+.fogo--vivo .fogo-brasa {
+  display: block;
+}
+
+/* ───────── parada ───────── */
+
+.fogo-parada {
+  position: relative;
+  padding: 0 0 56px calc(var(--x) * 2 + 12px);
+}
+
+.fogo-parada:last-child {
+  padding-bottom: 6px;
+}
+
+/* ponto pequeno: algo que rola durante o festival, sem hora marcada */
+.fogo-marco {
+  position: absolute;
+  top: 9px;
+  left: var(--x);
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--laranja);
+  box-shadow:
+    0 0 0 4px var(--carvao),
+    0 0 14px rgba(240, 166, 60, 0.6);
+}
+
+/* marco grande: ponto do dia com hora divulgada (12h e 21h) */
+.fogo-parada--hora .fogo-marco {
+  top: 6px;
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  background:
+    radial-gradient(circle, var(--carvao) 0 4px, transparent 5px),
+    linear-gradient(160deg, #ffd58a, var(--laranja) 50%, var(--brasa));
+  box-shadow:
+    0 0 0 4px var(--carvao),
+    0 0 22px rgba(240, 166, 60, 0.6);
+}
+
+.fogo-chamada {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+
+.fogo-parada--hora .fogo-chamada {
+  padding-top: 4px;
+}
+
+.fogo-titulo {
+  margin-top: 8px;
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: clamp(36px, 10vw, 54px);
+  line-height: 1;
+  letter-spacing: 0.012em;
+  text-transform: uppercase;
+  color: var(--creme);
+}
+
+.fogo-parada--hora .fogo-titulo {
+  font-size: clamp(42px, 12vw, 76px);
+}
+
+.fogo-titulo b {
+  font-weight: 400;
+  color: var(--laranja);
+  background: linear-gradient(180deg, #ffd58a 0%, var(--laranja) 50%, var(--brasa) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.fogo-corpo {
+  margin-top: 14px;
+}
+
+.fogo-texto {
+  max-width: 34em;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--suave);
+}
+
+/* o que separa a abertura do que rola durante o dia */
+.fogo-durante {
+  position: relative;
+  margin: -18px 0 38px;
+  padding-left: calc(var(--x) * 2 + 12px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  color: var(--suave);
+}
+
+/* apagada → acesa (só com o movimento ligado) */
+.fogo--vivo .fogo-parada .fogo-marco {
+  background: var(--carvao-3);
+  box-shadow:
+    0 0 0 4px var(--carvao),
+    inset 0 0 0 1px var(--fio);
+  transition:
+    background 0.5s ease,
+    box-shadow 0.5s ease;
+}
+
+.fogo--vivo .fogo-parada .fogo-cabeca {
+  opacity: 0.5;
+  transition: opacity 0.6s ease;
+}
+
+.fogo--vivo .fogo-parada .fogo-corpo {
+  opacity: 0.32;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 0.8s ease 0.08s,
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.08s;
+}
+
+.fogo--vivo .fogo-parada.acesa .fogo-marco {
+  background: var(--laranja);
+  box-shadow:
+    0 0 0 4px var(--carvao),
+    0 0 14px rgba(240, 166, 60, 0.6);
+}
+
+.fogo--vivo .fogo-parada--hora.acesa .fogo-marco {
+  background:
+    radial-gradient(circle, var(--carvao) 0 4px, transparent 5px),
+    linear-gradient(160deg, #ffd58a, var(--laranja) 50%, var(--brasa));
+  box-shadow:
+    0 0 0 4px var(--carvao),
+    0 0 22px rgba(240, 166, 60, 0.6);
+}
+
+.fogo--vivo .fogo-parada.acesa .fogo-cabeca {
+  opacity: 1;
+}
+
+.fogo--vivo .fogo-parada.acesa .fogo-corpo {
+  opacity: 1;
+  transform: none;
+}
+
+/* ───────── 12h: chegada; 21h: fecho e lugar ───────── */
+
+.fogo-duas {
+  display: grid;
+  gap: 24px;
+}
+
+/* a régua do dia: das 12h às 21h, uma brasa por hora */
+.fogo-regua {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+  max-width: 440px;
+  margin-top: 20px;
+}
+
+.fogo-regua > span:not(.fogo-horas) {
+  font-family: var(--titulo);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--creme);
+}
+
+.fogo-horas {
+  display: flex;
+  gap: 4px;
+}
+
+.fogo-horas i {
+  flex: 1;
+  height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ffd58a, var(--laranja) 55%, var(--brasa));
+  box-shadow: 0 0 10px rgba(240, 166, 60, 0.45);
+}
+
+.fogo-regua small {
+  grid-column: 2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+
+.fogo--vivo .fogo-parada .fogo-horas i {
+  opacity: 0.18;
+  transform: scaleY(0.6);
+  transition:
+    opacity 0.35s ease calc(0.35s + var(--i) * 0.09s),
+    transform 0.35s ease calc(0.35s + var(--i) * 0.09s);
+}
+
+.fogo--vivo .fogo-parada.acesa .fogo-horas i {
+  opacity: 1;
+  transform: none;
+}
+
+/* quem entra: a classificação etária, que estava no "Sobre o evento" */
+.fogo-regras {
+  display: grid;
+  gap: 6px;
+  max-width: 440px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--fio);
+  border-radius: 14px;
+  background: rgba(244, 237, 228, 0.04);
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--suave);
+}
+
+.fogo-regras li:first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.fogo-regras i,
+.fogo-aviso i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--titulo);
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* o lugar: a foto com o texto por cima */
+.fogo-lugar {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  align-items: end;
+  min-height: 320px;
+  border-radius: 18px;
+  background: var(--carvao-3);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.fogo-lugar > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fogo-lugar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(20, 14, 11, 0.05) 20%, rgba(20, 14, 11, 0.9) 78%);
+  box-shadow: inset 0 0 0 1px rgba(232, 182, 90, 0.28);
+  pointer-events: none;
+}
+
+.fogo-lugar-texto {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 120px 18px 18px;
+}
+
+.fogo-lugar h5 {
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--creme);
+}
+
+.fogo-lugar p {
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--texto);
+}
+
+.fogo-lugar .fogo-endereco {
+  color: var(--suave);
+}
+
+.fogo-lugar .fogo-botao-fio {
+  margin-top: 10px;
+}
+
+/* ───────── open food ───────── */
+
+.fogo-foto {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--carvao-3);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.fogo-foto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(232, 182, 90, 0.28);
+  pointer-events: none;
+}
+
+.fogo-foto img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fogo-mesa {
+  display: grid;
+  gap: 22px;
+  margin-top: 20px;
+}
+
+/* o quadro do open food: três fotos, uma em cima da outra */
+.fogo-quadro {
+  display: grid;
+  gap: 8px;
+}
+
+.fogo-quadro .fogo-foto {
+  aspect-ratio: 2 / 1;
+  border-radius: 14px;
+}
+
+/* a moldura fecha em cima e embaixo; no meio as fotos encostam com canto pequeno */
+.fogo-quadro .fogo-foto:first-child {
+  border-radius: 18px 18px 8px 8px;
+}
+
+.fogo-quadro .fogo-foto:nth-child(2) {
+  border-radius: 8px;
+}
+
+.fogo-quadro .fogo-foto:last-child {
+  border-radius: 8px 8px 18px 18px;
+}
+
+/* o resumo do dia, embaixo do texto das 21h */
+.fogo-fecho .fogo-resumo {
+  margin-top: 24px;
+}
+
+.fogo-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--laranja);
+}
+
+.fogo-rotulo::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--fio), transparent);
+}
+
+.fogo-pratos {
+  margin-top: 6px;
+}
+
+.fogo-pratos li {
+  display: grid;
+  gap: 1px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(232, 182, 90, 0.13);
+}
+
+.fogo-prato {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--creme);
+}
+
+.fogo-prato small {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--suave);
+}
+
+.fogo-assador {
+  font-size: 13.5px;
+  line-height: 1.3;
+  color: var(--ouro);
+}
+
+.fogo-so-vip {
+  display: grid;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(232, 182, 90, 0.5);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(232, 182, 90, 0.14), rgba(229, 72, 27, 0.06));
+}
+
+.fogo-so-vip > span:first-child {
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+
+/* ───────── open bar: o balcão ───────── */
+
+.fogo-balcao {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+  padding: 20px 18px;
+  border-top: 2px solid var(--laranja);
+  border-radius: 4px 4px 18px 18px;
+  background: linear-gradient(180deg, rgba(240, 166, 60, 0.12), rgba(244, 237, 228, 0.03) 60%);
+  box-shadow: inset 0 0 0 1px rgba(232, 182, 90, 0.14);
+}
+
+.fogo-copos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.fogo-copos li {
+  padding: 8px 14px;
+  border: 1px solid var(--fio);
+  border-radius: 999px;
+  background: rgba(20, 14, 11, 0.5);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--texto);
+}
+
+.fogo-balcao > div + div .fogo-copos li {
+  border-color: rgba(232, 182, 90, 0.55);
+  background: rgba(232, 182, 90, 0.12);
+}
+
+.fogo-aviso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(232, 182, 90, 0.16);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--suave);
+}
+
+/* ───────── palco: as bandas ───────── */
+
+.fogo-shows {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.fogo-shows figure {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--carvao-3);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(232, 182, 90, 0.2);
+}
+
+.fogo-shows img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.fogo-shows figcaption {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 0 16px 13px;
+}
+
+.fogo-shows h5 {
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: 27px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--creme);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.fogo-shows figcaption p {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+
+/* horário do show: só aparece quando a organização divulgar */
+.fogo-horario {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--titulo);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: #1a0f0a;
+  background: linear-gradient(180deg, #ffd58a, var(--laranja));
+}
+
+/* ───────── setores ───────── */
+
+.fogo-setores {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.fogo-setor {
+  padding: 20px 18px;
+  border: 1px solid var(--fio);
+  border-radius: 18px;
+  background: rgba(244, 237, 228, 0.035);
+}
+
+.fogo-setor h5 {
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--creme);
+}
+
+.fogo-setor ul {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.fogo-setor li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--texto);
+}
+
+.fogo-setor li::before {
+  content: '';
+  position: absolute;
+  top: 0.5em;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--laranja);
+}
+
+.fogo-setor--vip {
+  border-color: rgba(232, 182, 90, 0.65);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(240, 166, 60, 0.2), transparent 60%),
+    linear-gradient(160deg, rgba(232, 182, 90, 0.13), rgba(229, 72, 27, 0.07));
+  box-shadow: 0 16px 40px rgba(229, 72, 27, 0.16);
+}
+
+.fogo-setor--vip h5 {
+  color: var(--laranja);
+  background: linear-gradient(180deg, #ffd58a 0%, var(--laranja) 55%, var(--brasa) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ───────── 21h: o fecho ───────── */
+
+.fogo-resumo {
+  display: grid;
+  align-content: center;
+  gap: 0;
+  padding: 6px 18px;
+  border: 1px dashed rgba(232, 182, 90, 0.5);
+  border-radius: 16px;
+  background: rgba(244, 237, 228, 0.035);
+}
+
+.fogo-resumo li {
+  padding: 11px 0;
+  font-family: var(--titulo);
+  font-size: 19px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--creme);
+}
+
+.fogo-resumo li + li {
+  border-top: 1px dashed rgba(232, 182, 90, 0.28);
+}
+
+.fogo-resumo li:first-child {
+  color: var(--laranja);
+}
+
+/* ───────── botões ───────── */
+
+.fogo-botao,
+.fogo-botao-fio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.fogo-botao {
+  margin-top: 18px;
+  border: 0;
+  color: #1a0f0a;
+  background: linear-gradient(180deg, #ffd58a 0%, var(--laranja) 48%, #e8742a 100%);
+  box-shadow: 0 10px 28px rgba(229, 72, 27, 0.42);
+}
+
+.fogo-botao-fio {
+  border: 1px solid rgba(232, 182, 90, 0.6);
+  color: var(--creme);
+  background: rgba(20, 14, 11, 0.55);
+}
+
+.fogo-botao:focus-visible,
+.fogo-botao-fio:focus-visible {
+  outline: 2px solid var(--creme);
+  outline-offset: 3px;
+}
+
+/* ───────── patrocinadores e parceiros (no creme, como na arte do festival) ───────── */
+
+.fogo-patrocinio {
+  margin-top: 52px;
+  padding: 28px 14px 20px;
+  border-radius: 22px;
+  background: var(--creme);
+  color: #2a1a12;
+  text-align: center;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(140, 96, 48, 0.25);
+}
+
+.fogo-patrocinio h4 {
+  font-family: var(--titulo);
+  font-weight: 400;
+  font-size: clamp(30px, 8.4vw, 50px);
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #c2410c;
+  background: linear-gradient(180deg, var(--laranja) 0%, var(--brasa) 70%, #b5300f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.fogo-patrocinio > p {
+  margin-top: 8px;
+  font-size: 14.5px;
+  font-style: italic;
+  color: rgba(42, 26, 18, 0.78);
+}
+
+.fogo-marcas {
+  --k: 1; /* tamanho das logos nesta fileira */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px 20px;
+  padding: 18px 0;
+}
+
+.fogo-marcas + .fogo-marcas {
+  border-top: 1px solid rgba(140, 96, 48, 0.22);
+}
+
+/* cada logo ocupa a mesma área (a medida vem do componente) */
+.fogo-marcas li {
+  width: calc(var(--w) * var(--k) * 1px);
+  height: calc(var(--h) * var(--k) * 1px);
+}
+
+.fogo-marcas img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* a primeira fileira são os destaques da organização */
+.fogo-marcas:first-of-type {
+  --k: 1.2;
+}
+
+/* ───────── a barrinha fixa do celular ───────── */
+
+.fogo-barra {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 30; /* abaixo da barra do carrinho (40) e do aviso de cookies (50) */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(232, 182, 90, 0.4);
+  background: rgba(20, 14, 11, 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  visibility: hidden;
+  transform: translate3d(0, 100%, 0);
+  transition:
+    transform 0.3s ease,
+    visibility 0s linear 0.3s;
+}
+
+.fogo-barra[data-visivel] {
+  visibility: visible;
+  transform: none;
+  transition:
+    transform 0.3s ease,
+    visibility 0s;
+}
+
+.fogo-barra > span {
+  min-width: 0;
+  font-family: var(--titulo);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--creme);
+}
+
+.fogo-barra .fogo-botao {
+  flex: none;
+  min-height: 44px;
+  margin-top: 0;
+  padding: 10px 18px;
+}
+
+/* ═════════ telas maiores ═════════ */
+
+@media (hover: hover) {
+  .fogo-botao:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px rgba(229, 72, 27, 0.55);
+  }
+  .fogo-botao-fio:hover {
+    background: rgba(232, 182, 90, 0.2);
+  }
+  .fogo-shows li:hover img {
+    transform: scale(1.04);
+  }
+  .fogo-faixa:hover .fogo-faixa-botao {
+    color: var(--creme);
+  }
+}
+
+@media (min-width: 640px) {
+  .fogo {
+    --x: 15px;
+    padding: 76px 0 68px;
+  }
+
+  .fogo-barra {
+    display: none;
+  }
+
+  .fogo-faixa {
+    padding: 14px 20px;
+    gap: 18px;
+  }
+
+  .fogo-rostos img {
+    width: 52px;
+    height: 52px;
+    margin-left: -12px;
+  }
+
+  .fogo-faixa-texto {
+    gap: 16px;
+  }
+
+  /* no computador, as duas linhas viram uma, com um ponto entre elas */
+  .fogo-faixa-itens {
+    display: block;
+    font-size: 21px;
+  }
+
+  .fogo-ponto--entre {
+    display: inline;
+  }
+
+  .fogo-faixa-botao {
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .fogo-faixa svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .fogo-logo {
+    width: 400px;
+  }
+
+  .fogo-manchete span {
+    display: inline;
+  }
+
+  .fogo-abertura {
+    padding-bottom: 64px;
+  }
+
+  .fogo-parada {
+    padding-bottom: 76px;
+  }
+
+  .fogo-durante {
+    margin: -30px 0 50px;
+  }
+
+  .fogo-shows {
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .fogo-shows h5 {
+    font-size: 30px;
+  }
+
+  .fogo-setores {
+    grid-template-columns: 1fr 1.15fr;
+    align-items: start;
+  }
+
+
+  .fogo-pratos {
+    columns: 2;
+    column-gap: 32px;
+  }
+
+  .fogo-pratos li {
+    break-inside: avoid;
+  }
+
+  .fogo-balcao {
+    grid-template-columns: 1.3fr 1fr;
+    gap: 22px 32px;
+    padding: 26px 28px;
+  }
+
+  .fogo-aviso {
+    grid-column: 1 / -1;
+  }
+
+  .fogo-marcas {
+    --k: 1.3;
+    gap: 20px 34px;
+    padding: 22px 0;
+  }
+
+  .fogo-marcas:first-of-type {
+    --k: 1.6;
+  }
+
+  .fogo-patrocinio {
+    padding: 40px 28px 26px;
+  }
+}
+
+@media (min-width: 900px) {
+  /* 12h e 21h: o texto de um lado, o lugar (ou o resumo) do outro */
+  .fogo-duas {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+    align-items: center;
+    gap: 44px;
+  }
+
+  .fogo-chegada .fogo-regras {
+    margin-top: 0;
+    justify-self: end;
+    width: 100%;
+  }
+
+  .fogo-fecho .fogo-duas {
+    align-items: stretch;
+  }
+
+  .fogo-lugar {
+    min-height: 360px;
+  }
+
+  /* open food: a foto de pé ao lado da lista */
+  .fogo-mesa {
+    grid-template-columns: 300px minmax(0, 1fr);
+    align-items: start;
+    gap: 36px;
+  }
+
+  .fogo-quadro .fogo-foto {
+    aspect-ratio: 5 / 3;
+  }
+
+  /* open bar: o título de um lado, o balcão do outro */
+  .fogo-bebida .fogo-corpo {
+    display: grid;
+    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 40px;
+  }
+
+  .fogo-bebida .fogo-balcao {
+    grid-template-columns: 1fr;
+    margin-top: 0;
+  }
+
+  .fogo-shows h5 {
+    font-size: 34px;
+  }
+
+  .fogo-shows figcaption {
+    padding: 0 22px 18px;
+  }
+}
+
+/* quem pediu menos movimento: nada se move */
+@media (prefers-reduced-motion: reduce) {
+  .fogo *,
+  .fogo *::before,
+  .fogo *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

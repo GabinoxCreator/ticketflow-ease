@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabasePublic } from '@/integrations/supabase/publicClient';
 import { useParams, Link, Navigate } from 'react-router-dom';
@@ -74,6 +74,27 @@ import { useVitrineDaLoja } from '@/hooks/useVitrineDaLoja';
 import { ehLinhaDaLoja, type ItemDoCarrinho } from '@/lib/loja/carrinho';
 import { useFacialPendente } from '@/hooks/useFacialPendente';
 import { preCarregar, carregarMapaDePoltronas } from '@/lib/sobDemanda';
+import { eventoTemBlocos } from '@/data/eventosComBlocos';
+import type { PropsDosBlocos } from '@/components/event/BlocosDoEvento';
+
+// A parte da página com a cara do evento (OS-444): só alguns eventos têm, e só eles
+// baixam o componente, as fotos e a fonte. Nesses eventos ela fica no lugar do "Sobre
+// o evento". Se o pedaço não baixar, a página mostra o "Sobre o evento" de sempre
+// (nada de recarregar nem de tela de erro na página que vende).
+const baixarBlocos = () => import('@/components/event/BlocosDoEvento');
+const BlocosDoEvento = lazy(() =>
+  baixarBlocos().catch(() => ({
+    default: ({ seFalhar }: PropsDosBlocos) => <>{seFalhar}</>,
+  })),
+);
+// A faixa curta do mesmo evento, no topo da página (antes dos ingressos).
+const FaixaDoEvento = lazy(() =>
+  baixarBlocos()
+    .then((m) => ({ default: m.FaixaDoEvento }))
+    .catch(() => ({ default: () => null })),
+);
+// Quanto a página espera esse pedaço antes de aparecer sem ele.
+const ESPERA_PELA_CARA_MS = 2500;
 
 // Temporário: bloco de instituição beneficiada específico deste evento.
 // Generalizar junto do "modo evento beneficente" (ver roadmap).
@@ -279,6 +300,26 @@ const EventDetails = () => {
 
   const isLoading = eventLoading || lotsLoading;
 
+  // Evento com cara própria (OS-444): o pedaço começa a baixar assim que se sabe qual
+  // é o evento, junto com os lotes, e a página espera por ele antes de aparecer. Sem
+  // isso ela aparecia clara e escurecia logo depois. Se ele falhar ou demorar, a
+  // página aparece do jeito normal. Nos outros eventos nada disto roda.
+  const [caraResolvida, setCaraResolvida] = useState<string | null>(null);
+  useEffect(() => {
+    if (!eventId || !eventoTemBlocos(eventId)) return;
+    let vivo = true;
+    const pronto = () => {
+      if (vivo) setCaraResolvida(eventId);
+    };
+    baixarBlocos().then(pronto, pronto);
+    const limite = window.setTimeout(pronto, ESPERA_PELA_CARA_MS);
+    return () => {
+      vivo = false;
+      window.clearTimeout(limite);
+    };
+  }, [eventId]);
+  const esperandoACara = !!eventId && eventoTemBlocos(eventId) && caraResolvida !== eventId;
+
   // ⚠️ ANTES dos returns antecipados abaixo. Hook depois de `return` roda em
   // uns renders e não em outros — o React conta os hooks e derruba a página
   // inteira (erro #310). Foi o que aconteceu aqui em 19/08.
@@ -345,7 +386,7 @@ const EventDetails = () => {
 
   if (paginaDaSessao) return <Navigate to={`/evento/${paginaDaSessao}${window.location.search}`} replace />;
 
-  if (isLoading) {
+  if (isLoading || esperandoACara) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -644,6 +685,28 @@ const EventDetails = () => {
 
 
 
+  // O "Sobre o evento" de sempre. Em evento com parte própria (OS-444) ele só aparece
+  // se essa parte não baixar.
+  const sobreOEvento = (event.description || event.short_description) ? (
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="py-2"
+    >
+      <h3 className="font-display font-bold text-xl mb-4">Sobre o evento</h3>
+      <div className="text-muted-foreground leading-relaxed space-y-4">
+        {(event.description || event.short_description || '')
+          .split(/\n{2,}/)
+          .map((para: string, i: number) => (
+            <p key={i} className="whitespace-pre-wrap break-words">
+              {para}
+            </p>
+          ))}
+      </div>
+    </motion.section>
+  ) : null;
+
   return (
     <>
       <Helmet>
@@ -677,7 +740,9 @@ const EventDetails = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <div className="min-h-screen">
+      {/* `data-pagina-do-evento`: é por aqui que um evento com parte própria (OS-444)
+          veste a página inteira com o visual dele, menos o menu de cima. */}
+      <div className="min-h-screen" data-pagina-do-evento>
         <Header />
 
         <main className={cn('pt-20 w-full pb-28 lg:pb-28')}>
@@ -801,6 +866,15 @@ const EventDetails = () => {
                 </motion.div>
               </section>
 
+              {/* OS-444: a faixa curta com a cara do evento, antes dos ingressos. Enquanto
+                  ela baixa, a altura fica guardada para os ingressos não pularem; se o
+                  pedaço não baixar, não fica vão nenhum. */}
+              {eventoTemBlocos(event.id) && (
+                <Suspense fallback={<div className="min-h-[76px] sm:min-h-[80px]" />}>
+                  <FaixaDoEvento eventId={event.id} />
+                </Suspense>
+              )}
+
               {!isEventFinished && hasMap && eventId && (
                 <MesaReservaCTA
                   eventId={eventId}
@@ -824,7 +898,7 @@ const EventDetails = () => {
                   className="space-y-4"
                 >
                   <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="font-display font-bold text-xl">Ingressos</h2>
+                    <h2 className="font-display font-bold text-xl" data-titulo-ingressos>Ingressos</h2>
                     <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                       {Number((loteRetirada as { retirada_max_por_cpf?: number }).retirada_max_por_cpf ?? 1) >= 2
                         ? 'Você + 1 acompanhante'
@@ -874,7 +948,7 @@ const EventDetails = () => {
                   troca este bloco pelos ingressos sem recarregar. */}
               {vendaAbreEm && (
                 <div className="space-y-4">
-                  <h2 className="font-display font-bold text-xl">
+                  <h2 className="font-display font-bold text-xl" data-titulo-ingressos>
                     {isBeneficent ? 'Convites' : (mapaDaArena?.tituloDosIngressos ?? 'Ingressos')}
                   </h2>
                   <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-lg shadow-primary/5 p-5 md:p-6 flex items-center gap-3">
@@ -896,7 +970,7 @@ const EventDetails = () => {
                         chamar de "Ingressos" faria o comprador achar que paga
                         para entrar no evento. Vem da planta curada do evento —
                         quem não tem planta continua lendo "Ingressos". */}
-                    <h2 className="font-display font-bold text-xl">
+                    <h2 className="font-display font-bold text-xl" data-titulo-ingressos>
                       {isBeneficent ? 'Convites' : (mapaDaArena?.tituloDosIngressos ?? 'Ingressos')}
                     </h2>
                     {/* O selo espelha a trava DE VERDADE (o mapa de limites), não o
@@ -989,24 +1063,20 @@ const EventDetails = () => {
                   renderizam nada. */}
               {mapaDaArena && <MapaArena mapa={mapaDaArena} />}
 
-              {(event.description || event.short_description) && (
-                <motion.section
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  className="py-2"
-                >
-                  <h3 className="font-display font-bold text-xl mb-4">Sobre o evento</h3>
-                  <div className="text-muted-foreground leading-relaxed space-y-4">
-                    {(event.description || event.short_description || '')
-                      .split(/\n{2,}/)
-                      .map((para: string, i: number) => (
-                        <p key={i} className="whitespace-pre-wrap break-words">
-                          {para}
-                        </p>
-                      ))}
-                  </div>
-                </motion.section>
+              {/* OS-444: em evento de `eventosComBlocos.ts` a parte com a cara do evento
+                  fica no lugar do "Sobre o evento" (decisão do Gabriel, 19/11); nos
+                  outros, o "Sobre o evento" de sempre. */}
+              {eventoTemBlocos(event.id) ? (
+                <Suspense fallback={null}>
+                  <BlocosDoEvento
+                    eventId={event.id}
+                    temVenda={!isEventFinished && activeLots.length > 0}
+                    rodapeLivre={totalItens === 0}
+                    seFalhar={sobreOEvento}
+                  />
+                </Suspense>
+              ) : (
+                sobreOEvento
               )}
 
               <ProdutorDoEvento eventId={event.id} eventTitle={event.title} />
